@@ -1,0 +1,34 @@
+# =========================================
+# 🔧 Node.js & Environment Files
+# =========================================
+node_modules/
+.env
+.env.local
+.env.*.local
+
+# =========================================
+# 🧱 Build Output & Temporary Files
+# =========================================
+dist/
+build/
+.cache/
+.tmp/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# =========================================
+# 🧩 IDE / OS Files
+# =========================================
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# =========================================
+# 📜 Docs or temporary HTML files
+# =========================================
+docs.html
+discount-code.html
+hire-us.html
