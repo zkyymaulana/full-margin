@@ -36,3 +36,5 @@ cache/
 .idea/
 .DS_Store
 Thumbs.db
+
+/src/generated/prisma
