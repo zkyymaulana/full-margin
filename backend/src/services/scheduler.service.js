@@ -1,10 +1,8 @@
+// Menjalankan cron job / scheduler seperti update harga tiap jam.
 import { PrismaClient } from "@prisma/client";
 import { fetchHistoricalCandles } from "./coinbase.service.js";
 import { saveCandles, getLastSavedCandleTime } from "./candle.service.js";
-import {
-  toJakartaTime,
-  getLastClosedHourlyCandleEndTime,
-} from "../utils/time.helper.js"; // pastikan path sesuai
+import { getLastClosedHourlyCandleEndTime } from "../utils/time.js";
 
 const prisma = new PrismaClient();
 const ONE_HOUR_MS = 60 * 60 * 1000;

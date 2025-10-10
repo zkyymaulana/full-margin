@@ -1,3 +1,4 @@
+// Menyediakan endpoint untuk Top 100 Coin dan candle terakhir.
 import express from "express";
 import { getMarketcap } from "../controllers/marketcap.controller.js";
 

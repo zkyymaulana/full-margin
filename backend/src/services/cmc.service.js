@@ -1,42 +1,32 @@
+// src/services/cmc.service.js
+// Mengambil data Top 100 coin dari CoinMarketCap dan menyimpannya ke tabel TopCoin.
 import axios from "axios";
 import dotenv from "dotenv";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prisma.js";
 
 dotenv.config();
-const prisma = new PrismaClient();
 
 const CMC_BASE_URL =
   process.env.CMC_API_URL || "https://pro-api.coinmarketcap.com/v1";
 
 /**
- * 🔹 Sinkronisasi aset dari CMC (default 200 aset)
- *    - Jika simbol belum ada di database → buat baru
- *    - Jika simbol sudah ada → update data harga, volume, marketcap
+ * 🔹 Sinkronisasi data Top Coin dari CoinMarketCap
+ * @param {number} limit - Jumlah aset yang akan diambil
  */
 export async function syncTopCoins(limit = 200) {
-  console.log(`🚀 Mengambil data Top ${limit} dari CoinMarketCap...`);
+  console.log(`🚀 Mengambil data Top ${limit} Coin dari CMC...`);
 
   try {
     const { data } = await axios.get(
       `${CMC_BASE_URL}/cryptocurrency/listings/latest`,
       {
-        headers: {
-          "X-CMC_PRO_API_KEY": process.env.CMC_API_KEY,
-        },
-        params: {
-          start: 1,
-          limit,
-          convert: "USD",
-          sort: "market_cap",
-        },
+        headers: { "X-CMC_PRO_API_KEY": process.env.CMC_API_KEY },
+        params: { start: 1, limit, convert: "USD", sort: "market_cap" },
         timeout: 20000,
       }
     );
 
-    if (!data?.data) {
-      console.warn("⚠️ Tidak ada data yang diterima dari CMC!");
-      return;
-    }
+    if (!data?.data) throw new Error("Data dari CMC kosong.");
 
     const coins = data.data.map((coin) => ({
       rank: coin.cmc_rank,
@@ -51,42 +41,18 @@ export async function syncTopCoins(limit = 200) {
     let updated = 0;
 
     for (const coin of coins) {
-      const existing = await prisma.topCoin.findUnique({
+      await prisma.topCoin.upsert({
         where: { symbol: coin.symbol },
+        update: coin,
+        create: coin,
       });
-
-      if (existing) {
-        // Jika sudah ada, update data terbaru
-        await prisma.topCoin.update({
-          where: { symbol: coin.symbol },
-          data: {
-            rank: coin.rank,
-            name: coin.name,
-            price: coin.price,
-            marketCap: coin.marketCap,
-            volume24h: coin.volume24h,
-          },
-        });
-        updated++;
-      } else {
-        // Jika belum ada, simpan baru
-        await prisma.topCoin.create({ data: coin });
-        inserted++;
-      }
+      inserted++;
     }
 
-    console.log(
-      `✅ Sync selesai: ${inserted} coin baru disimpan, ${updated} coin diperbarui`
-    );
+    console.log(`✅ Sync selesai: ${inserted} coin disimpan/diupdate`);
+    return { success: true, total: inserted };
   } catch (err) {
-    if (err.response) {
-      console.error(
-        `❌ Gagal mengambil data dari CMC: [${err.response.status}] ${err.response.statusText}`
-      );
-    } else {
-      console.error(`❌ Gagal mengambil data dari CMC: ${err.message}`);
-    }
-  } finally {
-    await prisma.$disconnect();
+    console.error(`❌ Gagal sinkronisasi CMC: ${err.message}`);
+    return { success: false, error: err.message };
   }
 }

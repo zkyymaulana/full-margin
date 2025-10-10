@@ -1,9 +1,8 @@
 // src/routes/candle.route.js
+// sinkronisasi candle dari Coinbase.
 import express from "express";
-import { syncCoinbaseCandles } from "../controllers/candle.controller.js";
+import { syncCandles } from "../controllers/candle.controller.js";
 
 const router = express.Router();
-
-router.get("/:symbol", syncCoinbaseCandles);
-
+router.get("/:symbol", syncCandles);
 export default router;
