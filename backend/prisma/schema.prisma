@@ -1,8 +1,3 @@
-// ================================================================
-//  PRISMA SCHEMA - SISTEM MONITORING SINYAL PERDAGANGAN CRYPTO
-//  Integrasi CoinMarketCap (CMC) untuk Top 100 Cryptocurrency
-// ================================================================
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -12,41 +7,25 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ================================================================
-//  MODEL USER
-//  Menyimpan data pengguna sistem
-// ================================================================
 model User {
-  id           Int       @id @default(autoincrement())
-  email        String    @unique
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
   name         String?
   passwordHash String
-  createdAt    DateTime  @default(now())
-
-  // Relasi ke Signal
+  createdAt    DateTime @default(now())
   signals      Signal[]
 }
 
-// ================================================================
-//  MODEL COIN
-//  Menyimpan daftar aset cryptocurrency dari Coinbase (pair USD)
-// ================================================================
 model Coin {
-  id        Int       @id @default(autoincrement())
-  symbol    String    @unique
+  id        Int      @id @default(autoincrement())
+  symbol    String   @unique
   name      String?
-  createdAt DateTime  @default(now())
-
-  // Relasi ke Candle
-  candles   Candle[]
+  createdAt DateTime @default(now())
+  candles   Candle[] @relation("CoinCandles")
 }
 
-// ================================================================
-//  MODEL CANDLE
-//  Menyimpan data historis harga (OHLCV) untuk tiap coin
-// ================================================================
 model Candle {
-  id        Int      @id @default(autoincrement())
+  id        Int    @id @default(autoincrement())
   symbol    String
   timeframe String
   time      BigInt
@@ -55,48 +34,31 @@ model Candle {
   low       Float
   close     Float
   volume    Float
-
   coinId    Int?
-  coin      Coin?    @relation(fields: [coinId], references: [id], onDelete: Cascade)
+  coin      Coin?  @relation("CoinCandles", fields: [coinId], references: [id], onDelete: Cascade)
 
-  @@unique([symbol, timeframe, time]) // Mencegah duplikasi candle
-  @@index([symbol, time])              // Optimasi query pencarian
+  @@unique([symbol, timeframe, time])
+  @@index([symbol, time])
 }
 
-// ================================================================
-//  MODEL SIGNAL
-//  Menyimpan hasil sinyal analisis indikator teknikal
-// ================================================================
 model Signal {
-  id         Int       @id @default(autoincrement())
+  id         Int      @id @default(autoincrement())
   userId     Int
   symbol     String
   indicator  String
   action     String
   confidence Float?
-  createdAt  DateTime  @default(now())
-
-  user       User      @relation(fields: [userId], references: [id])
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
 }
 
-// ================================================================
-//  MODEL TOPCOIN (NEW)
-//  Menyimpan data 100 aset teratas dari CoinMarketCap
-// ================================================================
 model TopCoin {
-  id          Int       @id @default(autoincrement())
-  rank        Int        // peringkat di CoinMarketCap
-  name        String
-  symbol      String     @unique
-  price       Float
-  marketCap   Float
-  volume24h   Float
-  createdAt   DateTime   @default(now())
+  id        Int      @id @default(autoincrement())
+  rank      Int
+  name      String
+  symbol    String   @unique
+  price     Float
+  marketCap Float
+  volume24h Float
+  createdAt DateTime @default(now())
 }
-
-// ================================================================
-//  CATATAN:
-//  - TopCoin digunakan untuk menyimpan daftar top 100 aset dari CMC.
-//  - Coin dan Candle tetap sumber utama data perdagangan (Coinbase).
-//  - TopCoin dapat dihubungkan ke Coin via symbol saat sinkronisasi.
-// ================================================================

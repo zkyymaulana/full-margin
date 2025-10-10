@@ -1,8 +1,13 @@
 import { PrismaClient } from "@prisma/client";
 import { fetchHistoricalCandles } from "./coinbase.service.js";
 import { saveCandles, getLastSavedCandleTime } from "./candle.service.js";
+import {
+  toJakartaTime,
+  getLastClosedHourlyCandleEndTime,
+} from "../utils/time.helper.js"; // pastikan path sesuai
 
 const prisma = new PrismaClient();
+const ONE_HOUR_MS = 60 * 60 * 1000;
 
 /**
  * 🔁 Jalankan scheduler untuk semua coin yang tersimpan di database
@@ -34,59 +39,59 @@ export async function startAllSchedulers() {
 }
 
 /**
- * 🔄 Scheduler otomatis setiap 1 jam (update candle saat close)
- * @param {string} symbol - contoh: "BTC-USD"
+ * 🔄 Scheduler otomatis — periksa tiap 1 menit
+ * Hanya menyimpan candle yang sudah close (jam penuh, bukan berjalan)
  */
 export function startCandleAutoUpdater(symbol) {
   console.log(`🕐 Scheduler dimulai untuk ${symbol}`);
 
-  // Jalankan setiap 1 menit
   setInterval(async () => {
     try {
       const lastSaved = await getLastSavedCandleTime(symbol);
-      const now = new Date();
-
-      // Hitung waktu UTC candle terakhir yang seharusnya close
-      const lastClosedUTC = Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        now.getUTCDate(),
-        now.getUTCHours(), // candle terakhir sudah close di jam ini
-        0,
-        0,
-        0
-      );
-
-      // ✅ ubah BigInt → Number
       const lastSavedTime = lastSaved ? Number(lastSaved) : 0;
 
-      // Jika belum ada candle terakhir, atau sudah 1 jam lewat → fetch 1 candle terbaru
+      // Ambil waktu terakhir candle close (UTC)
+      const lastClosedUTC = getLastClosedHourlyCandleEndTime();
+
+      // Jika candle terakhir yang close > dari waktu terakhir di DB → ambil baru
       if (lastClosedUTC > lastSavedTime) {
         console.log(
-          `🕐 Candle baru terdeteksi untuk ${symbol}, fetching 1 candle terakhir...`
+          `🕒 Deteksi candle baru ${symbol}\n   ⏱️ Dari ${toJakartaTime(
+            lastSavedTime
+          )} → ${toJakartaTime(lastClosedUTC)}`
         );
 
+        // Ambil candle baru dari API
         const candles = await fetchHistoricalCandles(
           symbol,
-          lastClosedUTC - 3600 * 1000,
+          lastSavedTime || lastClosedUTC - ONE_HOUR_MS,
           lastClosedUTC
         );
 
-        if (candles.length > 0) {
-          await saveCandles(symbol, candles);
+        // Filter hanya candle yang benar-benar sudah close
+        const closedCandles = candles.filter(
+          (c) => c.time * 1000 <= lastClosedUTC
+        );
+
+        if (closedCandles.length > 0) {
+          await saveCandles(symbol, closedCandles);
           console.log(
-            `✅ Candle ${symbol} untuk ${new Date(
-              candles.at(-1).time * 1000
-            ).toISOString()} berhasil disimpan.`
+            `✅ ${closedCandles.length} candle baru ${symbol} disimpan.\n   📅 Terakhir: ${toJakartaTime(
+              closedCandles.at(-1).time * 1000
+            )}`
           );
         } else {
-          console.log(`⚠️ Tidak ada candle baru tersedia untuk ${symbol}.`);
+          console.log(`⏸️ Tidak ada candle close baru untuk ${symbol}.`);
         }
       } else {
-        console.log(`⏸️ Belum waktunya update, ${symbol} sudah up-to-date.`);
+        console.log(
+          `⏸️ ${symbol} sudah up-to-date.\n   📅 Terakhir di DB: ${toJakartaTime(
+            lastSavedTime
+          )}`
+        );
       }
     } catch (err) {
       console.error(`❌ Scheduler error (${symbol}):`, err.message);
     }
-  }, 60 * 1000); // periksa tiap 1 menit
+  }, 60 * 1000); // jalankan tiap 1 menit
 }

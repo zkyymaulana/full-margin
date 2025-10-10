@@ -44,10 +44,10 @@ app.listen(PORT, HOST, async () => {
 
   try {
     console.log("📊 Menyinkronkan Top 100 Coin dari CMC...");
-    // await syncTopCoins();
+    await syncTopCoins();
 
     console.log("⏰ Menjalankan semua scheduler...");
-    await startAllSchedulers();
+    // await startAllSchedulers();
     await getExactMatchedPairs();
     console.log("✅ Semua service aktif!");
   } catch (err) {

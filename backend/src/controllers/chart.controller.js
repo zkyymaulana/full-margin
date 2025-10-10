@@ -1,28 +1,47 @@
 import { syncCoinbaseCandles } from "../services/data.service.js";
+import {
+  getRecentCandlesFromDB,
+  getCandleCount,
+} from "../services/candle.service.js";
 
 /**
- * 🕒 Controller: Ambil & tampilkan candle terakhir (chart endpoint)
+ * 🕒 GET /api/chart/:symbol?
+ * - Lakukan incremental sync (jika ada candle baru, simpan)
+ * - Selalu kirim balik N candle terakhir dari DB (siap pakai untuk chart)
+ * Query param:
+ *   - ?limit=500  (opsional, default 500)
  */
 export async function getChart(req, res) {
   try {
-    const symbol = req.params.symbol?.toUpperCase() || "BTC-USD";
+    const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
+    const limit = Math.max(50, Math.min(2000, Number(req.query.limit) || 500));
+
     console.log(`📊 Mengambil data chart untuk ${symbol}...`);
 
-    const result = await syncCoinbaseCandles(symbol);
+    // 1) Up-to-date-kan DB (incremental, tidak fetch candle yang belum close)
+    await syncCoinbaseCandles(symbol);
 
-    if (!result.success) {
-      return res.status(500).json({
+    // 2) Ambil data terbaru dari DB untuk response
+    const [totalCandles, candles] = await Promise.all([
+      getCandleCount(symbol),
+      getRecentCandlesFromDB(symbol, limit),
+    ]);
+
+    if (totalCandles === 0) {
+      return res.status(404).json({
         success: false,
-        message: `❌ Gagal mengambil data chart untuk ${symbol}`,
+        symbol,
+        message: "Belum ada data candle di database.",
       });
     }
 
+    // 3) Beri response yang selalu menyertakan data candle
     res.json({
       success: true,
       symbol,
-      totalCandles: result.total,
-      lastFiveCandles: result.lastFive,
-      message: `✅ Chart ${symbol} berhasil diperbarui`,
+      totalCandles,
+      returned: candles.length,
+      candles, // <-- array OHLC siap chart
     });
   } catch (err) {
     console.error("❌ Error di getChart:", err.message);
