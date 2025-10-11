@@ -1,19 +1,27 @@
-// src/services/candle.service.js
-// Mengatur operasi pada tabel Candle: menyimpan candle (createMany), mengambil candle terakhir (findFirst), dll.
 import { prisma } from "../lib/prisma.js";
 
 /**
  * 🕒 Ambil waktu candle terakhir yang tersimpan untuk simbol tertentu
- * @param {string} symbol - Contoh: "BTC-USD"
- * @returns {bigint|null} Waktu terakhir dalam milidetik (BigInt)
  */
 export async function getLastSavedCandleTime(symbol) {
   try {
+    console.log(`🔍 Getting last saved candle time for ${symbol}...`);
+
     const last = await prisma.candle.findFirst({
       where: { symbol, timeframe: "1h" },
       orderBy: { time: "desc" },
       select: { time: true },
     });
+
+    if (last) {
+      const lastTime = new Date(Number(last.time));
+      console.log(
+        `📊 Found last candle for ${symbol}: ${lastTime.toISOString()} (${last.time})`
+      );
+    } else {
+      console.log(`📊 No candles found for ${symbol}`);
+    }
+
     return last?.time || null;
   } catch (err) {
     console.error(`❌ Error getLastSavedCandleTime(${symbol}):`, err.message);
@@ -24,57 +32,117 @@ export async function getLastSavedCandleTime(symbol) {
 /**
  * 💾 Simpan kumpulan candle ke database dengan aman
  * @param {string} symbol - Contoh: "BTC-USD"
- * @param {Array} candles - Array candle dari API { time, open, high, low, close, volume }
- * @returns {Object} { success: boolean, count?: number, message?: string }
+ * @param {number|Array} coinIdOrCandles - Bisa `coinId` atau langsung array candle
+ * @param {Array} [candles] - Array candle (hanya jika param ke-2 adalah coinId)
+ * @returns {Promise<{success:boolean, count:number, message?:string}>}
  */
-export async function saveCandles(symbol, candles) {
-  if (!candles?.length) {
-    return { success: false, message: "No candles to save" };
-  }
-
+export async function saveCandles(symbol, coinIdOrCandles, candles) {
   try {
-    // Pastikan coin tersedia di database
-    const coin = await prisma.coin.findUnique({
-      where: { symbol },
-      select: { id: true },
-    });
+    let coinId = null;
+    let candleData = [];
 
-    if (!coin) {
-      console.warn(`⚠️ Coin ${symbol} belum ada di tabel Coin.`);
-      return { success: false, message: `Coin ${symbol} not found` };
+    // 🧩 Deteksi pola pemanggilan
+    if (Array.isArray(coinIdOrCandles)) {
+      // Bentuk lama: saveCandles(symbol, candles)
+      candleData = coinIdOrCandles;
+      const coin = await prisma.coin.findUnique({
+        where: { symbol },
+        select: { id: true },
+      });
+      if (!coin) {
+        console.warn(`⚠️ Coin ${symbol} belum ada di tabel Coin.`);
+        return {
+          success: false,
+          count: 0,
+          message: `Coin ${symbol} not found`,
+        };
+      }
+      coinId = coin.id;
+    } else {
+      // Bentuk baru: saveCandles(symbol, coinId, candles)
+      coinId = coinIdOrCandles;
+      candleData = candles;
     }
 
-    // Format data sesuai struktur Prisma
-    const formattedCandles = candles.map((c) => ({
+    if (!Array.isArray(candleData) || candleData.length === 0) {
+      console.warn(`⚠️ Tidak ada candle untuk ${symbol}, lewati penyimpanan.`);
+      return { success: false, count: 0 };
+    }
+
+    // Validasi struktur data candle
+    const invalidCandles = candleData.filter(
+      (c) =>
+        !c.time ||
+        typeof c.time !== "number" ||
+        typeof c.open !== "number" ||
+        typeof c.high !== "number" ||
+        typeof c.low !== "number" ||
+        typeof c.close !== "number" ||
+        typeof c.volume !== "number"
+    );
+
+    if (invalidCandles.length > 0) {
+      console.error(
+        `❌ ${symbol}: ${invalidCandles.length} candle memiliki data tidak valid`
+      );
+      return {
+        success: false,
+        count: 0,
+        message: `Invalid candle data structure`,
+      };
+    }
+
+    console.log(
+      `💾 Saving ${candleData.length} candles for ${symbol} (coinId: ${coinId})`
+    );
+
+    const formattedCandles = candleData.map((c) => ({
       symbol,
       timeframe: "1h",
-      time: BigInt(c.time * 1000), // convert seconds → ms BigInt
+      time: BigInt(c.time * 1000), // Coinbase API: detik → simpan ms BigInt
       open: c.open,
       high: c.high,
       low: c.low,
       close: c.close,
       volume: c.volume,
-      coinId: coin.id,
+      coinId,
     }));
 
-    // Simpan dalam batch besar (gunakan skipDuplicates agar efisien)
+    // Test database connection before attempting to save
+    await prisma.$queryRaw`SELECT 1`;
+
     const result = await prisma.candle.createMany({
       data: formattedCandles,
       skipDuplicates: true,
     });
 
-    console.log(`✅ ${symbol}: ${result.count} candle tersimpan ke database`);
-    return { success: true, count: result.count };
+    const count = result.count || 0;
+    console.log(
+      `✅ ${symbol}: ${count}/${formattedCandles.length} candle tersimpan ke database`
+    );
+
+    if (count < formattedCandles.length) {
+      console.log(
+        `ℹ️ ${symbol}: ${formattedCandles.length - count} candle diabaikan (duplikat)`
+      );
+    }
+
+    return { success: true, count };
   } catch (err) {
     console.error(`❌ Gagal menyimpan candle ${symbol}:`, err.message);
-    return { success: false, message: err.message };
+    console.error(`Stack trace:`, err.stack);
+
+    // Check if it's a database connection error
+    if (err.message.includes("connection") || err.code === "P1001") {
+      console.error(`🔌 Database connection error untuk ${symbol}`);
+    }
+
+    return { success: false, count: 0, message: err.message };
   }
 }
 
 /**
  * 🔢 Hitung jumlah candle tersimpan untuk simbol tertentu
- * @param {string} symbol
- * @returns {Promise<number>} Jumlah total candle
  */
 export async function getCandleCount(symbol) {
   try {
@@ -89,9 +157,6 @@ export async function getCandleCount(symbol) {
 
 /**
  * 📈 Ambil N candle terakhir dari DB (urut ascending untuk chart)
- * @param {string} symbol - Contoh: "BTC-USD"
- * @param {number} limit - Batas jumlah candle (default 500)
- * @returns {Promise<Array>} Array candle {time, open, high, low, close, volume}
  */
 export async function getRecentCandlesFromDB(symbol, limit = 500) {
   try {
@@ -109,9 +174,8 @@ export async function getRecentCandlesFromDB(symbol, limit = 500) {
       },
     });
 
-    // Kembalikan dalam urutan dari lama → baru
     return candles.reverse().map((c) => ({
-      time: Math.floor(Number(c.time) / 1000), // ubah ke detik
+      time: Math.floor(Number(c.time) / 1000),
       open: c.open,
       high: c.high,
       low: c.low,

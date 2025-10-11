@@ -14,12 +14,17 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [chartsInitialized, setChartsInitialized] = useState(false);
   const [lastPrice, setLastPrice] = useState(null);
-  const [currentCandle, setCurrentCandle] = useState(null); // For OHLCV display
-  const [hoveredCandle, setHoveredCandle] = useState(null); // For hover OHLCV
+  const [currentCandle, setCurrentCandle] = useState(null);
+  const [hoveredCandle, setHoveredCandle] = useState(null);
 
-  const { data, isLoading: dataLoading, error } = useCandles(symbol);
+  const {
+    data,
+    isLoading: dataLoading,
+    error,
+    isFetching,
+  } = useCandles(symbol);
 
-  // 🔍 Debug function to update debug info
+  // 🔍 Debug function
   const updateDebugInfo = (key, value) => {
     setDebugInfo((prev) => ({
       ...prev,
@@ -29,25 +34,13 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
     console.log(`🔍 DEBUG [${key}]:`, value);
   };
 
-  // ✅ Initialize chart with proper DOM readiness check
+  // ✅ Initialize chart - TAMBAHKAN symbol ke dependency array
   useEffect(() => {
-    console.log("🔧 Starting chart initialization...");
-    updateDebugInfo("initStep", "Starting chart initialization");
+    console.log(`🔧 Initializing chart for symbol: ${symbol}`);
+    updateDebugInfo("initStep", `Initializing for ${symbol}`);
 
     const initializeAfterDOMReady = () => {
-      console.log("🔍 Checking DOM readiness...");
-      updateDebugInfo("domCheck", {
-        containerExists: !!chartContainerRef.current,
-        containerWidth: chartContainerRef.current?.offsetWidth,
-        containerHeight: chartContainerRef.current?.offsetHeight,
-      });
-
       if (!chartContainerRef.current) {
-        console.error("❌ Chart container ref still not available");
-        updateDebugInfo(
-          "initError",
-          "Chart container ref not available after DOM check"
-        );
         setTimeout(initializeAfterDOMReady, 100);
         return;
       }
@@ -56,8 +49,6 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
         chartContainerRef.current.offsetWidth === 0 ||
         chartContainerRef.current.offsetHeight === 0
       ) {
-        console.error("❌ Chart container has zero dimensions");
-        updateDebugInfo("initError", "Chart container has zero dimensions");
         setTimeout(initializeAfterDOMReady, 100);
         return;
       }
@@ -68,34 +59,27 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
     setTimeout(initializeAfterDOMReady, 50);
 
     return () => {
+      // Cleanup saat symbol berubah atau unmount
       if (candlestickChartRef.current) {
+        console.log(`🧹 Cleaning up chart for ${symbol}`);
         candlestickChartRef.current.remove();
         candlestickChartRef.current = null;
       }
+      setChartsInitialized(false);
     };
-  }, []);
+  }, [symbol]); // ⚠️ PERBAIKAN: Tambahkan symbol ke dependency
 
-  // ✅ Chart initialization function with crosshair event handlers
+  // Chart initialization
   const initializeCharts = () => {
-    updateDebugInfo("containerSize", {
-      width: chartContainerRef.current.offsetWidth,
-      height: chartContainerRef.current.offsetHeight,
-    });
-
     // Cleanup existing charts
     if (candlestickChartRef.current) {
-      console.log("🧹 Cleaning up existing candlestick chart");
       candlestickChartRef.current.remove();
       candlestickChartRef.current = null;
     }
 
     try {
-      console.log(
-        "🔧 Creating TradingView-style chart with lightweight-charts v4.1.3"
-      );
-      updateDebugInfo("initStep", "Creating TradingView-style chart");
+      console.log("🔧 Creating chart...");
 
-      // Create main candlestick chart - TradingView style
       const candlestickChart = createChart(chartContainerRef.current, {
         width: chartContainerRef.current.offsetWidth,
         height: chartContainerRef.current.offsetHeight,
@@ -108,7 +92,7 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
           horzLines: { color: "#2a2a2a" },
         },
         crosshair: {
-          mode: 1, // Normal crosshair
+          mode: 1,
         },
         rightPriceScale: {
           borderColor: "#485158",
@@ -120,8 +104,8 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
           textColor: "#ffffff",
           timeVisible: true,
           secondsVisible: false,
-          rightOffset: 12, // Space for future candles
-          barSpacing: 3, // TradingView-like spacing
+          rightOffset: 12,
+          barSpacing: 3,
           fixLeftEdge: false,
           lockVisibleTimeRangeOnResize: true,
         },
@@ -148,14 +132,11 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
         },
       });
 
-      console.log("✅ Candlestick chart created successfully");
-      updateDebugInfo("candlestickChart", "Created successfully");
       candlestickChartRef.current = candlestickChart;
 
-      // Add candlestick series - TradingView colors
       const candleSeries = candlestickChart.addCandlestickSeries({
-        upColor: "#26a69a", // Green for bullish
-        downColor: "#ef5350", // Red for bearish
+        upColor: "#26a69a",
+        downColor: "#ef5350",
         borderVisible: false,
         wickUpColor: "#26a69a",
         wickDownColor: "#ef5350",
@@ -166,13 +147,10 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
         },
       });
 
-      console.log("✅ Candlestick series created successfully");
-      updateDebugInfo("candlestickSeries", "Created successfully");
       candleSeriesRef.current = candleSeries;
 
-      // Add last price line (TradingView-style)
       const lastPriceLine = candlestickChart.addLineSeries({
-        color: "#f7931a", // Bitcoin orange
+        color: "#f7931a",
         lineWidth: 2,
         crosshairMarkerVisible: false,
         priceLineVisible: true,
@@ -184,11 +162,9 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
         },
       });
 
-      console.log("✅ Last price line created successfully");
-      updateDebugInfo("lastPriceLine", "Created successfully");
       lastPriceLineRef.current = lastPriceLine;
 
-      // ✅ Add crosshair move handler for OHLCV display
+      // Crosshair handler
       candlestickChart.subscribeCrosshairMove((param) => {
         if (param.time) {
           const candleData = param.seriesData.get(candleSeries);
@@ -199,7 +175,6 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
               high: candleData.high,
               low: candleData.low,
               close: candleData.close,
-              // Volume would need to be added to the series data if available
             });
           }
         } else {
@@ -207,13 +182,10 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
         }
       });
 
-      // Mark charts as initialized
       setChartsInitialized(true);
-      console.log("✅ Charts initialized successfully");
-      updateDebugInfo("initStep", "Charts initialized successfully");
-      updateDebugInfo("initSuccess", true);
+      console.log("✅ Chart initialized");
 
-      // Handle window resize
+      // Window resize handler
       const handleResize = () => {
         if (candlestickChartRef.current && chartContainerRef.current) {
           candlestickChartRef.current.applyOptions({
@@ -229,53 +201,18 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
         window.removeEventListener("resize", handleResize);
       };
     } catch (error) {
-      console.error("❌ Error initializing charts:", error);
-      updateDebugInfo("initError", {
-        message: error.message,
-        stack: error.stack,
-      });
+      console.error("❌ Error initializing chart:", error);
       setConnectionStatus(`Init Error: ${error.message}`);
       setChartsInitialized(false);
     }
   };
 
-  // ✅ Process backend data - handle the exact API response format
+  // Process backend data
   const processBackendData = (response) => {
-    console.log("🔍 Processing backend response...");
-    updateDebugInfo("dataProcessing", "Starting data processing");
-
-    if (!response || !response.success) {
-      console.error("❌ Invalid response format:", response);
-      updateDebugInfo("dataError", "Invalid response format");
+    if (!response || !response.success || !Array.isArray(response.candles)) {
       return [];
     }
 
-    if (!Array.isArray(response.candles)) {
-      console.error(
-        "❌ Candles data is not an array:",
-        typeof response.candles
-      );
-      updateDebugInfo("dataError", "Candles data is not an array");
-      return [];
-    }
-
-    console.log(`📊 Response summary:`, {
-      symbol: response.symbol,
-      totalCandles: response.totalCandles,
-      returned: response.returned,
-      candlesLength: response.candles.length,
-    });
-
-    updateDebugInfo("responseData", {
-      symbol: response.symbol,
-      totalCandles: response.totalCandles,
-      returned: response.returned,
-      candlesLength: response.candles.length,
-      firstCandle: response.candles[0],
-      lastCandle: response.candles[response.candles.length - 1],
-    });
-
-    // Process each candle
     const processed = response.candles
       .filter(
         (candle) =>
@@ -287,22 +224,15 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
           typeof candle.close === "number"
       )
       .map((candle) => {
-        // Fix future timestamps if needed (your data shows year 2055)
         let fixedTime = candle.time;
 
-        // If timestamp is in the far future, convert to current time range
         if (candle.time > 1800000000) {
-          // After year 2027
-          // Map future timestamps to current time range (last year)
           const currentEnd = Math.floor(Date.now() / 1000);
-          const currentStart = currentEnd - 365 * 24 * 60 * 60; // 1 year ago
-
-          // Simple mapping: distribute the data over the past year
+          const currentStart = currentEnd - 365 * 24 * 60 * 60;
           const dataStart = response.candles[0].time;
           const dataEnd = response.candles[response.candles.length - 1].time;
           const dataRange = dataEnd - dataStart;
           const ratio = (candle.time - dataStart) / dataRange;
-
           fixedTime = Math.floor(
             currentStart + ratio * (currentEnd - currentStart)
           );
@@ -318,70 +248,29 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
       })
       .sort((a, b) => a.time - b.time);
 
-    console.log(`📊 Processed ${processed.length} candles successfully`);
-    updateDebugInfo("processedData", {
-      length: processed.length,
-      timeRange:
-        processed.length > 0
-          ? {
-              start: new Date(processed[0].time * 1000).toISOString(),
-              end: new Date(
-                processed[processed.length - 1].time * 1000
-              ).toISOString(),
-            }
-          : null,
-      sampleCandles: processed.slice(0, 3),
-    });
-
     return processed;
   };
 
-  // ✅ Update chart data with OHLCV tracking
+  // Update chart data
   useEffect(() => {
-    console.log("📊 Data update effect triggered");
-    updateDebugInfo("dataUpdateTrigger", {
-      hasData: !!data,
-      dataType: typeof data,
-      chartsInitialized,
-      timestamp: new Date().toISOString(),
-    });
-
-    if (!chartsInitialized) {
-      console.log("⏳ Charts not initialized yet");
-      updateDebugInfo("dataUpdateStatus", "Charts not initialized yet");
+    if (!chartsInitialized || !candleSeriesRef.current || !data) {
       return;
     }
-
-    if (!candleSeriesRef.current) {
-      console.log("⏳ Candle series not ready yet");
-      updateDebugInfo("dataUpdateStatus", "Candle series not ready");
-      return;
-    }
-
-    if (!data) {
-      console.log("⏳ Data not available");
-      updateDebugInfo("dataUpdateStatus", "Data not available");
-      return;
-    }
-
-    console.log("📊 Processing API response:", data);
 
     try {
       const processedData = processBackendData(data);
 
       if (processedData.length > 0) {
-        console.log("✅ Setting data to chart...");
+        // Clear previous data first
+        candleSeriesRef.current.setData([]);
 
-        // Set candlestick data
+        // Set new data
         candleSeriesRef.current.setData(processedData);
-        console.log("✅ Candlestick data set successfully");
 
-        // Update last price and current candle info
         const latestCandle = processedData[processedData.length - 1];
         setLastPrice(latestCandle.close);
         setCurrentCandle(latestCandle);
 
-        // Update last price line
         if (lastPriceLineRef.current) {
           lastPriceLineRef.current.setData([
             {
@@ -391,46 +280,56 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
           ]);
         }
 
-        // Apply TradingView-style zoom (show recent data)
         setTimeout(() => {
           if (candlestickChartRef.current) {
-            // Show last 200 hours (about 8 days) for 1h timeframe
             const visibleRange = Math.min(200, processedData.length);
             candlestickChartRef.current.timeScale().setVisibleLogicalRange({
               from: Math.max(0, processedData.length - visibleRange),
               to: processedData.length - 1,
             });
-            console.log("✅ Chart zoom applied");
           }
         }, 100);
-
-        updateDebugInfo("dataSetSuccess", {
-          candlesLoaded: processedData.length,
-          lastPrice: latestCandle.close,
-          timeRange: {
-            start: new Date(processedData[0].time * 1000).toLocaleString(),
-            end: new Date(latestCandle.time * 1000).toLocaleString(),
-          },
-        });
 
         setConnectionStatus(
           `Connected - $${latestCandle.close.toLocaleString()}`
         );
-        console.log("✅ Chart updated successfully");
       } else {
-        console.error("❌ No valid data to display");
         setConnectionStatus("No valid data");
-        updateDebugInfo("dataUpdateError", "No valid data after processing");
       }
     } catch (error) {
-      console.error("❌ Error updating chart data:", error);
+      console.error("❌ Error updating chart:", error);
       setConnectionStatus(`Error: ${error.message}`);
-      updateDebugInfo("dataUpdateError", {
-        message: error.message,
-        stack: error.stack,
-      });
     }
   }, [data, chartsInitialized]);
+
+  // Helper functions
+  const formatNumber = (num, decimals = 2) => {
+    if (num === null || num === undefined) return "N/A";
+    return new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    }).format(num);
+  };
+
+  const formatVolume = (volume) => {
+    if (volume === null || volume === undefined) return "N/A";
+    if (volume >= 1000000) return `${(volume / 1000000).toFixed(2)}M`;
+    if (volume >= 1000) return `${(volume / 1000).toFixed(2)}K`;
+    return formatNumber(volume, 2);
+  };
+
+  const getPriceChangeColor = (current, previous) => {
+    if (!current || !previous) return "text-gray-300";
+    return current >= previous ? "text-green-400" : "text-red-400";
+  };
+
+  const priceChange = currentCandle
+    ? currentCandle.close - currentCandle.open
+    : 0;
+  const priceChangePercent =
+    currentCandle && currentCandle.open
+      ? ((currentCandle.close - currentCandle.open) / currentCandle.open) * 100
+      : 0;
 
   // Loading state
   if (dataLoading) {
@@ -477,68 +376,26 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
     );
   }
 
-  // Helper function to format numbers
-  const formatNumber = (num, decimals = 2) => {
-    if (num === null || num === undefined) return "N/A";
-    return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    }).format(num);
-  };
-
-  // Helper function to format volume
-  const formatVolume = (volume) => {
-    if (volume === null || volume === undefined) return "N/A";
-    if (volume >= 1000000) {
-      return `${(volume / 1000000).toFixed(2)}M`;
-    } else if (volume >= 1000) {
-      return `${(volume / 1000).toFixed(2)}K`;
-    }
-    return formatNumber(volume, 2);
-  };
-
-  // Helper function to get price change color
-  const getPriceChangeColor = (current, previous) => {
-    if (!current || !previous) return "text-gray-300";
-    return current >= previous ? "text-green-400" : "text-red-400";
-  };
-
-  // Calculate price change from current candle
-  const priceChange = currentCandle
-    ? currentCandle.close - currentCandle.open
-    : 0;
-  const priceChangePercent =
-    currentCandle && currentCandle.open
-      ? ((currentCandle.close - currentCandle.open) / currentCandle.open) * 100
-      : 0;
-
   return (
     <div className="w-full h-screen flex flex-col bg-gray-900 overflow-hidden">
-      {/* TradingView-style Header with OHLCV */}
+      {/* Header */}
       <div className="bg-gray-800 p-4 border-b border-gray-700">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <h1 className="text-xl font-semibold text-white">
               📊 {symbol} Chart
             </h1>
-            {/* <div className="px-3 py-1 text-sm bg-blue-600 text-white rounded">
+            <div className="px-3 py-1 text-sm bg-blue-600 text-white rounded">
               1 Hour
             </div>
-            <button
-              onClick={() => setShowDebugPanel(!showDebugPanel)}
-              className="px-3 py-1 text-xs bg-gray-700 text-gray-300 rounded hover:bg-gray-600"
-            >
-              {showDebugPanel ? "Hide Debug" : "Show Debug"}
-            </button>
-            <div
-              className={`px-2 py-1 text-xs rounded ${
-                chartsInitialized
-                  ? "bg-green-600 text-white"
-                  : "bg-red-600 text-white"
-              }`}
-            >
-              Charts: {chartsInitialized ? "Ready" : "Initializing..."}
-            </div> */}
+            {isFetching && (
+              <div className="px-3 py-1 text-xs bg-orange-600 text-white rounded animate-pulse">
+                🔄 Updating...
+              </div>
+            )}
+            <div className="px-2 py-1 text-xs bg-green-600 text-white rounded">
+              Auto-refresh: 5s
+            </div>
           </div>
 
           <div className="flex items-center gap-4">
@@ -553,18 +410,16 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
           </div>
         </div>
 
-        {/* OHLCV Information Panel */}
+        {/* OHLCV Panel */}
         {(hoveredCandle || currentCandle) && (
           <div className="mt-3 pt-3 border-t border-gray-700">
             <div className="flex flex-wrap items-center gap-6 text-sm">
-              {/* Display hovered candle info if hovering, otherwise current candle */}
               {(() => {
                 const displayCandle = hoveredCandle || currentCandle;
                 const isLatest = !hoveredCandle && currentCandle;
 
                 return (
                   <>
-                    {/* Time */}
                     <div className="flex flex-col">
                       <span className="text-gray-400 text-xs uppercase tracking-wide">
                         Time
@@ -589,7 +444,6 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
                       </span>
                     </div>
 
-                    {/* Open */}
                     <div className="flex flex-col">
                       <span className="text-gray-400 text-xs uppercase tracking-wide">
                         Open
@@ -599,7 +453,6 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
                       </span>
                     </div>
 
-                    {/* High */}
                     <div className="flex flex-col">
                       <span className="text-gray-400 text-xs uppercase tracking-wide">
                         High
@@ -609,7 +462,6 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
                       </span>
                     </div>
 
-                    {/* Low */}
                     <div className="flex flex-col">
                       <span className="text-gray-400 text-xs uppercase tracking-wide">
                         Low
@@ -619,7 +471,6 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
                       </span>
                     </div>
 
-                    {/* Close */}
                     <div className="flex flex-col">
                       <span className="text-gray-400 text-xs uppercase tracking-wide">
                         Close
@@ -634,7 +485,6 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
                       </span>
                     </div>
 
-                    {/* Volume */}
                     <div className="flex flex-col">
                       <span className="text-gray-400 text-xs uppercase tracking-wide">
                         Volume
@@ -644,7 +494,6 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
                       </span>
                     </div>
 
-                    {/* Price Change (only for current candle) */}
                     {isLatest && (
                       <div className="flex flex-col">
                         <span className="text-gray-400 text-xs uppercase tracking-wide">
@@ -673,7 +522,6 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
                       </div>
                     )}
 
-                    {/* Range (High - Low) */}
                     <div className="flex flex-col">
                       <span className="text-gray-400 text-xs uppercase tracking-wide">
                         Range
@@ -690,30 +538,8 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
         )}
       </div>
 
-      {/* Debug Panel */}
-      {showDebugPanel && (
-        <div className="bg-gray-800 border-b border-gray-700 p-4 max-h-60 overflow-y-auto">
-          <h3 className="text-white font-semibold mb-2">
-            🔍 Debug Information
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
-            {Object.entries(debugInfo).map(([key, value]) => (
-              <div key={key} className="bg-gray-700 p-2 rounded">
-                <div className="text-yellow-400 font-medium">{key}:</div>
-                <div className="text-gray-300 mt-1 max-h-20 overflow-y-auto">
-                  {typeof value === "object"
-                    ? JSON.stringify(value, null, 2)
-                    : String(value)}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Chart Container */}
       <div className="flex-1 flex flex-col relative">
-        {/* Status Indicator */}
         <div className="absolute top-4 right-4 z-10 flex items-center gap-2 bg-gray-800 bg-opacity-90 px-3 py-2 rounded-md">
           <div
             className={`w-2 h-2 rounded-full ${
@@ -723,9 +549,11 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
             }`}
           ></div>
           <span className="text-xs text-gray-300">{connectionStatus}</span>
+          {isFetching && (
+            <span className="text-xs text-orange-400 ml-2">🔄</span>
+          )}
         </div>
 
-        {/* Main Chart */}
         <div className="flex-1 min-h-0">
           <div ref={chartContainerRef} className="w-full h-full bg-gray-900" />
         </div>

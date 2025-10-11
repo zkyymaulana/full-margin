@@ -17,7 +17,7 @@ export function useMarketcap(live = false) {
   } = useQuery({
     queryKey: ["marketcap", live],
     queryFn: () => getMarketcap(live),
-    refetchInterval: live ? 5000 : 60000, // ⚡ live = 5 detik, cached = 1 menit
+    refetchInterval: live ? 5000 : 6000, // ⚡ live = 5 detik, cached = 1 menit
     retry: 1, // hanya coba ulang sekali jika error
   });
 

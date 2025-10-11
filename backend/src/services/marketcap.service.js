@@ -10,6 +10,11 @@ const API_TIMEOUT = parseInt(process.env.API_TIMEOUT || "10000", 10);
 const GRANULARITY_SECONDS = 3600; // 1 jam (untuk candle)
 const BASE_PRIORITY = ["USD", "USDT", "EUR", "CEN"];
 const BATCH_SIZE = 10; // untuk batching fetch agar tidak overload
+const LIVE_UPDATE_INTERVAL = 5000; // 5 detik untuk live update
+
+// Track live updater status
+let liveUpdaterInterval = null;
+let isLiveUpdaterRunning = false;
 
 /**
  * 🔹 Ambil semua pair aktif di Coinbase
@@ -177,13 +182,13 @@ export async function getMarketcapRealtime() {
 }
 
 /**
- * ⚡ Ambil data live berdasarkan tabel Coin
- * - Urutan tetap (rank tetap)
- * - Selalu 100 data
- * - Jika fetch gagal → pakai harga terakhir di DB
+ * ⚡ Ambil data dari DB saja (ringan dan cepat)
+ * - Tidak fetch live dari Coinbase untuk semua coin
+ * - Hanya ambil candle terakhir dari database
+ * - Background sync akan update data secara otomatis
  */
 export async function getMarketcapLive() {
-  console.log("⚡ Mengambil harga live berdasarkan tabel Coin...");
+  console.log("⚡ Mengambil data terbaru dari database...");
 
   try {
     const coins = await prisma.coin.findMany({
@@ -201,58 +206,226 @@ export async function getMarketcapLive() {
       };
     }
 
-    const updatedData = [];
-
-    for (let i = 0; i < coins.length; i += BATCH_SIZE) {
-      const batch = coins.slice(i, i + BATCH_SIZE);
-
-      const responses = await Promise.allSettled(
-        batch.map(async (coin) => {
-          const live = await fetchLivePrice(coin.symbol);
-
-          const candle = live
-            ? {
-                time: live.time,
-                close: live.price,
-                volume: live.volume,
-              }
-            : coin.candles?.[0]
-              ? {
-                  time: Number(coin.candles[0].time),
-                  close: coin.candles[0].close,
-                  volume: coin.candles[0].volume,
-                }
-              : {
-                  time: Date.now(),
-                  close: null,
-                  volume: null,
-                };
-
-          return {
-            id: coin.id,
-            symbol: coin.symbol,
-            name: coin.name,
-            candles: [candle],
+    const data = coins.map((coin) => {
+      const candle = coin.candles?.[0]
+        ? {
+            time: Number(coin.candles[0].time),
+            close: coin.candles[0].close,
+            volume: coin.candles[0].volume,
+          }
+        : {
+            time: Date.now(),
+            close: null,
+            volume: null,
           };
-        })
-      );
 
-      updatedData.push(
-        ...responses.filter((r) => r.status === "fulfilled").map((r) => r.value)
-      );
+      return {
+        id: coin.id,
+        symbol: coin.symbol,
+        name: coin.name,
+        candles: [candle],
+      };
+    });
 
-      await new Promise((r) => setTimeout(r, 300));
-    }
-
-    console.log(`✅ Live data diperbarui (${updatedData.length} aset total)`);
+    console.log(`✅ Data terbaru dari DB (${data.length} aset total)`);
 
     return {
       success: true,
-      total: updatedData.length,
-      data: updatedData,
+      total: data.length,
+      data: data,
     };
   } catch (err) {
     console.error("❌ Error getMarketcapLive:", err.message);
     return { success: false, message: err.message };
   }
+}
+
+/**
+ * ⚡ Fetch live price untuk coin tertentu (untuk detail chart)
+ * - Hanya digunakan saat user klik detail coin
+ * - Trigger sinkronisasi data untuk coin spesifik
+ */
+export async function getCoinLiveDetail(symbol) {
+  console.log(`⚡ Mengambil detail live untuk ${symbol}...`);
+
+  try {
+    // Fetch live price dari Coinbase
+    const liveData = await fetchLivePrice(symbol);
+
+    if (!liveData) {
+      // Fallback ke data terakhir di DB
+      const coin = await prisma.coin.findUnique({
+        where: { symbol },
+        include: {
+          candles: { orderBy: { time: "desc" }, take: 1 },
+        },
+      });
+
+      if (!coin?.candles?.[0]) {
+        return {
+          success: false,
+          message: `Tidak ada data untuk ${symbol}`,
+        };
+      }
+
+      return {
+        success: true,
+        data: {
+          symbol,
+          price: coin.candles[0].close,
+          volume: coin.candles[0].volume,
+          time: Number(coin.candles[0].time),
+          source: "database",
+        },
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        symbol,
+        price: liveData.price,
+        volume: liveData.volume,
+        time: liveData.time,
+        source: "live",
+      },
+    };
+  } catch (err) {
+    console.error(`❌ Error getCoinLiveDetail ${symbol}:`, err.message);
+    return { success: false, message: err.message };
+  }
+}
+
+/**
+ * 🔄 Background live price updater - runs every 5 seconds
+ * Updates latest candle data for all coins from Coinbase
+ */
+export async function startLivePriceUpdater() {
+  if (isLiveUpdaterRunning) {
+    console.log("⚠️ Live price updater already running");
+    return;
+  }
+
+  console.log("🚀 Starting live price updater (every 5 seconds)...");
+  isLiveUpdaterRunning = true;
+
+  const updateLivePrices = async () => {
+    try {
+      const coins = await prisma.coin.findMany({
+        orderBy: { id: "asc" },
+        take: 100,
+        select: { id: true, symbol: true },
+      });
+
+      if (!coins.length) {
+        console.log("⚠️ No coins found for live update");
+        return;
+      }
+
+      console.log(`🔄 Updating live prices for ${coins.length} coins...`);
+      let successCount = 0;
+      let errorCount = 0;
+
+      // Process in batches to avoid overwhelming the API
+      for (let i = 0; i < coins.length; i += BATCH_SIZE) {
+        const batch = coins.slice(i, i + BATCH_SIZE);
+
+        const updatePromises = batch.map(async (coin) => {
+          try {
+            const livePrice = await fetchLivePrice(coin.symbol);
+
+            if (!livePrice) {
+              return false;
+            }
+
+            // Update or create latest candle with live price
+            const currentHour = new Date();
+            currentHour.setMinutes(0, 0, 0);
+            const hourTimestamp = BigInt(currentHour.getTime());
+
+            await prisma.candle.upsert({
+              where: {
+                symbol_timeframe_time: {
+                  symbol: coin.symbol,
+                  timeframe: "1h",
+                  time: hourTimestamp,
+                },
+              },
+              update: {
+                close: livePrice.price,
+                volume: livePrice.volume,
+                high: { increment: 0 }, // Keep existing high if higher
+                low: livePrice.price, // Update low if this price is lower
+              },
+              create: {
+                symbol: coin.symbol,
+                timeframe: "1h",
+                time: hourTimestamp,
+                open: livePrice.price,
+                high: livePrice.price,
+                low: livePrice.price,
+                close: livePrice.price,
+                volume: livePrice.volume,
+                coinId: coin.id,
+              },
+            });
+
+            return true;
+          } catch (error) {
+            console.error(`❌ Failed to update ${coin.symbol}:`, error.message);
+            return false;
+          }
+        });
+
+        const results = await Promise.allSettled(updatePromises);
+        const batchSuccess = results.filter(
+          (r) => r.status === "fulfilled" && r.value === true
+        ).length;
+
+        successCount += batchSuccess;
+        errorCount += batch.length - batchSuccess;
+
+        // Small delay between batches to avoid rate limiting
+        if (i + BATCH_SIZE < coins.length) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
+
+      console.log(
+        `✅ Live update completed: ${successCount} success, ${errorCount} errors`
+      );
+    } catch (error) {
+      console.error("❌ Live price updater error:", error.message);
+    }
+  };
+
+  // Run immediately
+  await updateLivePrices();
+
+  // Then run every 5 seconds
+  liveUpdaterInterval = setInterval(updateLivePrices, LIVE_UPDATE_INTERVAL);
+
+  console.log("✅ Live price updater started successfully");
+}
+
+/**
+ * 🛑 Stop live price updater
+ */
+export function stopLivePriceUpdater() {
+  if (liveUpdaterInterval) {
+    clearInterval(liveUpdaterInterval);
+    liveUpdaterInterval = null;
+    isLiveUpdaterRunning = false;
+    console.log("🛑 Live price updater stopped");
+  }
+}
+
+/**
+ * 📊 Get live updater status
+ */
+export function getLiveUpdaterStatus() {
+  return {
+    isRunning: isLiveUpdaterRunning,
+    interval: LIVE_UPDATE_INTERVAL,
+  };
 }

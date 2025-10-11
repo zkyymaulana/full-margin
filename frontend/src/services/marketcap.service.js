@@ -13,7 +13,7 @@ export async function getMarketcap(live = false) {
     : `${API_BASE}/marketcap`;
 
   try {
-    const res = await axios.get(endpoint, { timeout: 20000 });
+    const res = await axios.get(endpoint, { timeout: 160000 });
 
     if (!res.data?.success) {
       throw new Error(res.data?.message || "Gagal mengambil data marketcap");

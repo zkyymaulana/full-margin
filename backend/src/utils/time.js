@@ -6,6 +6,9 @@ import timezone from "dayjs/plugin/timezone.js";
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
+// Konstanta waktu dasar
+export const HOUR_MS = 60 * 60 * 1000;
+
 /**
  * 🕐 Format timestamp ke format waktu tertentu
  * @param {number|string|Date} timestamp - Timestamp atau Date
@@ -87,4 +90,12 @@ export function getLastClosedHourlyCandleEndTime() {
 export function validateEndTime(endTime) {
   const lastClosed = getLastClosedHourlyCandleEndTime();
   return Math.min(endTime, lastClosed);
+}
+
+/**
+ * 🧾 Format singkat untuk log (UTC ISO string → mudah dibaca di console)
+ */
+export function fmt(ms) {
+  if (!ms) return "-";
+  return dayjs(ms).utc().format("YYYY-MM-DD HH:mm:ss[Z]");
 }

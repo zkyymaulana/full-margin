@@ -6,6 +6,6 @@ export function useCandles(symbol = "BTC-USD") {
   return useQuery({
     queryKey: ["candles", symbol],
     queryFn: () => getCandles(symbol),
-    refetchInterval: 60_000, // auto-refresh tiap 1 menit
+    refetchInterval: 5_000, // auto-refresh tiap 5 detik
   });
 }

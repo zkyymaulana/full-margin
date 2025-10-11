@@ -5,13 +5,16 @@ import dotenv from "dotenv";
 import routes from "./routes/index.route.js";
 import { prisma } from "./lib/prisma.js";
 import { syncTopCoins } from "./services/cmc.service.js";
-import { getExactMatchedPairs } from "./services/marketcap.service.js";
+import {
+  getExactMatchedPairs,
+  startLivePriceUpdater,
+} from "./services/marketcap.service.js";
 import { startAllSchedulers } from "./services/scheduler.service.js";
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 8002;
 const HOST = process.env.HOST || "localhost";
 const NODE_ENV = process.env.NODE_ENV || "development";
 
@@ -41,16 +44,21 @@ app.listen(PORT, async () => {
   console.log("==========================================");
 
   try {
-    console.log("📊 [1/3] Syncing Top 100 Coins from CMC...");
+    console.log("📊 [1/4] Syncing Top 100 Coins from CMC...");
     await syncTopCoins();
 
-    console.log("🔗 [2/3] Matching pairs on Coinbase...");
+    console.log("🔗 [2/4] Matching pairs on Coinbase...");
     await getExactMatchedPairs();
 
-    console.log("⏰ [3/3] Starting schedulers...");
+    console.log("⏰ [3/4] Starting historical data schedulers...");
     await startAllSchedulers();
 
+    console.log("⚡ [4/4] Starting live price updater (5-second interval)...");
+    await startLivePriceUpdater();
+
     console.log("✅ All background services running successfully.");
+    console.log("📈 Live prices will update every 5 seconds");
+    console.log("📊 Historical data will sync every 1 minute");
   } catch (err) {
     console.error("❌ Failed to initialize services:", err.message);
   }
@@ -59,6 +67,10 @@ app.listen(PORT, async () => {
 // Handle graceful shutdown
 process.on("SIGINT", async () => {
   console.log("\n🧹 Shutting down gracefully...");
+  const { stopLivePriceUpdater } = await import(
+    "./services/marketcap.service.js"
+  );
+  stopLivePriceUpdater();
   await prisma.$disconnect();
   process.exit(0);
 });

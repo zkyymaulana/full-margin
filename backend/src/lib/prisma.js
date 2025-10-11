@@ -6,7 +6,19 @@ const globalForPrisma = globalThis;
 export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
-    // log: ["query", "info", "warn", "error"], // aktifkan jika perlu debug
+    log: ["error", "warn"], // Enable error and warning logs for debugging
+    errorFormat: "pretty",
   });
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+
+  // Enable query logs in development for debugging
+  prisma.$on("query", (e) => {
+    if (process.env.DEBUG_QUERIES === "true") {
+      console.log("Query:", e.query);
+      console.log("Params:", e.params);
+      console.log("Duration:", e.duration + "ms");
+    }
+  });
+}

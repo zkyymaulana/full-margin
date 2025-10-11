@@ -1,7 +1,12 @@
 // src/components/MarketcapTable.jsx
-import { useMarketcap } from "../hooks/useMarketcap";
 
-export default function MarketcapTable({ live = true }) {
+import { useMarketcap } from "../hooks/useMarketCap";
+
+export default function MarketcapTable({
+  live = true,
+  onCoinSelect,
+  selectedSymbol,
+}) {
   const { data, isLoading, error, isFetching } = useMarketcap(live);
 
   if (isLoading) {
@@ -58,14 +63,24 @@ export default function MarketcapTable({ live = true }) {
                   })
                 : "-";
 
+              // Create symbol with -USD suffix for chart compatibility
+              const chartSymbol = `${coin.symbol}`;
+              const isSelected = selectedSymbol === chartSymbol;
+
               return (
                 <tr
                   key={coin.id}
-                  className="hover:bg-gray-800 transition-colors"
+                  onClick={() => onCoinSelect(chartSymbol)}
+                  className={`cursor-pointer transition-colors ${
+                    isSelected
+                      ? "bg-blue-800 hover:bg-blue-700 border-l-4 border-blue-400"
+                      : "hover:bg-gray-800"
+                  }`}
+                  title={`Click to view ${coin.symbol} chart`}
                 >
                   <td className="p-3">{i + 1}</td>
                   <td className="p-3">{coin.name || "-"}</td>
-                  <td className="p-3">{coin.symbol}</td>
+                  <td className="p-3 font-semibold">{coin.symbol}</td>
                   <td className="p-3 text-right text-green-400">
                     $
                     {typeof lastPrice === "number"
@@ -84,7 +99,8 @@ export default function MarketcapTable({ live = true }) {
 
       <p className="mt-4 text-xs text-gray-500">
         Total: {data.length} aset | Update otomatis tiap{" "}
-        {live ? "10 detik (live)" : "1 menit (cached)"}
+        {live ? "10 detik (live)" : "1 menit (cached)"} | Click pada baris untuk
+        melihat chart
       </p>
     </div>
   );

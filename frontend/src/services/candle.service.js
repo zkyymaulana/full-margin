@@ -5,8 +5,11 @@ export async function getCandles(symbol = "BTC-USD") {
   try {
     console.log(`🔌 Fetching candles for ${symbol} from API...`);
 
+    // Ensure the symbol does not have duplicate '-USD'
+    const sanitizedSymbol = symbol.replace(/-USD-USD$/, "-USD");
+
     const response = await fetch(
-      `${API_BASE_URL}/api/chart/${symbol}?limit=500`
+      `${API_BASE_URL}/api/chart/${sanitizedSymbol}?limit=500`
     );
 
     if (!response.ok) {
