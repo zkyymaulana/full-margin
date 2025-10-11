@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+/* Custom Spike Template Styles */
+@layer base {
+  body {
+    background-color: rgb(249 250 251);
+  }
+}
+
+@layer components {
+  .card {
+    background-color: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    border: 1px solid rgb(229 231 235);
+  }
+
+  .card-body {
+    padding: 1.5rem;
+  }
+
+  .sidebar-link {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    transition: all 0.2s;
+  }
+
+  .sidebar-link:hover {
+    background-color: rgb(239 246 255);
+    color: rgb(37 99 235);
+  }
+
+  .sidebar-item .sidebar-link.active {
+    background-color: rgb(239 246 255);
+    color: rgb(37 99 235);
+  }
+
+  .bg-surface {
+    background-color: rgb(249 250 251);
+  }
+
+  .app-topstrip {
+    background: linear-gradient(90deg, #0f0533 0%, #1b0a5c 100%);
+  }
+
+  .left-sidebar {
+    background-color: white;
+    border-right: 1px solid rgb(229 231 235);
+  }
+
+  .with-vertical {
+    min-height: 100vh;
+  }
+
+  .page-wrapper {
+    min-height: 100vh;
+  }
+
+  .full-container {
+    max-width: 100%;
+  }
+
+  .icon-hover {
+    transition: color 0.2s;
+  }
+
+  .icon-hover:hover {
+    color: rgb(37 99 235);
+  }
+}
+
+@layer utilities {
+  .text-heading {
+    color: rgb(31 41 55);
+  }
+
+  .scroll-sidebar {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(229 231 235) transparent;
+  }
+
+  .scroll-sidebar::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .scroll-sidebar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scroll-sidebar::-webkit-scrollbar-thumb {
+    background-color: rgb(229 231 235);
+    border-radius: 2px;
+  }
+
+  .scroll-sidebar::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(209 213 219);
+  }
+}
