@@ -322,3 +322,139 @@ export function ParabolicSAR(highs, lows, closes, step = 0.02, maxStep = 0.2) {
 
   return sar;
 }
+
+// Multi-Indicator Analysis - combines all indicators to generate trading signals
+export function performMultiIndicatorAnalysis(highs, lows, closes, volumes) {
+  try {
+    const lastIndex = closes.length - 1;
+
+    // Calculate all indicators
+    const sma20 = SMA(closes, 20);
+    const ema20 = EMA(closes, 20);
+    const rsi = RSI(closes, 14);
+    const macd = MACD(closes, 12, 26, 9);
+    const bb = BollingerBands(closes, 20, 2);
+    const stoch = StochasticOscillator(highs, lows, closes, 14, 3);
+    const stochRsi = StochasticRSI(closes, 14, 14, 3, 3);
+    const psar = ParabolicSAR(highs, lows, closes, 0.02, 0.2);
+
+    // Get latest values
+    const latest = {
+      close: closes[lastIndex],
+      sma20: sma20[lastIndex],
+      ema20: ema20[lastIndex],
+      rsi: rsi[lastIndex],
+      macd: macd.macd[lastIndex],
+      macdSignal: macd.signal[lastIndex],
+      macdHist: macd.histogram[lastIndex],
+      bbUpper: bb.upper[lastIndex],
+      bbLower: bb.lower[lastIndex],
+      stochK: stoch.k[lastIndex],
+      stochD: stoch.d[lastIndex],
+      stochRsiK: stochRsi.k[lastIndex],
+      stochRsiD: stochRsi.d[lastIndex],
+      psar: psar[lastIndex],
+    };
+
+    // Calculate individual signal scores (-1 to 1)
+    let signals = [];
+
+    // RSI Signal (oversold/overbought)
+    if (latest.rsi !== null) {
+      if (latest.rsi < 30) signals.push(0.8); // Strong buy
+      else if (latest.rsi < 40) signals.push(0.4); // Weak buy
+      else if (latest.rsi > 70) signals.push(-0.8); // Strong sell
+      else if (latest.rsi > 60) signals.push(-0.4); // Weak sell
+      else signals.push(0); // Neutral
+    }
+
+    // MACD Signal
+    if (
+      latest.macd !== null &&
+      latest.macdSignal !== null &&
+      latest.macdHist !== null
+    ) {
+      if (latest.macd > latest.macdSignal && latest.macdHist > 0) {
+        signals.push(0.6); // Bullish
+      } else if (latest.macd < latest.macdSignal && latest.macdHist < 0) {
+        signals.push(-0.6); // Bearish
+      } else {
+        signals.push(0); // Neutral
+      }
+    }
+
+    // Bollinger Bands Signal
+    if (latest.bbUpper !== null && latest.bbLower !== null) {
+      if (latest.close < latest.bbLower) signals.push(0.7); // Oversold
+      else if (latest.close > latest.bbUpper) signals.push(-0.7); // Overbought
+      else signals.push(0); // Within bands
+    }
+
+    // Stochastic Signal
+    if (latest.stochK !== null && latest.stochD !== null) {
+      if (latest.stochK < 20 && latest.stochD < 20)
+        signals.push(0.5); // Oversold
+      else if (latest.stochK > 80 && latest.stochD > 80)
+        signals.push(-0.5); // Overbought
+      else signals.push(0); // Neutral
+    }
+
+    // Stochastic RSI Signal
+    if (latest.stochRsiK !== null && latest.stochRsiD !== null) {
+      if (latest.stochRsiK < 20 && latest.stochRsiD < 20)
+        signals.push(0.5); // Oversold
+      else if (latest.stochRsiK > 80 && latest.stochRsiD > 80)
+        signals.push(-0.5); // Overbought
+      else signals.push(0); // Neutral
+    }
+
+    // Parabolic SAR Signal
+    if (latest.psar !== null) {
+      if (latest.close > latest.psar) signals.push(0.4); // Uptrend
+      else if (latest.close < latest.psar) signals.push(-0.4); // Downtrend
+      else signals.push(0); // Neutral
+    }
+
+    // Moving Average Signal
+    if (latest.sma20 !== null && latest.ema20 !== null) {
+      if (latest.close > latest.sma20 && latest.close > latest.ema20) {
+        signals.push(0.3); // Above both MAs
+      } else if (latest.close < latest.sma20 && latest.close < latest.ema20) {
+        signals.push(-0.3); // Below both MAs
+      } else {
+        signals.push(0); // Mixed
+      }
+    }
+
+    // Calculate combined score
+    const combinedScore =
+      signals.length > 0
+        ? signals.reduce((sum, signal) => sum + signal, 0) / signals.length
+        : 0;
+
+    // Determine final signal
+    let finalSignal = "HOLD";
+    if (combinedScore > 0.3) finalSignal = "BUY";
+    else if (combinedScore < -0.3) finalSignal = "SELL";
+
+    // Calculate confidence (absolute value of combined score)
+    const confidence = Math.abs(combinedScore);
+
+    return {
+      finalSignal,
+      combinedScore: Math.round(combinedScore * 10000) / 10000, // Round to 4 decimals
+      confidence: Math.round(confidence * 10000) / 10000,
+      timestamp: new Date().toISOString(),
+      indicators: latest,
+    };
+  } catch (error) {
+    console.error("Error in performMultiIndicatorAnalysis:", error);
+    return {
+      finalSignal: "HOLD",
+      combinedScore: 0,
+      confidence: 0,
+      timestamp: new Date().toISOString(),
+      indicators: {},
+    };
+  }
+}
