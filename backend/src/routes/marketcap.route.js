@@ -1,10 +1,16 @@
-// Menyediakan endpoint untuk Top 100 Coin dan candle terakhir.
+// src/routes/marketcap.route.js
 import express from "express";
-import { getMarketcap } from "../controllers/marketcap.controller.js";
+import {
+  getMarketcap,
+  getMarketcapLiveController,
+} from "../controllers/marketcap.controller.js";
 
 const router = express.Router();
 
-// /api/marketcap
+// Data dari DB (stabil)
 router.get("/", getMarketcap);
+
+// Data live langsung dari Coinbase
+router.get("/live", getMarketcapLiveController);
 
 export default router;

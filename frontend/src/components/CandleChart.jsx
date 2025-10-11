@@ -521,7 +521,7 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
             <h1 className="text-xl font-semibold text-white">
               📊 {symbol} Chart
             </h1>
-            <div className="px-3 py-1 text-sm bg-blue-600 text-white rounded">
+            {/* <div className="px-3 py-1 text-sm bg-blue-600 text-white rounded">
               1 Hour
             </div>
             <button
@@ -538,7 +538,7 @@ export default function CandleChart({ symbol = "BTC-USD" }) {
               }`}
             >
               Charts: {chartsInitialized ? "Ready" : "Initializing..."}
-            </div>
+            </div> */}
           </div>
 
           <div className="flex items-center gap-4">

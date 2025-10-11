@@ -1,29 +1,39 @@
 // src/controllers/marketcap.controller.js
-// Mengambil daftar 100 koin dari DB beserta candle terakhirnya.
-import { prisma } from "../lib/prisma.js";
+import {
+  getMarketcapRealtime,
+  getMarketcapLive,
+} from "../services/marketcap.service.js";
 
-function convertBigIntToNumber(obj) {
-  return JSON.parse(
-    JSON.stringify(obj, (_, value) =>
-      typeof value === "bigint" ? Number(value) : value
-    )
-  );
-}
-
+/**
+ * 📊 Marketcap (dari DB)
+ */
 export async function getMarketcap(req, res) {
   try {
-    const coins = await prisma.coin.findMany({
-      include: { candles: { orderBy: { time: "desc" }, take: 1 } },
-      orderBy: { id: "asc" },
-      take: 100,
-    });
-
-    res.json({
-      success: true,
-      total: coins.length,
-      data: convertBigIntToNumber(coins),
-    });
+    const result = await getMarketcapRealtime();
+    if (!result.success) return res.status(500).json(result);
+    res.json(result);
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error("❌ Controller error:", err.message);
+    res.status(500).json({
+      success: false,
+      message: err.message || "Terjadi kesalahan pada server",
+    });
+  }
+}
+
+/**
+ * ⚡ Marketcap (live dari Coinbase)
+ */
+export async function getMarketcapLiveController(req, res) {
+  try {
+    const result = await getMarketcapLive();
+    if (!result.success) return res.status(500).json(result);
+    res.json(result);
+  } catch (err) {
+    console.error("❌ Controller error:", err.message);
+    res.status(500).json({
+      success: false,
+      message: err.message || "Terjadi kesalahan pada server",
+    });
   }
 }

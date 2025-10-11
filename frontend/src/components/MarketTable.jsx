@@ -1,9 +1,8 @@
 // src/components/MarketcapTable.jsx
+import { useMarketcap } from "../hooks/useMarketcap";
 
-import { useMarketcap } from "../hooks/useMarketCap";
-
-export default function MarketcapTable() {
-  const { data, isLoading, error, isFetching } = useMarketcap();
+export default function MarketcapTable({ live = true }) {
+  const { data, isLoading, error, isFetching } = useMarketcap(live);
 
   if (isLoading) {
     return (
@@ -29,7 +28,7 @@ export default function MarketcapTable() {
     <div className="min-h-screen bg-gray-900 text-white p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-green-400">
-          💹 Top 100 Marketcap (Live)
+          💹 Top 100 Marketcap ({live ? "Live" : "Cached"})
         </h1>
         {isFetching && (
           <span className="text-xs text-yellow-400 animate-pulse">
@@ -69,9 +68,11 @@ export default function MarketcapTable() {
                   <td className="p-3">{coin.symbol}</td>
                   <td className="p-3 text-right text-green-400">
                     $
-                    {lastPrice.toLocaleString("en-US", {
-                      minimumFractionDigits: 2,
-                    })}
+                    {typeof lastPrice === "number"
+                      ? lastPrice.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })
+                      : "-"}
                   </td>
                   <td className="p-3 text-right text-gray-400">{time}</td>
                 </tr>
@@ -82,7 +83,8 @@ export default function MarketcapTable() {
       </div>
 
       <p className="mt-4 text-xs text-gray-500">
-        Total: {data.length} aset | Update otomatis tiap 1 menit
+        Total: {data.length} aset | Update otomatis tiap{" "}
+        {live ? "10 detik (live)" : "1 menit (cached)"}
       </p>
     </div>
   );
