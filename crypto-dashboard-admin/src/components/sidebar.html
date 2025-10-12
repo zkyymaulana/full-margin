@@ -1,186 +1,89 @@
 <!-- Crypto Dashboard Sidebar -->
-<div class="p-4">
-  <!-- Logo Section -->
-  <div class="flex items-center gap-3 mb-6">
-    <div
-      class="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center"
-    >
-      <span class="text-white font-bold text-sm">₿</span>
+<div class="flex flex-col h-[calc(100vh-128px)] justify-between">
+  <!-- Top Section -->
+  <div>
+    <!-- Logo Section -->
+    <div class="p-4">
+      <div class="flex items-center gap-3 mb-6">
+        <div
+          class="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center"
+        >
+          <span class="text-white font-bold text-sm">₿</span>
+        </div>
+        <div>
+          <h3 class="font-semibold text-gray-800">Crypto Admin</h3>
+          <p class="text-xs text-gray-500">Dashboard v1.0</p>
+        </div>
+      </div>
     </div>
-    <div>
-      <h3 class="font-semibold text-gray-800">Crypto Admin</h3>
-      <p class="text-xs text-gray-500">Dashboard v1.0</p>
+
+    <!-- Sidebar Navigation -->
+    <div class="scroll-sidebar px-4" data-simplebar>
+      <nav class="flex flex-col sidebar-nav">
+        <ul id="sidebarnav" class="text-gray-600 text-sm">
+          <!-- Dashboard Section -->
+          <li class="text-xs font-bold pb-[5px]">
+            <span class="text-xs text-gray-400 font-semibold">DASHBOARD</span>
+          </li>
+
+          <li class="sidebar-item">
+            <a
+              class="sidebar-link gap-3 py-2.5 my-1 text-base flex items-center relative rounded-md text-blue-600 bg-blue-50 w-full"
+              href="#"
+            >
+              <span class="text-2xl">📊</span>
+              <span>Market Overview</span>
+            </a>
+          </li>
+
+          <li class="sidebar-item">
+            <a
+              class="sidebar-link gap-3 py-2.5 my-1 text-base flex items-center relative rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 w-full"
+              href="#"
+            >
+              <span class="text-2xl">📈</span>
+              <span>Trading Analytics</span>
+            </a>
+          </li>
+
+          <!-- Crypto Analysis Section -->
+          <li class="text-xs font-bold mb-4 mt-6">
+            <span class="text-xs text-gray-400 font-semibold"
+              >CRYPTO ANALYSIS</span
+            >
+          </li>
+
+          <li class="sidebar-item">
+            <a
+              class="sidebar-link gap-3 py-2.5 my-1 text-base flex items-center relative rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 w-full"
+              href="#"
+            >
+              <span class="text-2xl">🪙</span>
+              <span>Market Cap Analysis</span>
+            </a>
+          </li>
+
+          <li class="sidebar-item">
+            <a
+              class="sidebar-link gap-3 py-2.5 my-1 text-base flex items-center relative rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 w-full"
+              href="#"
+            >
+              <span class="text-2xl">📉</span>
+              <span>Technical Indicators</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
     </div>
   </div>
-</div>
 
-<div class="scroll-sidebar" data-simplebar="">
-  <nav class="w-full flex flex-col sidebar-nav px-4 mt-5">
-    <ul id="sidebarnav" class="text-gray-600 text-sm">
-      <!-- Dashboard Section -->
-      <li class="text-xs font-bold pb-[5px]">
-        <span class="text-xs text-gray-400 font-semibold">DASHBOARD</span>
-      </li>
-
-      <li class="sidebar-item">
-        <a
-          class="sidebar-link gap-3 py-2.5 my-1 text-base flex items-center relative rounded-md text-blue-600 bg-blue-50 w-full"
-          href="javascript:void(0)"
-        >
-          <span class="text-2xl">📊</span>
-          <span>Market Overview</span>
-        </a>
-      </li>
-
-      <li class="sidebar-item">
-        <a
-          class="sidebar-link gap-3 py-2.5 my-1 text-base flex items-center relative rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 w-full"
-          href="javascript:void(0)"
-        >
-          <span class="text-2xl">📈</span>
-          <span>Trading Analytics</span>
-        </a>
-      </li>
-
-      <!-- Crypto Analysis Section -->
-      <li class="text-xs font-bold mb-4 mt-6">
-        <span class="text-xs text-gray-400 font-semibold">CRYPTO ANALYSIS</span>
-      </li>
-
-      <li class="sidebar-item">
-        <a
-          class="sidebar-link gap-3 py-2.5 my-1 text-base flex items-center relative rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 w-full"
-          href="javascript:void(0)"
-        >
-          <span class="text-2xl">🪙</span>
-          <span>Market Cap Analysis</span>
-        </a>
-      </li>
-
-      <li class="sidebar-item">
-        <a
-          class="sidebar-link gap-3 py-2.5 my-1 text-base flex items-center relative rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 w-full"
-          href="javascript:void(0)"
-        >
-          <span class="text-2xl">🕯️</span>
-          <span>Candlestick Patterns</span>
-        </a>
-      </li>
-
-      <li class="sidebar-item">
-        <a
-          class="sidebar-link gap-3 py-2.5 my-1 text-base flex items-center relative rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 w-full"
-          href="javascript:void(0)"
-        >
-          <span class="text-2xl">📉</span>
-          <span>Technical Indicators</span>
-        </a>
-      </li>
-
-      <li class="sidebar-item">
-        <a
-          class="sidebar-link gap-3 py-2.5 my-1 text-base flex items-center relative rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 w-full"
-          href="javascript:void(0)"
-        >
-          <span class="text-2xl">🎯</span>
-          <span>Trading Signals</span>
-        </a>
-      </li>
-
-      <!-- Portfolio Section -->
-      <li class="text-xs font-bold mb-4 mt-6">
-        <span class="text-xs text-gray-400 font-semibold">PORTFOLIO</span>
-      </li>
-
-      <li class="sidebar-item">
-        <a
-          class="sidebar-link gap-3 py-2.5 my-1 text-base flex items-center relative rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 w-full"
-          href="javascript:void(0)"
-        >
-          <span class="text-2xl">💼</span>
-          <span>My Portfolio</span>
-        </a>
-      </li>
-
-      <li class="sidebar-item">
-        <a
-          class="sidebar-link gap-3 py-2.5 my-1 text-base flex items-center relative rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 w-full"
-          href="javascript:void(0)"
-        >
-          <span class="text-2xl">🔄</span>
-          <span>Trade History</span>
-        </a>
-      </li>
-
-      <!-- Tools Section -->
-      <li class="text-xs font-bold mb-4 mt-6">
-        <span class="text-xs text-gray-400 font-semibold">TOOLS</span>
-      </li>
-
-      <li class="sidebar-item">
-        <a
-          class="sidebar-link gap-3 py-2.5 my-1 text-base flex items-center relative rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 w-full"
-          href="javascript:void(0)"
-        >
-          <span class="text-2xl">🧮</span>
-          <span>Calculator</span>
-        </a>
-      </li>
-
-      <li class="sidebar-item">
-        <a
-          class="sidebar-link gap-3 py-2.5 my-1 text-base flex items-center relative rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 w-full"
-          href="javascript:void(0)"
-        >
-          <span class="text-2xl">📊</span>
-          <span>Chart Analysis</span>
-        </a>
-      </li>
-
-      <li class="sidebar-item">
-        <a
-          class="sidebar-link gap-3 py-2.5 my-1 text-base flex items-center relative rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 w-full"
-          href="javascript:void(0)"
-        >
-          <span class="text-2xl">⚠️</span>
-          <span>Risk Assessment</span>
-        </a>
-      </li>
-
-      <!-- Settings Section -->
-      <li class="text-xs font-bold mb-4 mt-6">
-        <span class="text-xs text-gray-400 font-semibold">SETTINGS</span>
-      </li>
-
-      <li class="sidebar-item">
-        <a
-          class="sidebar-link gap-3 py-2.5 my-1 text-base flex items-center relative rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 w-full"
-          href="javascript:void(0)"
-        >
-          <span class="text-2xl">👤</span>
-          <span>Profile</span>
-        </a>
-      </li>
-
-      <li class="sidebar-item">
-        <a
-          class="sidebar-link gap-3 py-2.5 my-1 text-base flex items-center relative rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 w-full"
-          href="javascript:void(0)"
-        >
-          <span class="text-2xl">⚙️</span>
-          <span>Preferences</span>
-        </a>
-      </li>
-    </ul>
-  </nav>
-</div>
-
-<!-- Bottom Upgrade Section -->
-<div class="m-4 relative grid">
-  <a
-    href="#"
-    class="text-center text-base font-semibold bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all"
-  >
-    🔥 Upgrade to Pro
-  </a>
+  <!-- Bottom Section -->
+  <div class="m-4">
+    <a
+      href="#"
+      class="block text-center text-base font-semibold bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all"
+    >
+      Keluar
+    </a>
+  </div>
 </div>

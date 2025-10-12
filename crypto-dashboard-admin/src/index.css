@@ -1,46 +1,57 @@
 @import "tailwindcss";
 
-/* Custom Spike Template Styles */
+/* =========================
+   Base Styles
+   ========================= */
 @layer base {
   body {
     background-color: rgb(249 250 251);
   }
+
+  html,
+  body {
+    height: 100%;
+    overflow-x: hidden;
+  }
 }
 
+/* =========================
+   Components Layer
+   ========================= */
 @layer components {
+  /* Card Components */
   .card {
     background-color: white;
     border-radius: 0.5rem;
     box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
     border: 1px solid rgb(229 231 235);
+    overflow: hidden;
+    position: relative !important;
   }
 
   .card-body {
     padding: 1.5rem;
+    overflow: hidden;
+    word-wrap: break-word;
   }
 
+  .truncate-content {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+
+  /* Sidebar */
   .sidebar-link {
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
+    padding: 0 0.75rem;
     transition: all 0.2s;
   }
 
-  .sidebar-link:hover {
-    background-color: rgb(239 246 255);
-    color: rgb(37 99 235);
-  }
-
+  .sidebar-link:hover,
   .sidebar-item .sidebar-link.active {
     background-color: rgb(239 246 255);
     color: rgb(37 99 235);
-  }
-
-  .bg-surface {
-    background-color: rgb(249 250 251);
-  }
-
-  .app-topstrip {
-    background: linear-gradient(90deg, #0f0533 0%, #1b0a5c 100%);
   }
 
   .left-sidebar {
@@ -48,10 +59,35 @@
     border-right: 1px solid rgb(229 231 235);
   }
 
-  .with-vertical {
-    min-height: 100vh;
+  .sidebar-container {
+    position: fixed;
+    top: 90px;
+    left: 0;
+    width: 270px;
+    height: calc(100vh - 90px);
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+    z-index: 999;
   }
 
+  .sidebar-container.open {
+    transform: translateX(0);
+  }
+
+  @media (min-width: 1280px) {
+    .sidebar-container {
+      position: static;
+      transform: translateX(0);
+      height: auto;
+    }
+  }
+
+  /* Layout */
+  .bg-surface {
+    background-color: rgb(249 250 251);
+  }
+
+  .with-vertical,
   .page-wrapper {
     min-height: 100vh;
   }
@@ -60,6 +96,26 @@
     max-width: 100%;
   }
 
+  /* Chart Container */
+  #candlestick-chart {
+    position: relative;
+    overflow: hidden;
+    z-index: var(--z-content) !important;
+  }
+
+  /* Typography */
+  .responsive-text {
+    font-size: clamp(0.75rem, 2vw, 1rem);
+  }
+
+  /* Grid Market */
+  .market-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+  }
+
+  /* Icon Hover */
   .icon-hover {
     transition: color 0.2s;
   }
@@ -67,13 +123,24 @@
   .icon-hover:hover {
     color: rgb(37 99 235);
   }
+
+  /* Main content with sidebar */
+  @media (min-width: 1280px) {
+    .main-content-with-sidebar {
+      margin-left: 270px;
+    }
+  }
 }
 
+/* =========================
+   Utilities Layer
+   ========================= */
 @layer utilities {
   .text-heading {
     color: rgb(31 41 55);
   }
 
+  /* Sidebar Scroll */
   .scroll-sidebar {
     overflow-y: auto;
     scrollbar-width: thin;
@@ -84,10 +151,6 @@
     width: 4px;
   }
 
-  .scroll-sidebar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
   .scroll-sidebar::-webkit-scrollbar-thumb {
     background-color: rgb(229 231 235);
     border-radius: 2px;
@@ -96,4 +159,153 @@
   .scroll-sidebar::-webkit-scrollbar-thumb:hover {
     background-color: rgb(209 213 219);
   }
+
+  /* Utility Fixes */
+  .no-overflow {
+    overflow: hidden;
+  }
+
+  .break-words-custom {
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+
+  .min-w-0 {
+    min-width: 0;
+  }
+
+  .flex-shrink-0 {
+    flex-shrink: 0;
+  }
+}
+
+/* =========================
+   Sticky Sidebar & Z-Index
+   ========================= */
+:root {
+  --z-sidebar: 9999;
+  --z-overlay: 9998;
+  --z-header: 100;
+  --z-topstrip: 90;
+  --z-content: 1;
+}
+
+/* =========================
+   Header & Topstrip Layout
+   ========================= */
+
+/* Header fixed di paling atas */
+header {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-header) !important;
+  background-color: white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* Topstrip di bawah header */
+.app-topstrip {
+  position: sticky !important;
+  top: 64px; /* tinggi header */
+  z-index: var(--z-topstrip) !important;
+  background: linear-gradient(90deg, #0f0533 0%, #1b0a5c 100%);
+}
+
+/* =========================
+   Sidebar & Overlay
+   ========================= */
+
+#sidebar-overlay {
+  z-index: var(--z-overlay) !important;
+  position: fixed !important;
+  transition: opacity 0.3s ease-in-out;
+}
+
+#sidebar-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#sidebar-overlay:not(.hidden) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#application-sidebar-brand {
+  z-index: var(--z-sidebar) !important;
+  position: fixed !important;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: transform 0.3s ease-in-out !important;
+}
+
+@media (min-width: 1280px) {
+  #application-sidebar-brand {
+    position: sticky !important;
+    z-index: auto !important;
+    top: 120px;
+    transform: translateX(0) !important;
+    height: calc(100vh - 120px);
+  }
+
+  #sidebar-overlay {
+    display: none !important;
+  }
+}
+
+/* =========================
+   Page Layout
+   ========================= */
+
+/* Header & Content */
+#content {
+  z-index: var(--z-content) !important;
+  position: relative !important;
+}
+
+/* Body Scroll Control */
+body.sidebar-open {
+  overflow: hidden;
+}
+
+@media (min-width: 1280px) {
+  body.sidebar-open {
+    overflow: auto;
+  }
+}
+
+/* =========================
+   Scrollbar Styling (Sidebar)
+   ========================= */
+#application-sidebar-brand::-webkit-scrollbar {
+  width: 6px;
+}
+
+#application-sidebar-brand::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+#application-sidebar-brand::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 10px;
+}
+
+#application-sidebar-brand::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+#application-sidebar-brand {
+  scrollbar-width: thin;
+  scrollbar-color: #888 #f1f1f1;
+}
+
+/* =========================
+   Mobile Menu Button
+   ========================= */
+#headerCollapse {
+  z-index: calc(var(--z-header) + 1) !important;
+  position: relative !important;
 }

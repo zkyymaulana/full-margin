@@ -14,7 +14,7 @@ import { startAllSchedulers } from "./services/scheduler.service.js";
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 8002;
+const PORT = process.env.PORT || 8000;
 const HOST = process.env.HOST || "localhost";
 const NODE_ENV = process.env.NODE_ENV || "development";
 
