@@ -4,13 +4,16 @@ import candleRoute from "./candle.route.js";
 import chartRoute from "./chartdata.route.js";
 import marketcapRoute from "./marketcap.route.js";
 import analysisRoute from "./analysis.route.js";
+import authRoute from "./auth.route.js";
+import { authMiddleware } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
+router.use("/auth", authRoute);
 router.use("/candle", candleRoute);
 router.use("/chart", chartRoute);
 router.use("/marketcap", marketcapRoute);
-router.use("/analysis", analysisRoute);
+router.use("/analysis", authMiddleware, analysisRoute);
 
 // default handler
 router.use("*", (_, res) =>

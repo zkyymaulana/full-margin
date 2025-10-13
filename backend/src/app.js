@@ -10,6 +10,7 @@ import {
   startLivePriceUpdater,
 } from "./services/marketcap.service.js";
 import { startAllSchedulers } from "./services/scheduler.service.js";
+import { seedAdmin } from "../prisma/seed.js";
 
 dotenv.config();
 
@@ -44,6 +45,9 @@ app.listen(PORT, async () => {
   console.log("==========================================");
 
   try {
+    console.log("👤 [0/4] Memastikan admin tersedia...");
+    await seedAdmin();
+
     console.log("📊 [1/4] Syncing Top 100 Coins from CMC...");
     await syncTopCoins();
 

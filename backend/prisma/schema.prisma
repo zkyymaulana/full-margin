@@ -8,12 +8,24 @@ datasource db {
 }
 
 model User {
-  id           Int      @id @default(autoincrement())
-  email        String   @unique
+  id           Int        @id @default(autoincrement())
+  email        String     @unique
   name         String?
   passwordHash String
-  createdAt    DateTime @default(now())
-  signals      Signal[]
+  createdAt    DateTime   @default(now())
+  lastLogin    DateTime?
+  authLogs     AuthLog[]
+  signals      Signal[]   @relation("UserSignals") 
+}
+
+model AuthLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  action     String   // "login" atau "logout"
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
 }
 
 model Coin {
@@ -49,7 +61,7 @@ model Signal {
   action     String
   confidence Float?
   createdAt  DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id])
+  user       User     @relation("UserSignals", fields: [userId], references: [id]) 
 }
 
 model TopCoin {
@@ -83,7 +95,7 @@ model Indicator {
   psar       Float?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-  
+
   @@unique([symbol, timeframe, time])
   @@index([symbol, time])
 }
