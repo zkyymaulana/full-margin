@@ -1,0 +1,500 @@
+<!-- ========== SYSTEM SETTINGS PAGE ========== -->
+<div class="p-3 mt-[80px] bg-gray-50 dark:bg-gray-900 min-h-screen">
+  <div class="max-w-4xl mx-auto">
+    <!-- Page Header -->
+    <div
+      class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6"
+    >
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+          ⚙️ System Settings
+        </h1>
+        <p class="text-gray-600 dark:text-gray-400">
+          Configure dashboard preferences and system parameters
+        </p>
+      </div>
+      <div class="flex items-center gap-2 mt-4 sm:mt-0">
+        <button
+          id="reset-settings"
+          class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+        >
+          Reset to Defaults
+        </button>
+        <button
+          id="save-settings"
+          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          Save Changes
+        </button>
+      </div>
+    </div>
+
+    <!-- Settings Categories -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Appearance Settings -->
+      <div class="card bg-white dark:bg-gray-800 shadow-lg border-0">
+        <div class="card-body p-6">
+          <div class="flex items-center gap-3 mb-6">
+            <div
+              class="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center"
+            >
+              <span class="text-white font-bold text-lg">🎨</span>
+            </div>
+            <div>
+              <h3
+                class="text-lg font-semibold text-gray-900 dark:text-gray-100"
+              >
+                Appearance
+              </h3>
+              <p class="text-sm text-gray-600 dark:text-gray-400">
+                Customize the look and feel
+              </p>
+            </div>
+          </div>
+
+          <!-- Dark Mode Toggle -->
+          <div class="space-y-4">
+            <div
+              class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
+            >
+              <div>
+                <label class="font-medium text-gray-900 dark:text-gray-100"
+                  >Dark Mode</label
+                >
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  Toggle between light and dark themes
+                </p>
+              </div>
+              <div class="relative">
+                <input type="checkbox" id="dark-mode-setting" class="sr-only" />
+                <div
+                  class="w-10 h-6 bg-gray-200 dark:bg-gray-600 rounded-full shadow-inner transition-colors duration-300 ease-in-out cursor-pointer"
+                  id="dark-mode-toggle-bg"
+                >
+                  <div
+                    class="w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ease-in-out translate-x-1 mt-1"
+                    id="dark-mode-toggle-dot"
+                  ></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Theme Selection -->
+            <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <label
+                class="font-medium text-gray-900 dark:text-gray-100 mb-3 block"
+                >Theme Color</label
+              >
+              <div class="grid grid-cols-4 gap-3">
+                <button
+                  class="w-8 h-8 rounded-full bg-blue-500 ring-2 ring-blue-200 dark:ring-blue-800"
+                  data-theme="blue"
+                  title="Blue Theme"
+                ></button>
+                <button
+                  class="w-8 h-8 rounded-full bg-purple-500 hover:ring-2 hover:ring-purple-200 dark:hover:ring-purple-800"
+                  data-theme="purple"
+                  title="Purple Theme"
+                ></button>
+                <button
+                  class="w-8 h-8 rounded-full bg-green-500 hover:ring-2 hover:ring-green-200 dark:hover:ring-green-800"
+                  data-theme="green"
+                  title="Green Theme"
+                ></button>
+                <button
+                  class="w-8 h-8 rounded-full bg-red-500 hover:ring-2 hover:ring-red-200 dark:hover:ring-red-800"
+                  data-theme="red"
+                  title="Red Theme"
+                ></button>
+              </div>
+            </div>
+
+            <!-- Font Size -->
+            <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <label
+                class="font-medium text-gray-900 dark:text-gray-100 mb-3 block"
+                >Font Size</label
+              >
+              <select
+                id="font-size-setting"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              >
+                <option value="small">Small</option>
+                <option value="medium" selected>Medium</option>
+                <option value="large">Large</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Data & Performance Settings -->
+      <div class="card bg-white dark:bg-gray-800 shadow-lg border-0">
+        <div class="card-body p-6">
+          <div class="flex items-center gap-3 mb-6">
+            <div
+              class="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center"
+            >
+              <span class="text-white font-bold text-lg">📊</span>
+            </div>
+            <div>
+              <h3
+                class="text-lg font-semibold text-gray-900 dark:text-gray-100"
+              >
+                Data & Performance
+              </h3>
+              <p class="text-sm text-gray-600 dark:text-gray-400">
+                Configure data refresh and caching
+              </p>
+            </div>
+          </div>
+
+          <!-- Auto Refresh Interval -->
+          <div class="space-y-4">
+            <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <label
+                class="font-medium text-gray-900 dark:text-gray-100 mb-3 block"
+                >Auto Refresh Interval</label
+              >
+              <select
+                id="refresh-interval"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              >
+                <option value="0">Manual Only</option>
+                <option value="5000" selected>5 seconds</option>
+                <option value="10000">10 seconds</option>
+                <option value="30000">30 seconds</option>
+                <option value="60000">1 minute</option>
+              </select>
+              <p class="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                How often to fetch new data automatically
+              </p>
+            </div>
+
+            <!-- Cache Duration -->
+            <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <label
+                class="font-medium text-gray-900 dark:text-gray-100 mb-3 block"
+                >Cache Duration</label
+              >
+              <select
+                id="cache-duration"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              >
+                <option value="1000">1 second</option>
+                <option value="4000" selected>4 seconds</option>
+                <option value="10000">10 seconds</option>
+                <option value="30000">30 seconds</option>
+              </select>
+              <p class="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                How long to keep data in cache
+              </p>
+            </div>
+
+            <!-- Data Source Priority -->
+            <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <label
+                class="font-medium text-gray-900 dark:text-gray-100 mb-3 block"
+                >Data Source Priority</label
+              >
+              <div class="space-y-2">
+                <label class="flex items-center">
+                  <input
+                    type="radio"
+                    name="data-source"
+                    value="cache-first"
+                    class="mr-2"
+                    checked
+                  />
+                  <span class="text-sm text-gray-900 dark:text-gray-100"
+                    >Cache First (Faster)</span
+                  >
+                </label>
+                <label class="flex items-center">
+                  <input
+                    type="radio"
+                    name="data-source"
+                    value="api-first"
+                    class="mr-2"
+                  />
+                  <span class="text-sm text-gray-900 dark:text-gray-100"
+                    >API First (Most Recent)</span
+                  >
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- API Configuration -->
+    <div class="card bg-white dark:bg-gray-800 shadow-lg border-0 mt-6">
+      <div class="card-body p-6">
+        <div class="flex items-center gap-3 mb-6">
+          <div
+            class="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center"
+          >
+            <span class="text-white font-bold text-lg">🔌</span>
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              API Configuration
+            </h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400">
+              Configure API endpoints and connection settings
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- API Endpoints -->
+          <div class="space-y-4">
+            <div>
+              <label
+                class="font-medium text-gray-900 dark:text-gray-100 mb-2 block"
+                >API Base URL</label
+              >
+              <input
+                type="text"
+                id="api-base-url"
+                value="http://localhost:8000/api"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              />
+            </div>
+
+            <div>
+              <label
+                class="font-medium text-gray-900 dark:text-gray-100 mb-2 block"
+                >Request Timeout (ms)</label
+              >
+              <input
+                type="number"
+                id="api-timeout"
+                value="10000"
+                min="1000"
+                max="60000"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              />
+            </div>
+
+            <div>
+              <label
+                class="font-medium text-gray-900 dark:text-gray-100 mb-2 block"
+                >Max Retry Attempts</label
+              >
+              <select
+                id="max-retries"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              >
+                <option value="0">No Retries</option>
+                <option value="1">1 Retry</option>
+                <option value="3" selected>3 Retries</option>
+                <option value="5">5 Retries</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Connection Testing -->
+          <div class="space-y-4">
+            <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">
+                Connection Status
+              </h4>
+              <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                  <span class="text-sm text-gray-600 dark:text-gray-400"
+                    >Analysis API</span
+                  >
+                  <span
+                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                    id="analysis-api-status"
+                  >
+                    <div class="animate-pulse">🔄 Testing...</div>
+                  </span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-sm text-gray-600 dark:text-gray-400"
+                    >Chart Data API</span
+                  >
+                  <span
+                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                    id="chart-api-status"
+                  >
+                    <div class="animate-pulse">🔄 Testing...</div>
+                  </span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-sm text-gray-600 dark:text-gray-400"
+                    >Market Cap API</span
+                  >
+                  <span
+                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                    id="marketcap-api-status"
+                  >
+                    <div class="animate-pulse">🔄 Testing...</div>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              id="test-api-connection"
+              class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              🔍 Test All Connections
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Advanced Settings -->
+    <div class="card bg-white dark:bg-gray-800 shadow-lg border-0 mt-6">
+      <div class="card-body p-6">
+        <div class="flex items-center gap-3 mb-6">
+          <div
+            class="w-10 h-10 bg-gradient-to-r from-red-500 to-pink-500 rounded-lg flex items-center justify-center"
+          >
+            <span class="text-white font-bold text-lg">🔧</span>
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Advanced Settings
+            </h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400">
+              Developer and debugging options
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Debug Options -->
+          <div class="space-y-4">
+            <div
+              class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
+            >
+              <div>
+                <label class="font-medium text-gray-900 dark:text-gray-100"
+                  >Debug Mode</label
+                >
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  Show console logging
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                id="debug-mode"
+                class="w-4 h-4 text-blue-600 rounded"
+              />
+            </div>
+
+            <div
+              class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
+            >
+              <div>
+                <label class="font-medium text-gray-900 dark:text-gray-100"
+                  >Show API Responses</label
+                >
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  Log API response details
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                id="show-api-responses"
+                class="w-4 h-4 text-blue-600 rounded"
+              />
+            </div>
+
+            <div
+              class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
+            >
+              <div>
+                <label class="font-medium text-gray-900 dark:text-gray-100"
+                  >Performance Monitoring</label
+                >
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  Track render performance
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                id="performance-monitoring"
+                class="w-4 h-4 text-blue-600 rounded"
+              />
+            </div>
+          </div>
+
+          <!-- Data Management -->
+          <div class="space-y-4">
+            <button
+              id="clear-cache"
+              class="w-full px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+            >
+              🗑️ Clear All Cache
+            </button>
+
+            <button
+              id="export-settings"
+              class="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              📤 Export Settings
+            </button>
+
+            <div class="relative">
+              <input
+                type="file"
+                id="import-settings-file"
+                class="hidden"
+                accept=".json"
+              />
+              <button
+                id="import-settings"
+                class="w-full px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+              >
+                📥 Import Settings
+              </button>
+            </div>
+
+            <div class="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+              <h5 class="font-medium text-red-800 dark:text-red-200 mb-2">
+                Danger Zone
+              </h5>
+              <button
+                id="factory-reset"
+                class="w-full px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+              >
+                ⚠️ Factory Reset
+              </button>
+              <p class="text-xs text-red-600 dark:text-red-400 mt-2">
+                This will reset all settings and clear all data
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Status -->
+    <div class="mt-6" id="settings-status" style="display: none">
+      <div
+        class="card bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg border-0"
+      >
+        <div class="card-body p-4">
+          <div class="flex items-center gap-3">
+            <div class="text-2xl">✅</div>
+            <div>
+              <h4 class="font-semibold">Settings Saved Successfully</h4>
+              <p class="text-sm opacity-90">
+                Your preferences have been updated and will take effect
+                immediately.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- ========== END SYSTEM SETTINGS PAGE ========== -->

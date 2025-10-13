@@ -1,0 +1,315 @@
+<!-- ========== TECHNICAL INDICATORS PAGE ========== -->
+<div class="p-3 mt-[80px] bg-gray-50 dark:bg-gray-900 min-h-screen">
+  <div class="max-w-7xl mx-auto">
+    <!-- Page Header -->
+    <div
+      class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6"
+    >
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+          🧮 Technical Indicator Analysis
+        </h1>
+        <p class="text-gray-600 dark:text-gray-400">
+          Detailed analysis of moving averages, oscillators, and momentum
+          indicators
+        </p>
+      </div>
+      <div class="flex items-center gap-2 mt-4 sm:mt-0">
+        <button
+          id="refresh-indicators"
+          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <svg
+            class="w-4 h-4 inline mr-2"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0V9a8 8 0 1115.356 2M15 15v5h.582M8.36 21.582A8 8 0 0019.418 15"
+            ></path>
+          </svg>
+          Refresh Data
+        </button>
+      </div>
+    </div>
+
+    <!-- Indicator Categories -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+      <!-- Moving Averages Card -->
+      <div class="card bg-white dark:bg-gray-800 shadow-lg border-0">
+        <div class="card-body p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              📈 Moving Averages
+            </h3>
+            <span
+              class="text-xs bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 px-2 py-1 rounded-full"
+              >Trend</span
+            >
+          </div>
+          <div class="space-y-3" id="moving-averages-summary">
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-gray-600 dark:text-gray-400"
+                >SMA20</span
+              >
+              <div class="text-right">
+                <span
+                  class="font-bold text-gray-900 dark:text-gray-100"
+                  data-sma20-value
+                  >Loading...</span
+                >
+                <div class="text-xs" data-sma20-trend>--</div>
+              </div>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-gray-600 dark:text-gray-400"
+                >EMA20</span
+              >
+              <div class="text-right">
+                <span
+                  class="font-bold text-gray-900 dark:text-gray-100"
+                  data-ema20-value
+                  >Loading...</span
+                >
+                <div class="text-xs" data-ema20-trend>--</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Oscillators Card -->
+      <div class="card bg-white dark:bg-gray-800 shadow-lg border-0">
+        <div class="card-body p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              📊 Oscillators
+            </h3>
+            <span
+              class="text-xs bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300 px-2 py-1 rounded-full"
+              >Momentum</span
+            >
+          </div>
+          <div class="space-y-3" id="oscillators-summary">
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-gray-600 dark:text-gray-400">RSI</span>
+              <div class="text-right">
+                <span
+                  class="font-bold text-gray-900 dark:text-gray-100"
+                  data-rsi-value
+                  >Loading...</span
+                >
+                <div class="text-xs" data-rsi-status>--</div>
+              </div>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-gray-600 dark:text-gray-400"
+                >Stochastic</span
+              >
+              <div class="text-right">
+                <span
+                  class="font-bold text-gray-900 dark:text-gray-100"
+                  data-stoch-value
+                  >Loading...</span
+                >
+                <div class="text-xs" data-stoch-status>--</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Volatility Card -->
+      <div class="card bg-white dark:bg-gray-800 shadow-lg border-0">
+        <div class="card-body p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              📈 Volatility
+            </h3>
+            <span
+              class="text-xs bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-300 px-2 py-1 rounded-full"
+              >Support/Resistance</span
+            >
+          </div>
+          <div class="space-y-3" id="volatility-summary">
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-gray-600 dark:text-gray-400"
+                >Bollinger Upper</span
+              >
+              <div class="text-right">
+                <span
+                  class="font-bold text-gray-900 dark:text-gray-100"
+                  data-bb-upper
+                  >Loading...</span
+                >
+              </div>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-gray-600 dark:text-gray-400"
+                >Bollinger Lower</span
+              >
+              <div class="text-right">
+                <span
+                  class="font-bold text-gray-900 dark:text-gray-100"
+                  data-bb-lower
+                  >Loading...</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detailed Indicators Table -->
+    <div class="card bg-white dark:bg-gray-800 shadow-lg border-0">
+      <div class="card-body p-6">
+        <div
+          class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6"
+        >
+          <h2
+            class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4 sm:mb-0"
+          >
+            📊 Complete Indicator Analysis
+          </h2>
+          <div class="flex items-center gap-2">
+            <span
+              class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded"
+              >Last 10 Values</span
+            >
+          </div>
+        </div>
+
+        <!-- Table Container -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-200 dark:border-gray-700">
+                <th
+                  class="text-left py-4 px-2 text-gray-600 dark:text-gray-400 font-semibold"
+                >
+                  Indicator
+                </th>
+                <th
+                  class="text-center py-4 px-2 text-gray-600 dark:text-gray-400 font-semibold"
+                >
+                  Current Value
+                </th>
+                <th
+                  class="text-center py-4 px-2 text-gray-600 dark:text-gray-400 font-semibold"
+                >
+                  Trend
+                </th>
+                <th
+                  class="text-center py-4 px-2 text-gray-600 dark:text-gray-400 font-semibold"
+                >
+                  Signal
+                </th>
+                <th
+                  class="text-center py-4 px-2 text-gray-600 dark:text-gray-400 font-semibold"
+                >
+                  Strength
+                </th>
+              </tr>
+            </thead>
+            <tbody id="indicators-table-body">
+              <!-- Dynamic content will be inserted here -->
+              <tr>
+                <td
+                  colspan="5"
+                  class="py-8 text-center text-gray-500 dark:text-gray-400"
+                >
+                  <div class="flex items-center justify-center">
+                    <div
+                      class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"
+                    ></div>
+                    Loading technical indicators...
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Historical Performance -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+      <!-- Indicator Performance Chart -->
+      <div class="card bg-white dark:bg-gray-800 shadow-lg border-0">
+        <div class="card-body p-6">
+          <h3
+            class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4"
+          >
+            📈 RSI Trend (24h)
+          </h3>
+          <div
+            class="h-64 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-600 rounded-lg flex items-center justify-center"
+            id="rsi-chart"
+          >
+            <div class="text-center text-gray-500 dark:text-gray-400">
+              <div class="text-4xl mb-2">📊</div>
+              <p>RSI Chart Coming Soon</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MACD Analysis -->
+      <div class="card bg-white dark:bg-gray-800 shadow-lg border-0">
+        <div class="card-body p-6">
+          <h3
+            class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4"
+          >
+            📉 MACD Analysis
+          </h3>
+          <div class="space-y-4">
+            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+              <div class="flex justify-between items-center mb-2">
+                <span class="font-semibold text-gray-700 dark:text-gray-300"
+                  >MACD Line</span
+                >
+                <span
+                  class="font-bold text-blue-600 dark:text-blue-400"
+                  data-macd-line
+                  >Loading...</span
+                >
+              </div>
+              <div class="flex justify-between items-center mb-2">
+                <span class="font-semibold text-gray-700 dark:text-gray-300"
+                  >Signal Line</span
+                >
+                <span
+                  class="font-bold text-purple-600 dark:text-purple-400"
+                  data-macd-signal
+                  >Loading...</span
+                >
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="font-semibold text-gray-700 dark:text-gray-300"
+                  >Histogram</span
+                >
+                <span class="font-bold" data-macd-histogram>Loading...</span>
+              </div>
+            </div>
+            <div
+              class="text-center p-4 border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-lg"
+            >
+              <div class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                Overall MACD Signal
+              </div>
+              <div class="text-lg font-bold" data-macd-overall-signal>
+                Analyzing...
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- ========== END TECHNICAL INDICATORS PAGE ========== -->

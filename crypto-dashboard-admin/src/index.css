@@ -309,3 +309,33 @@ body.sidebar-open {
   z-index: calc(var(--z-header) + 1) !important;
   position: relative !important;
 }
+
+/* =========================
+   Logout Modal Animations
+   ========================= */
+#logout-modal {
+  transition: opacity 0.3s ease-in-out;
+}
+
+#logout-modal.animate-in {
+  opacity: 1;
+}
+
+#logout-modal.animate-in .bg-white {
+  transform: scale(1);
+  transition: transform 0.3s ease-out;
+}
+
+#logout-modal .bg-white {
+  transform: scale(0.95);
+  transition: transform 0.3s ease-out;
+}
+
+#logout-modal.animate-out {
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+}
+
+#logout-modal.animate-out .bg-white {
+  transform: scale(0.95);
+}
