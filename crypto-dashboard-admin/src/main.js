@@ -6,6 +6,7 @@ import { DashboardPage } from "./pages/dashboard.page.js";
 import { IndicatorsPage } from "./pages/indicators.page.js";
 import { SignalsPage } from "./pages/signals.page.js";
 import { MarketCapPage } from "./pages/marketcap.page.js";
+import { ComparisonPage } from "./pages/comparison.page.js";
 
 console.log("✅ Vite + Tailwind setup works!");
 
@@ -149,6 +150,9 @@ function getPageInstance(pageName) {
         break;
       case "signals":
         PageClass = SignalsPage;
+        break;
+      case "comparison":
+        PageClass = ComparisonPage;
         break;
       case "marketcap":
         PageClass = MarketCapPage;

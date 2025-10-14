@@ -73,10 +73,10 @@ export class ApiService {
     );
   }
 
-  async fetchCandles(symbol = "BTC-USD", timeframe = "1h") {
+  async fetchCandles(symbol = "BTC-USD") {
     return this.fetchWithCache(
-      `${this.baseURL}/chart/${symbol}?timeframe=${timeframe}`,
-      `candles_${symbol}_${timeframe}`
+      `${this.baseURL}/chart/${symbol}`,
+      `candles_${symbol}`
     );
   }
 
@@ -92,6 +92,88 @@ export class ApiService {
     return this.fetchWithCache(
       `${this.baseURL}/indicators/${symbol}`,
       `indicators_${symbol}`
+    );
+  }
+
+  async fetchComparison(requestBody) {
+    try {
+      console.log(`🔍 Fetching comparison data:`, requestBody);
+      const response = await fetch(`${this.baseURL}/comparison/compare`, {
+        method: "POST",
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(30000), // 30 second timeout for comparisons
+      });
+
+      if (response.status === 401) {
+        // Unauthorized - redirect to login
+        console.log("🔒 Unauthorized access, redirecting to login...");
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("userId");
+        localStorage.removeItem("userEmail");
+        window.location.href = "/src/pages/login.html";
+        return null;
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.message || `HTTP error! status: ${response.status}`
+        );
+      }
+
+      const data = await response.json();
+      console.log(`✅ Comparison data fetched successfully:`, data);
+      return data;
+    } catch (error) {
+      console.error(`❌ Error fetching comparison:`, error);
+      throw error;
+    }
+  }
+
+  async fetchQuickComparison(symbol, preset = "balanced", days = 30) {
+    try {
+      console.log(`🚀 Fetching quick comparison: ${symbol} - ${preset}`);
+      const response = await fetch(`${this.baseURL}/comparison/quick`, {
+        method: "POST",
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({ symbol, preset, days }),
+        signal: AbortSignal.timeout(20000), // 20 second timeout
+      });
+
+      if (response.status === 401) {
+        localStorage.clear();
+        window.location.href = "/src/pages/login.html";
+        return null;
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.message || `HTTP error! status: ${response.status}`
+        );
+      }
+
+      const data = await response.json();
+      console.log(`✅ Quick comparison completed:`, data);
+      return data;
+    } catch (error) {
+      console.error(`❌ Error in quick comparison:`, error);
+      throw error;
+    }
+  }
+
+  async fetchAvailableIndicators(symbol = "BTC-USD") {
+    return this.fetchWithCache(
+      `${this.baseURL}/comparison/indicators/${symbol}`,
+      `available_indicators_${symbol}`
+    );
+  }
+
+  async fetchComparisonStats() {
+    return this.fetchWithCache(
+      `${this.baseURL}/comparison/stats`,
+      "comparison_stats"
     );
   }
 
