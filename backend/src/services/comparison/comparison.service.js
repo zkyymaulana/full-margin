@@ -18,8 +18,8 @@ function convertDateToBigInt(dateString) {
       timestamp = parseInt(dateString);
     }
 
-    // Convert milliseconds to microseconds (add 3 zeros)
-    return BigInt(timestamp * 1000);
+    // ✅ PERBAIKAN: Langsung gunakan milidetik, tidak perlu dikali 1000
+    return BigInt(timestamp);
   } catch (error) {
     throw new Error(
       `Invalid date format: ${dateString}. Expected format: YYYY-MM-DD or timestamp`
@@ -128,7 +128,7 @@ export async function compareStrategies(symbol, start, end) {
   console.log(`📅 Date range: ${start} to ${end}`);
   console.log(`🔢 Converted to: ${startTime} to ${endTime}`);
 
-  // Get indicator data from database
+  // ✅ PERBAIKAN: Get indicator data dengan order DESC untuk data terbaru
   const data = await prisma.indicator.findMany({
     where: {
       symbol,
@@ -137,7 +137,7 @@ export async function compareStrategies(symbol, start, end) {
         lte: endTime,
       },
     },
-    orderBy: { time: "asc" },
+    orderBy: { time: "desc" }, // ✅ Ubah ke DESC untuk data terbaru dulu
     take: 2000,
   });
 
@@ -158,7 +158,7 @@ export async function compareStrategies(symbol, start, end) {
         lte: endTime,
       },
     },
-    orderBy: { time: "asc" },
+    orderBy: { time: "desc" }, // ✅ Konsisten dengan indicator order
   });
 
   const candleMap = new Map(
@@ -189,7 +189,7 @@ export async function compareStrategies(symbol, start, end) {
     );
   }
 
-  // Multi indicator strategy
+  // ✅ PERBAIKAN: Multi indicator strategy dengan timestamp yang konsisten
   const weights = {
     rsi: 3,
     macd: 2,
@@ -199,8 +199,17 @@ export async function compareStrategies(symbol, start, end) {
     stoch: 2,
   };
 
-  const multiSignals = data.map((item) => analyzeMultiIndicator(item, weights));
-  const multiResult = calculateBacktest(multiSignals, candleMap, data);
+  // ✅ PERBAIKAN: Buat signal dengan waktu yang sejajar dengan indicator
+  const multiSignals = data.map((item) => ({
+    time: Number(item.time), // ✅ Gunakan waktu indicator langsung
+    signal: analyzeMultiIndicator(item, weights),
+  }));
+
+  const multiResult = calculateBacktest(
+    multiSignals.map((s) => s.signal),
+    candleMap,
+    data
+  );
 
   console.log(
     `🔥 Multi-indicator: ROI ${multiResult.roi}%, Win Rate ${multiResult.winRate}%, Trades ${multiResult.trades}`
@@ -221,6 +230,7 @@ export async function compareStrategies(symbol, start, end) {
   return {
     single: singleResults,
     multi: multiResult,
+    multiSignals, // ✅ Return signals dengan timestamp yang benar
     bestStrategy,
     bestSingleIndicator: bestSingleIndicator.indicator,
   };
