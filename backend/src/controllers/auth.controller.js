@@ -1,18 +1,10 @@
-import { loginService, logoutService } from "../services/auth.service.js";
+import { loginService, logoutService } from "../services/auth/auth.service.js";
 import { verifyToken } from "../utils/jwt.js";
 
 export async function login(req, res) {
   try {
     const { email, password } = req.body;
-    const ipAddress = req.ip;
-    const userAgent = req.headers["user-agent"];
-
-    const { token, user } = await loginService(
-      email,
-      password,
-      ipAddress,
-      userAgent
-    );
+    const { token, user } = await loginService(email, password);
 
     res.json({
       success: true,
@@ -32,18 +24,19 @@ export async function login(req, res) {
 
 export async function logout(req, res) {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader)
-      return res.status(401).json({ message: "Token tidak ditemukan" });
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token)
+      return res
+        .status(401)
+        .json({ success: false, message: "Token tidak ditemukan" });
 
-    const token = authHeader.split(" ")[1];
     const decoded = verifyToken(token);
-    if (!decoded) return res.status(401).json({ message: "Token tidak valid" });
+    if (!decoded)
+      return res
+        .status(401)
+        .json({ success: false, message: "Token tidak valid" });
 
-    const ipAddress = req.ip;
-    const userAgent = req.headers["user-agent"];
-    await logoutService(decoded.id, ipAddress, userAgent);
-
+    await logoutService(decoded.id);
     res.json({ success: true, message: "Logout berhasil" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

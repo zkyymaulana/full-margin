@@ -22,8 +22,6 @@ model AuthLog {
   id         Int      @id @default(autoincrement())
   userId     Int
   action     String   // "login" atau "logout"
-  ipAddress  String?
-  userAgent  String?
   createdAt  DateTime @default(now())
   user       User     @relation(fields: [userId], references: [id])
 }
@@ -32,6 +30,7 @@ model Coin {
   id        Int      @id @default(autoincrement())
   symbol    String   @unique
   name      String?
+  rank      Int?
   createdAt DateTime @default(now())
   candles   Candle[] @relation("CoinCandles")
 }
@@ -80,7 +79,9 @@ model Indicator {
   symbol     String
   timeframe  String   @default("1h")
   time       BigInt
+  sma5       Float?
   sma20      Float?
+  ema5       Float?
   ema20      Float?
   rsi        Float?
   macd       Float?

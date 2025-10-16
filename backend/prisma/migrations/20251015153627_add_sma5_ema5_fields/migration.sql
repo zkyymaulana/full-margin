@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Indicator" ADD COLUMN     "ema5" DOUBLE PRECISION,
+ADD COLUMN     "sma5" DOUBLE PRECISION;

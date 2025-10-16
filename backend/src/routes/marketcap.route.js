@@ -7,10 +7,7 @@ import {
 
 const router = express.Router();
 
-// Data dari DB (stabil)
 router.get("/", getMarketcap);
-
-// Data live langsung dari Coinbase
 router.get("/live", getMarketcapLiveController);
 
 export default router;
