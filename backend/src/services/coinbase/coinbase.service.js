@@ -46,11 +46,10 @@ export async function fetchHistoricalCandles(symbol, start, end) {
       });
       if (!Array.isArray(data)) throw new Error("Invalid response format");
 
-      // ✅ PERBAIKAN: Coinbase format: [time, low, high, open, close, volume]
-      // Simpan time dalam DETIK (bukan milidetik)
+      // ✅ PERBAIKAN: Coinbase memberikan timestamp dalam detik, konversi ke milidetik
       const candles = data
         .map(([t, low, high, open, close, volume]) => ({
-          time: t, // ✅ Sudah dalam detik dari Coinbase
+          time: t * 1000, // ✅ Konversi dari detik ke milidetik (13 digit)
           open,
           high,
           low,
@@ -58,7 +57,7 @@ export async function fetchHistoricalCandles(symbol, start, end) {
           volume,
         }))
         // Hanya ambil candle yang sudah close penuh
-        .filter((c) => c.time < Math.floor(Date.now() / 1000) - HOUR_SEC);
+        .filter((c) => c.time < Date.now() - HOUR_MS);
 
       if (candles.length > 0) {
         allCandles.push(...candles.reverse()); // urut lama → baru

@@ -7,10 +7,9 @@ import {
 import { calculateAndSaveIndicators } from "../indicators/indicator.service.js"; // ✅ Import indicator service
 
 /* =========================
-   🕒 TIME UTILITIES (dalam DETIK)
+   🕒 TIME UTILITIES (dalam MILIDETIK)
 ========================= */
-const HOUR_SEC = 3600; // 1 jam = 3600 detik
-const HOUR_MS = HOUR_SEC * 1000; // untuk Date operations
+const HOUR_MS = 3600000; // 1 jam = 3600000 milidetik
 const INTERVAL_MS = Number(process.env.LIVE_INTERVAL_MS) || 30000;
 const START_EPOCH_MS = Number(process.env.START_EPOCH_MS) || 1704067200000; // 1 Jan 2024
 
@@ -18,10 +17,6 @@ function getLastClosedHourlyCandleEndTime() {
   const now = Date.now();
   const lastHour = Math.floor(now / HOUR_MS) * HOUR_MS;
   return lastHour - HOUR_MS; // candle sebelumnya yang sudah close
-}
-
-function convertMsToSec(ms) {
-  return Math.floor(ms / 1000); // ✅ Convert milidetik ke detik
 }
 
 /* =========================

@@ -169,7 +169,7 @@ export async function getIndicators(req, res) {
       const currentPrice = candleMap.get(item.time.toString()) || null;
 
       return {
-        time: Number(item.time), // ✅ PERBAIKAN: Convert ke number untuk konsistensi format detik
+        time: Number(item.time), // ✅ PERBAIKAN: Convert ke number (milidetik) untuk konsistensi
         movingAverages: {
           ma5: item.sma5,
           ma20: item.sma20,

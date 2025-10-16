@@ -98,7 +98,7 @@ export async function saveCandlesToDB(symbol, coinId, candles) {
     const data = candles.map((c) => ({
       symbol,
       timeframe: "1h",
-      time: BigInt(c.time), // ✅ PERBAIKAN: Simpan dalam detik (bukan dikali 1000)
+      time: BigInt(c.time), // ✅ PERBAIKAN: Langsung gunakan milidetik dari candle.time
       open: c.open,
       high: c.high,
       low: c.low,

@@ -50,15 +50,15 @@ export async function getChart(req, res) {
       `🔍 Found ${allIndicators.length} total indicators for ${symbol}`
     );
 
-    // ✅ PERBAIKAN: Gunakan toleransi waktu 3600 detik (1 jam) untuk matching
+    // ✅ PERBAIKAN: Gunakan toleransi waktu 1 jam (3600000 milidetik) untuk matching
     const merged = chartData.candles.map((candle) => {
       const candleTime = Number(candle.time);
 
-      // Cari indicator dengan toleransi ±3600 detik (1 jam)
+      // Cari indicator dengan toleransi ±1 jam dalam milidetik
       const indicator = allIndicators.find((ind) => {
         const indicatorTime = Number(ind.time);
         const timeDiff = Math.abs(candleTime - indicatorTime);
-        return timeDiff < 3600; // Toleransi 1 jam
+        return timeDiff < 3600000; // ✅ Toleransi 1 jam dalam milidetik
       });
 
       return {
@@ -119,7 +119,7 @@ export async function getChart(req, res) {
             const indicator = newIndicators.find((ind) => {
               const indicatorTime = Number(ind.time);
               const timeDiff = Math.abs(candleTime - indicatorTime);
-              return timeDiff < 3600;
+              return timeDiff < 3600000; // ✅ Toleransi 1 jam dalam milidetik
             });
 
             if (indicator) {
@@ -185,7 +185,7 @@ export async function getChart(req, res) {
   }
 }
 
-// ✅ PERBAIKAN: Simpan indicator dengan timestamp dalam detik (konsisten dengan candle)
+// ✅ PERBAIKAN: Simpan indicator dengan timestamp dalam milidetik (konsisten dengan candle)
 async function calculateIndicatorsForSpecificCandles(
   symbol,
   timeframe,
@@ -224,7 +224,7 @@ async function calculateIndicatorsForSpecificCandles(
 
   // Hitung indicator untuk setiap target candle
   for (const targetCandle of targetCandles) {
-    // ✅ PERBAIKAN: Pastikan format waktu konsisten
+    // ✅ PERBAIKAN: Pastikan format waktu konsisten dalam milidetik
     const targetTime = Number(targetCandle.time);
 
     // Cari index candle target dalam dataset lengkap
@@ -285,7 +285,7 @@ async function calculateIndicatorsForSpecificCandles(
     indicators.push({
       symbol,
       timeframe,
-      time: BigInt(targetTime), // ✅ PERBAIKAN: Simpan dalam format BigInt yang konsisten
+      time: BigInt(targetTime), // ✅ PERBAIKAN: Simpan dalam format BigInt (milidetik)
       sma5,
       sma20,
       ema5,

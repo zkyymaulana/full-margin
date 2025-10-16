@@ -308,11 +308,10 @@ export async function calculateAndSaveIndicators(
       }
     }
 
-    // ✅ PERBAIKAN: Ambil semua data candle yang tersedia (tanpa limit) untuk perhitungan yang akurat
+    // Ambil semua data candle yang tersedia untuk perhitungan yang akurat
     const allCandles = await prisma.candle.findMany({
       where: { symbol, timeframe },
       orderBy: { time: "asc" },
-      // Hapus limit untuk memastikan data cukup
     });
 
     if (allCandles.length === 0) {
@@ -324,7 +323,7 @@ export async function calculateAndSaveIndicators(
       `🔍 ${symbol}: Memproses ${allCandles.length} candle data untuk perhitungan indicator`
     );
 
-    // ✅ PERBAIKAN: Untuk mode incremental, tentukan candle mana yang perlu dihitung indicator-nya
+    // Untuk mode incremental, tentukan candle mana yang perlu dihitung indicator-nya
     let candlesToProcess = allCandles;
     if (mode === "incremental") {
       const lastIndicator = await prisma.indicator.findFirst({
@@ -345,15 +344,12 @@ export async function calculateAndSaveIndicators(
     }
 
     const indicators = [];
-    const closes = candlesToProcess.map((c) => c.close);
-    const highs = candlesToProcess.map((c) => c.high);
-    const lows = candlesToProcess.map((c) => c.low);
 
-    // ✅ Calculate indicators for each candle dengan data konteks yang cukup
+    // Calculate indicators for each candle dengan data konteks yang cukup
     for (let i = 0; i < candlesToProcess.length; i++) {
       const candle = candlesToProcess[i];
 
-      // ✅ PERBAIKAN: Untuk mode incremental, skip candle yang sudah ada indicator-nya
+      // Untuk mode incremental, skip candle yang sudah ada indicator-nya
       if (mode === "incremental") {
         const existingIndicator = await prisma.indicator.findFirst({
           where: { symbol, timeframe, time: candle.time },
@@ -361,7 +357,7 @@ export async function calculateAndSaveIndicators(
         if (existingIndicator) continue;
       }
 
-      // ✅ PERBAIKAN: Gunakan semua data dari awal untuk perhitungan yang akurat
+      // Gunakan semua data dari awal untuk perhitungan yang akurat
       const globalIndex = allCandles.findIndex((c) => c.time === candle.time);
       if (globalIndex === -1) continue;
 
@@ -375,7 +371,7 @@ export async function calculateAndSaveIndicators(
         .slice(0, globalIndex + 1)
         .map((c) => c.low);
 
-      // ✅ Skip jika data tidak cukup untuk perhitungan indicator
+      // Skip jika data tidak cukup untuk perhitungan indicator
       if (currentCloses.length < 26) {
         console.log(
           `⏭️ ${symbol}: Skip candle ${globalIndex + 1}/${allCandles.length} - data tidak cukup (butuh min 26, ada ${currentCloses.length})`
@@ -387,7 +383,7 @@ export async function calculateAndSaveIndicators(
       const sma5 = calculateSMA(currentCloses, 5);
       const sma20 = calculateSMA(currentCloses, 20);
 
-      // ✅ PERBAIKAN: Untuk EMA, gunakan nilai sebelumnya yang sudah dihitung
+      // Untuk EMA, gunakan nilai sebelumnya yang sudah dihitung
       let ema5, ema20;
       if (indicators.length > 0) {
         ema5 = calculateEMA(
@@ -422,7 +418,7 @@ export async function calculateAndSaveIndicators(
       indicators.push({
         symbol,
         timeframe,
-        time: candle.time,
+        time: candle.time, // ✅ PERBAIKAN: Gunakan waktu candle langsung (milidetik)
         sma5,
         sma20,
         ema5,
@@ -440,7 +436,7 @@ export async function calculateAndSaveIndicators(
         psar,
       });
 
-      // ✅ Log progress untuk monitoring
+      // Log progress untuk monitoring
       if (indicators.length % 100 === 0) {
         console.log(
           `📊 ${symbol}: Processed ${indicators.length} indicators...`
@@ -455,7 +451,7 @@ export async function calculateAndSaveIndicators(
         skipDuplicates: true,
       });
 
-      // ✅ Log statistik hasil perhitungan
+      // Log statistik hasil perhitungan
       const validIndicators = indicators.filter(
         (ind) => ind.sma5 !== null || ind.rsi !== null || ind.macd !== null
       ).length;
