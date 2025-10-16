@@ -59,6 +59,37 @@ export async function getChartData(symbol, limit = 500, offset = 0) {
   };
 }
 
+/** 🔹 Ambil candle dari DB dengan pagination - Data Terbaru Dulu */
+export async function getChartDataNewest(symbol, limit = 1000, offset = 0) {
+  const total = await getCandleCount(symbol);
+  const candles = await prisma.candle.findMany({
+    where: { symbol, timeframe: "1h" },
+    orderBy: { time: "desc" }, // ✅ DESC untuk data terbaru dulu
+    skip: offset,
+    take: limit,
+    select: {
+      time: true,
+      open: true,
+      high: true,
+      low: true,
+      close: true,
+      volume: true,
+    },
+  });
+
+  return {
+    total,
+    candles: candles.map((c) => ({
+      time: c.time, // ✅ Gunakan format BigInt asli dari database
+      open: c.open,
+      high: c.high,
+      low: c.low,
+      close: c.close,
+      volume: c.volume,
+    })),
+  };
+}
+
 /** 🔹 Simpan candles ke DB (dipakai scheduler otomatis) */
 export async function saveCandlesToDB(symbol, coinId, candles) {
   try {
@@ -67,7 +98,7 @@ export async function saveCandlesToDB(symbol, coinId, candles) {
     const data = candles.map((c) => ({
       symbol,
       timeframe: "1h",
-      time: BigInt(c.time * 1000),
+      time: BigInt(c.time), // ✅ PERBAIKAN: Simpan dalam detik (bukan dikali 1000)
       open: c.open,
       high: c.high,
       low: c.low,

@@ -116,10 +116,9 @@ export async function getMarketcapRealtime() {
  */
 export async function getMarketcapLive() {
   try {
-    // ✅ PERBAIKAN: Urutkan berdasarkan rank agar yang teratas muncul duluan
+    // ✅ PERBAIKAN: Urutkan berdasarkan rank agar yang teratas muncul duluan dan hapus limit
     const coins = await prisma.coin.findMany({
-      take: 100,
-      orderBy: { rank: "asc" }, // Urutkan berdasarkan rank
+      orderBy: { rank: "asc" }, // ✅ Tampilkan semua coin, urutkan berdasarkan rank
     });
 
     if (!coins.length)
@@ -133,7 +132,7 @@ export async function getMarketcapLive() {
       const t = await fetchTicker(c.symbol);
       if (t)
         results.push({
-          rank: c.rank, // ✅ Sertakan rank dalam response
+          rank: c.rank,
           name: c.name,
           symbol: t.symbol,
           price: t.price,
@@ -145,12 +144,52 @@ export async function getMarketcapLive() {
         });
     }
 
+    // ✅ Urutkan hasil berdasarkan rank (terkecil = teratas)
+    results.sort((a, b) => (a.rank || 999999) - (b.rank || 999999));
+
     console.log(
-      `✅ ${results.length} data live berhasil diambil (dengan rank).`
+      `✅ ${results.length} data live berhasil diambil (dengan rank, semua data).`
     );
     return { success: true, total: results.length, data: results };
   } catch (e) {
     console.error("❌ Live error:", e.message);
+    return { success: false, message: e.message };
+  }
+}
+
+/**
+ * 🔍 Debug function untuk cek rank coin yang tersimpan
+ */
+export async function debugCoinRanks() {
+  try {
+    const coins = await prisma.coin.findMany({
+      select: { symbol: true, name: true, rank: true },
+      orderBy: { rank: "asc" },
+      // ✅ Hapus take untuk tampilkan semua
+    });
+
+    console.log("\n📋 All Coins dengan Rank:");
+    coins.forEach((coin) => {
+      console.log(
+        `${coin.rank || "NULL"}: ${coin.symbol} - ${coin.name || "Unknown"}`
+      );
+    });
+
+    const withoutRank = await prisma.coin.count({
+      where: { rank: null },
+    });
+
+    console.log(`\n⚠️ Coin tanpa rank: ${withoutRank}`);
+
+    return {
+      success: true,
+      coinsWithRank: coins.filter((c) => c.rank !== null).length,
+      coinsWithoutRank: withoutRank,
+      total: coins.length,
+      data: coins,
+    };
+  } catch (e) {
+    console.error("❌ Debug error:", e.message);
     return { success: false, message: e.message };
   }
 }
@@ -177,7 +216,7 @@ export async function getCoinLiveDetail(symbol) {
         symbol,
         price: coin.candles[0].close,
         volume: coin.candles[0].volume,
-        time: Number(coin.candles[0].time),
+        time: Number(coin.candles[0].time), // ✅ PERBAIKAN: Convert ke detik untuk konsistensi
       },
     };
   } catch (e) {

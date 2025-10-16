@@ -477,12 +477,12 @@ export async function calculateAndSaveIndicators(
 
 export async function getRecentIndicators(
   symbol,
-  limit = 500,
+  limit = 2000, // ✅ Increase default limit
   timeframe = "1h"
 ) {
   return prisma.indicator.findMany({
     where: { symbol, timeframe },
-    orderBy: { time: "desc" },
+    orderBy: { time: "desc" }, // ✅ DESC untuk data terbaru dulu
     take: limit,
   });
 }

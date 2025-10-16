@@ -98,12 +98,12 @@ export async function getIndicators(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
     const timeframe = req.query.timeframe || "1h";
-    const limit = Math.min(2000, parseInt(req.query.limit) || 500);
+    const limit = Math.min(10000, parseInt(req.query.limit) || 2000); // ✅ Increase default to 2000
 
     // ✅ Cek apakah ada indicator data, jika tidak ada maka hitung otomatis
     let data = await prisma.indicator.findMany({
       where: { symbol, timeframe },
-      orderBy: { time: "desc" },
+      orderBy: { time: "desc" }, // ✅ DESC untuk data terbaru dulu
       take: limit,
     });
 
@@ -130,7 +130,7 @@ export async function getIndicators(req, res) {
         // Ambil data indicator yang baru dihitung
         data = await prisma.indicator.findMany({
           where: { symbol, timeframe },
-          orderBy: { time: "desc" },
+          orderBy: { time: "desc" }, // ✅ DESC untuk data terbaru dulu
           take: limit,
         });
 
@@ -156,7 +156,7 @@ export async function getIndicators(req, res) {
         timeframe,
         time: { in: data.map((d) => d.time) },
       },
-      orderBy: { time: "asc" },
+      orderBy: { time: "desc" }, // ✅ DESC untuk konsistensi
     });
 
     // Create a map for quick candle lookup
@@ -165,12 +165,11 @@ export async function getIndicators(req, res) {
     );
 
     // Transform data to organize by indicator categories with signals
-    const organizedData = data.reverse().map((item) => {
+    const organizedData = data.map((item) => {
       const currentPrice = candleMap.get(item.time.toString()) || null;
 
       return {
-        time: item.time,
-        timestamp: new Date(Number(item.time)).toISOString(),
+        time: Number(item.time), // ✅ PERBAIKAN: Convert ke number untuk konsistensi format detik
         movingAverages: {
           ma5: item.sma5,
           ma20: item.sma20,
@@ -222,7 +221,7 @@ export async function getIndicators(req, res) {
       symbol,
       timeframe,
       total: organizedData.length,
-      data: organizedData,
+      data: organizedData, // ✅ Data sudah dalam urutan terbaru dulu
     });
   } catch (err) {
     console.error(`❌ getIndicators error:`, err.message);

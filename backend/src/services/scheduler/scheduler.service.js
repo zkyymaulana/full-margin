@@ -5,18 +5,29 @@ import {
   saveCandlesToDB,
 } from "../charts/chartdata.service.js";
 import { calculateAndSaveIndicators } from "../indicators/indicator.service.js"; // ✅ Import indicator service
-import { getLastClosedHourlyCandleEndTime } from "../../utils/time.js";
+
+/* =========================
+   🕒 TIME UTILITIES (dalam DETIK)
+========================= */
+const HOUR_SEC = 3600; // 1 jam = 3600 detik
+const HOUR_MS = HOUR_SEC * 1000; // untuk Date operations
+const INTERVAL_MS = Number(process.env.LIVE_INTERVAL_MS) || 30000;
+const START_EPOCH_MS = Number(process.env.START_EPOCH_MS) || 1704067200000; // 1 Jan 2024
+
+function getLastClosedHourlyCandleEndTime() {
+  const now = Date.now();
+  const lastHour = Math.floor(now / HOUR_MS) * HOUR_MS;
+  return lastHour - HOUR_MS; // candle sebelumnya yang sudah close
+}
+
+function convertMsToSec(ms) {
+  return Math.floor(ms / 1000); // ✅ Convert milidetik ke detik
+}
 
 /* =========================
    ⚙️ ENV & KONST
 ========================= */
-const START_EPOCH_MS = Date.parse(
-  process.env.CANDLE_START_DATE || "2024-01-01T00:00:00Z"
-);
-const INTERVAL_MS =
-  (Number(process.env.CANDLE_UPDATE_INTERVAL_SEC) || 3) * 1000;
 const COIN_LIMIT = Number(process.env.COIN_LIMIT) || 100;
-const HOUR_MS = 3600 * 1000;
 
 // ⬇️ jeda antar coin saat historical (agar super-aman dari 429)
 const HISTORICAL_COIN_DELAY_MS =
