@@ -79,10 +79,10 @@ model Indicator {
   symbol     String
   timeframe  String   @default("1h")
   time       BigInt
-  sma5       Float?
-  sma20      Float?
-  ema5       Float?
-  ema20      Float?
+  sma20      Float? 
+  sma50      Float? 
+  ema20      Float? 
+  ema50      Float?  
   rsi        Float?
   macd       Float?
   macdSignal Float?

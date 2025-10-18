@@ -68,23 +68,68 @@ export async function getChart(req, res) {
         low: candle.low,
         close: candle.close,
         volume: candle.volume,
+        // ✅ REFACTORED: Academic structure (Romo et al. 2025 & Sukma & Namahoot 2025)
         indicators: indicator
           ? {
-              sma5: indicator.sma5,
-              sma20: indicator.sma20,
-              ema5: indicator.ema5,
-              ema20: indicator.ema20,
-              rsi: indicator.rsi,
-              macd: indicator.macd,
-              macdSignal: indicator.macdSignal,
-              macdHist: indicator.macdHist,
-              bbUpper: indicator.bbUpper,
-              bbLower: indicator.bbLower,
-              stochK: indicator.stochK,
-              stochD: indicator.stochD,
-              stochRsiK: indicator.stochRsiK,
-              stochRsiD: indicator.stochRsiD,
-              psar: indicator.psar,
+              // ✅ SMA Group (Romo et al. 2025) - Independent from EMA
+              sma: {
+                20: indicator.sma20,
+                50: indicator.sma50,
+              },
+
+              // ✅ EMA Group (Momentum confirmation) - Independent from SMA
+              ema: {
+                20: indicator.ema20,
+                50: indicator.ema50,
+              },
+
+              // ✅ RSI Group (Zatwarnicki et al. 2023)
+              rsi: {
+                14: indicator.rsi,
+              },
+
+              // ✅ MACD Group (Sukma & Namahoot 2025)
+              macd: {
+                fast: 12,
+                slow: 26,
+                signal: 9,
+                macd: indicator.macd,
+                signalLine: indicator.macdSignal,
+                histogram: indicator.macdHist,
+              },
+
+              // ✅ Bollinger Bands Group
+              bollingerBands: {
+                period: 20,
+                multiplier: 2,
+                upper: indicator.bbUpper,
+                lower: indicator.bbLower,
+              },
+
+              // ✅ Stochastic Group
+              stochastic: {
+                kPeriod: 14,
+                dPeriod: 3,
+                "%K": indicator.stochK,
+                "%D": indicator.stochD,
+              },
+
+              // ✅ Stochastic RSI Group
+              stochasticRsi: {
+                rsiPeriod: 14,
+                stochPeriod: 14,
+                kPeriod: 3,
+                dPeriod: 3,
+                "%K": indicator.stochRsiK,
+                "%D": indicator.stochRsiD,
+              },
+
+              // ✅ Parabolic SAR Group
+              parabolicSar: {
+                step: 0.02,
+                maxStep: 0.2,
+                value: indicator.psar,
+              },
             }
           : null,
       };
@@ -124,21 +169,65 @@ export async function getChart(req, res) {
 
             if (indicator) {
               merged[i].indicators = {
-                sma5: indicator.sma5,
-                sma20: indicator.sma20,
-                ema5: indicator.ema5,
-                ema20: indicator.ema20,
-                rsi: indicator.rsi,
-                macd: indicator.macd,
-                macdSignal: indicator.macdSignal,
-                macdHist: indicator.macdHist,
-                bbUpper: indicator.bbUpper,
-                bbLower: indicator.bbLower,
-                stochK: indicator.stochK,
-                stochD: indicator.stochD,
-                stochRsiK: indicator.stochRsiK,
-                stochRsiD: indicator.stochRsiD,
-                psar: indicator.psar,
+                // ✅ SMA Group (Romo et al. 2025) - Independent from EMA
+                sma: {
+                  20: indicator.sma20,
+                  50: indicator.sma50,
+                },
+
+                // ✅ EMA Group (Momentum confirmation) - Independent from SMA
+                ema: {
+                  20: indicator.ema20,
+                  50: indicator.ema50,
+                },
+
+                // ✅ RSI Group (Zatwarnicki et al. 2023)
+                rsi: {
+                  14: indicator.rsi,
+                },
+
+                // ✅ MACD Group (Sukma & Namahoot 2025)
+                macd: {
+                  fast: 12,
+                  slow: 26,
+                  signal: 9,
+                  macd: indicator.macd,
+                  signalLine: indicator.macdSignal,
+                  histogram: indicator.macdHist,
+                },
+
+                // ✅ Bollinger Bands Group
+                bollingerBands: {
+                  period: 20,
+                  multiplier: 2,
+                  upper: indicator.bbUpper,
+                  lower: indicator.bbLower,
+                },
+
+                // ✅ Stochastic Group
+                stochastic: {
+                  kPeriod: 14,
+                  dPeriod: 3,
+                  "%K": indicator.stochK,
+                  "%D": indicator.stochD,
+                },
+
+                // ✅ Stochastic RSI Group
+                stochasticRsi: {
+                  rsiPeriod: 14,
+                  stochPeriod: 14,
+                  kPeriod: 3,
+                  dPeriod: 3,
+                  "%K": indicator.stochRsiK,
+                  "%D": indicator.stochRsiD,
+                },
+
+                // ✅ Parabolic SAR Group
+                parabolicSar: {
+                  step: 0.02,
+                  maxStep: 0.2,
+                  value: indicator.psar,
+                },
               };
             }
           }
@@ -237,10 +326,10 @@ async function calculateIndicatorsForSpecificCandles(
       continue;
     }
 
-    // Skip jika tidak ada cukup data historis
-    if (targetIndex < 25) {
+    // Skip jika tidak ada cukup data historis untuk SMA50
+    if (targetIndex < 49) {
       console.log(
-        `⏭️ Skip candle ${targetIndex + 1} - insufficient historical data`
+        `⏭️ Skip candle ${targetIndex + 1} - insufficient historical data for SMA50`
       );
       continue;
     }
@@ -251,30 +340,33 @@ async function calculateIndicatorsForSpecificCandles(
     const highs = historicalData.map((c) => c.high);
     const lows = historicalData.map((c) => c.low);
 
-    // Calculate indicators
-    const sma5 = calculateSMA(closes, 5);
+    // ✅ UPDATED: Calculate only SMA 20/50 (removed SMA5)
     const sma20 = calculateSMA(closes, 20);
+    const sma50 = calculateSMA(closes, 50);
 
+    // ✅ UPDATED: Calculate EMA 20/50 (removed EMA5)
     // Untuk EMA, cari nilai sebelumnya jika ada
-    let prevEma5 = null,
-      prevEma20 = null;
+    let prevEma20 = null,
+      prevEma50 = null;
     if (targetIndex > 0) {
       const prevTime = Number(allCandles[targetIndex - 1].time);
       const prevIndicator = await prisma.indicator.findFirst({
         where: {
           symbol,
           timeframe,
-          time: BigInt(prevTime), // ✅ PERBAIKAN: Gunakan format yang konsisten
+          time: BigInt(prevTime),
         },
       });
       if (prevIndicator) {
-        prevEma5 = prevIndicator.ema5;
         prevEma20 = prevIndicator.ema20;
+        prevEma50 = prevIndicator.ema50;
       }
     }
 
-    const ema5 = calculateEMA(closes, 5, prevEma5);
     const ema20 = calculateEMA(closes, 20, prevEma20);
+    const ema50 = calculateEMA(closes, 50, prevEma50);
+
+    // ✅ Calculate other indicators (unchanged)
     const rsi = calculateRSI(closes, 14);
     const macd = calculateMACD(closes, 12, 26, 9);
     const bb = calculateBollingerBands(closes, 20, 2);
@@ -282,14 +374,15 @@ async function calculateIndicatorsForSpecificCandles(
     const stochRsi = calculateStochasticRSI(closes, 14, 14, 3, 3);
     const psar = calculateParabolicSAR(highs, lows, 0.02, 0.2);
 
+    // ✅ UPDATED: Store only SMA 20/50 and EMA 20/50
     indicators.push({
       symbol,
       timeframe,
-      time: BigInt(targetTime), // ✅ PERBAIKAN: Simpan dalam format BigInt (milidetik)
-      sma5,
-      sma20,
-      ema5,
-      ema20,
+      time: BigInt(targetTime),
+      sma20, // ✅ SMA 20
+      sma50, // ✅ SMA 50
+      ema20, // ✅ EMA 20
+      ema50, // ✅ EMA 50
       rsi,
       macd: macd.macd,
       macdSignal: macd.signal,

@@ -73,10 +73,10 @@ export class ApiService {
     );
   }
 
-  async fetchCandles(symbol = "BTC-USD") {
+  async fetchCandles(symbol = "BTC-USD", timeframe = "1h") {
     return this.fetchWithCache(
-      `${this.baseURL}/chart/${symbol}`,
-      `candles_${symbol}`
+      `${this.baseURL}/chart/${symbol}?timeframe=${timeframe}`,
+      `candles_${symbol}_${timeframe}`
     );
   }
 

@@ -65,7 +65,7 @@ export async function getMarketcapRealtime() {
 
     const matched = [];
     for (const coin of top) {
-      if (matched.length >= 100) break;
+      if (matched.length >= 10) break;
       const pair = BASES.map((b) => `${coin.symbol}-${b}`).find((p) =>
         pairs.has(p)
       );
