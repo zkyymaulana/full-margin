@@ -6,6 +6,7 @@ import { DashboardPage } from "./pages/dashboard.page.js";
 import { IndicatorsPage } from "./pages/indicators.page.js";
 import { MarketCapPage } from "./pages/marketcap.page.js";
 import { ComparisonPage } from "./pages/comparison.page.js";
+import { initSearchBar } from "./js/searchbar.js";
 
 console.log("✅ Vite + Tailwind setup works!");
 
@@ -29,42 +30,40 @@ async function loadComponent(targetId, filePath) {
   try {
     console.log(`🌐 Loading component: ${filePath}`);
 
-    // Add auth headers if available
     const headers = {};
     if (authMiddleware) {
       Object.assign(headers, authMiddleware.getAuthHeader());
     }
 
     const response = await fetch(filePath, { headers });
-    if (!response.ok) {
-      throw new Error(
-        `Failed to load ${filePath} - Status: ${response.status}`
-      );
-    }
+    if (!response.ok) throw new Error(`Failed to load ${filePath}`);
 
     const html = await response.text();
     el.innerHTML = html;
-
     console.log(`✅ Component loaded: ${filePath}`);
 
-    // Special handling for sidebar - initialize SidebarManager
-    if (targetId === "sidebar") {
-      console.log("🔧 Initializing modular sidebar functionality...");
-
-      // Wait for DOM to be ready, then initialize sidebar manager
+    // 🟢 Tambahkan ini → jalankan search bar hanya setelah header dimuat
+    if (targetId === "header") {
+      console.log("🔍 Initializing search bar...");
       setTimeout(() => {
-        if (!sidebarManager) {
-          sidebarManager = new SidebarManager();
-        }
-        sidebarManager.initialize();
+        initSearchBar();
+      }, 200);
+    }
 
-        // Make router globally accessible for sidebar
+    // Sidebar tetap seperti sebelumnya
+    if (targetId === "sidebar") {
+      console.log("🔧 Initializing sidebar...");
+      setTimeout(() => {
+        if (!sidebarManager) sidebarManager = new SidebarManager();
+        sidebarManager.initialize();
         window.router = router;
       }, 100);
     }
   } catch (err) {
     console.error(`❌ Error loading ${filePath}:`, err);
-    el.innerHTML = `<div class="p-4 bg-red-100 border border-red-400 text-red-700 rounded">Error loading component: ${err.message}</div>`;
+    el.innerHTML = `<div class="p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+      Error loading component: ${err.message}
+    </div>`;
   }
 }
 

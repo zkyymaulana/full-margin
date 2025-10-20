@@ -1,11 +1,8 @@
-/**
- * 🎯 Comparison Page Class - Manages strategy comparison functionality
- */
-import { ApiService } from "../services/api.service.js";
+import * as ApiService from "../services/api.service.js";
 
 export class ComparisonPage {
   constructor() {
-    this.apiService = new ApiService();
+    this.apiService = ApiService;
     this.currentComparison = null;
     this.progressInterval = null;
     this.isInitialized = false;

@@ -1,11 +1,8 @@
-/**
- * Indicators Page Module - Refactored for new API structure
- */
-import { ApiService } from "../services/api.service.js";
+import * as ApiService from "../services/api.service.js";
 
 export class IndicatorsPage {
   constructor() {
-    this.apiService = new ApiService();
+    this.apiService = ApiService;
     this.isActive = false;
     this.refreshInterval = null;
   }

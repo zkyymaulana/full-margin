@@ -35,11 +35,12 @@
 
   <div class="flex items-center gap-4">
     <!-- Search Bar -->
-    <div class="relative hidden md:block">
+    <div class="relative hidden md:block" id="search-container">
       <input
+        id="search-input"
         type="text"
         placeholder="Search crypto..."
-        class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+        class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm w-64"
       />
       <svg
         class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"
@@ -54,6 +55,12 @@
           d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
         ></path>
       </svg>
+
+      <!-- 🔽 Dropdown hasil pencarian -->
+      <div
+        id="search-results"
+        class="absolute mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg hidden z-50 max-h-60 overflow-y-auto"
+      ></div>
     </div>
 
     <!-- Notification -->

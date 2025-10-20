@@ -1,24 +1,21 @@
-/**
- * Market Cap Page Module
- */
-import { ApiService } from "../services/api.service.js";
+import * as ApiService from "../services/api.service.js";
 
 export class MarketCapPage {
   constructor() {
-    this.apiService = new ApiService();
+    this.apiService = ApiService;
     this.isActive = false;
     this.refreshInterval = null;
   }
 
   async initialize() {
     console.log("🪙 Initializing Market Cap page...");
-    
+
     // Prevent double initialization
     if (this.isActive) {
       console.log("⚠️ Market Cap already active, destroying first...");
       this.destroy();
     }
-    
+
     this.isActive = true;
 
     // Setup refresh button
@@ -42,7 +39,7 @@ export class MarketCapPage {
   destroy() {
     console.log("🧹 Destroying Market Cap page...");
     this.isActive = false;
-    
+
     // Stop auto-refresh
     if (this.refreshInterval) {
       clearInterval(this.refreshInterval);
@@ -55,7 +52,7 @@ export class MarketCapPage {
 
   cleanupDynamicElements() {
     // Remove any chart section containers if they exist from previous navigations
-    const existingChartContainer = document.getElementById('top-coins-display');
+    const existingChartContainer = document.getElementById("top-coins-display");
     if (existingChartContainer) {
       existingChartContainer.remove();
       console.log("🧹 Removed existing market cap chart container");

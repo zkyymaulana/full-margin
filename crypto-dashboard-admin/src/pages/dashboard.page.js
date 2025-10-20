@@ -1,4 +1,4 @@
-import { ApiService } from "../services/api.service.js";
+import * as ApiService from "../services/api.service.js";
 import { CandlestickChart } from "./chart.manager.js";
 
 export class DashboardPage {
@@ -13,7 +13,7 @@ export class DashboardPage {
     if (!_singletonBypass && window.__DashboardInstance)
       return window.__DashboardInstance;
 
-    this.apiService = new ApiService();
+    this.apiService = ApiService;
     this.chartManager = null;
     this.currentTimeframe = "1h";
 
