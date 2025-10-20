@@ -66,11 +66,58 @@ export class ApiService {
     }
   }
 
-  async fetchAnalysis(symbol = "BTC-USD") {
+  async fetchIndicator(symbol = "BTC-USD") {
     return this.fetchWithCache(
-      `${this.baseURL}/analysis/${symbol}`,
-      `analysis_${symbol}`
+      `${this.baseURL}/indicator/${symbol}`,
+      `indicator_${symbol}`
     );
+  }
+
+  async fetchMultiIndicator(symbol = "BTC-USD") {
+    try {
+      const cacheKey = `multi_indicator_${symbol}`;
+      const now = Date.now();
+      const cached = this.cache.get(cacheKey);
+
+      if (cached && now - cached.timestamp < this.cacheDuration) {
+        console.log(`📦 Using cached multi-indicator data for ${cacheKey}`);
+        return cached.data;
+      }
+
+      console.log(
+        `🌐 Fetching fresh multi-indicator data from ${this.baseURL}/multiIndicator/${symbol}`
+      );
+      const response = await fetch(`${this.baseURL}/multiIndicator/${symbol}`, {
+        method: "GET",
+        headers: this.getAuthHeaders(),
+        signal: AbortSignal.timeout(15000), // 15 second timeout for multi-indicator
+      });
+
+      if (response.status === 401) {
+        console.log("🔒 Unauthorized access, redirecting to login...");
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("userId");
+        localStorage.removeItem("userEmail");
+        window.location.href = "/src/pages/login.html";
+        return null;
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log(
+        `✅ Multi-indicator data fetched successfully for ${cacheKey}:`,
+        data
+      );
+      this.cache.set(cacheKey, { data, timestamp: now });
+      return data;
+    } catch (error) {
+      console.error(`❌ Error fetching multi-indicator ${symbol}:`, error);
+      const cached = this.cache.get(`multi_indicator_${symbol}`);
+      return cached ? cached.data : null;
+    }
   }
 
   async fetchCandles(symbol = "BTC-USD", timeframe = "1h") {
@@ -81,18 +128,21 @@ export class ApiService {
   }
 
   async fetchMarketCap() {
-    return this.fetchWithCache(`${this.baseURL}/marketcap`, "marketcap");
+    return this.fetchWithCache(
+      `${this.baseURL}/marketcap/live`,
+      "marketcap_live"
+    );
+  }
+
+  async fetchMarketCapLive() {
+    return this.fetchWithCache(
+      `${this.baseURL}/marketcap/live`,
+      "marketcap_live"
+    );
   }
 
   async fetchSignals() {
     return this.fetchWithCache(`${this.baseURL}/signals`, "signals");
-  }
-
-  async fetchIndicators(symbol = "BTC-USD") {
-    return this.fetchWithCache(
-      `${this.baseURL}/indicators/${symbol}`,
-      `indicators_${symbol}`
-    );
   }
 
   async fetchComparison(requestBody) {

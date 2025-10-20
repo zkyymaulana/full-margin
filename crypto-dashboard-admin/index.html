@@ -9,22 +9,22 @@
   <body class="bg-gray-50 text-gray-800">
     <!-- Header (paling atas, fixed) -->
     <header
-      class="fixed top-0 left-0 right-0 bg-white shadow-md w-full text-sm py-2 px-6 z-[100]"
+      class="sticky top-0 left-0 right-0 bg-white shadow-md w-full text-sm py-2 px-6 z-10"
     >
       <div id="header"></div>
     </header>
 
     <!-- Top Strip (di bawah header, sticky) -->
-    <div
+    <!-- <div
       class="app-topstrip z-40 py-[15px] px-6 bg-gradient-to-r from-purple-900 to-indigo-900"
     >
       <div id="topstrip"></div>
-    </div>
+    </div> -->
 
     <!-- Overlay untuk sidebar mobile -->
     <div
       id="sidebar-overlay"
-      class="fixed inset-0 bg-black bg-opacity-50 z-[9999] hidden xl:hidden"
+      class="fixed inset-0 bg-transparent bg-opacity-50 z-[9999] hidden xl:hidden"
     ></div>
 
     <!-- Wrapper utama -->
@@ -32,7 +32,7 @@
       <!-- Sidebar -->
       <aside
         id="application-sidebar-brand"
-        class="fixed xl:sticky xl:translate-x-0 -translate-x-full transform h-[calc(100vh-90px)] xl:z-auto w-[270px] shadow-md bg-white transition-transform duration-300 ease-in-out left-0 overflow-y-auto"
+        class="fixed xl:sticky xl:translate-x-0 -translate-x-full transform h-full xl:z-auto w-[270px] shadow-md bg-white transition-transform duration-300 ease-in-out left-0 overflow-y-auto"
       >
         <div id="sidebar"></div>
       </aside>

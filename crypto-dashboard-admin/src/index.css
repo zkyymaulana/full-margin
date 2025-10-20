@@ -245,9 +245,8 @@ header {
   #application-sidebar-brand {
     position: sticky !important;
     z-index: auto !important;
-    top: 120px;
+    top: 70px;
     transform: translateX(0) !important;
-    height: calc(100vh - 120px);
   }
 
   #sidebar-overlay {

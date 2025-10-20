@@ -3,6 +3,7 @@ import {
   getMarketcapRealtime,
   getMarketcapLive,
 } from "../services/market/marketcap.service.js";
+import { prisma } from "../lib/prisma.js";
 
 /**
  * GET /api/marketcap
@@ -62,6 +63,40 @@ export async function getMarketcapLiveController(req, res) {
     });
   } catch (err) {
     console.error("❌ Live ticker error:", err.message);
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+}
+
+/**
+ * GET /api/marketcap/symbol
+ * 🔹 Mengambil daftar semua symbol coin yang ada di database
+ */
+export async function getCoinSymbols(req, res) {
+  try {
+    console.log("📋 Mengambil daftar symbol coin dari database...");
+
+    const coins = await prisma.coin.findMany({
+      select: {
+        symbol: true,
+        name: true,
+        rank: true,
+      },
+      orderBy: {
+        rank: "asc",
+      },
+    });
+
+    res.json({
+      success: true,
+      message: "Berhasil mengambil daftar symbol coin.",
+      total: coins.length,
+      symbols: coins,
+    });
+  } catch (err) {
+    console.error("❌ Get coin symbols error:", err.message);
     res.status(500).json({
       success: false,
       message: err.message,

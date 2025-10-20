@@ -4,7 +4,6 @@ import { AuthMiddleware } from "./middleware/auth.middleware.js";
 import { SidebarManager } from "./js/sidebar.js";
 import { DashboardPage } from "./pages/dashboard.page.js";
 import { IndicatorsPage } from "./pages/indicators.page.js";
-import { SignalsPage } from "./pages/signals.page.js";
 import { MarketCapPage } from "./pages/marketcap.page.js";
 import { ComparisonPage } from "./pages/comparison.page.js";
 
@@ -148,9 +147,6 @@ function getPageInstance(pageName) {
       case "indicators":
         PageClass = IndicatorsPage;
         break;
-      case "signals":
-        PageClass = SignalsPage;
-        break;
       case "comparison":
         PageClass = ComparisonPage;
         break;
@@ -239,7 +235,7 @@ function setupAuthenticationEvents() {
 function showAuthNotification(user) {
   const notification = document.createElement("div");
   notification.className =
-    "fixed top-4 right-4 z-50 p-4 bg-green-500 text-white rounded-lg shadow-lg";
+    "fixed top-20 right-4 z-50 p-4 bg-green-500 text-white rounded-lg shadow-lg";
   notification.innerHTML = `
     <div class="flex items-center gap-2">
       <span class="text-lg">✅</span>

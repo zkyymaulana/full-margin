@@ -11,7 +11,30 @@ import { calculateAndSaveIndicators } from "../indicators/indicator.service.js";
 ========================= */
 const HOUR_MS = 3600000; // 1 jam = 3600000 milidetik
 const INTERVAL_MS = Number(process.env.LIVE_INTERVAL_MS) || 30000;
-const START_EPOCH_MS = Number(process.env.START_EPOCH_MS) || 1704067200000; // 1 Jan 2024
+
+// ✅ PERBAIKAN: Set default start date to 1 January 2020
+const DEFAULT_START_DATE = new Date("2020-01-01T00:00:00.000Z").getTime();
+
+// ✅ Perbaikan validasi START_EPOCH_MS
+let START_EPOCH_MS;
+if (process.env.CANDLE_START_DATE) {
+  const envDate = new Date(process.env.CANDLE_START_DATE).getTime();
+  if (isNaN(envDate) || envDate <= 0) {
+    console.error(
+      `❌ Invalid CANDLE_START_DATE: ${process.env.CANDLE_START_DATE}`
+    );
+    console.log(
+      `🔄 Using default start date: ${new Date(DEFAULT_START_DATE).toISOString()}`
+    );
+    START_EPOCH_MS = DEFAULT_START_DATE;
+  } else {
+    START_EPOCH_MS = envDate;
+  }
+} else {
+  START_EPOCH_MS = DEFAULT_START_DATE;
+}
+
+console.log(`📅 Candle start date: ${new Date(START_EPOCH_MS).toISOString()}`);
 
 function getLastClosedHourlyCandleEndTime() {
   const now = Date.now();
@@ -37,39 +60,53 @@ const schedulers = new Map();
   - Hitung indicator
 ========================= */
 async function backfillCoin(coinId, symbol) {
-  const lastSaved = await getLastCandleTime(symbol);
-  const lastClosed = getLastClosedHourlyCandleEndTime();
-
-  const start = lastSaved ? Number(lastSaved) + HOUR_MS : START_EPOCH_MS;
-  if (start >= lastClosed) {
-    console.log(`⏭️ ${symbol}: sudah up-to-date (historical)`);
-    return;
-  }
-
-  console.log(
-    `📦 Historical ${symbol}: ${new Date(start).toISOString()} → ${new Date(
-      lastClosed
-    ).toISOString()}`
-  );
-
-  const candles = await fetchHistoricalCandles(symbol, start, lastClosed);
-  if (!candles.length) {
-    console.log(`⚠️ ${symbol}: tidak ada candle historical baru`);
-    return;
-  }
-
-  await saveCandlesToDB(symbol, coinId, candles);
-  console.log(`✅ ${symbol}: ${candles.length} candle historical disimpan`);
-
-  // ✅ PERBAIKAN: Hitung indicator setelah candle disimpan
   try {
-    await calculateAndSaveIndicators(symbol, "1h", "incremental");
-    console.log(`📊 ${symbol}: indicator historical berhasil dihitung`);
-  } catch (err) {
-    console.error(
-      `❌ ${symbol}: gagal hitung indicator historical -`,
-      err.message
+    const lastSaved = await getLastCandleTime(symbol);
+    const lastClosed = getLastClosedHourlyCandleEndTime();
+
+    // ✅ PERBAIKAN: Validasi timestamps
+    const start = lastSaved ? Number(lastSaved) + HOUR_MS : START_EPOCH_MS;
+
+    if (isNaN(start) || isNaN(lastClosed)) {
+      console.error(
+        `❌ ${symbol}: Invalid timestamp - start: ${start}, lastClosed: ${lastClosed}`
+      );
+      return;
+    }
+
+    if (start >= lastClosed) {
+      console.log(`⏭️ ${symbol}: sudah up-to-date (historical)`);
+      return;
+    }
+
+    console.log(
+      `📦 Historical ${symbol}: ${new Date(start).toISOString()} → ${new Date(
+        lastClosed
+      ).toISOString()}`
     );
+
+    const candles = await fetchHistoricalCandles(symbol, start, lastClosed);
+    if (!candles.length) {
+      console.log(`⚠️ ${symbol}: tidak ada candle historical baru`);
+      return;
+    }
+
+    await saveCandlesToDB(symbol, coinId, candles);
+    console.log(`✅ ${symbol}: ${candles.length} candle historical disimpan`);
+
+    // ✅ PERBAIKAN: Hitung indicator setelah candle disimpan
+    try {
+      await calculateAndSaveIndicators(symbol, "1h", "incremental");
+      console.log(`📊 ${symbol}: indicator historical berhasil dihitung`);
+    } catch (err) {
+      console.error(
+        `❌ ${symbol}: gagal hitung indicator historical -`,
+        err.message
+      );
+    }
+  } catch (error) {
+    console.error(`❌ ${symbol}: Error in backfillCoin -`, error.message);
+    throw error;
   }
 }
 

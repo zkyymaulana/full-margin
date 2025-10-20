@@ -8,7 +8,6 @@ export class Router {
     this.routes = {
       dashboard: "/src/pages/dashboard.html",
       indicators: "/src/pages/indicators.html",
-      signals: "/src/pages/signals.html",
       comparison: "/src/pages/comparison.html",
       marketcap: "/src/pages/marketcap.html",
       settings: "/src/pages/settings.html",

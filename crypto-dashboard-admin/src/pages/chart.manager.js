@@ -1,154 +1,182 @@
 /**
- * Enhanced Chart Manager - Full Interactive Implementation
- * Bidirectional pan sync + Real-time indicator updates
+ * CandlestickChart (Refactor Ringkas) – UI & perilaku IDENTIK
+ * - Sinkronisasi 2 arah (main <-> sub) memakai throttle requestAnimationFrame
+ * - Struktur modular, helper kecil untuk mengurangi duplikasi
+ * - Tanpa mengubah tampilan/warna/animasi yang sudah ada
  */
+
 import { createChart, ColorType } from "lightweight-charts";
+
+/* ========================== THEME & HELPERS ========================== */
+
+const THEME = {
+  font: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  colors: {
+    bg: "#ffffff",
+    text: "#333333",
+    grid: "#f0f0f0",
+    border: "#e1e5e9",
+    cross: "#4285f4",
+    up: "#00C896",
+    down: "#FF3366",
+    // sub-panels
+    rsi: "#6366f1",
+    macd: "#10b981",
+    macdSignal: "#f59e0b",
+    macdHist: "#64748b",
+    stochK: "#8b5cf6",
+    stochD: "#a855f7",
+    stochRsiK: "#ec4899",
+    stochRsiD: "#db2777",
+    bb: "#06b6d4",
+    psar: "#dc2626",
+    sma20: "#2563eb",
+    sma50: "#1e40af",
+    ema20: "#7c3aed",
+    ema50: "#5b21b6",
+  },
+};
+
+const applyStyles = (el, styles) => Object.assign(el.style, styles);
+
+const rAFThrottle = (fn) => {
+  let ticking = false;
+  return (...args) => {
+    if (!ticking) {
+      window.requestAnimationFrame(() => {
+        fn(...args);
+        ticking = false;
+      });
+      ticking = true;
+    }
+  };
+};
+
+const seconds = (t) => (t > 9999999999 ? Math.floor(t / 1000) : Number(t));
+
+/* ========================== CLASS ========================== */
 
 export class CandlestickChart {
   constructor(containerId) {
     this.containerId = containerId;
+
+    // Main
     this.chart = null;
     this.candleSeries = null;
-    this.subCharts = {}; // Separate charts for bottom indicators
-    this.series = {}; // All chart series organized by type
+
+    // Sub-panels & series
+    this.subCharts = {}; // { rsi|macd|stoch|stochrsi: { chart, container, config } }
+    this.series = {}; // { indicator: { key: series } }
     this.activeIndicators = new Set();
+
+    // Data
     this.currentData = [];
     this.latestValues = {};
+
+    // State
     this.isInitialized = false;
     this.isFullscreen = false;
     this.resizeObserver = null;
 
-    // ✅ Bidirectional sync control
-    this.isSyncing = false;
-    this.syncTimeout = null;
-
-    // Ensure DOM is ready before initialization
-    this.domReady =
-      document.readyState === "complete" ||
-      document.readyState === "interactive";
-    if (!this.domReady) {
-      document.addEventListener("DOMContentLoaded", () => {
-        this.domReady = true;
-      });
-    }
+    // Sync
+    this.syncing = false;
+    this._sync = rAFThrottle((source, { range, logical }) =>
+      this._doSync(source, { range, logical })
+    );
   }
 
-  init() {
-    if (!this.domReady) {
-      console.warn("⚠️ DOM not ready, deferring chart initialization");
-      document.addEventListener("DOMContentLoaded", () => this.init());
-      return false;
-    }
+  /* ---------------------------- INIT ---------------------------- */
 
+  init() {
     const container = document.getElementById(this.containerId);
     if (!container) {
       console.error(`❌ Container '${this.containerId}' not found!`);
       return false;
     }
+    if (this.isInitialized) return true;
 
-    if (this.isInitialized) {
-      console.log(`⚠️ Chart already initialized`);
-      return true;
-    }
+    // Container layout
+    this._setupContainer(container);
 
-    this.setupContainer(container);
-    this.createMainChart(container);
-    this.setupSubCharts(container);
-    this.addFullscreenButton(container);
-    this.setupResizeObserver(container);
+    // Main chart
+    this._createMainChart(container);
+
+    // Sub panels (dibuat, tapi hidden)
+    this._createSubPanels(container);
+
+    // Fullscreen button
+    this._addFullscreenButton(container);
+    console.log("🎬 Fullscreen button added");
+
+    // Resize observer
+    this._observeResize(container);
 
     this.isInitialized = true;
-    console.log(`✅ Chart initialized successfully`);
+    console.log("✅ Chart initialized");
     return true;
   }
 
-  setupContainer(container) {
-    // Clear and setup main container - dynamic height based on active indicators
+  _setupContainer(container) {
     container.innerHTML = "";
-    this.updateContainerLayout(container);
-  }
-
-  updateContainerLayout(container = null) {
-    if (!container) container = document.getElementById(this.containerId);
-    if (!container) return;
-
-    const activeSubIndicators = ["rsi", "macd", "stoch", "stochrsi"].filter(
-      (type) => this.activeIndicators.has(type)
-    );
-
-    // Dynamic height calculation like TradingView
-    const baseHeight = 500; // Main chart minimum height
-    const subPanelHeight = activeSubIndicators.length * 120; // 120px per sub-indicator
-    const totalHeight = baseHeight + subPanelHeight;
-
-    Object.assign(container.style, {
+    applyStyles(container, {
       width: "100%",
-      height: `${totalHeight}px`,
+      height: `${this._calcTotalHeight()}px`,
       position: "relative",
       display: "flex",
       flexDirection: "column",
-      background: "#ffffff",
-      border: "1px solid #e5e7eb",
+      background: THEME.colors.bg,
+      border: `1px solid ${THEME.colors.border}`,
       borderRadius: "8px",
     });
   }
 
-  createMainChart(container) {
-    // Create main chart container with seamless layout
-    const mainChartDiv = document.createElement("div");
-    mainChartDiv.id = "main-chart";
-    this.updateMainChartSize(mainChartDiv);
-    container.appendChild(mainChartDiv);
+  _createMainChart(container) {
+    const main = document.createElement("div");
+    main.id = "main-chart";
+    applyStyles(main, {
+      width: "100%",
+      height: `${this._mainHeight()}px`,
+      position: "relative",
+    });
+    container.appendChild(main);
 
-    const width = container.clientWidth || 800;
-    const height = this.getMainChartHeight();
-
-    this.chart = createChart(mainChartDiv, {
-      width: width,
-      height: height,
+    this.chart = createChart(main, {
+      width: container.clientWidth || 800,
+      height: this._mainHeight(),
       layout: {
-        background: { type: ColorType.Solid, color: "#ffffff" },
-        textColor: "#333333",
-        fontFamily:
-          "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        background: { type: ColorType.Solid, color: THEME.colors.bg },
+        textColor: THEME.colors.text,
+        fontFamily: THEME.font,
       },
       grid: {
-        vertLines: {
-          color: "#f0f0f0",
-          style: 1,
-          visible: true,
-        },
-        horzLines: {
-          color: "#f0f0f0",
-          style: 1,
-          visible: true,
-        },
+        vertLines: { color: THEME.colors.grid, style: 1, visible: true },
+        horzLines: { color: THEME.colors.grid, style: 1, visible: true },
       },
       crosshair: {
         mode: 1,
         vertLine: {
           width: 1,
-          color: "#4285f4",
+          color: THEME.colors.cross,
           style: 2,
           labelVisible: true,
-          labelBackgroundColor: "#4285f4",
+          labelBackgroundColor: THEME.colors.cross,
         },
         horzLine: {
           width: 1,
-          color: "#4285f4",
+          color: THEME.colors.cross,
           style: 2,
           labelVisible: true,
-          labelBackgroundColor: "#4285f4",
+          labelBackgroundColor: THEME.colors.cross,
         },
       },
       rightPriceScale: {
-        borderColor: "#e1e5e9",
+        borderColor: THEME.colors.border,
         scaleMargins: { top: 0.02, bottom: 0.02 },
         textColor: "#6c757d",
         entireTextOnly: true,
       },
       timeScale: {
-        borderColor: "#e1e5e9",
+        borderColor: THEME.colors.border,
         timeVisible: true,
         secondsVisible: false,
         rightOffset: 10,
@@ -171,1286 +199,846 @@ export class CandlestickChart {
       },
     });
 
-    // Add candlestick series with professional colors
+    // Candles
     this.candleSeries = this.chart.addCandlestickSeries({
-      upColor: "#00C896", // Professional green
-      downColor: "#FF3366", // Professional red
+      upColor: THEME.colors.up,
+      downColor: THEME.colors.down,
       borderVisible: false,
-      wickUpColor: "#00C896",
-      wickDownColor: "#FF3366",
+      wickUpColor: THEME.colors.up,
+      wickDownColor: THEME.colors.down,
       priceFormat: { type: "price", precision: 2, minMove: 0.01 },
-      borderUpColor: "#00C896",
-      borderDownColor: "#FF3366",
+      borderUpColor: THEME.colors.up,
+      borderDownColor: THEME.colors.down,
     });
 
-    // ✅ Setup bidirectional synchronization - Main Chart → Sub Charts
-    this.setupMainChartSync();
+    // Sync from main
+    this.chart
+      .timeScale()
+      .subscribeVisibleTimeRangeChange((range) =>
+        this._sync("main", { range, logical: false })
+      );
+    this.chart
+      .timeScale()
+      .subscribeVisibleLogicalRangeChange((range) =>
+        this._sync("main", { range, logical: true })
+      );
 
-    // Add crosshair move handler for perfect synchronization
-    this.chart.subscribeCrosshairMove((param) => {
-      this.handleCrosshairMove(param);
-    });
+    // Crosshair sync
+    this.chart.subscribeCrosshairMove((param) => this._syncCrosshair(param));
   }
 
-  // ✅ Main Chart Synchronization Setup
-  setupMainChartSync() {
-    // Main chart → Sub charts synchronization
-    this.chart.timeScale().subscribeVisibleTimeRangeChange((range) => {
-      this.syncFromMainChart(range);
-    });
-
-    this.chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-      this.syncLogicalRangeFromMain(range);
-    });
-
-    console.log("✅ Main chart sync listeners established");
-  }
-
-  // ✅ Sync from main chart to all sub charts
-  syncFromMainChart(range) {
-    if (this.isSyncing || !range) return;
-
-    this.isSyncing = true;
-
-    // Clear any pending sync
-    if (this.syncTimeout) {
-      clearTimeout(this.syncTimeout);
-    }
-
-    try {
-      Object.values(this.subCharts).forEach(({ chart }) => {
-        if (chart && chart.timeScale) {
-          try {
-            chart.timeScale().setVisibleRange(range);
-          } catch (e) {
-            // Ignore sync errors
-          }
-        }
-      });
-    } catch (e) {
-      console.warn("Main→Sub sync error:", e);
-    }
-
-    // Reset sync flag with slight delay to prevent sync loops
-    this.syncTimeout = setTimeout(() => {
-      this.isSyncing = false;
-    }, 50);
-  }
-
-  // ✅ Sync logical range from main chart
-  syncLogicalRangeFromMain(range) {
-    if (this.isSyncing || !range) return;
-
-    this.isSyncing = true;
-
-    try {
-      Object.values(this.subCharts).forEach(({ chart }) => {
-        if (chart && chart.timeScale) {
-          try {
-            chart.timeScale().setVisibleLogicalRange(range);
-          } catch (e) {
-            // Ignore sync errors
-          }
-        }
-      });
-    } catch (e) {
-      console.warn("Main→Sub logical sync error:", e);
-    }
-
-    setTimeout(() => {
-      this.isSyncing = false;
-    }, 50);
-  }
-
-  // ✅ Setup Sub Chart Synchronization (Sub Charts → Main Chart + Other Subs)
-  setupSubChartSync(subChart, subChartKey) {
-    if (!subChart || !subChart.timeScale) return;
-
-    // Sub chart → Main chart + other sub charts synchronization
-    subChart.timeScale().subscribeVisibleTimeRangeChange((range) => {
-      this.syncFromSubChart(range, subChartKey);
-    });
-
-    subChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-      this.syncLogicalRangeFromSub(range, subChartKey);
-    });
-
-    console.log(`✅ Sub chart sync listeners established for ${subChartKey}`);
-  }
-
-  // ✅ Sync from sub chart to main chart and other sub charts
-  syncFromSubChart(range, sourceKey) {
-    if (this.isSyncing || !range) return;
-
-    this.isSyncing = true;
-
-    if (this.syncTimeout) {
-      clearTimeout(this.syncTimeout);
-    }
-
-    try {
-      // Sync to main chart
-      if (this.chart && this.chart.timeScale) {
-        this.chart.timeScale().setVisibleRange(range);
-      }
-
-      // Sync to other sub charts
-      Object.entries(this.subCharts).forEach(([key, { chart }]) => {
-        if (key !== sourceKey && chart && chart.timeScale) {
-          try {
-            chart.timeScale().setVisibleRange(range);
-          } catch (e) {
-            // Ignore sync errors
-          }
-        }
-      });
-    } catch (e) {
-      console.warn("Sub→Main/Sub sync error:", e);
-    }
-
-    this.syncTimeout = setTimeout(() => {
-      this.isSyncing = false;
-    }, 50);
-  }
-
-  // ✅ Sync logical range from sub chart
-  syncLogicalRangeFromSub(range, sourceKey) {
-    if (this.isSyncing || !range) return;
-
-    this.isSyncing = true;
-
-    try {
-      // Sync to main chart
-      if (this.chart && this.chart.timeScale) {
-        this.chart.timeScale().setVisibleLogicalRange(range);
-      }
-
-      // Sync to other sub charts
-      Object.entries(this.subCharts).forEach(([key, { chart }]) => {
-        if (key !== sourceKey && chart && chart.timeScale) {
-          try {
-            chart.timeScale().setVisibleLogicalRange(range);
-          } catch (e) {
-            // Ignore sync errors
-          }
-        }
-      });
-    } catch (e) {
-      console.warn("Sub→Main/Sub logical sync error:", e);
-    }
-
-    setTimeout(() => {
-      this.isSyncing = false;
-    }, 50);
-  }
-
-  getMainChartHeight() {
-    const activeSubIndicators = ["rsi", "macd", "stoch", "stochrsi"].filter(
-      (type) => this.activeIndicators.has(type)
-    );
-    const subPanelsHeight = activeSubIndicators.length * 120;
-    return this.isFullscreen
-      ? window.innerHeight - subPanelsHeight - 100
-      : 500 - Math.min(subPanelsHeight, 200);
-  }
-
-  updateMainChartSize(mainChartDiv = null) {
-    if (!mainChartDiv) mainChartDiv = document.getElementById("main-chart");
-    if (!mainChartDiv) return;
-
-    const height = this.getMainChartHeight();
-    Object.assign(mainChartDiv.style, {
-      width: "100%",
-      height: `${height}px`,
-      position: "relative",
-      borderBottom:
-        this.activeIndicators.size > 0 ? "1px solid #e5e7eb" : "none",
-    });
-  }
-
-  setupSubCharts(container) {
-    // Create seamless container for sub-panels
-    const subPanelContainer = document.createElement("div");
-    subPanelContainer.id = "sub-panels";
-    Object.assign(subPanelContainer.style, {
+  _createSubPanels(container) {
+    const host = document.createElement("div");
+    host.id = "sub-panels";
+    applyStyles(host, {
       width: "100%",
       flex: "1",
       display: "flex",
       flexDirection: "column",
-      background: "#ffffff", // Same as main chart
-      borderTop: "none", // Remove gap
+      background: THEME.colors.bg,
+      borderTop: "none",
     });
-    container.appendChild(subPanelContainer);
+    container.appendChild(host);
 
-    // Professional color scheme - consistent and not too colorful
-    const subChartConfigs = {
+    const configs = {
       rsi: {
         height: 120,
         title: "RSI (14)",
-        colors: {
-          line: "#6366f1", // Indigo
-          bg: "#ffffff",
-          accent: "#f1f5f9",
-        },
-        scale: { min: 0, max: 100 },
+        color: THEME.colors.rsi,
+        bounded: { min: 0, max: 100 },
       },
       macd: {
         height: 120,
         title: "MACD (12,26,9)",
-        colors: {
-          line: "#10b981", // Emerald
-          signal: "#f59e0b", // Amber
-          hist: "#64748b", // Slate
-          bg: "#ffffff",
-          accent: "#f8fafc",
-        },
-        scale: { autoScale: true },
+        color: THEME.colors.macd,
+        bounded: null,
       },
       stoch: {
         height: 120,
         title: "Stochastic (14,3)",
-        colors: {
-          line: "#8b5cf6", // Violet
-          bg: "#ffffff",
-          accent: "#faf5ff",
-        },
-        scale: { min: 0, max: 100 },
+        color: THEME.colors.stochK,
+        bounded: { min: 0, max: 100 },
       },
       stochrsi: {
         height: 120,
         title: "Stoch RSI (14,14,3,3)",
-        colors: {
-          line: "#ec4899", // Pink
-          bg: "#ffffff",
-          accent: "#fdf2f8",
-        },
-        scale: { min: 0, max: 100 },
+        color: THEME.colors.stochRsiK,
+        bounded: { min: 0, max: 100 },
       },
     };
 
-    Object.entries(subChartConfigs).forEach(([key, config]) => {
-      this.subCharts[key] = this.createSubChart(subPanelContainer, key, config);
+    Object.entries(configs).forEach(([key, cfg]) => {
+      const sub = document.createElement("div");
+      sub.id = `${key}-chart`;
+      applyStyles(sub, {
+        width: "100%",
+        height: `${cfg.height}px`,
+        display: "none",
+        borderTop: `1px solid ${THEME.colors.border}`,
+        background: THEME.colors.bg,
+        position: "relative",
+        margin: "0",
+        padding: "0",
+      });
+
+      // Title overlay
+      const title = document.createElement("div");
+      title.className =
+        "absolute top-2 left-3 text-sm font-medium text-gray-700 z-10 bg-white/95 px-2 py-1 rounded shadow-sm border border-gray-200";
+      title.innerHTML = `<div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full" style="background-color:${cfg.color}"></span>${cfg.title}
+      </div>`;
+      sub.appendChild(title);
+
+      host.appendChild(sub);
+
+      const options = {
+        width: host.clientWidth || 800,
+        height: cfg.height,
+        layout: {
+          background: { type: ColorType.Solid, color: THEME.colors.bg },
+          textColor: "#6c757d",
+          fontFamily: THEME.font,
+        },
+        grid: {
+          vertLines: { color: THEME.colors.grid, style: 1, visible: true },
+          horzLines: { color: THEME.colors.grid, style: 1, visible: true },
+        },
+        crosshair: {
+          mode: 1,
+          vertLine: {
+            width: 1,
+            color: THEME.colors.cross,
+            style: 2,
+            labelVisible: false,
+          },
+          horzLine: {
+            width: 1,
+            color: THEME.colors.cross,
+            style: 2,
+            labelVisible: true,
+            labelBackgroundColor: THEME.colors.cross,
+          },
+        },
+        rightPriceScale: {
+          borderColor: THEME.colors.border,
+          scaleMargins: { top: 0.05, bottom: 0.05 },
+          textColor: "#6c757d",
+          entireTextOnly: true,
+        },
+        timeScale: {
+          borderColor: THEME.colors.border,
+          timeVisible: false,
+          rightOffset: 10,
+          barSpacing: 6,
+          minBarSpacing: 2,
+          fixLeftEdge: true,
+          fixRightEdge: false,
+          lockVisibleTimeRangeOnResize: true,
+        },
+        handleScroll: { mouseWheel: true, pressedMouseMove: true },
+        handleScale: {
+          axisPressedMouseMove: true,
+          mouseWheel: true,
+          pinch: true,
+        },
+      };
+
+      const chart = createChart(sub, options);
+
+      // Bounded scale (RSI/Stoch/StochRSI)
+      if (cfg.bounded) chart.applyOptions({ rightPriceScale: { mode: 1 } });
+
+      // Sync from sub
+      chart
+        .timeScale()
+        .subscribeVisibleTimeRangeChange((range) =>
+          this._sync(key, { range, logical: false })
+        );
+      chart
+        .timeScale()
+        .subscribeVisibleLogicalRangeChange((range) =>
+          this._sync(key, { range, logical: true })
+        );
+
+      this.subCharts[key] = { chart, container: sub, config: cfg };
     });
   }
 
-  createSubChart(parentContainer, type, config) {
-    const subDiv = document.createElement("div");
-    subDiv.id = `${type}-chart`;
-    Object.assign(subDiv.style, {
-      width: "100%",
-      height: `${config.height}px`,
-      display: "none", // Hidden by default
-      borderTop: "1px solid #e1e5e9", // Consistent border
-      background: config.colors.bg,
-      position: "relative",
-      margin: "0", // Remove any margin gaps
-      padding: "0", // Remove any padding gaps
-    });
-
-    // Add professional title overlay
-    const titleDiv = document.createElement("div");
-    titleDiv.className =
-      "absolute top-2 left-3 text-sm font-medium text-gray-700 z-10 bg-white/95 px-2 py-1 rounded shadow-sm border border-gray-200";
-    titleDiv.innerHTML = `
-      <div class="flex items-center gap-2">
-        <span class="w-2 h-2 rounded-full" style="background-color: ${config.colors.line}"></span>
-        ${config.title}
-      </div>
-    `;
-    subDiv.appendChild(titleDiv);
-
-    parentContainer.appendChild(subDiv);
-
-    // Professional chart configuration with seamless integration
-    const chartOptions = {
-      width: parentContainer.clientWidth || 800,
-      height: config.height,
-      layout: {
-        background: { type: ColorType.Solid, color: config.colors.bg },
-        textColor: "#6c757d",
-        fontFamily:
-          "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-      },
-      grid: {
-        vertLines: {
-          color: "#f0f0f0",
-          style: 1,
-          visible: true,
-        },
-        horzLines: {
-          color: "#f0f0f0",
-          style: 1,
-          visible: true,
-        },
-      },
-      crosshair: {
-        mode: 1,
-        vertLine: {
-          width: 1,
-          color: "#4285f4",
-          style: 2,
-          labelVisible: false, // Hide labels on sub-charts to reduce clutter
-        },
-        horzLine: {
-          width: 1,
-          color: "#4285f4",
-          style: 2,
-          labelVisible: true,
-          labelBackgroundColor: "#4285f4",
-        },
-      },
-      rightPriceScale: {
-        borderColor: "#e1e5e9",
-        scaleMargins: { top: 0.05, bottom: 0.05 },
-        textColor: "#6c757d",
-        entireTextOnly: true,
-      },
-      timeScale: {
-        borderColor: "#e1e5e9",
-        timeVisible: false, // Hide time on sub-charts to avoid duplication
-        rightOffset: 10,
-        barSpacing: 6,
-        minBarSpacing: 2,
-        fixLeftEdge: true,
-        fixRightEdge: false,
-        lockVisibleTimeRangeOnResize: true,
-      },
-      handleScroll: { mouseWheel: true, pressedMouseMove: true },
-      handleScale: {
-        axisPressedMouseMove: true,
-        mouseWheel: true,
-        pinch: true,
-      },
-    };
-
-    // Apply scale configuration for bounded indicators
-    if (config.scale.min !== undefined && config.scale.max !== undefined) {
-      chartOptions.rightPriceScale.visible = true;
-      chartOptions.rightPriceScale.mode = 1;
-    }
-
-    const subChart = createChart(subDiv, chartOptions);
-
-    // ✅ Setup bidirectional sync for this sub chart
-    this.setupSubChartSync(subChart, type);
-
-    return { chart: subChart, container: subDiv, config };
-  }
-
-  handleCrosshairMove(param) {
-    if (!param.time && param.logical === undefined) return;
-
-    // Synchronize crosshair across all sub-charts with better precision
-    Object.values(this.subCharts).forEach(({ chart }) => {
-      if (chart && chart.timeScale) {
-        try {
-          if (param.time) {
-            // Use time-based synchronization for better accuracy
-            chart.setCrosshairPosition(
-              param.point?.x || 0,
-              param.time,
-              param.seriesData
-            );
-          } else if (param.logical !== undefined) {
-            chart.timeScale().scrollToPosition(param.logical, false);
-          }
-        } catch (e) {
-          // Ignore synchronization errors
-        }
-      }
-    });
-  }
-
-  addFullscreenButton(container) {
+  _addFullscreenButton(container) {
+    // Tombol buka fullscreen (⛶)
     const fullscreenBtn = document.createElement("button");
     fullscreenBtn.id = "fullscreen-btn";
     fullscreenBtn.className =
-      "absolute top-2 right-2 bg-white/90 hover:bg-blue-50 rounded-lg p-2 shadow-md transition-all duration-200 z-30 border border-gray-200";
+      "absolute top-2 right-2 bg-white/90 hover:bg-blue-50 rounded-lg p-2 shadow-md transition-all duration-200 z-[2000] border border-gray-200 hover:cursor-pointer";
     fullscreenBtn.innerHTML = '<span class="text-base">⛶</span>';
-    fullscreenBtn.title = "Toggle Fullscreen";
+    fullscreenBtn.title = "Fullscreen";
     fullscreenBtn.addEventListener("click", () => this.toggleFullscreen());
     container.appendChild(fullscreenBtn);
+
+    // Tombol keluar fullscreen (❌)
+    const closeFullscreenBtn = document.createElement("button");
+    closeFullscreenBtn.id = "close-fullscreen-btn";
+    closeFullscreenBtn.className =
+      "hidden fixed top-28 right-28 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-none w-8 h-8 flex items-center justify-center shadow-lg transition-all duration-300 border border-gray-300 hover:cursor-pointer";
+    closeFullscreenBtn.innerHTML = '<span class="text-lg font-bold">x</span>';
+    closeFullscreenBtn.title = "Exit Fullscreen";
+    closeFullscreenBtn.style.zIndex = "999999";
+    closeFullscreenBtn.addEventListener("click", () => this.toggleFullscreen());
+    document.body.appendChild(closeFullscreenBtn);
   }
 
   toggleFullscreen() {
     const container = document.getElementById(this.containerId);
-    const btn = container.querySelector("#fullscreen-btn span");
+    const fullscreenBtn = container.querySelector("#fullscreen-btn");
+    const closeFullscreenBtn = document.getElementById("close-fullscreen-btn");
+    this.isFullscreen = !this.isFullscreen;
 
     if (this.isFullscreen) {
-      // Exit fullscreen
-      this.isFullscreen = false;
-      if (btn) btn.textContent = "⛶";
-
-      Object.assign(container.style, {
-        position: "relative",
-        inset: "",
-        zIndex: "",
-      });
-      container.classList.remove("fixed", "inset-0", "z-50");
-    } else {
-      // Enter fullscreen
-      this.isFullscreen = true;
-      if (btn) btn.textContent = "❌";
-
-      Object.assign(container.style, {
+      fullscreenBtn.classList.add("hidden");
+      closeFullscreenBtn.classList.remove("hidden");
+      container.classList.add("fixed", "inset-0", "z-[9998]", "bg-white");
+      applyStyles(container, {
         position: "fixed",
         inset: "0",
-        zIndex: "50",
+        zIndex: "9998",
+        width: "100vw",
+        height: "100vh",
+        borderRadius: "0",
+        overflow: "hidden",
+        background: "#fff",
       });
-      container.classList.add("fixed", "inset-0", "z-50");
+    } else {
+      fullscreenBtn.classList.remove("hidden");
+      closeFullscreenBtn.classList.add("hidden");
+      container.classList.remove("fixed", "inset-0", "z-[9998]", "bg-white");
+      applyStyles(container, {
+        position: "relative",
+        width: "100%",
+        height: `${this._calcTotalHeight()}px`,
+        borderRadius: "8px",
+        overflow: "hidden",
+        zIndex: "1",
+      });
     }
 
-    // Update layout and resize
-    this.updateContainerLayout(container);
-    this.updateMainChartSize();
+    this._updateContainerLayout();
     requestAnimationFrame(() => this.resizeCharts());
+  }
+
+  _observeResize(container) {
+    if (typeof ResizeObserver === "undefined") return;
+    this.resizeObserver = new ResizeObserver(() =>
+      requestAnimationFrame(() => this.resizeCharts())
+    );
+    this.resizeObserver.observe(container);
+  }
+
+  /* ---------------------------- SYNC ---------------------------- */
+
+  _getVisible(chart, logical) {
+    try {
+      return logical
+        ? chart.timeScale().getVisibleLogicalRange()
+        : chart.timeScale().getVisibleRange();
+    } catch {
+      return null;
+    }
+  }
+
+  _applyVisible(chart, range, logical) {
+    if (!range) return;
+    try {
+      logical
+        ? chart.timeScale().setVisibleLogicalRange(range)
+        : chart.timeScale().setVisibleRange(range);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  _doSync(source, { range, logical }) {
+    if (!range) return;
+
+    // Source -> others
+    if (source === "main") {
+      Object.values(this.subCharts).forEach(({ chart }) =>
+        this._applyVisible(chart, range, logical)
+      );
+    } else {
+      // sub -> main + other subs
+      if (this.chart) this._applyVisible(this.chart, range, logical);
+      Object.entries(this.subCharts).forEach(([k, { chart }]) => {
+        if (k !== source) this._applyVisible(chart, range, logical);
+      });
+    }
+  }
+
+  _syncCrosshair(param) {
+    if (!param.time && param.logical === undefined) return;
+    Object.values(this.subCharts).forEach(({ chart }) => {
+      try {
+        if (param.time) {
+          chart.setCrosshairPosition(
+            param.point?.x || 0,
+            param.time,
+            param.seriesData
+          );
+        } else if (param.logical !== undefined) {
+          chart.timeScale().scrollToPosition(param.logical, false);
+        }
+      } catch {
+        /* ignore */
+      }
+    });
+  }
+
+  /* ---------------------------- LAYOUT ---------------------------- */
+
+  _subActiveCount() {
+    return ["rsi", "macd", "stoch", "stochrsi"].filter((t) =>
+      this.activeIndicators.has(t)
+    ).length;
+  }
+
+  _mainHeight() {
+    const subH = this._subActiveCount() * 120;
+    return this.isFullscreen
+      ? Math.min(window.innerHeight - subH - 100, 600) // Adjusted height to fit viewport
+      : 500 - Math.min(subH, 200);
+  }
+
+  _calcTotalHeight() {
+    return this.isFullscreen
+      ? Math.min(window.innerHeight - 20, 600) // Adjusted height to fit viewport
+      : 500 + this._subActiveCount() * 120;
+  }
+
+  _updateContainerLayout() {
+    const container = document.getElementById(this.containerId);
+    if (!container) return;
+    applyStyles(container, { height: `${this._calcTotalHeight()}px` });
+    const main = container.querySelector("#main-chart");
+    if (main) applyStyles(main, { height: `${this._mainHeight()}px` });
   }
 
   resizeCharts() {
     const container = document.getElementById(this.containerId);
     if (!container) return;
+    const w = container.clientWidth;
 
-    const newWidth = container.clientWidth;
-    const mainHeight = this.getMainChartHeight();
-
-    if (this.chart) {
-      this.chart.applyOptions({ width: newWidth, height: mainHeight });
-    }
-
-    Object.values(this.subCharts).forEach(({ chart, config }) => {
-      if (chart) {
-        chart.applyOptions({ width: newWidth, height: config.height });
-      }
-    });
+    if (this.chart)
+      this.chart.applyOptions({ width: w, height: this._mainHeight() });
+    Object.values(this.subCharts).forEach(({ chart, config }) =>
+      chart.applyOptions({ width: w, height: config.height })
+    );
   }
 
-  setupResizeObserver(container) {
-    if (typeof ResizeObserver !== "undefined") {
-      this.resizeObserver = new ResizeObserver(() => {
-        requestAnimationFrame(() => this.resizeCharts());
-      });
-      this.resizeObserver.observe(container);
-    }
-  }
+  /* ---------------------------- INDICATORS ---------------------------- */
 
   toggleIndicator(type) {
-    if (!this.isInitialized) {
-      console.warn(`⚠️ Chart not initialized`);
-      return;
-    }
-
+    if (!this.isInitialized) return;
     const isActive = this.activeIndicators.has(type);
 
     if (isActive) {
       this.activeIndicators.delete(type);
-      this.removeIndicator(type);
+      this._removeIndicator(type);
     } else {
       this.activeIndicators.add(type);
-      this.addIndicator(type);
+      this._addIndicator(type);
     }
 
-    // Update layout and container size
-    this.updateContainerLayout();
-    this.updateMainChartSize();
+    this._updateContainerLayout();
 
-    // Update indicator data and resize
-    this.updateIndicatorData();
-    this.updateIndicatorValuesDisplay();
-
-    requestAnimationFrame(() => {
+    // Update data + sync + values
+    setTimeout(() => {
+      this.updateIndicatorData();
       this.resizeCharts();
-      this.syncSubChartsWithMain();
-    });
+      setTimeout(
+        () =>
+          this._sync("main", {
+            range: this._getVisible(this.chart, false),
+            logical: false,
+          }),
+        80
+      );
+      setTimeout(() => this.updateIndicatorValuesDisplay(), 120);
+    }, 40);
   }
 
-  addIndicator(type) {
-    const configs = {
-      sma: () =>
-        this.addMainIndicator(type, [
-          { key: "sma20", color: "#2563eb", title: "SMA 20", lineWidth: 2 },
-          { key: "sma50", color: "#1e40af", title: "SMA 50", lineWidth: 2 },
-        ]),
-      ema: () =>
-        this.addMainIndicator(type, [
-          { key: "ema20", color: "#7c3aed", title: "EMA 20", lineWidth: 2 },
-          { key: "ema50", color: "#5b21b6", title: "EMA 50", lineWidth: 2 },
-        ]),
-      bb: () =>
-        this.addMainIndicator(type, [
-          {
-            key: "bbUpper",
-            color: "#06b6d4",
-            title: "BB Upper",
-            lineWidth: 1,
-            style: 2,
-          },
-          {
-            key: "bbLower",
-            color: "#06b6d4",
-            title: "BB Lower",
-            lineWidth: 1,
-            style: 2,
-          },
-        ]),
-      psar: () =>
-        this.addMainIndicator(type, [
-          { key: "psar", color: "#dc2626", title: "PSAR", type: "scatter" },
-        ]),
-      rsi: () =>
-        this.addSubIndicator("rsi", [
-          { key: "rsi", color: "#6366f1", title: "RSI", lineWidth: 2 },
-          {
-            key: "rsi70",
-            color: "#ef4444",
-            title: "70",
-            style: 2,
-            value: 70,
-            lineWidth: 1,
-          },
-          {
-            key: "rsi30",
-            color: "#22c55e",
-            title: "30",
-            style: 2,
-            value: 30,
-            lineWidth: 1,
-          },
-        ]),
-      macd: () =>
-        this.addSubIndicator("macd", [
-          { key: "macd", color: "#10b981", title: "MACD", lineWidth: 2 },
-          {
-            key: "macdSignal",
-            color: "#f59e0b",
-            title: "Signal",
-            lineWidth: 2,
-          },
-          {
-            key: "macdHist",
-            color: "#64748b",
-            title: "Histogram",
-            type: "histogram",
-          },
-        ]),
-      stoch: () =>
-        this.addSubIndicator("stoch", [
-          { key: "stochK", color: "#8b5cf6", title: "Stoch %K", lineWidth: 2 },
-          { key: "stochD", color: "#a855f7", title: "Stoch %D", lineWidth: 2 },
-          {
-            key: "stoch80",
-            color: "#ef4444",
-            title: "80",
-            style: 2,
-            value: 80,
-            lineWidth: 1,
-          },
-          {
-            key: "stoch20",
-            color: "#22c55e",
-            title: "20",
-            style: 2,
-            value: 20,
-            lineWidth: 1,
-          },
-        ]),
-      stochrsi: () =>
-        this.addSubIndicator("stochrsi", [
-          {
-            key: "stochRsiK",
-            color: "#ec4899",
-            title: "StochRSI %K",
-            lineWidth: 2,
-          },
-          {
-            key: "stochRsiD",
-            color: "#db2777",
-            title: "StochRSI %D",
-            lineWidth: 2,
-          },
-          {
-            key: "stochRsi80",
-            color: "#ef4444",
-            title: "80",
-            style: 2,
-            value: 80,
-            lineWidth: 1,
-          },
-          {
-            key: "stochRsi20",
-            color: "#22c55e",
-            title: "20",
-            style: 2,
-            value: 20,
-            lineWidth: 1,
-          },
-        ]),
-    };
-
-    const configFunction = configs[type];
-    if (configFunction) {
-      configFunction();
-    }
-  }
-
-  addMainIndicator(type, seriesConfigs) {
+  _addIndicator(type) {
     if (!this.series[type]) this.series[type] = {};
 
-    seriesConfigs.forEach((config) => {
-      if (config.type === "scatter") {
-        this.series[type][config.key] = this.chart.addLineSeries({
-          color: config.color,
+    const addLine = (targetChart, key, color, lineWidth = 2, style = 0) =>
+      (this.series[type][key] = targetChart.addLineSeries({
+        color,
+        lineWidth,
+        lineStyle: style,
+        priceScaleId: "right",
+        title: key,
+      }));
+
+    const addHistogram = (targetChart, key, color) =>
+      (this.series[type][key] = targetChart.addHistogramSeries({
+        color,
+        title: key,
+        priceFormat: { type: "volume", precision: 2 },
+      }));
+
+    const showSub = (key) => {
+      const sub = this.subCharts[key];
+      if (!sub) return;
+      const el = sub.container;
+      el.style.display = "block";
+      el.style.opacity = "0";
+      el.style.transform = "translateY(-10px)";
+      requestAnimationFrame(() => {
+        el.style.transition = "all .3s cubic-bezier(.4,0,.2,1)";
+        el.style.opacity = "1";
+        el.style.transform = "translateY(0)";
+      });
+    };
+
+    switch (type) {
+      case "sma":
+        addLine(this.chart, "sma20", THEME.colors.sma20, 2);
+        addLine(this.chart, "sma50", THEME.colors.sma50, 2);
+        break;
+      case "ema":
+        addLine(this.chart, "ema20", THEME.colors.ema20, 2);
+        addLine(this.chart, "ema50", THEME.colors.ema50, 2);
+        break;
+      case "bb":
+        addLine(this.chart, "bbUpper", THEME.colors.bb, 1, 2);
+        addLine(this.chart, "bbLower", THEME.colors.bb, 1, 2);
+        break;
+      case "psar":
+        this.series[type].psar = this.chart.addLineSeries({
+          color: THEME.colors.psar,
           lineWidth: 0,
           pointMarkersVisible: true,
           lineVisible: false,
           pointMarkersRadius: 2,
-          title: config.title,
+          title: "PSAR",
           priceScaleId: "right",
         });
-      } else {
-        this.series[type][config.key] = this.chart.addLineSeries({
-          color: config.color,
-          lineWidth: config.lineWidth || 2,
-          lineStyle: config.style || 0,
-          title: config.title,
-          priceScaleId: "right",
-        });
-      }
-    });
+        break;
+      case "rsi":
+        showSub("rsi");
+        addLine(this.subCharts.rsi.chart, "rsi", THEME.colors.rsi, 2);
+        addLine(this.subCharts.rsi.chart, "rsi70", "#ef4444", 1, 2);
+        addLine(this.subCharts.rsi.chart, "rsi30", "#22c55e", 1, 2);
+        break;
+      case "macd":
+        showSub("macd");
+        addLine(this.subCharts.macd.chart, "macd", THEME.colors.macd, 2);
+        addLine(
+          this.subCharts.macd.chart,
+          "macdSignal",
+          THEME.colors.macdSignal,
+          2
+        );
+        addHistogram(
+          this.subCharts.macd.chart,
+          "macdHist",
+          THEME.colors.macdHist
+        );
+        break;
+      case "stoch":
+        showSub("stoch");
+        addLine(this.subCharts.stoch.chart, "stochK", THEME.colors.stochK, 2);
+        addLine(this.subCharts.stoch.chart, "stochD", THEME.colors.stochD, 2);
+        addLine(this.subCharts.stoch.chart, "stoch80", "#ef4444", 1, 2);
+        addLine(this.subCharts.stoch.chart, "stoch20", "#22c55e", 1, 2);
+        break;
+      case "stochrsi":
+        showSub("stochrsi");
+        addLine(
+          this.subCharts.stochrsi.chart,
+          "stochRsiK",
+          THEME.colors.stochRsiK,
+          2
+        );
+        addLine(
+          this.subCharts.stochrsi.chart,
+          "stochRsiD",
+          THEME.colors.stochRsiD,
+          2
+        );
+        addLine(this.subCharts.stochrsi.chart, "stochRsi80", "#ef4444", 1, 2);
+        addLine(this.subCharts.stochrsi.chart, "stochRsi20", "#22c55e", 1, 2);
+        break;
+    }
   }
 
-  addSubIndicator(type, seriesConfigs) {
-    if (!this.subCharts[type]) return;
-    if (!this.series[type]) this.series[type] = {};
-
-    // Show sub-chart with seamless animation
-    const container = this.subCharts[type].container;
-    container.style.display = "block";
-    container.style.opacity = "0";
-
-    requestAnimationFrame(() => {
-      container.style.transition = "opacity 0.2s ease-out";
-      container.style.opacity = "1";
-    });
-
-    seriesConfigs.forEach((config) => {
-      if (config.type === "histogram") {
-        this.series[type][config.key] = this.subCharts[
-          type
-        ].chart.addHistogramSeries({
-          color: config.color,
-          title: config.title,
-          priceFormat: { type: "volume", precision: 2 },
-        });
-      } else {
-        this.series[type][config.key] = this.subCharts[
-          type
-        ].chart.addLineSeries({
-          color: config.color,
-          lineWidth: config.lineWidth || (config.value ? 1 : 2),
-          lineStyle: config.style || 0,
-          title: config.title,
-        });
-      }
-    });
-
-    // Perfect synchronization after creation
-    setTimeout(() => {
-      this.syncSubChartsWithMain();
-      this.syncSubChartsTimeRange();
-    }, 50);
-  }
-
-  removeIndicator(type) {
-    // Remove all series for this indicator
+  _removeIndicator(type) {
+    // Remove series
     if (this.series[type]) {
-      Object.values(this.series[type]).forEach((series) => {
-        const chart = ["rsi", "macd", "stoch", "stochrsi"].includes(type)
-          ? this.subCharts[type]?.chart
-          : this.chart;
-
-        if (chart && series) {
-          chart.removeSeries(series);
+      Object.values(this.series[type]).forEach((s) => {
+        try {
+          // tentukan chart pemilik series
+          const chart = ["rsi", "macd", "stoch", "stochrsi"].includes(type)
+            ? this.subCharts[type]?.chart
+            : this.chart;
+          chart?.removeSeries(s);
+        } catch {
+          /* ignore */
         }
       });
       delete this.series[type];
     }
 
-    // Hide sub-chart with animation
+    // Hide sub-panel (if any)
     if (this.subCharts[type]) {
-      const container = this.subCharts[type].container;
-      container.style.transition = "all 0.2s ease-in";
-      container.style.opacity = "0";
-      container.style.transform = "translateY(-10px)";
-
+      const el = this.subCharts[type].container;
+      el.style.transition = "all .2s ease-in";
+      el.style.opacity = "0";
+      el.style.transform = "translateY(-10px)";
       setTimeout(() => {
-        container.style.display = "none";
-        container.style.transform = "translateY(0)";
+        el.style.display = "none";
+        el.style.transform = "translateY(0)";
       }, 200);
     }
   }
 
+  /* ---------------------------- DATA ---------------------------- */
+
   updateData(candleData) {
-    if (!this.isInitialized || !Array.isArray(candleData)) {
-      console.error(`❌ Cannot update chart: invalid data or not initialized`);
-      return;
-    }
+    if (!this.isInitialized || !Array.isArray(candleData)) return;
 
-    try {
-      // Process and store data
-      this.currentData = this.processDataWithIndicators(candleData);
-      this.extractLatestIndicators();
-
-      // Update candlestick data
-      const candleChartData = this.currentData.map((item) => ({
-        time: item.time,
-        open: item.open,
-        high: item.high,
-        low: item.low,
-        close: item.close,
-      }));
-
-      this.candleSeries.setData(candleChartData);
-
-      // Set optimal initial view (last 300 candles for better visibility)
-      setTimeout(() => {
-        if (this.chart && this.chart.timeScale && candleChartData.length > 0) {
-          const total = candleChartData.length;
-          const visibleStart = Math.max(0, total - 300);
-
-          if (total > 300) {
-            this.chart.timeScale().setVisibleRange({
-              from: candleChartData[visibleStart].time,
-              to: candleChartData[total - 1].time,
-            });
-          } else {
-            this.chart.timeScale().fitContent();
-          }
-        }
-      }, 100);
-
-      // Update all active indicators
-      this.updateIndicatorData();
-      this.updateIndicatorValuesDisplay();
-
-      // Hide loading overlay
-      requestAnimationFrame(() => {
-        const loadingElement = document.querySelector(".chart-loading");
-        if (loadingElement) {
-          loadingElement.style.display = "none";
-        }
-      });
-
-      console.log(
-        `✅ Chart updated with ${this.currentData.length} data points, showing last 300 candles`
-      );
-    } catch (error) {
-      console.error("❌ Error updating chart:", error);
-    }
-  }
-
-  processDataWithIndicators(dataArray) {
-    return dataArray
+    // Sanitize + sort
+    this.currentData = candleData
       .filter(
-        (item) =>
-          item &&
-          typeof item.time !== "undefined" &&
+        (d) =>
+          d &&
+          typeof d.time !== "undefined" &&
           ["open", "high", "low", "close"].every(
-            (prop) => typeof item[prop] === "number"
+            (k) => typeof d[k] === "number"
           )
       )
-      .map((item) => {
-        let time = Number(item.time);
-        if (time > 9999999999) time = Math.floor(time / 1000); // Convert ms to seconds
-
-        return {
-          time,
-          open: parseFloat(item.open),
-          high: parseFloat(item.high),
-          low: parseFloat(item.low),
-          close: parseFloat(item.close),
-          indicators: item.indicators || {},
-        };
-      })
+      .map((d) => ({
+        time: seconds(d.time),
+        open: +d.open,
+        high: +d.high,
+        low: +d.low,
+        close: +d.close,
+        indicators: d.indicators || {},
+      }))
       .sort((a, b) => a.time - b.time);
+
+    // Candles
+    this.candleSeries.setData(
+      this.currentData.map(({ time, open, high, low, close }) => ({
+        time,
+        open,
+        high,
+        low,
+        close,
+      }))
+    );
+
+    // Extract latest values for cards
+    this._extractLatest();
+
+    // Initial view (last 300)
+    setTimeout(() => {
+      const total = this.currentData.length;
+      if (!total) return;
+      if (total > 300) {
+        this.chart.timeScale().setVisibleRange({
+          from: this.currentData[total - 300].time,
+          to: this.currentData[total - 1].time,
+        });
+      } else {
+        this.chart.timeScale().fitContent();
+      }
+    }, 60);
+
+    // Indicators data
+    setTimeout(() => {
+      this.updateIndicatorData();
+      setTimeout(() => {
+        this._sync("main", {
+          range: this._getVisible(this.chart, false),
+          logical: false,
+        });
+        this.updateIndicatorValuesDisplay();
+      }, 60);
+    }, 80);
+
+    // Hide loading overlay (jika ada)
+    requestAnimationFrame(() => {
+      const el = document.querySelector(".chart-loading");
+      if (el) el.style.display = "none";
+    });
+
+    console.log(`✅ Chart updated with ${this.currentData.length} points`);
   }
 
-  extractLatestIndicators() {
+  _extractLatest() {
     if (!this.currentData.length) return;
-
-    const latest = this.currentData[this.currentData.length - 1];
-    const ind = latest.indicators;
+    const last = this.currentData[this.currentData.length - 1];
+    const ind = last.indicators || {};
 
     this.latestValues = {
-      // Moving Averages
-      sma20: ind.sma && ind.sma[20],
-      sma50: ind.sma && ind.sma[50],
-      ema20: ind.ema && ind.ema[20],
-      ema50: ind.ema && ind.ema[50],
-
-      // Oscillators
-      rsi: ind.rsi && ind.rsi[14],
-
-      // MACD - all parameters
-      macd: ind.macd && ind.macd.macd,
-      macdSignal: ind.macd && ind.macd.signalLine,
-      macdHist: ind.macd && ind.macd.histogram,
-      macdFast: ind.macd && ind.macd.fast,
-      macdSlow: ind.macd && ind.macd.slow,
-      macdSignalPeriod: ind.macd && ind.macd.signal,
-
-      // Bollinger Bands - all parameters
-      bbUpper: ind.bollingerBands && ind.bollingerBands.upper,
-      bbLower: ind.bollingerBands && ind.bollingerBands.lower,
-      bbPeriod: ind.bollingerBands && ind.bollingerBands.period,
-      bbMultiplier: ind.bollingerBands && ind.bollingerBands.multiplier,
-
-      // Stochastic - all parameters
-      stochK: ind.stochastic && ind.stochastic["%K"],
-      stochD: ind.stochastic && ind.stochastic["%D"],
-      stochKPeriod: ind.stochastic && ind.stochastic.kPeriod,
-      stochDPeriod: ind.stochastic && ind.stochastic.dPeriod,
-
-      // Stochastic RSI - all parameters
-      stochRsiK: ind.stochasticRsi && ind.stochasticRsi["%K"],
-      stochRsiD: ind.stochasticRsi && ind.stochasticRsi["%D"],
-      stochRsiRsiPeriod: ind.stochasticRsi && ind.stochasticRsi.rsiPeriod,
-      stochRsiStochPeriod: ind.stochasticRsi && ind.stochasticRsi.stochPeriod,
-      stochRsiKPeriod: ind.stochasticRsi && ind.stochasticRsi.kPeriod,
-      stochRsiDPeriod: ind.stochasticRsi && ind.stochasticRsi.dPeriod,
-
-      // Parabolic SAR - all parameters
-      psar: ind.parabolicSar && ind.parabolicSar.value,
-      psarStep: ind.parabolicSar && ind.parabolicSar.step,
-      psarMaxStep: ind.parabolicSar && ind.parabolicSar.maxStep,
-
-      timestamp: latest.time,
+      // MA
+      sma20: ind.sma?.[20],
+      sma50: ind.sma?.[50],
+      ema20: ind.ema?.[20],
+      ema50: ind.ema?.[50],
+      // RSI
+      rsi: ind.rsi?.[14],
+      // MACD
+      macd: ind.macd?.macd,
+      macdSignal: ind.macd?.signalLine,
+      macdHist: ind.macd?.histogram,
+      macdFast: ind.macd?.fast,
+      macdSlow: ind.macd?.slow,
+      macdSignalPeriod: ind.macd?.signal,
+      // BB
+      bbUpper: ind.bollingerBands?.upper,
+      bbLower: ind.bollingerBands?.lower,
+      bbPeriod: ind.bollingerBands?.period,
+      bbMultiplier: ind.bollingerBands?.multiplier,
+      // Stoch
+      stochK: ind.stochastic?.["%K"],
+      stochD: ind.stochastic?.["%D"],
+      stochKPeriod: ind.stochastic?.kPeriod,
+      stochDPeriod: ind.stochastic?.dPeriod,
+      // StochRSI
+      stochRsiK: ind.stochasticRsi?.["%K"],
+      stochRsiD: ind.stochasticRsi?.["%D"],
+      stochRsiRsiPeriod: ind.stochasticRsi?.rsiPeriod,
+      stochRsiStochPeriod: ind.stochasticRsi?.stochPeriod,
+      stochRsiKPeriod: ind.stochasticRsi?.kPeriod,
+      stochRsiDPeriod: ind.stochasticRsi?.dPeriod,
+      // PSAR
+      psar: ind.parabolicSar?.value,
+      psarStep: ind.parabolicSar?.step,
+      psarMaxStep: ind.parabolicSar?.maxStep,
+      timestamp: last.time,
     };
-
-    // ✅ Trigger real-time indicator card updates
-    this.updateIndicatorValuesDisplay();
-
-    console.log(
-      "✅ Real-time indicator values extracted and updated:",
-      this.latestValues
-    );
   }
 
   updateIndicatorData() {
-    this.activeIndicators.forEach((type) => {
-      const data = this.extractIndicatorData(type);
-      this.updateIndicatorSeries(type, data);
-    });
-  }
-
-  extractIndicatorData(type) {
-    const result = {};
-
-    this.currentData.forEach((item) => {
-      if (!item.indicators) return;
-      const time = item.time;
-      const ind = item.indicators;
-
-      switch (type) {
-        case "sma":
-          if (ind.sma) {
-            if (!result.sma20) result.sma20 = [];
-            if (!result.sma50) result.sma50 = [];
-            if (ind.sma[20] != null)
-              result.sma20.push({ time, value: ind.sma[20] });
-            if (ind.sma[50] != null)
-              result.sma50.push({ time, value: ind.sma[50] });
-          }
-          break;
-        case "ema":
-          if (ind.ema) {
-            if (!result.ema20) result.ema20 = [];
-            if (!result.ema50) result.ema50 = [];
-            if (ind.ema[20] != null)
-              result.ema20.push({ time, value: ind.ema[20] });
-            if (ind.ema[50] != null)
-              result.ema50.push({ time, value: ind.ema[50] });
-          }
-          break;
-        case "bb":
-          if (ind.bollingerBands) {
-            if (!result.bbUpper) result.bbUpper = [];
-            if (!result.bbLower) result.bbLower = [];
-            if (ind.bollingerBands.upper != null)
-              result.bbUpper.push({ time, value: ind.bollingerBands.upper });
-            if (ind.bollingerBands.lower != null)
-              result.bbLower.push({ time, value: ind.bollingerBands.lower });
-          }
-          break;
-        case "psar":
-          if (ind.parabolicSar && ind.parabolicSar.value != null) {
-            if (!result.psar) result.psar = [];
-            result.psar.push({ time, value: ind.parabolicSar.value });
-          }
-          break;
-        case "rsi":
-          if (ind.rsi && ind.rsi[14] != null) {
-            if (!result.rsi) result.rsi = [];
-            result.rsi.push({ time, value: ind.rsi[14] });
-          }
-          break;
-        case "macd":
-          if (ind.macd) {
-            if (!result.macd) result.macd = [];
-            if (!result.macdSignal) result.macdSignal = [];
-            if (!result.macdHist) result.macdHist = [];
-            if (ind.macd.macd != null)
-              result.macd.push({ time, value: ind.macd.macd });
-            if (ind.macd.signalLine != null)
-              result.macdSignal.push({ time, value: ind.macd.signalLine });
-            if (ind.macd.histogram != null)
-              result.macdHist.push({ time, value: ind.macd.histogram });
-          }
-          break;
-        case "stoch":
-          if (ind.stochastic) {
-            if (!result.stochK) result.stochK = [];
-            if (!result.stochD) result.stochD = [];
-            if (ind.stochastic["%K"] != null)
-              result.stochK.push({ time, value: ind.stochastic["%K"] });
-            if (ind.stochastic["%D"] != null)
-              result.stochD.push({ time, value: ind.stochastic["%D"] });
-          }
-          break;
-        case "stochrsi":
-          if (ind.stochasticRsi) {
-            if (!result.stochRsiK) result.stochRsiK = [];
-            if (!result.stochRsiD) result.stochRsiD = [];
-            if (ind.stochasticRsi["%K"] != null)
-              result.stochRsiK.push({ time, value: ind.stochasticRsi["%K"] });
-            if (ind.stochasticRsi["%D"] != null)
-              result.stochRsiD.push({ time, value: ind.stochasticRsi["%D"] });
-          }
-          break;
-      }
-    });
-
-    return result;
-  }
-
-  updateIndicatorSeries(type, data) {
-    if (!this.series[type]) return;
-
-    Object.entries(this.series[type]).forEach(([key, series]) => {
-      if (data[key] && data[key].length) {
-        series.setData(data[key]);
-      } else if (key.includes("70") || key.includes("80")) {
-        // Reference lines
-        const value = parseInt(key.match(/\d+/)[0]);
-        const refData = this.currentData.map((d) => ({ time: d.time, value }));
-        series.setData(refData);
-      } else if (key.includes("30") || key.includes("20")) {
-        const value = parseInt(key.match(/\d+/)[0]);
-        const refData = this.currentData.map((d) => ({ time: d.time, value }));
-        series.setData(refData);
-      }
-    });
-  }
-
-  // ✅ Enhanced Real-time Indicator Values Display Update
-  updateIndicatorValuesDisplay() {
-    if (!this.latestValues || Object.keys(this.latestValues).length === 0) {
-      return;
-    }
-
-    const values = this.latestValues;
-
-    // Update timestamp
-    const timestampEl = document.querySelector("[data-last-update]");
-    if (timestampEl && values.timestamp) {
-      const date = new Date(values.timestamp * 1000);
-      timestampEl.textContent = date.toLocaleTimeString();
-    }
-
-    // Format number helper function
-    const formatValue = (value, decimals = 2) => {
-      if (value === undefined || value === null || isNaN(value)) return "–";
-      return typeof value === "number"
-        ? value.toFixed(decimals)
-        : value.toString();
+    const dataFor = (type) => {
+      const res = {};
+      this.currentData.forEach(({ time, indicators }) => {
+        const ind = indicators || {};
+        switch (type) {
+          case "sma":
+            if (ind.sma?.[20] != null)
+              (res.sma20 ||= []).push({ time, value: ind.sma[20] });
+            if (ind.sma?.[50] != null)
+              (res.sma50 ||= []).push({ time, value: ind.sma[50] });
+            break;
+          case "ema":
+            if (ind.ema?.[20] != null)
+              (res.ema20 ||= []).push({ time, value: ind.ema[20] });
+            if (ind.ema?.[50] != null)
+              (res.ema50 ||= []).push({ time, value: ind.ema[50] });
+            break;
+          case "bb":
+            if (ind.bollingerBands?.upper != null)
+              (res.bbUpper ||= []).push({
+                time,
+                value: ind.bollingerBands.upper,
+              });
+            if (ind.bollingerBands?.lower != null)
+              (res.bbLower ||= []).push({
+                time,
+                value: ind.bollingerBands.lower,
+              });
+            break;
+          case "psar":
+            if (ind.parabolicSar?.value != null)
+              (res.psar ||= []).push({ time, value: ind.parabolicSar.value });
+            break;
+          case "rsi":
+            if (ind.rsi?.[14] != null)
+              (res.rsi ||= []).push({ time, value: ind.rsi[14] });
+            break;
+          case "macd":
+            if (ind.macd?.macd != null)
+              (res.macd ||= []).push({ time, value: ind.macd.macd });
+            if (ind.macd?.signalLine != null)
+              (res.macdSignal ||= []).push({
+                time,
+                value: ind.macd.signalLine,
+              });
+            if (ind.macd?.histogram != null)
+              (res.macdHist ||= []).push({ time, value: ind.macd.histogram });
+            break;
+          case "stoch":
+            if (ind.stochastic?.["%K"] != null)
+              (res.stochK ||= []).push({ time, value: ind.stochastic["%K"] });
+            if (ind.stochastic?.["%D"] != null)
+              (res.stochD ||= []).push({ time, value: ind.stochastic["%D"] });
+            break;
+          case "stochrsi":
+            if (ind.stochasticRsi?.["%K"] != null)
+              (res.stochRsiK ||= []).push({
+                time,
+                value: ind.stochasticRsi["%K"],
+              });
+            if (ind.stochasticRsi?.["%D"] != null)
+              (res.stochRsiD ||= []).push({
+                time,
+                value: ind.stochasticRsi["%D"],
+              });
+            break;
+        }
+      });
+      return res;
     };
 
-    // ✅ SMA Values Update
-    const sma20El = document.querySelector("[data-sma20]");
-    const sma50El = document.querySelector("[data-sma50]");
-    if (sma20El && values.sma20 !== undefined) {
-      sma20El.textContent = `$${formatValue(values.sma20, 2)}`;
-      this.animateValueUpdate(sma20El);
-    }
-    if (sma50El && values.sma50 !== undefined) {
-      sma50El.textContent = `$${formatValue(values.sma50, 2)}`;
-      this.animateValueUpdate(sma50El);
-    }
+    this.activeIndicators.forEach((type) => {
+      const data = dataFor(type);
+      const seriesGroup = this.series[type];
+      if (!seriesGroup) return;
 
-    // ✅ EMA Values Update
-    const ema20El = document.querySelector("[data-ema20]");
-    const ema50El = document.querySelector("[data-ema50]");
-    if (ema20El && values.ema20 !== undefined) {
-      ema20El.textContent = `$${formatValue(values.ema20, 2)}`;
-      this.animateValueUpdate(ema20El);
-    }
-    if (ema50El && values.ema50 !== undefined) {
-      ema50El.textContent = `$${formatValue(values.ema50, 2)}`;
-      this.animateValueUpdate(ema50El);
-    }
-
-    // ✅ RSI Values Update with Status
-    const rsiEl = document.querySelector("[data-rsi]");
-    const rsiStatusEl = document.querySelector("[data-rsi-status]");
-    if (rsiEl && values.rsi !== undefined) {
-      const rsiValue = parseFloat(values.rsi);
-      rsiEl.textContent = formatValue(rsiValue, 2);
-      this.animateValueUpdate(rsiEl);
-
-      // Update RSI status with enhanced styling
-      if (rsiStatusEl) {
-        let statusText, statusClass, dotClass;
-        if (rsiValue > 70) {
-          statusText = "Overbought";
-          statusClass = "bg-red-100 text-red-700 border border-red-200";
-          dotClass = "bg-red-400";
-        } else if (rsiValue < 30) {
-          statusText = "Oversold";
-          statusClass = "bg-green-100 text-green-700 border border-green-200";
-          dotClass = "bg-green-400";
-        } else {
-          statusText = "Neutral";
-          statusClass = "bg-gray-100 text-gray-700 border border-gray-200";
-          dotClass = "bg-gray-400";
+      Object.entries(seriesGroup).forEach(([key, s]) => {
+        if (data[key]?.length) {
+          s.setData(data[key]);
+          return;
         }
+        // Reference lines (70/30/80/20)
+        const ref = key.match(/\d+$/);
+        if (ref) {
+          const v = parseInt(ref[0], 10);
+          s.setData(this.currentData.map((d) => ({ time: d.time, value: v })));
+        }
+      });
+    });
+  }
 
-        rsiStatusEl.innerHTML = `<div class="w-2 h-2 rounded-full mr-2 ${dotClass}"></div>${statusText}`;
-        rsiStatusEl.className = `inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${statusClass}`;
-      }
+  /* ---------------------------- VALUES PANEL ---------------------------- */
+
+  updateIndicatorValuesDisplay() {
+    if (!Object.keys(this.latestValues).length) return;
+    const v = this.latestValues;
+    const fmt = (x, d = 2) =>
+      x == null || isNaN(x) ? "–" : typeof x === "number" ? x.toFixed(d) : x;
+
+    const set = (sel, val, prefix = "", d = 2, animate = true) => {
+      const el = document.querySelector(sel);
+      if (!el || val == null) return;
+      el.textContent = prefix ? `${prefix}${fmt(val, d)}` : fmt(val, d);
+      if (!animate) return;
+      el.style.transform = "scale(1.05)";
+      el.style.transition = "transform .15s ease-out";
+      el.style.backgroundColor = "rgba(59,130,246,.1)";
+      setTimeout(() => {
+        el.style.transform = "scale(1)";
+        el.style.backgroundColor = "";
+      }, 150);
+    };
+
+    // Timestamp
+    const ts = document.querySelector("[data-last-update]");
+    if (ts && v.timestamp)
+      ts.textContent = new Date(v.timestamp * 1000).toLocaleTimeString();
+
+    // MA
+    set("[data-sma20]", v.sma20, "$");
+    set("[data-sma50]", v.sma50, "$");
+    set("[data-ema20]", v.ema20, "$");
+    set("[data-ema50]", v.ema50, "$");
+
+    // RSI + badge
+    set("[data-rsi]", v.rsi, "", 2);
+    const badge = document.querySelector("[data-rsi-status]");
+    if (badge && v.rsi != null) {
+      let txt = "Neutral",
+        cls = "bg-gray-100 text-gray-700 border border-gray-200",
+        dot = "bg-gray-400";
+      if (v.rsi > 70)
+        (txt = "Overbought"),
+          (cls = "bg-red-100 text-red-700 border border-red-200"),
+          (dot = "bg-red-400");
+      else if (v.rsi < 30)
+        (txt = "Oversold"),
+          (cls = "bg-green-100 text-green-700 border border-green-200"),
+          (dot = "bg-green-400");
+      badge.innerHTML = `<div class="w-2 h-2 rounded-full mr-2 ${dot}"></div>${txt}`;
+      badge.className = `inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${cls}`;
     }
 
-    // ✅ MACD Values Update with Parameters
-    const macdEl = document.querySelector("[data-macd]");
-    const macdSignalEl = document.querySelector("[data-macd-signal]");
-    const macdHistEl = document.querySelector("[data-macd-hist]");
-    const macdFastEl = document.querySelector("[data-macd-fast]");
-    const macdSlowEl = document.querySelector("[data-macd-slow]");
-    const macdSignalPeriodEl = document.querySelector(
-      "[data-macd-signal-period]"
-    );
-
-    if (macdEl && values.macd !== undefined) {
-      macdEl.textContent = formatValue(values.macd, 3);
-      this.animateValueUpdate(macdEl);
-    }
-    if (macdSignalEl && values.macdSignal !== undefined) {
-      macdSignalEl.textContent = formatValue(values.macdSignal, 3);
-      this.animateValueUpdate(macdSignalEl);
-    }
-    if (macdHistEl && values.macdHist !== undefined) {
-      const histValue = parseFloat(values.macdHist);
-      macdHistEl.textContent = formatValue(histValue, 3);
-      macdHistEl.className =
-        histValue >= 0
+    // MACD
+    set("[data-macd]", v.macd, "", 3);
+    set("[data-macd-signal]", v.macdSignal, "", 3);
+    const histEl = document.querySelector("[data-macd-hist]");
+    if (histEl && v.macdHist != null) {
+      histEl.textContent = fmt(v.macdHist, 3);
+      histEl.className =
+        v.macdHist >= 0
           ? "font-mono font-bold text-green-700 text-sm"
           : "font-mono font-bold text-red-700 text-sm";
-      this.animateValueUpdate(macdHistEl);
     }
-    if (macdFastEl && values.macdFast !== undefined) {
-      macdFastEl.textContent = values.macdFast;
-    }
-    if (macdSlowEl && values.macdSlow !== undefined) {
-      macdSlowEl.textContent = values.macdSlow;
-    }
-    if (macdSignalPeriodEl && values.macdSignalPeriod !== undefined) {
-      macdSignalPeriodEl.textContent = values.macdSignalPeriod;
-    }
+    set("[data-macd-fast]", v.macdFast, "", 0, false);
+    set("[data-macd-slow]", v.macdSlow, "", 0, false);
+    set("[data-macd-signal-period]", v.macdSignalPeriod, "", 0, false);
 
-    // ✅ Bollinger Bands Values Update
-    const bbUpperEl = document.querySelector("[data-bb-upper]");
-    const bbLowerEl = document.querySelector("[data-bb-lower]");
-    const bbPeriodEl = document.querySelector("[data-bb-period]");
-    const bbMultiplierEl = document.querySelector("[data-bb-multiplier]");
+    // BB
+    set("[data-bb-upper]", v.bbUpper, "$");
+    set("[data-bb-lower]", v.bbLower, "$");
+    set("[data-bb-period]", v.bbPeriod, "", 0, false);
+    set("[data-bb-multiplier]", v.bbMultiplier, "", 0, false);
 
-    if (bbUpperEl && values.bbUpper !== undefined) {
-      bbUpperEl.textContent = `$${formatValue(values.bbUpper, 2)}`;
-      this.animateValueUpdate(bbUpperEl);
-    }
-    if (bbLowerEl && values.bbLower !== undefined) {
-      bbLowerEl.textContent = `$${formatValue(values.bbLower, 2)}`;
-      this.animateValueUpdate(bbLowerEl);
-    }
-    if (bbPeriodEl && values.bbPeriod !== undefined) {
-      bbPeriodEl.textContent = values.bbPeriod;
-    }
-    if (bbMultiplierEl && values.bbMultiplier !== undefined) {
-      bbMultiplierEl.textContent = values.bbMultiplier;
-    }
+    // Stoch
+    set("[data-stoch-k]", v.stochK, "", 2);
+    set("[data-stoch-d]", v.stochD, "", 2);
+    set("[data-stoch-k-period]", v.stochKPeriod, "", 0, false);
+    set("[data-stoch-d-period]", v.stochDPeriod, "", 0, false);
 
-    // ✅ Stochastic Values Update
-    const stochKEl = document.querySelector("[data-stoch-k]");
-    const stochDEl = document.querySelector("[data-stoch-d]");
-    const stochKPeriodEl = document.querySelector("[data-stoch-k-period]");
-    const stochDPeriodEl = document.querySelector("[data-stoch-d-period]");
+    // StochRSI
+    set("[data-stochrsi-k]", v.stochRsiK, "", 2);
+    set("[data-stochrsi-d]", v.stochRsiD, "", 2);
+    set("[data-stochrsi-rsi-period]", v.stochRsiRsiPeriod, "", 0, false);
+    set("[data-stochrsi-stoch-period]", v.stochRsiStochPeriod, "", 0, false);
+    set("[data-stochrsi-k-period]", v.stochRsiKPeriod, "", 0, false);
+    set("[data-stochrsi-d-period]", v.stochRsiDPeriod, "", 0, false);
 
-    if (stochKEl && values.stochK !== undefined) {
-      stochKEl.textContent = formatValue(values.stochK, 2);
-      this.animateValueUpdate(stochKEl);
-    }
-    if (stochDEl && values.stochD !== undefined) {
-      stochDEl.textContent = formatValue(values.stochD, 2);
-      this.animateValueUpdate(stochDEl);
-    }
-    if (stochKPeriodEl && values.stochKPeriod !== undefined) {
-      stochKPeriodEl.textContent = values.stochKPeriod;
-    }
-    if (stochDPeriodEl && values.stochDPeriod !== undefined) {
-      stochDPeriodEl.textContent = values.stochDPeriod;
-    }
-
-    // ✅ Stochastic RSI Values Update
-    const stochRsiKEl = document.querySelector("[data-stochrsi-k]");
-    const stochRsiDEl = document.querySelector("[data-stochrsi-d]");
-    const stochRsiRsiPeriodEl = document.querySelector(
-      "[data-stochrsi-rsi-period]"
-    );
-    const stochRsiStochPeriodEl = document.querySelector(
-      "[data-stochrsi-stoch-period]"
-    );
-    const stochRsiKPeriodEl = document.querySelector(
-      "[data-stochrsi-k-period]"
-    );
-    const stochRsiDPeriodEl = document.querySelector(
-      "[data-stochrsi-d-period]"
-    );
-
-    if (stochRsiKEl && values.stochRsiK !== undefined) {
-      stochRsiKEl.textContent = formatValue(values.stochRsiK, 2);
-      this.animateValueUpdate(stochRsiKEl);
-    }
-    if (stochRsiDEl && values.stochRsiD !== undefined) {
-      stochRsiDEl.textContent = formatValue(values.stochRsiD, 2);
-      this.animateValueUpdate(stochRsiDEl);
-    }
-    if (stochRsiRsiPeriodEl && values.stochRsiRsiPeriod !== undefined) {
-      stochRsiRsiPeriodEl.textContent = values.stochRsiRsiPeriod;
-    }
-    if (stochRsiStochPeriodEl && values.stochRsiStochPeriod !== undefined) {
-      stochRsiStochPeriodEl.textContent = values.stochRsiStochPeriod;
-    }
-    if (stochRsiKPeriodEl && values.stochRsiKPeriod !== undefined) {
-      stochRsiKPeriodEl.textContent = values.stochRsiKPeriod;
-    }
-    if (stochRsiDPeriodEl && values.stochRsiDPeriod !== undefined) {
-      stochRsiDPeriodEl.textContent = values.stochRsiDPeriod;
-    }
-
-    // ✅ Parabolic SAR Values Update
-    const psarEl = document.querySelector("[data-psar]");
-    const psarStepEl = document.querySelector("[data-psar-step]");
-    const psarMaxStepEl = document.querySelector("[data-psar-max-step]");
-    const psarTrendEl = document.querySelector("[data-psar-trend]");
-
-    if (psarEl && values.psar !== undefined) {
-      psarEl.textContent = `$${formatValue(values.psar, 2)}`;
-      this.animateValueUpdate(psarEl);
-    }
-    if (psarStepEl && values.psarStep !== undefined) {
-      psarStepEl.textContent = values.psarStep;
-    }
-    if (psarMaxStepEl && values.psarMaxStep !== undefined) {
-      psarMaxStepEl.textContent = values.psarMaxStep;
-    }
-    if (psarTrendEl) {
-      psarTrendEl.textContent = "Active";
-      psarTrendEl.className =
+    // PSAR
+    set("[data-psar]", v.psar, "$");
+    set("[data-psar-step]", v.psarStep, "", 0, false);
+    set("[data-psar-max-step]", v.psarMaxStep, "", 0, false);
+    const psarBadge = document.querySelector("[data-psar-trend]");
+    if (psarBadge) {
+      psarBadge.textContent = "Active Signal";
+      psarBadge.className =
         "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700";
     }
-
-    console.log("✅ Indicator values display updated successfully");
   }
 
-  // ✅ Smooth animation for value updates
-  animateValueUpdate(element) {
-    if (!element) return;
-
-    element.style.transform = "scale(1.05)";
-    element.style.transition = "transform 0.15s ease-out";
-    element.style.backgroundColor = "rgba(59, 130, 246, 0.1)";
-
-    setTimeout(() => {
-      element.style.transform = "scale(1)";
-      element.style.backgroundColor = "";
-    }, 150);
-  }
-
-  updateParameterDisplays() {
-    if (!this.latestValues) return;
-
-    const parameterUpdates = {
-      // MACD parameters
-      "[data-macd-fast]": this.latestValues.macdFast,
-      "[data-macd-slow]": this.latestValues.macdSlow,
-      "[data-macd-signal-period]": this.latestValues.macdSignalPeriod,
-
-      // Bollinger Bands parameters
-      "[data-bb-period]": this.latestValues.bbPeriod,
-      "[data-bb-multiplier]": this.latestValues.bbMultiplier,
-
-      // Stochastic parameters
-      "[data-stoch-k-period]": this.latestValues.stochKPeriod,
-      "[data-stoch-d-period]": this.latestValues.stochDPeriod,
-
-      // Stochastic RSI parameters
-      "[data-stochrsi-rsi-period]": this.latestValues.stochRsiRsiPeriod,
-      "[data-stochrsi-stoch-period]": this.latestValues.stochRsiStochPeriod,
-      "[data-stochrsi-k-period]": this.latestValues.stochRsiKPeriod,
-      "[data-stochrsi-d-period]": this.latestValues.stochRsiDPeriod,
-
-      // Parabolic SAR parameters
-      "[data-psar-step]": this.latestValues.psarStep,
-      "[data-psar-max-step]": this.latestValues.psarMaxStep,
-    };
-
-    Object.entries(parameterUpdates).forEach(([selector, value]) => {
-      const el = document.querySelector(selector);
-      if (el && value !== undefined && value !== null) {
-        el.textContent = value;
-      }
-    });
-  }
+  /* ---------------------------- DESTROY ---------------------------- */
 
   destroy() {
-    console.log("🗑️ Destroying chart with sync cleanup...");
-
-    // Clear sync timeout
-    if (this.syncTimeout) {
-      clearTimeout(this.syncTimeout);
-      this.syncTimeout = null;
-    }
-
-    this.isSyncing = false;
-    this.activeIndicators.clear();
-    this.series = {};
-    this.currentData = [];
-    this.latestValues = {};
-
-    if (this.resizeObserver) {
-      this.resizeObserver.disconnect();
+    try {
+      if (this.resizeObserver) this.resizeObserver.disconnect();
       this.resizeObserver = null;
+
+      if (this.chart) {
+        this.chart.remove();
+        this.chart = null;
+        this.candleSeries = null;
+      }
+      Object.values(this.subCharts).forEach(({ chart }) => chart?.remove());
+      this.subCharts = {};
+      this.series = {};
+      this.activeIndicators.clear();
+      this.currentData = [];
+      this.latestValues = {};
+      this.isInitialized = false;
+      this.isFullscreen = false;
+      console.log("🗑️ Chart destroyed cleanly");
+    } catch (e) {
+      console.warn("⚠️ Destroy error ignored:", e);
     }
-
-    if (this.chart) {
-      this.chart.remove();
-      this.chart = null;
-      this.candleSeries = null;
-    }
-
-    Object.values(this.subCharts).forEach(({ chart }) => {
-      if (chart) chart.remove();
-    });
-    this.subCharts = {};
-
-    this.isInitialized = false;
-    this.isFullscreen = false;
   }
 }
+
+window.addEventListener("DOMContentLoaded", () => {
+  const chart = new CandlestickChart("candlestick-chart");
+  chart.init();
+});

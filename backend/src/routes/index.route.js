@@ -4,7 +4,7 @@ import authRoute from "./auth.route.js";
 import marketcapRoute from "./marketcap.route.js";
 import chartRoute from "./chart.route.js";
 import indicatorRoute from "./indicator.route.js";
-import signalRoute from "./signal.route.js";
+import multiIndicatorRoute from "./multiIndicator.route.js";
 import comparisonRoute from "./comparison.route.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 
@@ -19,7 +19,7 @@ router.use("/marketcap", authMiddleware, marketcapRoute);
 // Analysis & Visualization
 router.use("/chart", authMiddleware, chartRoute);
 router.use("/indicator", authMiddleware, indicatorRoute);
-router.use("/signal", authMiddleware, signalRoute);
+router.use("/multiIndicator", authMiddleware, multiIndicatorRoute);
 router.use("/comparison", authMiddleware, comparisonRoute);
 
 // Default 404 handler
