@@ -7,6 +7,7 @@ import indicatorRoute from "./indicator.route.js";
 import multiIndicatorRoute from "./multiIndicator.route.js";
 import comparisonRoute from "./comparison.route.js";
 import schedulerRoute from "./scheduler.route.js";
+import userRoute from "./user.route.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
@@ -16,6 +17,9 @@ router.use("/auth", authRoute);
 
 // Market data
 router.use("/marketcap", authMiddleware, marketcapRoute);
+
+// User profile (protected)
+router.use("/user", authMiddleware, userRoute);
 
 // Analysis & Visualization
 router.use("/chart", chartRoute);

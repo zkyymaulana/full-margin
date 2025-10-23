@@ -16,6 +16,7 @@ model User {
   lastLogin    DateTime?
   authLogs     AuthLog[]
   // Removed signals relation as Signal model is not used
+  avatarUrl    String?
 }
 
 model AuthLog {
