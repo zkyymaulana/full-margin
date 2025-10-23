@@ -37,70 +37,53 @@ function cleanResult(result) {
 }
 
 /**
- * 🎯 Compare Trading Strategies Endpoint (Simplified Academic)
+ * 🎯 Compare Trading Strategies Endpoint (Enhanced with Metadata)
  *
- * Provides clean academic comparison results focusing on three core metrics:
- * ROI, Win Rate, and Max Drawdown without balance tracking complexity.
+ * Provides comprehensive academic comparison results with total candle information
+ * and ultra-conservative trading parameters for 1H timeframe.
  */
-export async function compareIndicators(req, res) {
+export const compareIndicators = async (req, res) => {
   try {
-    const { symbol, start, end } = req.body;
+    const { symbol, startDate, endDate } = req.body;
 
-    if (!symbol || !start || !end) {
+    if (!symbol || !startDate || !endDate) {
       return res.status(400).json({
         success: false,
-        message: "Missing required parameters: symbol, start, end",
+        message: "Symbol, startDate, and endDate are required",
       });
     }
 
-    console.log(`🚀 Starting academic comparison for ${symbol}`);
+    // Fix parameter names to match service function signature (start, end)
+    const result = await compareStrategies(symbol, startDate, endDate);
 
-    // 🔧 Ambil hasil utama
-    const raw = await compareStrategies(symbol, start, end);
-
-    if (!raw || raw.success === false) {
-      return res.status(404).json({
-        success: false,
-        message: raw?.message || "No data found in DB",
-      });
+    if (!result.success) {
+      return res.status(404).json(result);
     }
 
-    // 🔍 Ambil dari dalam raw.comparison
-    const comp = raw.comparison || {};
-    const cleanedSingle = {};
-    if (comp.single) {
-      for (const [k, v] of Object.entries(comp.single)) {
-        cleanedSingle[k] = cleanResult(v);
-      }
-    }
-
-    const cleanedMulti = cleanResult(comp.multi);
-
-    const result = {
+    // Use dataInfo instead of metadata to match service response
+    const response = {
       success: true,
-      symbol: symbol.toUpperCase(),
-      comparison: {
-        single: cleanedSingle,
-        multi: cleanedMulti,
-        bestStrategy: comp.bestStrategy || "unknown",
-        bestSingleIndicator: comp.bestSingleIndicator || "unknown",
-      },
+      symbol: result.symbol,
+      timeframe: result.timeframe,
+      totalCandles: result.dataInfo.totalCandles,
+      totalIndicators: result.dataInfo.totalIndicators,
+      periodDays: result.dataInfo.periodDays,
+      startDate: result.dataInfo.startDate,
+      endDate: result.dataInfo.endDate,
+      tradingConfig: result.dataInfo.tradingConfig,
+      analysis: result.analysis,
+      comparison: result.comparison,
+      // Include High-ROI comparison block in API response
+      comparisonHighROI: result.comparisonHighROI,
     };
 
-    // Log hasil summary
-    const best = cleanedSingle[comp.bestSingleIndicator] || {
-      roi: 0,
-      winRate: 0,
-      maxDrawdown: 0,
-    };
-    const multi = cleanedMulti || { roi: 0, winRate: 0, maxDrawdown: 0 };
-    console.log(
-      `📊 ${symbol}: BestSingle(${comp.bestSingleIndicator}) ROI=${best.roi}% | WR=${best.winRate}% | DD=${best.maxDrawdown}% | Multi ROI=${multi.roi}% | WR=${multi.winRate}%`
-    );
-
-    res.json(result);
-  } catch (err) {
-    console.error("❌ compareIndicators error:", err.message);
-    res.status(500).json({ success: false, message: err.message });
+    res.json(response);
+  } catch (error) {
+    console.error("❌ Comparison Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error during comparison",
+      error: error.message,
+    });
   }
-}
+};

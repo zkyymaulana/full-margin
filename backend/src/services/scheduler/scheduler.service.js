@@ -1,224 +1,277 @@
-import { prisma } from "../../lib/prisma.js";
-import { fetchHistoricalCandles } from "../coinbase/coinbase.service.js";
+import cron from "node-cron";
 import {
-  getLastCandleTime,
-  saveCandlesToDB,
-} from "../charts/chartdata.service.js";
-import { calculateAndSaveIndicators } from "../indicators/indicator.service.js"; // ✅ Import indicator service
+  syncLatestCandles,
+  getActiveSymbols,
+} from "../sync/candle-sync.service.js";
+import { calculateAndSaveIndicators } from "../indicators/indicator.service.js";
 
-/* =========================
-   🕒 TIME UTILITIES (dalam MILIDETIK)
-========================= */
-const HOUR_MS = 3600000; // 1 jam = 3600000 milidetik
-const INTERVAL_MS = Number(process.env.LIVE_INTERVAL_MS) || 30000;
+// Store active cron jobs
+const activeJobs = new Map();
+const jobStats = {
+  totalRuns: 0,
+  successfulRuns: 0,
+  failedRuns: 0,
+  lastRun: null,
+  lastRunDuration: 0,
+};
 
-// ✅ PERBAIKAN: Set default start date to 1 January 2020
-const DEFAULT_START_DATE = new Date("2020-01-01T00:00:00.000Z").getTime();
+// Cache untuk symbols agar tidak query database setiap kali
+let symbolsCache = [];
+let symbolsCacheTime = 0;
+const SYMBOLS_CACHE_TTL = 5 * 60 * 1000; // 5 menit
 
-// ✅ Perbaikan validasi START_EPOCH_MS
-let START_EPOCH_MS;
-if (process.env.CANDLE_START_DATE) {
-  const envDate = new Date(process.env.CANDLE_START_DATE).getTime();
-  if (isNaN(envDate) || envDate <= 0) {
-    console.error(
-      `❌ Invalid CANDLE_START_DATE: ${process.env.CANDLE_START_DATE}`
-    );
-    console.log(
-      `🔄 Using default start date: ${new Date(DEFAULT_START_DATE).toISOString()}`
-    );
-    START_EPOCH_MS = DEFAULT_START_DATE;
-  } else {
-    START_EPOCH_MS = envDate;
-  }
-} else {
-  START_EPOCH_MS = DEFAULT_START_DATE;
-}
+export async function startAllSchedulers() {
+  console.log("🚀 Starting all crypto data schedulers...");
 
-console.log(`📅 Candle start date: ${new Date(START_EPOCH_MS).toISOString()}`);
-
-function getLastClosedHourlyCandleEndTime() {
-  const now = Date.now();
-  const lastHour = Math.floor(now / HOUR_MS) * HOUR_MS;
-  return lastHour - HOUR_MS; // candle sebelumnya yang sudah close
-}
-
-/* =========================
-   ⚙️ ENV & KONST
-========================= */
-const COIN_LIMIT = Number(process.env.COIN_LIMIT) || 100;
-
-// ⬇️ jeda antar coin saat historical (agar super-aman dari 429)
-const HISTORICAL_COIN_DELAY_MS =
-  Number(process.env.HISTORICAL_COIN_DELAY_MS) || 2000;
-
-const schedulers = new Map();
-
-/* =========================
-  BACKFILL 1 COIN (serial)
-  - Ambil historical sampai lastClosed
-  - Simpan ke DB
-  - Hitung indicator
-========================= */
-async function backfillCoin(coinId, symbol) {
   try {
-    const lastSaved = await getLastCandleTime(symbol);
-    const lastClosed = getLastClosedHourlyCandleEndTime();
+    // Load initial symbols
+    await refreshSymbolsCache();
 
-    // ✅ PERBAIKAN: Validasi timestamps
-    const start = lastSaved ? Number(lastSaved) + HOUR_MS : START_EPOCH_MS;
+    // Start main hourly job - runs at minute 59 of every hour (1 minute before candle close)
+    // This gives us time to fetch and process data before the next candle starts
+    startHourlyCandleJob();
 
-    if (isNaN(start) || isNaN(lastClosed)) {
-      console.error(
-        `❌ ${symbol}: Invalid timestamp - start: ${start}, lastClosed: ${lastClosed}`
-      );
-      return;
-    }
+    // Start backup job - runs at minute 2 of every hour (2 minutes after candle close)
+    // This catches any data that might have been missed
+    startBackupJob();
 
-    if (start >= lastClosed) {
-      console.log(`⏭️ ${symbol}: sudah up-to-date (historical)`);
-      return;
-    }
+    // Start symbols refresh job - every 30 minutes
+    startSymbolsRefreshJob();
 
-    console.log(
-      `📦 Historical ${symbol}: ${new Date(start).toISOString()} → ${new Date(
-        lastClosed
-      ).toISOString()}`
-    );
+    // Start health check job - every 5 minutes
+    startHealthCheckJob();
 
-    const candles = await fetchHistoricalCandles(symbol, start, lastClosed);
-    if (!candles.length) {
-      console.log(`⚠️ ${symbol}: tidak ada candle historical baru`);
-      return;
-    }
-
-    await saveCandlesToDB(symbol, coinId, candles);
-    console.log(`✅ ${symbol}: ${candles.length} candle historical disimpan`);
-
-    // ✅ PERBAIKAN: Hitung indicator setelah candle disimpan
-    try {
-      await calculateAndSaveIndicators(symbol, "1h", "incremental");
-      console.log(`📊 ${symbol}: indicator historical berhasil dihitung`);
-    } catch (err) {
-      console.error(
-        `❌ ${symbol}: gagal hitung indicator historical -`,
-        err.message
-      );
-    }
+    console.log("✅ All schedulers started successfully");
+    return true;
   } catch (error) {
-    console.error(`❌ ${symbol}: Error in backfillCoin -`, error.message);
+    console.error("❌ Failed to start schedulers:", error.message);
     throw error;
   }
 }
 
-/* =========================
-   🔄 LIVE SCHEDULER PER COIN
-   - Cek tiap INTERVAL_MS
-   - Simpan hanya candle yang sudah close
-   - Hitung indicator untuk candle baru
-========================= */
-export async function startLiveUpdater(coinId, symbol) {
-  if (schedulers.has(symbol)) return; // sudah aktif
+function startHourlyCandleJob() {
+  // Cron format: second minute hour day month dayOfWeek
+  // "0 59 * * * *" = runs at second 0, minute 59 of every hour
+  const job = cron.schedule(
+    "0 59 * * * *",
+    async () => {
+      console.log(
+        `⏰ [${new Date().toISOString()}] Starting hourly candle sync...`
+      );
+      await runMainSyncJob();
+    },
+    {
+      scheduled: false,
+      timezone: "Asia/Jakarta", // Sesuaikan dengan timezone Anda
+    }
+  );
 
-  const update = async () => {
-    try {
-      const lastSaved = await getLastCandleTime(symbol);
-      const lastClosed = getLastClosedHourlyCandleEndTime();
-      if (lastSaved && lastSaved >= lastClosed) return; // sudah up-to-date
+  job.start();
+  activeJobs.set("hourly-candle-sync", job);
+  console.log(
+    "🕐 Hourly candle sync job scheduled (59th minute of every hour)"
+  );
+}
 
-      const start = lastSaved ? Number(lastSaved) + HOUR_MS : START_EPOCH_MS;
-      const candles = await fetchHistoricalCandles(symbol, start, lastClosed);
+function startBackupJob() {
+  // Backup job runs 2 minutes after hour change
+  const job = cron.schedule(
+    "0 2 * * * *",
+    async () => {
+      console.log(`🔄 [${new Date().toISOString()}] Running backup sync...`);
+      await runMainSyncJob(true);
+    },
+    {
+      scheduled: false,
+      timezone: "Asia/Jakarta",
+    }
+  );
 
-      if (candles.length) {
-        await saveCandlesToDB(symbol, coinId, candles);
-        console.log(
-          `✅ ${symbol}: ${candles.length} candle LIVE disimpan (≤ ${new Date(
-            lastClosed
-          ).toISOString()})`
-        );
+  job.start();
+  activeJobs.set("backup-sync", job);
+  console.log("🔄 Backup sync job scheduled (2nd minute of every hour)");
+}
 
-        // ✅ PERBAIKAN: Hitung indicator untuk candle baru
-        try {
-          await calculateAndSaveIndicators(symbol, "1h", "incremental");
-          console.log(`📊 ${symbol}: indicator LIVE berhasil dihitung`);
-        } catch (indicatorErr) {
-          console.error(
-            `❌ ${symbol}: gagal hitung indicator live -`,
-            indicatorErr.message
-          );
+function startSymbolsRefreshJob() {
+  // Refresh symbols every 30 minutes
+  const job = cron.schedule(
+    "0 */30 * * * *",
+    async () => {
+      console.log(
+        `🔄 [${new Date().toISOString()}] Refreshing symbols cache...`
+      );
+      await refreshSymbolsCache();
+    },
+    {
+      scheduled: false,
+      timezone: "Asia/Jakarta",
+    }
+  );
+
+  job.start();
+  activeJobs.set("symbols-refresh", job);
+  console.log("🔄 Symbols refresh job scheduled (every 30 minutes)");
+}
+
+function startHealthCheckJob() {
+  // Health check every 5 minutes
+  const job = cron.schedule(
+    "0 */5 * * * *",
+    async () => {
+      const stats = getJobStats();
+      const memUsage = process.memoryUsage();
+
+      console.log(
+        `💖 Health Check - Runs: ${stats.totalRuns}, Success Rate: ${((stats.successfulRuns / stats.totalRuns) * 100 || 0).toFixed(1)}%, Memory: ${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`
+      );
+
+      // Force garbage collection if memory usage is high
+      if (memUsage.heapUsed > 500 * 1024 * 1024) {
+        // 500MB
+        if (global.gc) {
+          global.gc();
+          console.log("🧹 Forced garbage collection");
         }
       }
-    } catch (err) {
-      if (err?.response?.status === 429) {
-        console.warn(`⚠️ ${symbol}: rate limit (429), retry setelah 5s...`);
-        await new Promise((r) => setTimeout(r, 5000));
-      } else {
-        console.error(`❌ ${symbol} live update error:`, err?.message || err);
+    },
+    {
+      scheduled: false,
+      timezone: "Asia/Jakarta",
+    }
+  );
+
+  job.start();
+  activeJobs.set("health-check", job);
+  console.log("💖 Health check job scheduled (every 5 minutes)");
+}
+
+async function runMainSyncJob(isBackup = false) {
+  const startTime = Date.now();
+  jobStats.totalRuns++;
+
+  try {
+    // Pastikan symbols cache up to date
+    if (
+      symbolsCache.length === 0 ||
+      Date.now() - symbolsCacheTime > SYMBOLS_CACHE_TTL
+    ) {
+      await refreshSymbolsCache();
+    }
+
+    if (symbolsCache.length === 0) {
+      throw new Error("No active symbols found");
+    }
+
+    console.log(
+      `🎯 ${isBackup ? "Backup" : "Main"} sync starting for ${symbolsCache.length} symbols...`
+    );
+
+    // Step 1: Sync candle data
+    const candleResult = await syncLatestCandles(symbolsCache);
+
+    // Step 2: Calculate indicators for symbols that got new candles
+    const symbolsWithNewCandles = symbolsCache.filter((symbol) => {
+      // Run indicators for all symbols in main job, only updated ones in backup
+      return isBackup ? false : true; // Always run in main job, skip in backup for performance
+    });
+
+    if (symbolsWithNewCandles.length > 0) {
+      console.log(
+        `📊 Calculating indicators for ${symbolsWithNewCandles.length} symbols...`
+      );
+
+      // Calculate indicators in parallel but with concurrency limit
+      const CONCURRENCY_LIMIT = 3;
+      for (
+        let i = 0;
+        i < symbolsWithNewCandles.length;
+        i += CONCURRENCY_LIMIT
+      ) {
+        const batch = symbolsWithNewCandles.slice(i, i + CONCURRENCY_LIMIT);
+        await Promise.allSettled(
+          batch.map((symbol) => calculateAndSaveIndicators(symbol, "1h"))
+        );
+
+        // Small delay between batches
+        if (i + CONCURRENCY_LIMIT < symbolsWithNewCandles.length) {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        }
       }
     }
-  };
 
-  // pertama kali jalan (cek cepat), lalu interval rutin
-  console.log(
-    `🕒 Live scheduler mulai: ${symbol} (interval ${INTERVAL_MS / 1000}s)`
-  );
-  await update();
-  const id = setInterval(update, INTERVAL_MS);
-  schedulers.set(symbol, id);
+    const duration = Date.now() - startTime;
+    jobStats.successfulRuns++;
+    jobStats.lastRun = new Date();
+    jobStats.lastRunDuration = duration;
+
+    console.log(
+      `✅ ${isBackup ? "Backup" : "Main"} sync completed successfully (${duration}ms)`
+    );
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    jobStats.lastRun = new Date();
+    jobStats.lastRunDuration = duration;
+
+    console.error(
+      `❌ ${isBackup ? "Backup" : "Main"} sync failed:`,
+      error.message
+    );
+
+    // Don't throw error to prevent cron job from stopping
+  }
 }
 
-/* =========================
-   🚀 START ALL (SERIAL HISTORICAL → LIVE)
-   - PROSES 1 COIN DULU sampai selesai
-   - jeda antar coin
-   - lalu aktifkan live updater
-========================= */
-export async function startAllSchedulers() {
-  await prisma.$connect();
-  const coins = await prisma.coin.findMany({
-    select: { id: true, symbol: true },
-    take: COIN_LIMIT,
-  });
-
-  if (!coins.length) {
-    console.warn("⚠️ Tidak ada coin di database.");
-    return;
+async function refreshSymbolsCache() {
+  try {
+    const symbols = await getActiveSymbols();
+    symbolsCache = symbols;
+    symbolsCacheTime = Date.now();
+    console.log(`🔄 Symbols cache refreshed: ${symbols.length} active symbols`);
+  } catch (error) {
+    console.error("❌ Failed to refresh symbols cache:", error.message);
   }
-
-  console.log(
-    `⏳ Mulai historical sync SEKUENSIAL untuk ${coins.length} coin...`
-  );
-
-  for (const { id, symbol } of coins) {
-    try {
-      await backfillCoin(id, symbol); // ⬅️ SATU PERSATU
-    } catch (e) {
-      console.error(`❌ Historical ${symbol} gagal:`, e?.message || e);
-    }
-    // jeda aman antar coin historical
-    if (HISTORICAL_COIN_DELAY_MS > 0)
-      await new Promise((r) => setTimeout(r, HISTORICAL_COIN_DELAY_MS));
-  }
-
-  console.log(
-    "✅ Historical selesai untuk semua coin. Mengaktifkan LIVE scheduler..."
-  );
-
-  // setelah historical rampung semuanya → aktifkan live (boleh paralel karena ringan)
-  for (const { id, symbol } of coins) {
-    // tidak di-await supaya langsung aktif semua live checker
-    startLiveUpdater(id, symbol);
-    // opsional: beri sedikit jeda mikro agar tidak start persis di ms yang sama
-    await new Promise((r) => setTimeout(r, 50));
-  }
-
-  console.log(`🎯 Semua live scheduler aktif untuk ${coins.length} coin`);
 }
 
-/* =========================
-   🛑 STOP ALL
-========================= */
 export function stopAllSchedulers() {
-  for (const [symbol, id] of schedulers.entries()) clearInterval(id);
-  schedulers.clear();
-  console.log("🛑 Semua scheduler dihentikan");
+  console.log("⏹️ Stopping all schedulers...");
+
+  for (const [name, job] of activeJobs) {
+    job.destroy();
+    console.log(`⏹️ Stopped ${name}`);
+  }
+
+  activeJobs.clear();
+  console.log("✅ All schedulers stopped");
 }
+
+export function getSchedulerStatus() {
+  return {
+    activeJobs: Array.from(activeJobs.keys()),
+    jobCount: activeJobs.size,
+    stats: jobStats,
+    symbolsCache: {
+      count: symbolsCache.length,
+      lastRefresh: new Date(symbolsCacheTime),
+      symbols: symbolsCache,
+    },
+    uptime: process.uptime(),
+    memoryUsage: process.memoryUsage(),
+  };
+}
+
+export function getJobStats() {
+  return { ...jobStats };
+}
+
+// Graceful shutdown
+process.on("SIGINT", () => {
+  console.log("\n🛑 Graceful shutdown initiated...");
+  stopAllSchedulers();
+  process.exit(0);
+});
+
+process.on("SIGTERM", () => {
+  console.log("\n🛑 SIGTERM received, shutting down...");
+  stopAllSchedulers();
+  process.exit(0);
+});

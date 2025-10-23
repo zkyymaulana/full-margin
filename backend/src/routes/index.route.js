@@ -6,6 +6,7 @@ import chartRoute from "./chart.route.js";
 import indicatorRoute from "./indicator.route.js";
 import multiIndicatorRoute from "./multiIndicator.route.js";
 import comparisonRoute from "./comparison.route.js";
+import schedulerRoute from "./scheduler.route.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
@@ -17,10 +18,13 @@ router.use("/auth", authRoute);
 router.use("/marketcap", authMiddleware, marketcapRoute);
 
 // Analysis & Visualization
-router.use("/chart", authMiddleware, chartRoute);
-router.use("/indicator", authMiddleware, indicatorRoute);
-router.use("/multiIndicator", authMiddleware, multiIndicatorRoute);
-router.use("/comparison", authMiddleware, comparisonRoute);
+router.use("/chart", chartRoute);
+router.use("/indicator", indicatorRoute);
+router.use("/multiIndicator", multiIndicatorRoute);
+router.use("/comparison", comparisonRoute);
+
+// Scheduler management
+router.use("/scheduler", schedulerRoute);
 
 // Default 404 handler
 router.use("*", (_, res) =>

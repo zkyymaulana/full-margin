@@ -46,7 +46,8 @@ export async function getMarketcap(req, res) {
 export async function getMarketcapLiveController(req, res) {
   try {
     console.log("⚡ Mengambil data live ticker...");
-    const result = await getMarketcapLive();
+    const limit = Number(req.query.limit) || 20; // ✅ support query limit
+    const result = await getMarketcapLive(limit);
 
     if (!result.success) {
       return res.status(500).json({

@@ -8,7 +8,6 @@ import { prisma } from "./lib/prisma.js";
 import { seedAdmin } from "../prisma/seed.js";
 import { syncTopCoins } from "./services/market/cmc.service.js";
 import { getMarketcapRealtime } from "./services/market/marketcap.service.js";
-
 import { startAllSchedulers } from "./services/scheduler/scheduler.service.js";
 
 dotenv.config();
@@ -39,7 +38,7 @@ async function initializeSystem() {
     ["👤 Seeding admin", seedAdmin],
     ["📊 Sync Top 100 CMC", syncTopCoins],
     ["🔗 Matching pairs Coinbase", getMarketcapRealtime],
-    ["⏰ Start schedulers", startAllSchedulers],
+    ["⏰ Start automated schedulers", startAllSchedulers],
   ];
 
   for (const [label, fn] of steps) {
@@ -53,7 +52,9 @@ async function initializeSystem() {
   }
 
   console.log("🎯 Semua background service aktif!");
-  console.log("📈 Live update setiap 5 detik | Sync data setiap 1 menit");
+  console.log("📈 Auto sync candle & indicators setiap jam pada menit ke-59");
+  console.log("🔄 Backup sync setiap jam pada menit ke-2");
+  console.log("💖 Health monitoring setiap 5 menit");
 }
 
 // Jalankan server

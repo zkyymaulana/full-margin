@@ -15,7 +15,7 @@ model User {
   createdAt    DateTime   @default(now())
   lastLogin    DateTime?
   authLogs     AuthLog[]
-  signals      Signal[]   @relation("UserSignals") 
+  // Removed signals relation as Signal model is not used
 }
 
 model AuthLog {
@@ -52,17 +52,6 @@ model Candle {
   @@index([symbol, time])
 }
 
-model Signal {
-  id         Int      @id @default(autoincrement())
-  userId     Int
-  symbol     String
-  indicator  String
-  action     String
-  confidence Float?
-  createdAt  DateTime @default(now())
-  user       User     @relation("UserSignals", fields: [userId], references: [id]) 
-}
-
 model TopCoin {
   id        Int      @id @default(autoincrement())
   rank      Int
@@ -79,13 +68,15 @@ model Indicator {
   symbol     String
   timeframe  String   @default("1h")
   time       BigInt
+  
+  // === Technical Indicators Values ===
   sma20      Float? 
   sma50      Float? 
   ema20      Float? 
   ema50      Float?  
   rsi        Float?
   macd       Float?
-  macdSignal Float?
+  macdSignalLine Float?  // Renamed from macdSignal to avoid conflict
   macdHist   Float?
   bbUpper    Float?
   bbLower    Float?
@@ -94,9 +85,26 @@ model Indicator {
   stochRsiK  Float?
   stochRsiD  Float?
   psar       Float?
+  
+  // === Signal Values (for performance optimization) ===
+  smaSignal      String? // "buy", "sell", "neutral"
+  emaSignal      String? // "buy", "sell", "neutral"
+  rsiSignal      String? // "buy", "sell", "neutral"
+  macdSignal     String? // "buy", "sell", "neutral"
+  bbSignal       String? // "buy", "sell", "neutral"
+  stochSignal    String? // "buy", "sell", "neutral"
+  stochRsiSignal String? // "buy", "sell", "neutral"
+  psarSignal     String? // "buy", "sell", "neutral"
+  
+  // === Overall Signal Analysis ===
+  overallSignal  String? // "strong_buy", "buy", "neutral", "sell", "strong_sell"
+  signalStrength Float?  // 0.0 to 1.0 confidence level
+  
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   @@unique([symbol, timeframe, time])
   @@index([symbol, time])
+  @@index([symbol, timeframe, time])
+  @@index([overallSignal])
 }

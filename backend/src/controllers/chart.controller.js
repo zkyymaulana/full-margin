@@ -10,7 +10,7 @@ export async function getChart(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
     const page = Math.max(1, parseInt(req.query.page) || 1);
-    const pageSize = Math.min(5000, parseInt(req.query.limit) || 1000); // ✅ Increase default limit
+    const pageSize = Math.min(5000, parseInt(req.query.limit) || 1000);
     const offset = (page - 1) * pageSize;
     const timeframe = req.query.timeframe || "1h";
 
@@ -18,9 +18,9 @@ export async function getChart(req, res) {
       `🔍 Chart Request - Symbol: ${symbol}, Page: ${page}, Offset: ${offset}`
     );
 
-    // ✅ PERBAIKAN: Ubah order ke DESC untuk data terbaru dulu
+    // Get chart data and live data
     const [chartData, live] = await Promise.all([
-      getChartDataNewest(symbol, pageSize, offset), // Gunakan fungsi baru untuk newest first
+      getChartDataNewest(symbol, pageSize, offset),
       getCoinLiveDetail(symbol),
     ]);
 
@@ -40,7 +40,7 @@ export async function getChart(req, res) {
       });
     }
 
-    // ✅ PERBAIKAN: Ambil semua indicator yang tersedia untuk symbol
+    // Get all indicators for symbol
     const allIndicators = await prisma.indicator.findMany({
       where: { symbol, timeframe },
       orderBy: { time: "desc" },
@@ -50,45 +50,67 @@ export async function getChart(req, res) {
       `🔍 Found ${allIndicators.length} total indicators for ${symbol}`
     );
 
-    // ✅ PERBAIKAN: Gunakan toleransi waktu 1 jam (3600000 milidetik) untuk matching
+    // Check if we need to calculate missing indicators
+    const latestCandle = chartData.candles[0]; // First item is newest due to DESC order
+    const latestCandleTime = Number(latestCandle.time);
+
+    // Find latest indicator
+    const latestIndicator = allIndicators.length > 0 ? allIndicators[0] : null;
+    const latestIndicatorTime = latestIndicator
+      ? Number(latestIndicator.time)
+      : 0;
+
+    // Check if latest candle has indicator (with 30min tolerance)
+    const hasLatestIndicator =
+      latestIndicator &&
+      Math.abs(latestCandleTime - latestIndicatorTime) <= 1800000; // 30 minutes
+
+    console.log(
+      `📊 Latest candle: ${new Date(latestCandleTime).toISOString()}`
+    );
+    console.log(
+      `📊 Latest indicator: ${latestIndicator ? new Date(latestIndicatorTime).toISOString() : "NONE"}`
+    );
+    console.log(`📊 Has latest indicator: ${hasLatestIndicator}`);
+
+    // Merge candles with indicators using exact time matching first, then fuzzy matching
     const merged = chartData.candles.map((candle) => {
       const candleTime = Number(candle.time);
 
-      // Cari indicator dengan toleransi ±1 jam dalam milidetik
-      const indicator = allIndicators.find((ind) => {
-        const indicatorTime = Number(ind.time);
-        const timeDiff = Math.abs(candleTime - indicatorTime);
-        return timeDiff < 3600000; // ✅ Toleransi 1 jam dalam milidetik
-      });
+      // First try exact match
+      let indicator = allIndicators.find(
+        (ind) => Number(ind.time) === candleTime
+      );
+
+      // If no exact match, try fuzzy match with ±30 minutes tolerance
+      if (!indicator) {
+        indicator = allIndicators.find((ind) => {
+          const indicatorTime = Number(ind.time);
+          const timeDiff = Math.abs(candleTime - indicatorTime);
+          return timeDiff <= 1800000; // 30 minutes in milliseconds
+        });
+      }
 
       return {
-        time: candleTime.toString(), // ✅ Convert ke string untuk response
+        time: candleTime.toString(),
         open: candle.open,
         high: candle.high,
         low: candle.low,
         close: candle.close,
         volume: candle.volume,
-        // ✅ REFACTORED: Academic structure (Romo et al. 2025 & Sukma & Namahoot 2025)
         indicators: indicator
           ? {
-              // ✅ SMA Group (Romo et al. 2025) - Independent from EMA
               sma: {
                 20: indicator.sma20,
                 50: indicator.sma50,
               },
-
-              // ✅ EMA Group (Momentum confirmation) - Independent from SMA
               ema: {
                 20: indicator.ema20,
                 50: indicator.ema50,
               },
-
-              // ✅ RSI Group (Zatwarnicki et al. 2023)
               rsi: {
                 14: indicator.rsi,
               },
-
-              // ✅ MACD Group (Sukma & Namahoot 2025)
               macd: {
                 fast: 12,
                 slow: 26,
@@ -97,24 +119,18 @@ export async function getChart(req, res) {
                 signalLine: indicator.macdSignal,
                 histogram: indicator.macdHist,
               },
-
-              // ✅ Bollinger Bands Group
               bollingerBands: {
                 period: 20,
                 multiplier: 2,
                 upper: indicator.bbUpper,
                 lower: indicator.bbLower,
               },
-
-              // ✅ Stochastic Group
               stochastic: {
                 kPeriod: 14,
                 dPeriod: 3,
                 "%K": indicator.stochK,
                 "%D": indicator.stochD,
               },
-
-              // ✅ Stochastic RSI Group
               stochasticRsi: {
                 rsiPeriod: 14,
                 stochPeriod: 14,
@@ -123,8 +139,6 @@ export async function getChart(req, res) {
                 "%K": indicator.stochRsiK,
                 "%D": indicator.stochRsiD,
               },
-
-              // ✅ Parabolic SAR Group
               parabolicSar: {
                 step: 0.02,
                 maxStep: 0.2,
@@ -135,58 +149,74 @@ export async function getChart(req, res) {
       };
     });
 
-    // ✅ Jika masih banyak yang null, hitung indicator untuk range yang diminta
+    // Check coverage and missing indicators
     const withIndicators = merged.filter((m) => m.indicators !== null).length;
     const coverageRatio = withIndicators / merged.length;
+    const missingCount = merged.length - withIndicators;
 
-    if (coverageRatio < 0.5) {
+    console.log(
+      `📊 Indicator coverage: ${withIndicators}/${merged.length} (${(coverageRatio * 100).toFixed(1)}%)`
+    );
+    console.log(`📊 Missing indicators: ${missingCount}`);
+
+    // Trigger calculation if:
+    // 1. Coverage is less than 80%, OR
+    // 2. Latest candle doesn't have indicator, OR
+    // 3. More than 5 candles are missing indicators
+    const shouldCalculate =
+      coverageRatio < 0.8 || !hasLatestIndicator || missingCount > 5;
+
+    if (shouldCalculate) {
       console.log(
-        `📊 Coverage rendah (${(coverageRatio * 100).toFixed(1)}%), menghitung indicator...`
+        `📊 Triggering indicator calculation - Coverage: ${(coverageRatio * 100).toFixed(1)}%, Latest: ${hasLatestIndicator}, Missing: ${missingCount}`
       );
 
       try {
-        await calculateIndicatorsForSpecificCandles(
-          symbol,
-          timeframe,
-          chartData.candles
-        );
+        // Calculate indicators for the symbol
+        await calculateAndSaveIndicators(symbol, timeframe);
 
-        // Re-fetch indicators dan re-merge
+        // Re-fetch indicators after calculation
         const newIndicators = await prisma.indicator.findMany({
           where: { symbol, timeframe },
           orderBy: { time: "desc" },
         });
 
-        // Re-merge dengan data baru
+        console.log(
+          `🔄 Re-fetched ${newIndicators.length} indicators after calculation`
+        );
+
+        // Re-merge with new indicators
         for (let i = 0; i < merged.length; i++) {
           if (merged[i].indicators === null) {
             const candleTime = Number(merged[i].time);
-            const indicator = newIndicators.find((ind) => {
-              const indicatorTime = Number(ind.time);
-              const timeDiff = Math.abs(candleTime - indicatorTime);
-              return timeDiff < 3600000; // ✅ Toleransi 1 jam dalam milidetik
-            });
+
+            // Try exact match first
+            let indicator = newIndicators.find(
+              (ind) => Number(ind.time) === candleTime
+            );
+
+            // If no exact match, try fuzzy match
+            if (!indicator) {
+              indicator = newIndicators.find((ind) => {
+                const indicatorTime = Number(ind.time);
+                const timeDiff = Math.abs(candleTime - indicatorTime);
+                return timeDiff <= 1800000; // 30 minutes tolerance
+              });
+            }
 
             if (indicator) {
               merged[i].indicators = {
-                // ✅ SMA Group (Romo et al. 2025) - Independent from EMA
                 sma: {
                   20: indicator.sma20,
                   50: indicator.sma50,
                 },
-
-                // ✅ EMA Group (Momentum confirmation) - Independent from SMA
                 ema: {
                   20: indicator.ema20,
                   50: indicator.ema50,
                 },
-
-                // ✅ RSI Group (Zatwarnicki et al. 2023)
                 rsi: {
                   14: indicator.rsi,
                 },
-
-                // ✅ MACD Group (Sukma & Namahoot 2025)
                 macd: {
                   fast: 12,
                   slow: 26,
@@ -195,24 +225,18 @@ export async function getChart(req, res) {
                   signalLine: indicator.macdSignal,
                   histogram: indicator.macdHist,
                 },
-
-                // ✅ Bollinger Bands Group
                 bollingerBands: {
                   period: 20,
                   multiplier: 2,
                   upper: indicator.bbUpper,
                   lower: indicator.bbLower,
                 },
-
-                // ✅ Stochastic Group
                 stochastic: {
                   kPeriod: 14,
                   dPeriod: 3,
                   "%K": indicator.stochK,
                   "%D": indicator.stochD,
                 },
-
-                // ✅ Stochastic RSI Group
                 stochasticRsi: {
                   rsiPeriod: 14,
                   stochPeriod: 14,
@@ -221,8 +245,6 @@ export async function getChart(req, res) {
                   "%K": indicator.stochRsiK,
                   "%D": indicator.stochRsiD,
                 },
-
-                // ✅ Parabolic SAR Group
                 parabolicSar: {
                   step: 0.02,
                   maxStep: 0.2,
@@ -233,26 +255,29 @@ export async function getChart(req, res) {
           }
         }
 
+        const finalWithIndicators = merged.filter(
+          (m) => m.indicators !== null
+        ).length;
         console.log(
-          `✅ After recalculation: ${merged.filter((m) => m.indicators !== null).length}/${merged.length} dengan indicator`
+          `✅ After recalculation: ${finalWithIndicators}/${merged.length} with indicators`
         );
       } catch (calcError) {
-        console.error(`❌ Calculation error:`, calcError.message);
+        console.error(`❌ Auto-calculation failed:`, calcError.message);
+        // Continue with partial data instead of failing completely
       }
+    } else {
+      console.log(
+        `✅ No calculation needed - Coverage: ${(coverageRatio * 100).toFixed(1)}%, Latest: ${hasLatestIndicator}`
+      );
     }
 
     const totalPages = Math.ceil(chartData.total / pageSize);
-
-    // ✅ Log hasil akhir
     const finalWithIndicators = merged.filter(
       (m) => m.indicators !== null
     ).length;
-    const validData = merged.filter(
-      (m) => m.indicators && Object.values(m.indicators).some((v) => v !== null)
-    ).length;
 
     console.log(
-      `📊 Final result: ${merged.length} candles, ${finalWithIndicators} with indicators, ${validData} with valid data`
+      `📊 Final result: ${merged.length} candles, ${finalWithIndicators} with indicators`
     );
 
     res.json({
@@ -266,7 +291,17 @@ export async function getChart(req, res) {
       hasNext: page < totalPages,
       hasPrev: page > 1,
       liveData: live.success ? live.data : null,
-      data: merged, // ✅ Data sudah dalam urutan terbaru dulu
+      data: merged,
+      metadata: {
+        indicatorCoverage: `${finalWithIndicators}/${merged.length}`,
+        coveragePercentage:
+          ((finalWithIndicators / merged.length) * 100).toFixed(1) + "%",
+        latestCandleTime: new Date(latestCandleTime).toISOString(),
+        latestIndicatorTime: latestIndicator
+          ? new Date(latestIndicatorTime).toISOString()
+          : null,
+        calculationTriggered: shouldCalculate,
+      },
     });
   } catch (err) {
     console.error(`❌ Chart error:`, err.message);

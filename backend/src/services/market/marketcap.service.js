@@ -65,7 +65,7 @@ export async function getMarketcapRealtime() {
 
     const matched = [];
     for (const coin of top) {
-      if (matched.length >= 100) break;
+      if (matched.length >= 20) break;
       const pair = BASES.map((b) => `${coin.symbol}-${b}`).find((p) =>
         pairs.has(p)
       );
@@ -112,13 +112,17 @@ export async function getMarketcapRealtime() {
 }
 
 /**
- * ⚡ Ambil harga live + candle terakhir untuk 100 coin dari DB
+ * ⚡ Ambil harga live + candle terakhir untuk coin teratas
  */
-export async function getMarketcapLive() {
+export async function getMarketcapLive(limit = 20) {
   try {
-    // ✅ PERBAIKAN: Urutkan berdasarkan rank agar yang teratas muncul duluan dan hapus limit
+    const take = Math.max(1, Math.min(Number(limit) || 20, 100));
+
+    // ✅ Ambil hanya coin teratas berdasarkan rank
     const coins = await prisma.coin.findMany({
-      orderBy: { rank: "asc" }, // ✅ Tampilkan semua coin, urutkan berdasarkan rank
+      where: { rank: { not: null } },
+      orderBy: { rank: "asc" },
+      take,
     });
 
     if (!coins.length)
@@ -144,13 +148,14 @@ export async function getMarketcapLive() {
         });
     }
 
-    // ✅ Urutkan hasil berdasarkan rank (terkecil = teratas)
+    // ✅ Urutkan hasil berdasarkan rank (terkecil = teratas) dan batasi sesuai limit
     results.sort((a, b) => (a.rank || 999999) - (b.rank || 999999));
+    const limited = results.slice(0, take);
 
     console.log(
-      `✅ ${results.length} data live berhasil diambil (dengan rank, semua data).`
+      `✅ ${limited.length} data live berhasil diambil (top ${take} berdasarkan rank).`
     );
-    return { success: true, total: results.length, data: results };
+    return { success: true, total: limited.length, data: limited };
   } catch (e) {
     console.error("❌ Live error:", e.message);
     return { success: false, message: e.message };
