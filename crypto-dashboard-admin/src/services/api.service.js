@@ -1,184 +1,141 @@
 /**
- * API Service Module (Functional version)
- * Centralized API management with caching and authentication
+ * API Service Module - React version with Axios
+ * Centralized API management
  */
+import axios from "axios";
 
 const API_BASE_URL = "http://localhost:8000/api";
-const cache = new Map();
-let cacheDuration = 4000; // 4 seconds
 
-// =====================================================
-// 🔐 AUTH HEADERS
-// =====================================================
-function getAuthHeaders() {
-  const token = localStorage.getItem("authToken");
-  const headers = {
-    Accept: "application/json",
+// Create axios instance
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 30000,
+  headers: {
     "Content-Type": "application/json",
-  };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  return headers;
-}
+    Accept: "application/json",
+  },
+});
 
-// =====================================================
-// 💾 FETCH WITH CACHE
-// =====================================================
-async function fetchWithCache(url, cacheKey, timeout = 10000) {
-  const now = Date.now();
-  const cached = cache.get(cacheKey);
-  if (cached && now - cached.timestamp < cacheDuration) {
-    console.log(`📦 Using cached data for ${cacheKey}`);
-    return cached.data;
-  }
-
-  try {
-    console.log(`🌐 Fetching fresh data: ${url}`);
-    const res = await fetch(url, {
-      method: "GET",
-      headers: getAuthHeaders(),
-      signal: AbortSignal.timeout(timeout),
-    });
-
-    if (res.status === 401) {
-      console.warn("🔒 Unauthorized, redirecting to login...");
-      localStorage.clear();
-      window.location.href = "/src/pages/login.html";
-      return null;
+// Request interceptor - add auth token
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("authToken");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
-
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-
-    cache.set(cacheKey, { data, timestamp: now });
-    return data;
-  } catch (err) {
-    console.error(`❌ Error fetching ${cacheKey}:`, err);
-    return cached ? cached.data : null;
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-}
+);
+
+// Response interceptor - handle 401
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.clear();
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  }
+);
 
 // =====================================================
-// 📊 API CALLS
+// 📊 API METHODS
 // =====================================================
 
 // Marketcap symbols (for search dropdown)
-export async function getMarketcapSymbols() {
-  const data = await fetchWithCache(
-    `${API_BASE_URL}/marketcap/symbol`,
-    "marketcap_symbols"
-  );
+export const getMarketcapSymbols = async () => {
+  const { data } = await apiClient.get("/marketcap/symbol");
   return data?.symbols || [];
-}
+};
 
 // Indicator (single)
-export async function fetchIndicator(symbol = "BTC-USD") {
-  return fetchWithCache(
-    `${API_BASE_URL}/indicator/${symbol}`,
-    `indicator_${symbol}`
-  );
-}
+export const fetchIndicator = async (symbol = "BTC-USD") => {
+  const { data } = await apiClient.get(`/indicator/${symbol}`);
+  return data;
+};
 
 // Multi-indicator
-export async function fetchMultiIndicator(symbol = "BTC-USD") {
-  return fetchWithCache(
-    `${API_BASE_URL}/multiIndicator/${symbol}`,
-    `multi_indicator_${symbol}`,
-    15000
-  );
-}
+export const fetchMultiIndicator = async (symbol = "BTC-USD") => {
+  const { data } = await apiClient.get(`/multiIndicator/${symbol}`, {
+    timeout: 15000,
+  });
+  return data;
+};
 
 // Candlestick data
-export async function fetchCandles(symbol = "BTC-USD", timeframe = "1h") {
-  return fetchWithCache(
-    `${API_BASE_URL}/chart/${symbol}?timeframe=${timeframe}`,
-    `candles_${symbol}_${timeframe}`
-  );
-}
+export const fetchCandles = async (symbol = "BTC-USD", timeframe = "1h") => {
+  const { data } = await apiClient.get(`/chart/${symbol}`, {
+    params: { timeframe },
+  });
+  return data;
+};
 
 // Marketcap live
-export async function fetchMarketCapLive() {
-  return fetchWithCache(`${API_BASE_URL}/marketcap/live`, "marketcap_live");
-}
-
-// Signals
-export async function fetchSignals() {
-  return fetchWithCache(`${API_BASE_URL}/signals`, "signals");
-}
+export const fetchMarketCapLive = async () => {
+  const { data } = await apiClient.get("/marketcap/live");
+  return data;
+};
 
 // Comparison (custom body)
-export async function fetchComparison(requestBody) {
-  try {
-    console.log("🔍 Fetching comparison data:", requestBody);
-    const res = await fetch(`${API_BASE_URL}/comparison/compare`, {
-      method: "POST",
-      headers: getAuthHeaders(),
-      body: JSON.stringify(requestBody),
-      signal: AbortSignal.timeout(30000),
-    });
-
-    if (res.status === 401) {
-      localStorage.clear();
-      window.location.href = "/src/pages/login.html";
-      return null;
-    }
-
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } catch (err) {
-    console.error("❌ Error fetching comparison:", err);
-    throw err;
-  }
-}
+export const fetchComparison = async (requestBody) => {
+  const { data } = await apiClient.post("/comparison/compare", requestBody, {
+    timeout: 30000,
+  });
+  return data;
+};
 
 // Quick comparison (preset)
-export async function fetchQuickComparison(
+export const fetchQuickComparison = async (
   symbol,
   preset = "balanced",
   days = 30
-) {
-  try {
-    const res = await fetch(`${API_BASE_URL}/comparison/quick`, {
-      method: "POST",
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ symbol, preset, days }),
-      signal: AbortSignal.timeout(20000),
-    });
-
-    if (res.status === 401) {
-      localStorage.clear();
-      window.location.href = "/src/pages/login.html";
-      return null;
+) => {
+  const { data } = await apiClient.post(
+    "/comparison/quick",
+    {
+      symbol,
+      preset,
+      days,
+    },
+    {
+      timeout: 20000,
     }
-
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } catch (err) {
-    console.error("❌ Error in quick comparison:", err);
-    throw err;
-  }
-}
-
-// Available indicators
-export async function fetchAvailableIndicators(symbol = "BTC-USD") {
-  return fetchWithCache(
-    `${API_BASE_URL}/comparison/indicators/${symbol}`,
-    `available_indicators_${symbol}`
   );
-}
+  return data;
+};
 
-// Comparison stats
-export async function fetchComparisonStats() {
-  return fetchWithCache(`${API_BASE_URL}/comparison/stats`, "comparison_stats");
-}
+// Auth - Login
+export const login = async (email, password) => {
+  const { data } = await apiClient.post("/auth/login", { email, password });
+  return data;
+};
 
-// =====================================================
-// ⚙️ UTILITIES
-// =====================================================
-export function clearCache() {
-  cache.clear();
-  console.log("🧹 API cache cleared");
-}
+// Auth - Logout
+export const logout = async () => {
+  const { data } = await apiClient.post("/auth/logout");
+  return data;
+};
 
-export function setCacheDuration(duration) {
-  cacheDuration = duration;
-}
+// User Profile - Get profile
+export const getUserProfile = async () => {
+  const { data } = await apiClient.get("/user/profile");
+  return data;
+};
+
+// User Profile - Update profile
+export const updateUserProfile = async (profileData) => {
+  const { data } = await apiClient.put("/user/profile", profileData);
+  return data;
+};
+
+// User Profile - Change password
+export const changeUserPassword = async (passwordData) => {
+  const { data } = await apiClient.put("/user/profile", passwordData);
+  return data;
+};
+
+export default apiClient;

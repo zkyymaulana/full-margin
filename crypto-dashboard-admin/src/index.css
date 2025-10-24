@@ -1,11 +1,15 @@
 @import "tailwindcss";
 
 /* =========================
-   Base Styles
+   Base Styles - Clean & Minimal
    ========================= */
 @layer base {
   body {
-    background-color: rgb(249 250 251);
+    @apply bg-gray-50 text-gray-900;
+  }
+
+  body.dark-mode {
+    @apply bg-gray-900 text-gray-100;
   }
 
   html,
@@ -19,27 +23,24 @@
    Components Layer
    ========================= */
 @layer components {
-  /* Card Components */
+  /* Card Components - Shadow Only, No Border */
   .card {
-    background-color: white;
-    border-radius: 0.5rem;
+    @apply bg-white;
+    border-radius: 0.75rem;
     box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-    border: 1px solid rgb(229 231 235);
     overflow: hidden;
-    position: relative !important;
+    position: relative;
+  }
+
+  .dark-mode .card {
+    @apply bg-gray-800;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
   }
 
   .card-body {
     padding: 1.5rem;
     overflow: hidden;
     word-wrap: break-word;
-  }
-
-  .truncate-content {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 100%;
   }
 
   /* Sidebar */
@@ -50,84 +51,217 @@
 
   .sidebar-link:hover,
   .sidebar-item .sidebar-link.active {
-    background-color: rgb(239 246 255);
-    color: rgb(37 99 235);
+    @apply bg-blue-50 text-blue-600;
+  }
+
+  .dark-mode .sidebar-link:hover,
+  .dark-mode .sidebar-item .sidebar-link.active {
+    @apply bg-blue-900/20 text-blue-400;
   }
 
   .left-sidebar {
-    background-color: white;
-    border-right: 1px solid rgb(229 231 235);
+    @apply bg-white;
+    box-shadow: 1px 0 3px 0 rgb(0 0 0 / 0.05);
   }
 
-  .sidebar-container {
-    position: fixed;
-    top: 90px;
-    left: 0;
-    width: 270px;
-    height: calc(100vh - 90px);
-    transform: translateX(-100%);
-    transition: transform 0.3s ease-in-out;
-    z-index: 999;
-  }
-
-  .sidebar-container.open {
-    transform: translateX(0);
-  }
-
-  @media (min-width: 1280px) {
-    .sidebar-container {
-      position: static;
-      transform: translateX(0);
-      height: auto;
-    }
+  .dark-mode .left-sidebar {
+    @apply bg-gray-800;
+    box-shadow: 1px 0 3px 0 rgb(0 0 0 / 0.3);
   }
 
   /* Layout */
   .bg-surface {
-    background-color: rgb(249 250 251);
+    @apply bg-gray-50;
   }
 
-  .with-vertical,
-  .page-wrapper {
-    min-height: 100vh;
-  }
-
-  .full-container {
-    max-width: 100%;
-  }
-
-  /* Chart Container */
-  #candlestick-chart {
-    position: relative;
-    overflow: hidden;
-    z-index: var(--z-content) !important;
+  .dark-mode .bg-surface {
+    @apply bg-gray-900;
   }
 
   /* Typography */
-  .responsive-text {
-    font-size: clamp(0.75rem, 2vw, 1rem);
+  .text-heading {
+    @apply text-gray-900;
   }
 
-  /* Grid Market */
-  .market-grid {
+  .dark-mode .text-heading {
+    @apply text-white;
+  }
+
+  /* Chart Container Styling untuk Sinkronisasi yang Sempurna */
+  .chart-container {
+    @apply w-full;
+    position: relative;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  .chart-container canvas {
+    display: block;
+    margin: 0 auto;
+    box-sizing: border-box;
+  }
+
+  /* Pastikan semua chart memiliki lebar yang sama */
+  .chart-sync-wrapper {
+    @apply w-full;
+    position: relative;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  /* Styling khusus untuk main chart container */
+  .main-chart-container {
+    @apply w-full;
+    min-height: 500px;
+    position: relative;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Styling khusus untuk indicator chart containers */
+  .indicator-chart-container {
+    @apply w-full;
+    min-height: 150px;
+    position: relative;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid;
+    @apply border-gray-200;
+  }
+
+  .dark-mode .indicator-chart-container {
+    @apply border-gray-700;
+  }
+
+  /* Pastikan tidak ada margin/padding yang mengganggu alignment */
+  .chart-wrapper {
+    @apply w-full;
+    position: relative;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  .chart-wrapper > div {
+    @apply w-full;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Styling untuk chart labels */
+  .chart-label {
+    @apply text-sm font-semibold mb-2;
+    margin: 0;
+    padding: 8px 0 4px 0;
+  }
+
+  .chart-label.first {
+    padding-top: 0;
+  }
+
+  /* Responsive chart styling */
+  @media (max-width: 768px) {
+    .main-chart-container {
+      min-height: 400px;
+    }
+
+    .indicator-chart-container {
+      min-height: 120px;
+    }
+  }
+
+  /* Grid system untuk chart layout yang konsisten */
+  .charts-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: 1fr;
+    gap: 0;
+    width: 100%;
+    box-sizing: border-box;
   }
 
-  /* Icon Hover */
-  .icon-hover {
-    transition: color 0.2s;
+  .charts-grid > * {
+    width: 100%;
+    box-sizing: border-box;
   }
 
-  .icon-hover:hover {
-    color: rgb(37 99 235);
+  /* Ensure all charts have the same horizontal margins */
+  .chart-sync-container {
+    @apply w-full;
+    position: relative;
+    box-sizing: border-box;
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: 0;
+    padding-right: 0;
   }
 
-  /* Main content with sidebar */
-  @media (min-width: 1280px) {
-    .main-content-with-sidebar {
-      margin-left: 270px;
+  /* Responsive chart styling dengan padding yang tepat untuk price labels */
+  @media (max-width: 768px) {
+    .main-chart-container {
+      min-height: 400px;
+      padding-right: 16px; /* Extra padding untuk mobile agar price labels tidak terpotong */
+    }
+
+    .indicator-chart-container {
+      min-height: 120px;
+      padding-right: 16px;
+    }
+
+    /* Mobile-specific chart container adjustments */
+    .chart-sync-container {
+      padding-right: 16px;
+      margin-right: -16px; /* Negative margin untuk mengkompensasi padding */
+    }
+  }
+
+  @media (min-width: 769px) and (max-width: 1024px) {
+    .main-chart-container {
+      min-height: 450px;
+      padding-right: 12px; /* Medium padding untuk tablet */
+    }
+
+    .indicator-chart-container {
+      min-height: 130px;
+      padding-right: 12px;
+    }
+
+    .chart-sync-container {
+      padding-right: 12px;
+      margin-right: -12px;
+    }
+  }
+
+  @media (min-width: 1025px) {
+    .main-chart-container {
+      min-height: 500px;
+      padding-right: 8px; /* Minimal padding untuk desktop */
+    }
+
+    .indicator-chart-container {
+      min-height: 150px;
+      padding-right: 8px;
+    }
+
+    .chart-sync-container {
+      padding-right: 8px;
+      margin-right: -8px;
+    }
+  }
+
+  /* Pastikan chart canvas tidak overflow */
+  .chart-container canvas,
+  .main-chart-container canvas,
+  .indicator-chart-container canvas {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Price scale responsive adjustments */
+  @media (max-width: 480px) {
+    .chart-sync-container {
+      padding-right: 20px; /* Extra padding untuk very small screens */
+      margin-right: -20px;
     }
   }
 }
@@ -136,10 +270,6 @@
    Utilities Layer
    ========================= */
 @layer utilities {
-  .text-heading {
-    color: rgb(31 41 55);
-  }
-
   /* Sidebar Scroll */
   .scroll-sidebar {
     overflow-y: auto;
@@ -147,40 +277,48 @@
     scrollbar-color: rgb(229 231 235) transparent;
   }
 
+  .dark-mode .scroll-sidebar {
+    scrollbar-color: rgb(75 85 99) transparent;
+  }
+
   .scroll-sidebar::-webkit-scrollbar {
     width: 4px;
   }
 
   .scroll-sidebar::-webkit-scrollbar-thumb {
-    background-color: rgb(229 231 235);
+    @apply bg-gray-300;
     border-radius: 2px;
   }
 
+  .dark-mode .scroll-sidebar::-webkit-scrollbar-thumb {
+    @apply bg-gray-600;
+  }
+
   .scroll-sidebar::-webkit-scrollbar-thumb:hover {
-    background-color: rgb(209 213 219);
+    @apply bg-gray-400;
   }
 
-  /* Utility Fixes */
-  .no-overflow {
-    overflow: hidden;
+  .dark-mode .scroll-sidebar::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-500;
   }
 
-  .break-words-custom {
-    word-break: break-word;
-    overflow-wrap: break-word;
+  /* Smooth transition untuk chart sync */
+  .chart-sync-transition {
+    transition: all 0.1s ease-out;
   }
 
-  .min-w-0 {
-    min-width: 0;
+  /* Prevent chart flickering during sync */
+  .chart-syncing {
+    pointer-events: none;
   }
 
-  .flex-shrink-0 {
-    flex-shrink: 0;
+  .chart-syncing canvas {
+    transition: opacity 0.05s ease-out;
   }
 }
 
 /* =========================
-   Sticky Sidebar & Z-Index
+   Z-Index Variables
    ========================= */
 :root {
   --z-sidebar: 9999;
@@ -191,35 +329,45 @@
 }
 
 /* =========================
-   Header & Topstrip Layout
+   Layout Positioning
    ========================= */
 
-/* Header fixed di paling atas */
+/* Header */
 header {
-  position: fixed !important;
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  z-index: var(--z-header) !important;
-  background-color: white;
+  z-index: var(--z-header);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
-/* Topstrip di bawah header */
-.app-topstrip {
-  position: sticky !important;
-  top: 64px; /* tinggi header */
-  z-index: var(--z-topstrip) !important;
-  background: linear-gradient(90deg, #0f0533 0%, #1b0a5c 100%);
+.dark-mode header {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
-/* =========================
-   Sidebar & Overlay
-   ========================= */
+/* Sidebar */
+#application-sidebar-brand {
+  z-index: var(--z-sidebar);
+  position: fixed;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: transform 0.3s ease-in-out;
+}
 
+@media (min-width: 1280px) {
+  #application-sidebar-brand {
+    position: sticky;
+    z-index: auto;
+    top: 70px;
+    transform: translateX(0) !important;
+  }
+}
+
+/* Sidebar Overlay */
 #sidebar-overlay {
-  z-index: var(--z-overlay) !important;
-  position: fixed !important;
+  z-index: var(--z-overlay);
+  position: fixed;
   transition: opacity 0.3s ease-in-out;
 }
 
@@ -233,35 +381,10 @@ header {
   pointer-events: auto;
 }
 
-#application-sidebar-brand {
-  z-index: var(--z-sidebar) !important;
-  position: fixed !important;
-  overflow-y: auto;
-  overflow-x: hidden;
-  transition: transform 0.3s ease-in-out !important;
-}
-
-@media (min-width: 1280px) {
-  #application-sidebar-brand {
-    position: sticky !important;
-    z-index: auto !important;
-    top: 70px;
-    transform: translateX(0) !important;
-  }
-
-  #sidebar-overlay {
-    display: none !important;
-  }
-}
-
-/* =========================
-   Page Layout
-   ========================= */
-
-/* Header & Content */
+/* Page Content */
 #content {
-  z-index: var(--z-content) !important;
-  position: relative !important;
+  z-index: var(--z-content);
+  position: relative;
 }
 
 /* Body Scroll Control */
@@ -276,41 +399,40 @@ body.sidebar-open {
 }
 
 /* =========================
-   Scrollbar Styling (Sidebar)
+   Scrollbar Styling
    ========================= */
 #application-sidebar-brand::-webkit-scrollbar {
   width: 6px;
 }
 
 #application-sidebar-brand::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  @apply bg-gray-100;
   border-radius: 10px;
+}
+
+.dark-mode #application-sidebar-brand::-webkit-scrollbar-track {
+  @apply bg-gray-800;
 }
 
 #application-sidebar-brand::-webkit-scrollbar-thumb {
-  background: #888;
+  @apply bg-gray-400;
   border-radius: 10px;
 }
 
+.dark-mode #application-sidebar-brand::-webkit-scrollbar-thumb {
+  @apply bg-gray-600;
+}
+
 #application-sidebar-brand::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  @apply bg-gray-500;
 }
 
 #application-sidebar-brand {
   scrollbar-width: thin;
-  scrollbar-color: #888 #f1f1f1;
 }
 
 /* =========================
-   Mobile Menu Button
-   ========================= */
-#headerCollapse {
-  z-index: calc(var(--z-header) + 1) !important;
-  position: relative !important;
-}
-
-/* =========================
-   Logout Modal Animations
+   Modal Animations
    ========================= */
 #logout-modal {
   transition: opacity 0.3s ease-in-out;
@@ -337,4 +459,18 @@ body.sidebar-open {
 
 #logout-modal.animate-out .bg-white {
   transform: scale(0.95);
+}
+
+/* =========================
+   Third-party Overrides
+   ========================= */
+
+/* SweetAlert2 */
+.swal-high-z-index,
+.swal2-container {
+  z-index: 10000 !important;
+}
+
+.swal2-backdrop-show {
+  z-index: 9999 !important;
 }
