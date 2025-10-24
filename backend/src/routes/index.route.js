@@ -5,6 +5,7 @@ import marketcapRoute from "./marketcap.route.js";
 import chartRoute from "./chart.route.js";
 import indicatorRoute from "./indicator.route.js";
 import multiIndicatorRoute from "./multiIndicator.route.js";
+import singleIndicatorRoute from "./singleIndicator.route.js";
 import comparisonRoute from "./comparison.route.js";
 import schedulerRoute from "./scheduler.route.js";
 import userRoute from "./user.route.js";
@@ -25,6 +26,7 @@ router.use("/user", authMiddleware, userRoute);
 router.use("/chart", chartRoute);
 router.use("/indicator", indicatorRoute);
 router.use("/multiIndicator", multiIndicatorRoute);
+router.use("/singleIndicator", singleIndicatorRoute);
 router.use("/comparison", comparisonRoute);
 
 // Scheduler management

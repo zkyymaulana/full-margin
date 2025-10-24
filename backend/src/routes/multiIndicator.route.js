@@ -1,19 +1,19 @@
 import { Router } from "express";
-import {
-  getMultiIndicators,
-  getMultiIndicatorGridSearch,
-  getMultiIndicatorCustomWeights,
-} from "../controllers/multiIndicator.controller.js";
+import { optimizeIndicatorWeightsController } from "../controllers/multiIndicator.controller.js";
 
 const router = Router();
 
-// ✅ Multi-Indicator Analysis Routes
-router.get("/:symbol?", getMultiIndicators);
+/* ==========================================================
+   🚀 MULTI-INDICATOR WEIGHT OPTIMIZATION
+   Based on: Sukma & Namahoot (2025)
+   "Enhancing Trading Strategies: A Multi-Indicator Analysis 
+    for Profitable Algorithmic Trading"
+========================================================== */
 
-// 🎯 NEW: Grid Search Analysis Route (Sukma & Namahoot 2025)
-router.get("/:symbol/grid-search", getMultiIndicatorGridSearch);
-
-// 🎯 NEW: Custom Weights Analysis Route
-router.post("/:symbol/custom-weights", getMultiIndicatorCustomWeights);
+// Optimize weights for multiple indicators
+// POST /api/multi-indicator/:symbol/optimize-weights
+// Body: { indicators?: string[] }
+// Default: All 8 indicators (SMA, EMA, RSI, MACD, BollingerBands, Stochastic, PSAR, StochasticRSI)
+router.post("/:symbol/optimize-weights", optimizeIndicatorWeightsController);
 
 export default router;

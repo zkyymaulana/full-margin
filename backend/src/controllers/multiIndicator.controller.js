@@ -1,160 +1,96 @@
 import { prisma } from "../lib/prisma.js";
-import {
-  analyzeMultiIndicator,
-  analyzeMultiIndicatorWithWeights,
-  analyzeMultiIndicatorGridSearch,
-} from "../services/multiIndicator/multiIndicator-analyzer.service.js";
+import { optimizeIndicatorWeights } from "../services/multiIndicator/multiIndicator-analyzer.service.js";
 
 /* ==========================================================
-   🔧 HELPERS
+   🔧 HELPER: Fetch Full Dataset (No Limit)
 ========================================================== */
-async function getIndicatorsWithPrices(symbol, timeframe, limit) {
-  const [indicators, candles] = await Promise.all([
+async function getIndicatorsWithPrices(symbol, timeframe) {
+  console.log(`📊 Fetching full dataset for ${symbol} (${timeframe})...`);
+  const startTime = Date.now();
+
+  const [indicatorData, candles] = await Promise.all([
     prisma.indicator.findMany({
       where: { symbol, timeframe },
-      orderBy: { time: "desc" },
-      take: limit,
+      orderBy: { time: "asc" },
     }),
     prisma.candle.findMany({
       where: { symbol, timeframe },
-      orderBy: { time: "desc" },
-      take: limit,
+      orderBy: { time: "asc" },
       select: { time: true, close: true },
     }),
   ]);
-  const map = new Map(candles.map((c) => [c.time.toString(), c.close]));
-  return indicators.map((i) => ({
-    ...i,
-    close: map.get(i.time.toString()) || null,
-  }));
+
+  const candleMap = new Map(candles.map((c) => [c.time.toString(), c.close]));
+  const data = indicatorData
+    .map((i) => ({
+      ...i,
+      close: candleMap.get(i.time.toString()),
+    }))
+    .filter((i) => i.close != null);
+
+  const duration = Date.now() - startTime;
+  console.log(`✅ Loaded ${data.length} data points in ${duration}ms`);
+
+  return data;
 }
 
 /* ==========================================================
-   🎯 DEFAULT MULTI INDICATOR ANALYSIS
+   🎯 OPTIMIZE MULTI-INDICATOR WEIGHTS
+   Based on: Sukma & Namahoot (2025)
 ========================================================== */
-export async function getMultiIndicators(req, res) {
+export async function optimizeIndicatorWeightsController(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
     const timeframe = "1h";
-    const limit = Math.min(2000, parseInt(req.query.limit) || 500);
 
-    const data = await getIndicatorsWithPrices(symbol, timeframe, limit);
-    if (!data.length)
-      return res.json({ success: true, symbol, timeframe, total: 0, data: [] });
+    const defaultIndicators = [
+      "SMA",
+      "EMA",
+      "RSI",
+      "MACD",
+      "BollingerBands",
+      "Stochastic",
+      "PSAR",
+      "StochasticRSI",
+    ];
+    const selectedIndicators = req.body.indicators || defaultIndicators;
 
-    const result = data.map((i) => {
-      const a = analyzeMultiIndicator(i);
-      return {
-        time: Number(i.time),
-        price: i.close,
-        multiIndicator: a.multiIndicator,
-        totalScore: a.totalScore,
-        weights: a.weights,
-        categoryScores: a.categoryScores,
-        signals: a.signals,
-      };
-    });
+    const validIndicators = defaultIndicators;
+    const invalidIndicators = selectedIndicators.filter(
+      (ind) => !validIndicators.includes(ind)
+    );
 
-    res.json({
-      success: true,
-      symbol,
-      strategy: "multi",
-      timeframe,
-      total: result.length,
-      data: result,
-    });
-  } catch (err) {
-    console.error("❌ getMultiIndicators:", err.message);
-    res.status(500).json({ success: false, message: err.message });
-  }
-}
-
-/* ==========================================================
-   🧩 GRID SEARCH (ω ∈ {0..4})
-========================================================== */
-export async function getMultiIndicatorGridSearch(req, res) {
-  try {
-    const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
-    const timeframe = "1h";
-    const limit = Math.min(1000, parseInt(req.query.limit) || 200);
-
-    const indicators = await prisma.indicator.findMany({
-      where: { symbol, timeframe },
-      orderBy: { time: "asc" },
-      take: limit,
-      include: { candle: { select: { close: true, timestamp: true } } },
-    });
-
-    const data = indicators
-      .filter((i) => i.candle)
-      .map((i) => ({
-        ...i,
-        close: i.candle.close,
-        timestamp: i.candle.timestamp,
-      }));
-
-    if (data.length < 50)
+    if (invalidIndicators.length > 0) {
       return res.status(400).json({
         success: false,
-        message: `Insufficient data for grid search (${data.length}/50)`,
+        message: `Invalid indicators: ${invalidIndicators.join(", ")}. Valid options: ${validIndicators.join(", ")}`,
       });
+    }
 
-    const result = await analyzeMultiIndicatorGridSearch(data, symbol);
+    console.log(`\n🎯 Starting multi-indicator optimization for ${symbol}`);
+    const data = await getIndicatorsWithPrices(symbol, timeframe);
+
+    if (data.length < 50) {
+      return res.status(400).json({
+        success: false,
+        message: `Insufficient data for optimization (${data.length}/50 required)`,
+        symbol,
+        timeframe,
+      });
+    }
+
+    const result = await optimizeIndicatorWeights(data, selectedIndicators);
+    result.symbol = symbol;
+    result.timeframe = timeframe;
+    result.dataPoints = data.length;
+
     res.json(result);
   } catch (err) {
-    console.error("❌ getMultiIndicatorGridSearch:", err.message);
-    res.status(500).json({ success: false, message: err.message });
-  }
-}
-
-/* ==========================================================
-   ⚙️ CUSTOM WEIGHTS ANALYSIS
-========================================================== */
-export async function getMultiIndicatorCustomWeights(req, res) {
-  try {
-    const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
-    const timeframe = "1h";
-    const limit = Math.min(500, parseInt(req.query.limit) || 100);
-    const { momentum = 3, trend = 2, volatility = 1 } = req.body;
-    const weights = { momentum, trend, volatility };
-
-    // Validation
-    if (![momentum, trend, volatility].every((w) => w >= 0 && w <= 4))
-      return res
-        .status(400)
-        .json({ success: false, message: "Weights must be between 0 and 4" });
-
-    const data = await getIndicatorsWithPrices(symbol, timeframe, limit);
-    if (!data.length)
-      return res.status(404).json({
-        success: false,
-        message: `No indicator data found for ${symbol}`,
-      });
-
-    const result = data.map((i) => {
-      const a = analyzeMultiIndicatorWithWeights(i, weights);
-      return {
-        time: Number(i.time),
-        price: i.close,
-        multiIndicator: a.multiIndicator,
-        totalScore: a.totalScore,
-        weights: a.weights,
-        categoryScores: a.categoryScores,
-        signals: a.signals,
-      };
+    console.error("❌ optimizeIndicatorWeights:", err.message);
+    res.status(500).json({
+      success: false,
+      message: err.message,
+      stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
     });
-
-    res.json({
-      success: true,
-      symbol,
-      weights,
-      methodology: "Custom manual weighting – Sukma & Namahoot (2025)",
-      total: result.length,
-      data: result,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (err) {
-    console.error("❌ getMultiIndicatorCustomWeights:", err.message);
-    res.status(500).json({ success: false, message: err.message });
   }
 }
