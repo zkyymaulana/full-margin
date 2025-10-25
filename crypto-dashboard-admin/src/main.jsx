@@ -7,6 +7,7 @@ import "react-toastify/dist/ReactToastify.css";
 import App from "./App";
 import "./index.css";
 import { DarkModeProvider, useDarkMode } from "./contexts/DarkModeContext";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 
 // Create a query client
 const queryClient = new QueryClient({
@@ -18,6 +19,9 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Google OAuth Client ID from environment variable
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 
 // Wrapper component for ToastContainer to access dark mode context
 function ToastWrapper() {
@@ -41,13 +45,15 @@ function ToastWrapper() {
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <BrowserRouter>
-        <DarkModeProvider>
-          <App />
-          <ToastWrapper />
-        </DarkModeProvider>
+        <QueryClientProvider client={queryClient}>
+          <DarkModeProvider>
+            <App />
+            <ToastWrapper />
+          </DarkModeProvider>
+        </QueryClientProvider>
       </BrowserRouter>
-    </QueryClientProvider>
+    </GoogleOAuthProvider>
   </React.StrictMode>
 );

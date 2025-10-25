@@ -1,4 +1,4 @@
-# Crypto Dashboard Admin - React Version
+# Crypto Analyze Admin - React Version
 
 Dashboard administrasi cryptocurrency yang dibangun dengan **React**, **TanStack Query**, **Axios**, dan **Tailwind CSS**.
 
@@ -211,7 +211,7 @@ MIT License
 
 ## 👨‍💻 Author
 
-Crypto Dashboard Admin - React Version
+Crypto Analyze Admin - React Version
 
 ---
 

@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { useRegister } from "../hooks/useAuth";
 import { Link } from "react-router-dom";
+import { GoogleLogin } from "@react-oauth/google";
+import { useDarkMode } from "../contexts/DarkModeContext";
+import { HiMoon, HiSun } from "react-icons/hi";
 import { showErrorToast, showSuccessToast } from "../utils/notifications";
 
 function Register() {
@@ -13,6 +16,7 @@ function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { mutate: register, isLoading } = useRegister();
+  const { isDarkMode, toggleDarkMode } = useDarkMode();
 
   const handleChange = (e) => {
     setFormData({
@@ -56,24 +60,99 @@ function Register() {
     );
   };
 
+  const handleGoogleSuccess = async (credentialResponse) => {
+    try {
+      const response = await fetch("http://localhost:8000/api/auth/google", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential: credentialResponse.credential }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        localStorage.setItem("authToken", data.token);
+        localStorage.setItem("userId", data.user.id);
+        localStorage.setItem("userEmail", data.user.email);
+        localStorage.setItem("userName", data.user.name);
+        if (data.user.picture) {
+          localStorage.setItem("userAvatar", data.user.picture);
+        }
+
+        showSuccessToast("Registration with Google successful!");
+        window.location.href = "/dashboard";
+      } else {
+        showErrorToast(data.message || "Google registration failed");
+      }
+    } catch (error) {
+      console.error("Google registration error:", error);
+      showErrorToast("Failed to register with Google");
+    }
+  };
+
+  const handleGoogleError = () => {
+    showErrorToast("Google registration failed. Please try again.");
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+    <div
+      className={`min-h-screen ${
+        isDarkMode
+          ? "bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900"
+          : "bg-gradient-to-br from-blue-500 to-purple-600"
+      } flex items-center justify-center p-4 transition-colors duration-300`}
+    >
+      {/* Dark Mode Toggle - Top Right */}
+      <button
+        onClick={toggleDarkMode}
+        className={`fixed top-4 right-4 p-3 rounded-full shadow-lg transition-all duration-300 ${
+          isDarkMode
+            ? "bg-gray-800 text-yellow-400 hover:bg-gray-700"
+            : "bg-white text-gray-800 hover:bg-gray-100"
+        }`}
+        aria-label="Toggle dark mode"
+      >
+        {isDarkMode ? (
+          <HiSun className="w-6 h-6" />
+        ) : (
+          <HiMoon className="w-6 h-6" />
+        )}
+      </button>
+
+      <div
+        className={`${
+          isDarkMode ? "bg-gray-800" : "bg-white"
+        } rounded-lg shadow-xl p-8 w-full max-w-md transition-colors duration-300`}
+      >
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mb-4">
+          <div
+            className={`inline-flex items-center justify-center w-16 h-16 ${
+              isDarkMode
+                ? "bg-gradient-to-br from-blue-600 to-purple-700"
+                : "bg-gradient-to-br from-blue-500 to-purple-600"
+            } rounded-full mb-4`}
+          >
             <span className="text-3xl">📊</span>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1
+            className={`text-3xl font-bold mb-2 ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            }`}
+          >
             Create Account
           </h1>
-          <p className="text-gray-600">Join Crypto Dashboard today</p>
+          <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
+            Join Crypto Analyze today
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label
               htmlFor="name"
-              className="block text-sm font-medium text-gray-700 mb-1"
+              className={`block text-sm font-medium mb-1 ${
+                isDarkMode ? "text-gray-300" : "text-gray-700"
+              }`}
             >
               Full Name
             </label>
@@ -83,7 +162,11 @@ function Register() {
               type="text"
               value={formData.name}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                isDarkMode
+                  ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                  : "border-gray-300"
+              }`}
               placeholder="John Doe"
               required
             />
@@ -92,7 +175,9 @@ function Register() {
           <div>
             <label
               htmlFor="email"
-              className="block text-sm font-medium text-gray-700 mb-1"
+              className={`block text-sm font-medium mb-1 ${
+                isDarkMode ? "text-gray-300" : "text-gray-700"
+              }`}
             >
               Email
             </label>
@@ -102,7 +187,11 @@ function Register() {
               type="email"
               value={formData.email}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                isDarkMode
+                  ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                  : "border-gray-300"
+              }`}
               placeholder="user@example.com"
               required
             />
@@ -111,7 +200,9 @@ function Register() {
           <div>
             <label
               htmlFor="password"
-              className="block text-sm font-medium text-gray-700 mb-1"
+              className={`block text-sm font-medium mb-1 ${
+                isDarkMode ? "text-gray-300" : "text-gray-700"
+              }`}
             >
               Password
             </label>
@@ -122,7 +213,11 @@ function Register() {
                 type={showPassword ? "text" : "password"}
                 value={formData.password}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10 ${
+                  isDarkMode
+                    ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                    : "border-gray-300"
+                }`}
                 placeholder="••••••••"
                 required
                 minLength={6}
@@ -130,7 +225,11 @@ function Register() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className={`absolute right-3 top-1/2 -translate-y-1/2 ${
+                  isDarkMode
+                    ? "text-gray-400 hover:text-gray-300"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
               >
                 {showPassword ? (
                   <svg
@@ -169,7 +268,11 @@ function Register() {
                 )}
               </button>
             </div>
-            <p className="mt-1 text-xs text-gray-500">
+            <p
+              className={`mt-1 text-xs ${
+                isDarkMode ? "text-gray-400" : "text-gray-500"
+              }`}
+            >
               Must be at least 6 characters
             </p>
           </div>
@@ -177,7 +280,9 @@ function Register() {
           <div>
             <label
               htmlFor="confirmPassword"
-              className="block text-sm font-medium text-gray-700 mb-1"
+              className={`block text-sm font-medium mb-1 ${
+                isDarkMode ? "text-gray-300" : "text-gray-700"
+              }`}
             >
               Confirm Password
             </label>
@@ -188,14 +293,22 @@ function Register() {
                 type={showConfirmPassword ? "text" : "password"}
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10 ${
+                  isDarkMode
+                    ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                    : "border-gray-300"
+                }`}
                 placeholder="••••••••"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className={`absolute right-3 top-1/2 -translate-y-1/2 ${
+                  isDarkMode
+                    ? "text-gray-400 hover:text-gray-300"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
               >
                 {showConfirmPassword ? (
                   <svg
@@ -267,13 +380,56 @@ function Register() {
           </button>
         </form>
 
+        {/* Divider */}
+        <div className="relative my-6">
+          <div
+            className={`absolute inset-0 flex items-center ${
+              isDarkMode ? "text-gray-600" : "text-gray-300"
+            }`}
+          >
+            <div className="w-full border-t"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span
+              className={`px-2 ${
+                isDarkMode
+                  ? "bg-gray-800 text-gray-400"
+                  : "bg-white text-gray-500"
+              }`}
+            >
+              Or register with
+            </span>
+          </div>
+        </div>
+
+        {/* Google Login Button */}
+        <div className="flex justify-center">
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={handleGoogleError}
+            theme={isDarkMode ? "filled_black" : "outline"}
+            size="large"
+            text="signup_with"
+            shape="rectangular"
+            logo_alignment="left"
+          />
+        </div>
+
         {/* Login Link */}
         <div className="mt-6 text-center">
-          <p className="text-sm text-gray-600">
+          <p
+            className={`text-sm ${
+              isDarkMode ? "text-gray-400" : "text-gray-600"
+            }`}
+          >
             Already have an account?{" "}
             <Link
               to="/login"
-              className="text-blue-600 hover:text-blue-700 font-medium"
+              className={`font-medium ${
+                isDarkMode
+                  ? "text-blue-400 hover:text-blue-300"
+                  : "text-blue-600 hover:text-blue-700"
+              }`}
             >
               Sign in here
             </Link>
@@ -281,14 +437,36 @@ function Register() {
         </div>
 
         {/* Terms */}
-        <div className="mt-6 pt-6 border-t border-gray-200">
-          <p className="text-xs text-center text-gray-500">
+        <div
+          className={`mt-6 pt-6 border-t ${
+            isDarkMode ? "border-gray-700" : "border-gray-200"
+          }`}
+        >
+          <p
+            className={`text-xs text-center ${
+              isDarkMode ? "text-gray-500" : "text-gray-500"
+            }`}
+          >
             By creating an account, you agree to our{" "}
-            <a href="#" className="text-blue-600 hover:underline">
+            <a
+              href="#"
+              className={`${
+                isDarkMode
+                  ? "text-blue-400 hover:underline"
+                  : "text-blue-600 hover:underline"
+              }`}
+            >
               Terms of Service
             </a>{" "}
             and{" "}
-            <a href="#" className="text-blue-600 hover:underline">
+            <a
+              href="#"
+              className={`${
+                isDarkMode
+                  ? "text-blue-400 hover:underline"
+                  : "text-blue-600 hover:underline"
+              }`}
+            >
               Privacy Policy
             </a>
           </p>

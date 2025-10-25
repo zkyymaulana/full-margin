@@ -310,9 +310,7 @@ function Settings() {
               isDarkMode ? "text-gray-400" : "text-gray-600"
             }`}
           >
-            <p className="font-medium">
-              Crypto Dashboard Admin - React Version
-            </p>
+            <p className="font-medium">Crypto Analyze Admin - React Version</p>
             <p>Version 2.0.0</p>
             <p>Built with React, TanStack Query, and Tailwind CSS</p>
           </div>

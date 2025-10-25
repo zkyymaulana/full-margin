@@ -14,8 +14,7 @@ function Footer() {
           isDarkMode ? "text-gray-400" : "text-gray-600"
         }`}
       >
-        © {new Date().getFullYear()} Crypto Dashboard Admin. All rights
-        reserved.
+        © {new Date().getFullYear()} Crypto Analyze Admin. All rights reserved.
       </div>
     </footer>
   );

@@ -83,7 +83,7 @@ function Sidebar() {
           </div>
 
           <h3 className="text-center font-bold text-lg mb-1">
-            Crypto Dashboard Pro
+            Crypto Analyze Pro
           </h3>
 
           <p className="text-center text-xs text-white/80 mb-4">

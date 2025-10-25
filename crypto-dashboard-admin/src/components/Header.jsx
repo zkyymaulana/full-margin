@@ -27,6 +27,13 @@ function Header() {
   const symbols = symbolsData || [];
   const user = profileData?.data || {};
 
+  // Fallback to localStorage for avatar if not in profile data
+  const userAvatar = user?.avatarUrl || localStorage.getItem("userAvatar");
+  const userName =
+    user?.name || localStorage.getItem("userName") || "Admin User";
+  const userEmail =
+    user?.email || localStorage.getItem("userEmail") || "admin@crypto.com";
+
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event) {
@@ -106,7 +113,7 @@ function Header() {
               isDarkMode ? "text-blue-400" : "text-blue-600"
             }`}
           >
-            Crypto Dashboard
+            Crypto Analyze
           </span>
         </Link>
 
@@ -306,25 +313,26 @@ function Header() {
                   isDarkMode ? "text-white" : "text-gray-900"
                 }`}
               >
-                {user?.name || "Admin User"}
+                {userName}
               </div>
               <div
                 className={`text-xs ${
                   isDarkMode ? "text-gray-400" : "text-gray-500"
                 }`}
               >
-                {user?.email || "admin@crypto.com"}
+                {userEmail}
               </div>
             </div>
             <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold shadow-md">
-              {user?.avatarUrl ? (
+              {userAvatar ? (
                 <img
-                  src={user.avatarUrl}
+                  src={userAvatar}
                   alt="Avatar"
                   className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
                 />
               ) : (
-                <span>{user?.name?.charAt(0) || "A"}</span>
+                <span>{userName.charAt(0)}</span>
               )}
             </div>
           </button>
@@ -346,14 +354,14 @@ function Header() {
               >
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold text-lg shadow-md">
-                    {user?.avatarUrl ? (
+                    {userAvatar ? (
                       <img
-                        src={user.avatarUrl}
+                        src={userAvatar}
                         alt="Avatar"
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span>{user?.name?.charAt(0) || "A"}</span>
+                      <span>{userName.charAt(0)}</span>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -362,14 +370,14 @@ function Header() {
                         isDarkMode ? "text-white" : "text-gray-900"
                       }`}
                     >
-                      {user?.name || "Admin User"}
+                      {userName}
                     </div>
                     <div
                       className={`text-xs truncate ${
                         isDarkMode ? "text-gray-400" : "text-gray-500"
                       }`}
                     >
-                      {user?.email || "admin@crypto.com"}
+                      {userEmail}
                     </div>
                   </div>
                 </div>

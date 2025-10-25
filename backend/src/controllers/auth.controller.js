@@ -3,7 +3,9 @@ import {
   logoutService,
   registerService,
 } from "../services/auth/auth.service.js";
-import { verifyToken } from "../utils/jwt.js";
+import { verifyGoogleToken } from "../services/auth/google-auth.service.js";
+import { verifyToken, generateToken } from "../utils/jwt.js";
+import { prisma } from "../lib/prisma.js";
 
 export async function register(req, res) {
   try {
@@ -65,5 +67,72 @@ export async function logout(req, res) {
     res.json({ success: true, message: "Logout berhasil" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+}
+
+/**
+ * Login with Google OAuth
+ */
+export async function loginWithGoogle(req, res) {
+  try {
+    const { credential } = req.body;
+
+    if (!credential) {
+      return res.status(400).json({
+        success: false,
+        message: "Google credential is required",
+      });
+    }
+
+    // Verify Google token
+    const googleUser = await verifyGoogleToken(credential);
+
+    // Check if user exists in database
+    let user = await prisma.user.findUnique({
+      where: { email: googleUser.email },
+    });
+
+    // If user doesn't exist, create new user
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email: googleUser.email,
+          name: googleUser.name,
+          passwordHash: "", // Google users don't have password - use passwordHash instead
+          avatarUrl: googleUser.picture,
+        },
+      });
+    } else {
+      // Update last login and avatar if changed
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          lastLogin: new Date(),
+          avatarUrl: googleUser.picture, // Update avatar in case it changed
+        },
+      });
+    }
+
+    // Generate JWT token
+    const token = generateToken({ id: user.id, email: user.email });
+
+    res.json({
+      success: true,
+      message: "Login with Google successful",
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        picture: user.avatarUrl,
+        lastLogin: user.lastLogin,
+      },
+    });
+  } catch (err) {
+    console.error("Google login error:", err);
+    res.status(401).json({
+      success: false,
+      message: err.message || "Google login failed",
+    });
   }
 }
