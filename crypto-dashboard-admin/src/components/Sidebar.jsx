@@ -43,7 +43,7 @@ function Sidebar() {
   return (
     <aside
       id="sidebar"
-      className={`fixed left-0 top-[64px] w-[270px] h-[calc(100vh-64px)] ${
+      className={`fixed left-0 top-[74px] w-[270px] h-[calc(100vh-74px)] ${
         isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
       } border-r transform -translate-x-full xl:translate-x-0 transition-transform duration-300 z-40 flex flex-col`}
     >

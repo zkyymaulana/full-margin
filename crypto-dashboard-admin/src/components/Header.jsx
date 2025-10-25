@@ -114,7 +114,7 @@ function Header() {
         <div className="flex-1 max-w-md mx-4 relative" ref={dropdownRef}>
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className={`w-full flex items-center justify-between gap-3 px-4 py-2 border rounded-lg transition-colors ${
+            className={`w-full flex items-center justify-between gap-3 px-4 py-2 border rounded-lg transition-colors cursor-pointer ${
               isDarkMode
                 ? "bg-gray-700 hover:bg-gray-600 border-gray-600"
                 : "bg-gray-50 hover:bg-gray-100 border-gray-200"
@@ -216,7 +216,7 @@ function Header() {
                     <button
                       key={symbol.symbol}
                       onClick={() => handleSymbolSelect(symbol.symbol)}
-                      className={`w-full flex items-center gap-3 px-4 py-3 transition-colors ${
+                      className={`w-full flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${
                         isDarkMode ? "hover:bg-gray-700" : "hover:bg-blue-50"
                       } ${
                         selectedSymbol === symbol.symbol
@@ -296,7 +296,7 @@ function Header() {
         <div className="relative" ref={userDropdownRef}>
           <button
             onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
-            className={`flex items-center gap-3 rounded-lg p-2 transition-colors ${
+            className={`flex items-center gap-3 rounded-lg p-2 transition-colors cursor-pointer ${
               isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-50"
             }`}
           >
@@ -472,7 +472,7 @@ function Header() {
               >
                 <button
                   onClick={handleLogout}
-                  className={`flex items-center gap-3 px-4 py-3 transition-colors w-full text-left ${
+                  className={`flex items-center gap-3 px-4 py-3 transition-colors w-full text-left cursor-pointer ${
                     isDarkMode ? "hover:bg-red-900/20" : "hover:bg-red-50"
                   }`}
                 >

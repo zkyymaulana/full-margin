@@ -3,6 +3,7 @@ import { useAuth } from "./hooks/useAuth";
 import { SymbolProvider } from "./contexts/SymbolContext";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Indicators from "./pages/Indicators";
 import Comparison from "./pages/Comparison";
@@ -42,6 +43,14 @@ function App() {
           element={
             <PublicRoute>
               <Login />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            <PublicRoute>
+              <Register />
             </PublicRoute>
           }
         />

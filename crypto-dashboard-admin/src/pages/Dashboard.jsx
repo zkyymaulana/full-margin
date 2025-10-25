@@ -265,19 +265,19 @@ function Dashboard() {
     height: height,
     layout: {
       background: { color: isDarkMode ? "#1f2937" : "#ffffff" },
-      textColor: isDarkMode ? "#9ca3af" : "#333",
+      textColor: isDarkMode ? "#9ca3af" : "#6b7280",
       fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
       fontSize: 12,
     },
     grid: {
       vertLines: {
-        color: isDarkMode ? "#374151" : "#f0f0f0",
-        style: 0, // Solid line
+        color: isDarkMode ? "#374151" : "#e5e7eb",
+        style: 0,
         visible: true,
       },
       horzLines: {
-        color: isDarkMode ? "#374151" : "#f0f0f0",
-        style: 0, // Solid line
+        color: isDarkMode ? "#374151" : "#e5e7eb",
+        style: 0,
         visible: true,
       },
     },
@@ -285,7 +285,7 @@ function Dashboard() {
       visible: true,
       borderVisible: true,
       borderColor: isDarkMode ? "#4b5563" : "#d1d5db",
-      textColor: isDarkMode ? "#9ca3af" : "#374151",
+      textColor: isDarkMode ? "#9ca3af" : "#6b7280",
       entireTextOnly: false,
       ticksVisible: true,
       scaleMargins: {
@@ -1308,12 +1308,12 @@ function Dashboard() {
 
       {/* Chart Section */}
       <div className="card">
-        <div className="card-body">
+        <div className={`card-body ${isDarkMode ? "bg-gray-800" : "bg-white"}`}>
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2
                 className={`text-xl font-semibold ${
-                  isDarkMode ? "text-white" : "text-gray-900"
+                  isDarkMode ? "text-white border-none" : "text-gray-900"
                 }`}
               >
                 {selectedSymbol} Chart
@@ -1360,7 +1360,7 @@ function Dashboard() {
             <div
               className={`mb-4 p-4 rounded-lg border ${
                 isDarkMode
-                  ? "bg-gray-800 border-gray-700"
+                  ? "bg-gray-900 border-gray-700"
                   : "bg-gray-50 border-gray-200"
               }`}
             >
@@ -1514,7 +1514,7 @@ function Dashboard() {
 
       {/* Technical Indicators Toggle Panel */}
       <div className="card">
-        <div className="card-body">
+        <div className={`card-body ${isDarkMode ? "bg-gray-800" : "bg-white"}`}>
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center">
               <span className="text-lg">📊</span>
@@ -1577,8 +1577,17 @@ function Dashboard() {
             const indicators = latestCandle.indicators;
 
             return (
-              <div key={indicatorId} className="card">
-                <div className="card-body">
+              <div
+                key={indicatorId}
+                className={`card-body ${
+                  isDarkMode ? "bg-gray-800" : "bg-white"
+                } rounded-lg border `}
+              >
+                <div
+                  className={`card-body ${
+                    isDarkMode ? "bg-gray-800" : "bg-white"
+                  }`}
+                >
                   <div className="flex items-center gap-2 mb-3">
                     <div
                       className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -2255,7 +2264,7 @@ function Dashboard() {
 
       {/* Top 5 Coins */}
       <div className="card">
-        <div className="card-body">
+        <div className={`card-body ${isDarkMode ? "bg-gray-800" : "bg-white"}`}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center">
@@ -2309,7 +2318,7 @@ function Dashboard() {
                   key={coin.symbol}
                   className={`p-4 rounded-lg shadow-sm border hover:shadow-md transition-all duration-200 hover:scale-105 ${
                     isDarkMode
-                      ? "bg-gray-800 border-gray-700"
+                      ? "bg-gray-900 border-gray-700"
                       : "bg-white border-gray-200"
                   }`}
                 >

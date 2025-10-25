@@ -48,17 +48,114 @@ function Indicators() {
 
   // Get latest data from both APIs
   const latestIndicator = indicatorData?.data?.[0] || {};
-  const latestMulti = multiData?.data?.[0] || {};
+  const latestMulti = multiData || {};
 
   const { price, indicators = {} } = latestIndicator;
 
   const {
-    multiIndicator,
-    totalScore,
-    categoryScores = {},
-    signals = {},
-    weights = {},
+    bestWeights = {},
+    bestResult = {},
+    symbol: multiSymbol,
+    timeframe: multiTimeframe,
   } = latestMulti;
+
+  // Extract weights from bestWeights
+  const weights = {
+    trend:
+      (bestWeights.SMA || 0) + (bestWeights.EMA || 0) + (bestWeights.PSAR || 0),
+    momentum:
+      (bestWeights.RSI || 0) +
+      (bestWeights.MACD || 0) +
+      (bestWeights.Stochastic || 0) +
+      (bestWeights.StochasticRSI || 0),
+    volatility: bestWeights.BollingerBands || 0,
+  };
+
+  // Get individual signals from indicators (we'll use the indicator values to determine signals)
+  const signals = {
+    rsi:
+      indicators.rsi?.[14] > 70
+        ? "sell"
+        : indicators.rsi?.[14] < 30
+        ? "buy"
+        : "neutral",
+    macd:
+      indicators.macd?.histogram > 0
+        ? "buy"
+        : indicators.macd?.histogram < 0
+        ? "sell"
+        : "neutral",
+    stochastic:
+      indicators.stochastic?.["%K"] > 80
+        ? "sell"
+        : indicators.stochastic?.["%K"] < 20
+        ? "buy"
+        : "neutral",
+    stochasticRsi:
+      indicators.stochasticRsi?.["%K"] > 0.8
+        ? "sell"
+        : indicators.stochasticRsi?.["%K"] < 0.2
+        ? "buy"
+        : "neutral",
+    sma:
+      price > indicators.sma?.[20]
+        ? "buy"
+        : price < indicators.sma?.[20]
+        ? "sell"
+        : "neutral",
+    ema:
+      price > indicators.ema?.[20]
+        ? "buy"
+        : price < indicators.ema?.[20]
+        ? "sell"
+        : "neutral",
+    psar:
+      price > indicators.parabolicSar?.value
+        ? "buy"
+        : price < indicators.parabolicSar?.value
+        ? "sell"
+        : "neutral",
+    boll:
+      price > indicators.bollingerBands?.upper
+        ? "sell"
+        : price < indicators.bollingerBands?.lower
+        ? "buy"
+        : "neutral",
+  };
+
+  // Calculate category scores based on signals and weights
+  const calculateCategoryScore = (categorySignals, categoryWeight) => {
+    let score = 0;
+    let count = 0;
+    categorySignals.forEach((signal) => {
+      if (signal === "buy") score += 1;
+      else if (signal === "sell") score -= 1;
+      count++;
+    });
+    return count > 0 ? (score / count) * categoryWeight : 0;
+  };
+
+  const categoryScores = {
+    trend: calculateCategoryScore(
+      [signals.sma, signals.ema, signals.psar],
+      weights.trend
+    ),
+    momentum: calculateCategoryScore(
+      [signals.rsi, signals.macd, signals.stochastic, signals.stochasticRsi],
+      weights.momentum
+    ),
+    volatility: calculateCategoryScore([signals.boll], weights.volatility),
+  };
+
+  // Calculate total score and multi indicator signal
+  const totalScore =
+    (categoryScores.trend +
+      categoryScores.momentum +
+      categoryScores.volatility) /
+    (weights.trend + weights.momentum + weights.volatility || 1);
+
+  const multiIndicator =
+    totalScore > 0.3 ? "BUY" : totalScore < -0.3 ? "SELL" : "HOLD";
 
   const lastUpdate = latestIndicator.time
     ? new Date(latestIndicator.time).toLocaleString()

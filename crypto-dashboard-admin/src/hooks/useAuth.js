@@ -2,7 +2,7 @@
  * Hooks for Authentication using TanStack Query
  */
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { login, logout } from "../services/api.service";
+import { login, logout, register } from "../services/api.service";
 import { useNavigate } from "react-router-dom";
 
 // Login mutation
@@ -11,6 +11,26 @@ export const useLogin = () => {
 
   return useMutation({
     mutationFn: ({ email, password }) => login(email, password),
+    onSuccess: (data) => {
+      // Save auth data
+      localStorage.setItem("authToken", data.token);
+      localStorage.setItem("userId", data.user?.id);
+      localStorage.setItem("userEmail", data.user?.email);
+      localStorage.setItem("userName", data.user?.name);
+      localStorage.setItem("lastLogin", new Date().toISOString());
+
+      // Redirect to dashboard
+      navigate("/dashboard");
+    },
+  });
+};
+
+// Register mutation
+export const useRegister = () => {
+  const navigate = useNavigate();
+
+  return useMutation({
+    mutationFn: ({ email, password, name }) => register(email, password, name),
     onSuccess: (data) => {
       // Save auth data
       localStorage.setItem("authToken", data.token);
@@ -53,6 +73,7 @@ export const useLogout = () => {
 
 // Check if user is authenticated
 export const useAuth = () => {
+  const { mutate: logoutMutation } = useLogout();
   const token = localStorage.getItem("authToken");
   const userId = localStorage.getItem("userId");
   const userEmail = localStorage.getItem("userEmail");
@@ -60,8 +81,13 @@ export const useAuth = () => {
 
   const isAuthenticated = !!(token && userId && userEmail);
 
+  const logout = () => {
+    logoutMutation();
+  };
+
   return {
     isAuthenticated,
+    logout,
     user: isAuthenticated
       ? {
           id: userId,

@@ -60,9 +60,12 @@ export const fetchIndicator = async (symbol = "BTC-USD") => {
 
 // Multi-indicator
 export const fetchMultiIndicator = async (symbol = "BTC-USD") => {
-  const { data } = await apiClient.get(`/multiIndicator/${symbol}`, {
-    timeout: 15000,
-  });
+  const { data } = await apiClient.post(
+    `/multiIndicator/${symbol}/optimize-weights`,
+    {
+      timeout: 15000,
+    }
+  );
   return data;
 };
 
@@ -111,6 +114,16 @@ export const fetchQuickComparison = async (
 // Auth - Login
 export const login = async (email, password) => {
   const { data } = await apiClient.post("/auth/login", { email, password });
+  return data;
+};
+
+// Auth - Register
+export const register = async (email, password, name) => {
+  const { data } = await apiClient.post("/auth/register", {
+    email,
+    password,
+    name,
+  });
   return data;
 };
 

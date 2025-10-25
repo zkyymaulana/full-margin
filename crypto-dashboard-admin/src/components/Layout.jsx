@@ -21,7 +21,7 @@ function Layout() {
         <Sidebar />
 
         {/* Main Content */}
-        <main className="flex-1 xl:ml-[270px] mt-[64px] flex flex-col">
+        <main className="flex-1 xl:ml-[270px] mt-[74px] flex flex-col">
           <div className="flex-1 p-6">
             <Outlet />
           </div>

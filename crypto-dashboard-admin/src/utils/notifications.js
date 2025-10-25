@@ -1,11 +1,18 @@
 import Swal from "sweetalert2";
 import { toast } from "react-toastify";
 
+// Helper to check if dark mode is enabled
+const isDarkMode = () => {
+  return localStorage.getItem("darkMode") === "true";
+};
+
 // =====================================================
 // 🎨 SweetAlert2 Helpers (untuk konfirmasi)
 // =====================================================
 
 export const confirmLogout = async () => {
+  const darkMode = isDarkMode();
+
   const result = await Swal.fire({
     title: "Logout Confirmation",
     text: "Are you sure you want to logout?",
@@ -17,14 +24,19 @@ export const confirmLogout = async () => {
     cancelButtonText: "Cancel",
     reverseButtons: true,
     backdrop: true,
+    background: darkMode ? "#1F2937" : "#FFFFFF",
+    color: darkMode ? "#F3F4F6" : "#111827",
     customClass: {
       container: "swal-high-z-index",
+      popup: darkMode ? "dark-mode-popup" : "",
     },
   });
   return result.isConfirmed;
 };
 
 export const confirmDelete = async (itemName = "this item") => {
+  const darkMode = isDarkMode();
+
   const result = await Swal.fire({
     title: "Are you sure?",
     text: `You won't be able to revert ${itemName}!`,
@@ -36,8 +48,11 @@ export const confirmDelete = async (itemName = "this item") => {
     cancelButtonText: "Cancel",
     reverseButtons: true,
     backdrop: true,
+    background: darkMode ? "#1F2937" : "#FFFFFF",
+    color: darkMode ? "#F3F4F6" : "#111827",
     customClass: {
       container: "swal-high-z-index",
+      popup: darkMode ? "dark-mode-popup" : "",
     },
   });
   return result.isConfirmed;
@@ -48,6 +63,8 @@ export const confirmAction = async (
   text,
   confirmText = "Yes, proceed"
 ) => {
+  const darkMode = isDarkMode();
+
   const result = await Swal.fire({
     title,
     text,
@@ -59,8 +76,11 @@ export const confirmAction = async (
     cancelButtonText: "Cancel",
     reverseButtons: true,
     backdrop: true,
+    background: darkMode ? "#1F2937" : "#FFFFFF",
+    color: darkMode ? "#F3F4F6" : "#111827",
     customClass: {
       container: "swal-high-z-index",
+      popup: darkMode ? "dark-mode-popup" : "",
     },
   });
   return result.isConfirmed;

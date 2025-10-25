@@ -40,6 +40,14 @@ function Comparison() {
     return `${num.toFixed(2)}%`;
   };
 
+  const formatCurrency = (num) => {
+    if (!num && num !== 0) return "N/A";
+    return `$${num.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
   const getROIColor = (roi) => {
     if (!roi && roi !== 0)
       return isDarkMode ? "text-gray-400" : "text-gray-700";
@@ -307,8 +315,10 @@ function Comparison() {
                   }`}
                 >
                   {comparisonData.symbol} • {comparisonData.timeframe} •{" "}
-                  {comparisonData.periodDays} days •{" "}
-                  {comparisonData.totalCandles?.toLocaleString()} candles
+                  {comparisonData.period?.days ||
+                    comparisonData.analysis?.periodDays}{" "}
+                  days • {comparisonData.analysis?.candles?.toLocaleString()}{" "}
+                  candles
                 </p>
               </div>
               <div className="text-right">
@@ -319,13 +329,21 @@ function Comparison() {
                 >
                   Best Strategy
                 </div>
-                <div className="text-xl font-bold text-blue-600">
-                  {comparisonData.comparison?.bestSingleIndicator || "N/A"}
+                <div
+                  className={`text-xl font-bold ${
+                    comparisonData.comparison?.bestStrategy === "multi"
+                      ? "text-purple-600"
+                      : "text-blue-600"
+                  }`}
+                >
+                  {comparisonData.comparison?.bestStrategy === "multi"
+                    ? "Multi-Indicator"
+                    : comparisonData.analysis?.bestSingle?.indicator || "N/A"}
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div
                 className={`rounded-lg p-4 ${
                   isDarkMode ? "bg-gray-800" : "bg-white"
@@ -336,14 +354,14 @@ function Comparison() {
                     isDarkMode ? "text-gray-400" : "text-gray-600"
                   }`}
                 >
-                  Strategies Tested
+                  Data Points
                 </div>
                 <div
                   className={`text-2xl font-bold ${
                     isDarkMode ? "text-white" : "text-gray-900"
                   }`}
                 >
-                  {comparisonData.analysis?.totalStrategiesTested || 0}
+                  {comparisonData.analysis?.dataPoints?.toLocaleString() || 0}
                 </div>
               </div>
               <div
@@ -356,30 +374,14 @@ function Comparison() {
                     isDarkMode ? "text-gray-400" : "text-gray-600"
                   }`}
                 >
-                  Profitable
-                </div>
-                <div className="text-2xl font-bold text-green-600">
-                  {comparisonData.analysis?.profitableStrategies || 0}
-                </div>
-              </div>
-              <div
-                className={`rounded-lg p-4 ${
-                  isDarkMode ? "bg-gray-800" : "bg-white"
-                }`}
-              >
-                <div
-                  className={`text-xs mb-1 ${
-                    isDarkMode ? "text-gray-400" : "text-gray-600"
-                  }`}
-                >
-                  Average ROI
+                  Best Single ROI
                 </div>
                 <div
                   className={`text-2xl font-bold ${getROIColor(
-                    comparisonData.analysis?.averageROI
+                    comparisonData.analysis?.bestSingle?.roi
                   )}`}
                 >
-                  {formatPercent(comparisonData.analysis?.averageROI)}
+                  {formatPercent(comparisonData.analysis?.bestSingle?.roi)}
                 </div>
               </div>
               <div
@@ -392,14 +394,14 @@ function Comparison() {
                     isDarkMode ? "text-gray-400" : "text-gray-600"
                   }`}
                 >
-                  Best ROI
+                  Multi ROI
                 </div>
                 <div
                   className={`text-2xl font-bold ${getROIColor(
-                    comparisonData.analysis?.bestROI
+                    comparisonData.comparison?.multi?.roi
                   )}`}
                 >
-                  {formatPercent(comparisonData.analysis?.bestROI)}
+                  {formatPercent(comparisonData.comparison?.multi?.roi)}
                 </div>
               </div>
               <div
@@ -412,79 +414,178 @@ function Comparison() {
                     isDarkMode ? "text-gray-400" : "text-gray-600"
                   }`}
                 >
-                  Worst ROI
+                  ROI Difference
                 </div>
                 <div
-                  className={`text-2xl font-bold ${getROIColor(
-                    comparisonData.analysis?.worstROI
-                  )}`}
+                  className={`text-2xl font-bold ${
+                    comparisonData.analysis?.roiDifference > 0
+                      ? "text-green-600"
+                      : "text-red-600"
+                  }`}
                 >
-                  {formatPercent(comparisonData.analysis?.worstROI)}
+                  {comparisonData.analysis?.roiDifference > 0 ? "+" : ""}
+                  {formatPercent(comparisonData.analysis?.roiDifference)}
                 </div>
               </div>
             </div>
 
-            {comparisonData.analysis?.recommendation && (
+            {/* Analysis Info */}
+            {comparisonData.analysis && (
               <div
-                className={`mt-4 rounded-lg p-4 border-l-4 border-blue-500 ${
-                  isDarkMode ? "bg-gray-800" : "bg-white"
-                }`}
+                className={`mt-4 rounded-lg p-4 border-l-4 ${
+                  comparisonData.analysis.multiBeatsBestSingle
+                    ? "border-green-500"
+                    : "border-yellow-500"
+                } ${isDarkMode ? "bg-gray-800" : "bg-white"}`}
               >
-                <div
-                  className={`text-sm font-medium ${
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  }`}
-                >
-                  {comparisonData.analysis.recommendation}
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">
+                    {comparisonData.analysis.multiBeatsBestSingle ? "🏆" : "⚠️"}
+                  </span>
+                  <div className="flex-1">
+                    <div
+                      className={`font-semibold mb-1 ${
+                        isDarkMode ? "text-white" : "text-gray-900"
+                      }`}
+                    >
+                      {comparisonData.analysis.multiBeatsBestSingle
+                        ? "Multi-Indicator Strategy Wins!"
+                        : "Single Indicator Strategy Performs Better"}
+                    </div>
+                    <div
+                      className={`text-sm ${
+                        isDarkMode ? "text-gray-400" : "text-gray-600"
+                      }`}
+                    >
+                      Multi-indicator achieved{" "}
+                      {formatPercent(comparisonData.comparison?.multi?.roi)} ROI
+                      vs {comparisonData.analysis.bestSingle?.indicator} at{" "}
+                      {formatPercent(comparisonData.analysis.bestSingle?.roi)}{" "}
+                      ROI (Win Rate:{" "}
+                      {formatPercent(
+                        comparisonData.analysis.winRateComparison?.multi
+                      )}{" "}
+                      vs{" "}
+                      {formatPercent(
+                        comparisonData.analysis.winRateComparison?.bestSingle
+                      )}
+                      )
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Trading Config */}
-          <div
-            className={`rounded-xl shadow-sm border p-6 ${
-              isDarkMode
-                ? "bg-gray-800 border-gray-700"
-                : "bg-white border-gray-200"
-            }`}
-          >
-            <h3
-              className={`text-lg font-semibold mb-4 flex items-center gap-2 ${
-                isDarkMode ? "text-white" : "text-gray-900"
+          {/* Best Weights Section */}
+          {comparisonData.bestWeights && (
+            <div
+              className={`rounded-xl shadow-sm border ${
+                isDarkMode
+                  ? "bg-gray-800 border-gray-700"
+                  : "bg-white border-gray-200"
               }`}
             >
-              <span>⚙️</span>
-              Trading Configuration
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-              {Object.entries(comparisonData.tradingConfig || {}).map(
-                ([key, value]) => (
-                  <div
-                    key={key}
-                    className={`rounded-lg p-3 ${
-                      isDarkMode ? "bg-gray-700" : "bg-gray-50"
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3
+                    className={`text-lg font-semibold flex items-center gap-2 ${
+                      isDarkMode ? "text-white" : "text-gray-900"
                     }`}
                   >
-                    <div
-                      className={`text-xs mb-1 capitalize ${
-                        isDarkMode ? "text-gray-400" : "text-gray-600"
-                      }`}
-                    >
-                      {key.replace(/([A-Z])/g, " $1").trim()}
-                    </div>
-                    <div
-                      className={`text-sm font-bold ${
-                        isDarkMode ? "text-white" : "text-gray-900"
-                      }`}
-                    >
-                      {typeof value === "number" ? formatNumber(value) : value}
-                    </div>
-                  </div>
-                )
-              )}
+                    <span>⚖️</span>
+                    Optimized Indicator Weights
+                  </h3>
+                  <span
+                    className={`px-3 py-1 text-xs font-medium rounded-full ${
+                      comparisonData.weightSource === "database"
+                        ? isDarkMode
+                          ? "bg-green-900 text-green-300"
+                          : "bg-green-100 text-green-700"
+                        : isDarkMode
+                        ? "bg-blue-900 text-blue-300"
+                        : "bg-blue-100 text-blue-700"
+                    }`}
+                  >
+                    Source: {comparisonData.weightSource || "calculated"}
+                  </span>
+                </div>
+                <p
+                  className={`text-sm mb-4 ${
+                    isDarkMode ? "text-gray-400" : "text-gray-600"
+                  }`}
+                >
+                  These weights determine the influence of each indicator in the
+                  multi-strategy
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {Object.entries(comparisonData.bestWeights).map(
+                    ([indicator, weight]) => (
+                      <div
+                        key={indicator}
+                        className={`rounded-lg p-4 border ${
+                          weight > 0
+                            ? isDarkMode
+                              ? "bg-blue-900/20 border-blue-700"
+                              : "bg-blue-50 border-blue-200"
+                            : isDarkMode
+                            ? "bg-gray-700 border-gray-600"
+                            : "bg-gray-50 border-gray-200"
+                        }`}
+                      >
+                        <div
+                          className={`text-sm font-medium mb-1 ${
+                            isDarkMode ? "text-gray-300" : "text-gray-700"
+                          }`}
+                        >
+                          {indicator}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={`text-2xl font-bold ${
+                              weight > 0
+                                ? isDarkMode
+                                  ? "text-blue-400"
+                                  : "text-blue-600"
+                                : isDarkMode
+                                ? "text-gray-500"
+                                : "text-gray-400"
+                            }`}
+                          >
+                            {weight}
+                          </div>
+                          {weight > 0 && (
+                            <div className="flex-1">
+                              <div
+                                className={`h-2 rounded-full ${
+                                  isDarkMode ? "bg-gray-700" : "bg-gray-200"
+                                }`}
+                              >
+                                <div
+                                  className="h-2 rounded-full bg-blue-500"
+                                  style={{
+                                    width: `${
+                                      (weight /
+                                        Math.max(
+                                          ...Object.values(
+                                            comparisonData.bestWeights
+                                          )
+                                        )) *
+                                      100
+                                    }%`,
+                                  }}
+                                ></div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Standard Configuration Results */}
           <div
@@ -557,7 +658,7 @@ function Comparison() {
                           isDarkMode ? "text-gray-300" : "text-gray-700"
                         }`}
                       >
-                        Final Balance
+                        Final Capital
                       </th>
                       <th
                         className={`text-right py-3 px-4 text-sm font-semibold ${
@@ -565,20 +666,6 @@ function Comparison() {
                         }`}
                       >
                         Max Drawdown
-                      </th>
-                      <th
-                        className={`text-right py-3 px-4 text-sm font-semibold ${
-                          isDarkMode ? "text-gray-300" : "text-gray-700"
-                        }`}
-                      >
-                        Sharpe Ratio
-                      </th>
-                      <th
-                        className={`text-right py-3 px-4 text-sm font-semibold ${
-                          isDarkMode ? "text-gray-300" : "text-gray-700"
-                        }`}
-                      >
-                        Profit Factor
                       </th>
                     </tr>
                   </thead>
@@ -603,7 +690,7 @@ function Comparison() {
                             >
                               {strategy}
                             </span>
-                            {comparisonData.comparison?.bestSingleIndicator ===
+                            {comparisonData.analysis?.bestSingle?.indicator ===
                               strategy && (
                               <span
                                 className={`px-2 py-0.5 text-xs rounded-full font-medium ${
@@ -612,7 +699,19 @@ function Comparison() {
                                     : "bg-yellow-100 text-yellow-700"
                                 }`}
                               >
-                                Best
+                                Best Single
+                              </span>
+                            )}
+                            {comparisonData.comparison?.bestStrategy ===
+                              strategy.toLowerCase() && (
+                              <span
+                                className={`px-2 py-0.5 text-xs rounded-full font-medium ${
+                                  isDarkMode
+                                    ? "bg-green-900 text-green-300"
+                                    : "bg-green-100 text-green-700"
+                                }`}
+                              >
+                                Winner
                               </span>
                             )}
                           </div>
@@ -641,30 +740,16 @@ function Comparison() {
                         <td className="py-3 px-4 text-right">
                           <span
                             className={`font-mono text-sm ${
-                              data.finalBalance >= 1000
+                              data.finalCapital >= 10000
                                 ? "text-green-600"
                                 : "text-red-600"
                             }`}
                           >
-                            ${formatNumber(data.finalBalance)}
+                            {formatCurrency(data.finalCapital)}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right font-mono text-sm text-red-600">
                           {formatPercent(data.maxDrawdown)}
-                        </td>
-                        <td
-                          className={`py-3 px-4 text-right font-mono text-sm ${
-                            isDarkMode ? "text-gray-300" : ""
-                          }`}
-                        >
-                          {formatNumber(data.sharpeRatio)}
-                        </td>
-                        <td
-                          className={`py-3 px-4 text-right font-mono text-sm ${
-                            isDarkMode ? "text-gray-300" : ""
-                          }`}
-                        >
-                          {formatNumber(data.profitFactor)}
                         </td>
                       </tr>
                     ))}
@@ -697,6 +782,18 @@ function Comparison() {
                             >
                               Combined
                             </span>
+                            {comparisonData.comparison?.bestStrategy ===
+                              "multi" && (
+                              <span
+                                className={`px-2 py-0.5 text-xs rounded-full font-medium ${
+                                  isDarkMode
+                                    ? "bg-green-900 text-green-300"
+                                    : "bg-green-100 text-green-700"
+                                }`}
+                              >
+                                Winner
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="py-3 px-4 text-right">
@@ -727,43 +824,20 @@ function Comparison() {
                         <td className="py-3 px-4 text-right">
                           <span
                             className={`font-mono text-sm ${
-                              comparisonData.comparison.multi.finalBalance >=
-                              1000
+                              comparisonData.comparison.multi.finalCapital >=
+                              10000
                                 ? "text-green-600"
                                 : "text-red-600"
                             }`}
                           >
-                            $
-                            {formatNumber(
-                              comparisonData.comparison.multi.finalBalance
+                            {formatCurrency(
+                              comparisonData.comparison.multi.finalCapital
                             )}
                           </span>
                         </td>
-                        <td
-                          className={`py-3 px-4 text-right font-mono text-sm ${
-                            isDarkMode ? "text-gray-300" : ""
-                          }`}
-                        >
+                        <td className="py-3 px-4 text-right font-mono text-sm text-red-600">
                           {formatPercent(
                             comparisonData.comparison.multi.maxDrawdown
-                          )}
-                        </td>
-                        <td
-                          className={`py-3 px-4 text-right font-mono text-sm ${
-                            isDarkMode ? "text-gray-300" : ""
-                          }`}
-                        >
-                          {formatNumber(
-                            comparisonData.comparison.multi.sharpeRatio
-                          )}
-                        </td>
-                        <td
-                          className={`py-3 px-4 text-right font-mono text-sm ${
-                            isDarkMode ? "text-gray-300" : ""
-                          }`}
-                        >
-                          {formatNumber(
-                            comparisonData.comparison.multi.profitFactor
                           )}
                         </td>
                       </tr>
@@ -883,7 +957,7 @@ function Comparison() {
                             isDarkMode ? "text-gray-300" : "text-gray-700"
                           }`}
                         >
-                          Final Balance
+                          Final Capital
                         </th>
                         <th
                           className={`text-right py-3 px-4 text-sm font-semibold ${
@@ -891,13 +965,6 @@ function Comparison() {
                           }`}
                         >
                           Annualized Return
-                        </th>
-                        <th
-                          className={`text-right py-3 px-4 text-sm font-semibold ${
-                            isDarkMode ? "text-gray-300" : "text-gray-700"
-                          }`}
-                        >
-                          Sharpe Ratio
                         </th>
                       </tr>
                     </thead>
@@ -960,12 +1027,12 @@ function Comparison() {
                           <td className="py-3 px-4 text-right">
                             <span
                               className={`font-mono text-sm ${
-                                data.finalBalance >= 1000
+                                data.finalCapital >= 10000
                                   ? "text-green-600"
                                   : "text-red-600"
                               }`}
                             >
-                              ${formatNumber(data.finalBalance)}
+                              {formatCurrency(data.finalCapital)}
                             </span>
                           </td>
                           <td
@@ -976,13 +1043,6 @@ function Comparison() {
                             {data.annualizedReturn
                               ? formatPercent(data.annualizedReturn)
                               : "N/A"}
-                          </td>
-                          <td
-                            className={`py-3 px-4 text-right font-mono text-sm ${
-                              isDarkMode ? "text-gray-300" : ""
-                            }`}
-                          >
-                            {formatNumber(data.sharpeRatio)}
                           </td>
                         </tr>
                       ))}
@@ -1015,6 +1075,18 @@ function Comparison() {
                               >
                                 Combined
                               </span>
+                              {comparisonData.comparison?.bestStrategy ===
+                                "multi" && (
+                                <span
+                                  className={`px-2 py-0.5 text-xs rounded-full font-medium ${
+                                    isDarkMode
+                                      ? "bg-green-900 text-green-300"
+                                      : "bg-green-100 text-green-700"
+                                  }`}
+                                >
+                                  Winner
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td className="py-3 px-4 text-right">
@@ -1048,15 +1120,14 @@ function Comparison() {
                             <span
                               className={`font-mono text-sm ${
                                 comparisonData.comparisonHighROI.multi
-                                  .finalBalance >= 1000
+                                  .finalCapital >= 10000
                                   ? "text-green-600"
                                   : "text-red-600"
                               }`}
                             >
-                              $
-                              {formatNumber(
+                              {formatCurrency(
                                 comparisonData.comparisonHighROI.multi
-                                  .finalBalance
+                                  .finalCapital
                               )}
                             </span>
                           </td>
@@ -1072,15 +1143,6 @@ function Comparison() {
                                     .annualizedReturn
                                 )
                               : "N/A"}
-                          </td>
-                          <td
-                            className={`py-3 px-4 text-right font-mono text-sm ${
-                              isDarkMode ? "text-gray-300" : ""
-                            }`}
-                          >
-                            {formatNumber(
-                              comparisonData.comparisonHighROI.multi.sharpeRatio
-                            )}
                           </td>
                         </tr>
                       )}
