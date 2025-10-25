@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "IndicatorWeight" ADD COLUMN     "candleCount" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "maxDrawdown" DOUBLE PRECISION NOT NULL DEFAULT 0;

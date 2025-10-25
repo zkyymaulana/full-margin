@@ -1,5 +1,30 @@
-import { loginService, logoutService } from "../services/auth/auth.service.js";
+import {
+  loginService,
+  logoutService,
+  registerService,
+} from "../services/auth/auth.service.js";
 import { verifyToken } from "../utils/jwt.js";
+
+export async function register(req, res) {
+  try {
+    const { email, password, name } = req.body;
+    const { token, user } = await registerService(email, password, name);
+
+    res.status(201).json({
+      success: true,
+      message: "Registrasi berhasil",
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        lastLogin: user.lastLogin,
+      },
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+}
 
 export async function login(req, res) {
   try {

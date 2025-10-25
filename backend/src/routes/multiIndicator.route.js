@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { optimizeIndicatorWeightsController } from "../controllers/multiIndicator.controller.js";
+import {
+  optimizeIndicatorWeightsController,
+  backtestWithOptimizedWeightsController,
+} from "../controllers/multiIndicator.controller.js";
 
 const router = Router();
 
@@ -15,5 +18,9 @@ const router = Router();
 // Body: { indicators?: string[] }
 // Default: All 8 indicators (SMA, EMA, RSI, MACD, BollingerBands, Stochastic, PSAR, StochasticRSI)
 router.post("/:symbol/optimize-weights", optimizeIndicatorWeightsController);
+
+// Backtest using optimized weights from database
+// GET /api/multi-indicator/:symbol/backtest
+router.get("/:symbol/backtest", backtestWithOptimizedWeightsController);
 
 export default router;

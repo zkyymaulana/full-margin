@@ -1,89 +1,109 @@
-import { prisma } from "../lib/prisma.js";
+/**
+ * 📊 COMPARISON CONTROLLER (Clean Architecture)
+ * ---------------------------------------------------------------
+ * HTTP Layer - handles only request/response
+ * All business logic delegated to comparison.service.js
+ *
+ * Responsibilities:
+ * - Validate request parameters
+ * - Call service layer
+ * - Format HTTP responses
+ * - Handle HTTP status codes
+ */
+
 import { compareStrategies } from "../services/comparison/comparison.service.js";
 
 /**
- * ✅ Clean Result Helper - Extract Only Three Core Academic Metrics
+ * 🎯 Compare Trading Strategies Endpoint
  *
- * Simplified version focusing on the three core metrics without balance tracking.
+ * POST /api/comparison/compare
+ * Body: { symbol, startDate, endDate }
  *
- * @param {Object} result - Raw backtesting result object
- * @returns {Object} Cleaned result with only roi, winRate, maxDrawdown
- */
-function cleanResult(result) {
-  if (!result) return null;
-
-  // ✅ Extract only the three core academic metrics
-  const cleaned = {
-    roi: +Number(result.roi || 0).toFixed(2),
-    winRate: +Number(result.winRate || 0).toFixed(2),
-    maxDrawdown: +Number(result.maxDrawdown || 0).toFixed(2),
-    trades: result.trades || 0,
-  };
-
-  // ✅ Validate realistic ranges
-  // ROI should be between -100% and +500% (more realistic for academic studies)
-  if (cleaned.roi < -100) cleaned.roi = -100.0;
-  if (cleaned.roi > 500) cleaned.roi = 500.0;
-
-  // Win rate should be between 0% and 100%
-  if (cleaned.winRate < 0) cleaned.winRate = 0.0;
-  if (cleaned.winRate > 100) cleaned.winRate = 100.0;
-
-  // Max drawdown should be between 0% and 100%
-  if (cleaned.maxDrawdown < 0) cleaned.maxDrawdown = 0.0;
-  if (cleaned.maxDrawdown > 100) cleaned.maxDrawdown = 100.0;
-
-  return cleaned;
-}
-
-/**
- * 🎯 Compare Trading Strategies Endpoint (Enhanced with Metadata)
- *
- * Provides comprehensive academic comparison results with total candle information
- * and ultra-conservative trading parameters for 1H timeframe.
+ * Returns unified comparison structure:
+ * {
+ *   success: boolean,
+ *   symbol: string,
+ *   timeframe: string,
+ *   period: { start, end, days },
+ *   comparison: { single, multi, bestStrategy },
+ *   bestWeights: object,
+ *   weightSource: string,
+ *   analysis: {
+ *     periodDays, candles, dataPoints,
+ *     bestSingle: { indicator, roi, winRate, maxDrawdown, trades },
+ *     multiBeatsBestSingle: boolean,
+ *     roiDifference: number,
+ *     winRateComparison: { multi, bestSingle, difference }
+ *   },
+ *   timestamp: string
+ * }
  */
 export const compareIndicators = async (req, res) => {
   try {
+    // 1️⃣ Validate request parameters
     const { symbol, startDate, endDate } = req.body;
 
     if (!symbol || !startDate || !endDate) {
       return res.status(400).json({
         success: false,
-        message: "Symbol, startDate, and endDate are required",
+        message:
+          "Missing required parameters: symbol, startDate, and endDate are required",
+        example: {
+          symbol: "BTC-USD",
+          startDate: "2024-01-01",
+          endDate: "2024-12-31",
+        },
       });
     }
 
-    // Fix parameter names to match service function signature (start, end)
+    // 2️⃣ Validate date formats
+    const startDateObj = new Date(startDate);
+    const endDateObj = new Date(endDate);
+
+    if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid date format. Use ISO 8601 format (YYYY-MM-DD)",
+      });
+    }
+
+    if (startDateObj >= endDateObj) {
+      return res.status(400).json({
+        success: false,
+        message: "startDate must be before endDate",
+      });
+    }
+
+    console.log(
+      `📊 Comparison request received: ${symbol} (${startDate} → ${endDate})`
+    );
+
+    // 3️⃣ Call service layer (pure business logic)
     const result = await compareStrategies(symbol, startDate, endDate);
 
+    // 4️⃣ Handle service response
     if (!result.success) {
       return res.status(404).json(result);
     }
 
-    // Use dataInfo instead of metadata to match service response
-    const response = {
-      success: true,
-      symbol: result.symbol,
-      timeframe: result.timeframe,
-      totalCandles: result.dataInfo.totalCandles,
-      totalIndicators: result.dataInfo.totalIndicators,
-      periodDays: result.dataInfo.periodDays,
-      startDate: result.dataInfo.startDate,
-      endDate: result.dataInfo.endDate,
-      tradingConfig: result.dataInfo.tradingConfig,
-      analysis: result.analysis,
-      comparison: result.comparison,
-      // Include High-ROI comparison block in API response
-      comparisonHighROI: result.comparisonHighROI,
-    };
-
-    res.json(response);
+    // 5️⃣ Return successful response
+    return res.status(200).json(result);
   } catch (error) {
-    console.error("❌ Comparison Error:", error);
-    res.status(500).json({
+    console.error("❌ Comparison Controller Error:", error);
+
+    // Handle specific error types
+    if (error.message.includes("No data found")) {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    // Generic internal server error
+    return res.status(500).json({
       success: false,
       message: "Internal server error during comparison",
-      error: error.message,
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };

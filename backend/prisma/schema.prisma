@@ -109,3 +109,23 @@ model Indicator {
   @@index([symbol, timeframe, time])
   @@index([overallSignal])
 }
+
+// Cache for optimized multi-indicator weights per symbol/timeframe and training window
+model IndicatorWeight {
+  id           Int      @id @default(autoincrement())
+  symbol       String
+  timeframe    String
+  startTrain   BigInt
+  endTrain     BigInt
+  weights      Json
+  roi          Float
+  winRate      Float
+  maxDrawdown  Float   @default(0)
+  candleCount  Int     @default(0)
+  trades       Int     @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([symbol, timeframe, startTrain, endTrain])
+  @@index([symbol, timeframe])
+}

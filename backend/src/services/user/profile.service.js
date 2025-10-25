@@ -27,6 +27,15 @@ export async function getUserProfile(userId) {
 export async function updateUserProfile(userId, payload) {
   const updates = {};
 
+  // Update name
+  if (payload.name) {
+    const name = String(payload.name).trim();
+    if (name.length < 2) {
+      throw new Error("Nama minimal 2 karakter");
+    }
+    updates.name = name;
+  }
+
   // Update email
   if (payload.email) {
     const email = String(payload.email).trim().toLowerCase();
