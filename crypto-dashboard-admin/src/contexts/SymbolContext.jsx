@@ -2,20 +2,71 @@ import { createContext, useContext, useState, useEffect } from "react";
 
 const SymbolContext = createContext();
 
+const DEFAULT_SYMBOL = "BTC-USD";
+
+const STORAGE_KEY = "selectedSymbol";
+
+const isValidSymbol = (symbol) => {
+  if (!symbol || typeof symbol !== "string") return false;
+  // Format: XXX-USD (misal: BTC-USD, ETH-USD)
+  return /^[A-Z0-9]+-USD$/.test(symbol);
+};
+
 export function SymbolProvider({ children }) {
   const [selectedSymbol, setSelectedSymbol] = useState(() => {
-    // Get from localStorage or default to BTC-USD
-    return localStorage.getItem("selectedSymbol") || "BTC-USD";
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+
+      if (stored && isValidSymbol(stored)) {
+        return stored;
+      }
+
+      console.log("⚠️ No valid symbol found, using default:", DEFAULT_SYMBOL);
+      return DEFAULT_SYMBOL;
+    } catch (error) {
+      console.error("❌ Error reading localStorage:", error);
+      return DEFAULT_SYMBOL;
+    }
   });
 
   useEffect(() => {
-    // Save to localStorage whenever symbol changes
-    localStorage.setItem("selectedSymbol", selectedSymbol);
+    try {
+      if (isValidSymbol(selectedSymbol)) {
+        localStorage.setItem(STORAGE_KEY, selectedSymbol);
+        console.log("💾 Saved symbol to localStorage:", selectedSymbol);
+      } else {
+        console.warn("⚠️ Invalid symbol format, not saving:", selectedSymbol);
+      }
+    } catch (error) {
+      console.error("❌ Error saving to localStorage:", error);
+    }
   }, [selectedSymbol]);
+
+  const updateSelectedSymbol = (newSymbol) => {
+    if (isValidSymbol(newSymbol)) {
+      setSelectedSymbol(newSymbol);
+    } else {
+      console.error("❌ Invalid symbol format:", newSymbol);
+      // Tetap set, tapi log warning
+      setSelectedSymbol(newSymbol);
+    }
+  };
+
+  const resetSymbol = () => {
+    setSelectedSymbol(DEFAULT_SYMBOL);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      console.log("🗑️ Symbol reset to default");
+    } catch (error) {
+      console.error("❌ Error removing from localStorage:", error);
+    }
+  };
 
   const value = {
     selectedSymbol,
-    setSelectedSymbol,
+    setSelectedSymbol: updateSelectedSymbol,
+    resetSymbol,
+    defaultSymbol: DEFAULT_SYMBOL,
   };
 
   return (

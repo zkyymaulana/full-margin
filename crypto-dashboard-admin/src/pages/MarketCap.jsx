@@ -17,8 +17,20 @@ function MarketCap() {
 
   // Handler untuk navigasi ke dashboard dengan symbol yang dipilih
   const handleCoinClick = (symbol) => {
+    console.log("🎯 Coin selected:", symbol);
     setSelectedSymbol(symbol);
-    navigate("/dashboard");
+
+    const toast = document.createElement("div");
+    toast.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg text-white font-semibold z-50 animate-bounce ${
+      isDarkMode ? "bg-blue-600" : "bg-blue-500"
+    }`;
+    toast.innerHTML = `✅ Selected: ${symbol.replace("-USD", "")}`;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+      toast.remove();
+      navigate("/dashboard");
+    }, 800);
   };
 
   if (isLoading) {
