@@ -62,6 +62,7 @@ export const fetchIndicator = async (symbol = "BTC-USD") => {
 export const fetchMultiIndicator = async (symbol = "BTC-USD") => {
   const { data } = await apiClient.post(
     `/multiIndicator/${symbol}/optimize-weights`,
+    {},
     {
       timeout: 15000,
     }
@@ -73,13 +74,17 @@ export const fetchMultiIndicator = async (symbol = "BTC-USD") => {
 export const fetchCandles = async (symbol = "BTC-USD", timeframe = "1h") => {
   const { data } = await apiClient.get(`/chart/${symbol}`, {
     params: { timeframe },
+    timeout: 10000,
   });
   return data;
 };
 
 // Marketcap live
-export const fetchMarketCapLive = async () => {
-  const { data } = await apiClient.get("/marketcap/live");
+export const fetchMarketCapLive = async (limit = 100) => {
+  const { data } = await apiClient.get("/marketcap/live", {
+    params: { limit },
+    timeout: 60000,
+  });
   return data;
 };
 

@@ -6,12 +6,14 @@ import { useMarketcapSymbols } from "../hooks/useMarketcap";
 import { useUserProfile } from "../hooks/useUser";
 import { confirmLogout } from "../utils/notifications";
 import { useDarkMode } from "../contexts/DarkModeContext";
+import { useSidebar } from "../contexts/SidebarContext";
 
 function Header() {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const { selectedSymbol, setSelectedSymbol } = useSymbol();
   const { isDarkMode } = useDarkMode();
+  const { toggleSidebar } = useSidebar();
   const { data: symbolsData, isLoading: symbolsLoading } =
     useMarketcapSymbols();
   const { data: profileData } = useUserProfile();
@@ -85,8 +87,8 @@ function Header() {
       <div className="flex items-center justify-between px-4 py-3">
         {/* Mobile Menu Button */}
         <button
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className={`xl:hidden p-2 rounded-lg ${
+          onClick={toggleSidebar}
+          className={`xl:hidden p-2 rounded-lg  cursor-pointer ${
             isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
           }`}
           aria-label="Toggle sidebar"

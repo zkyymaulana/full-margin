@@ -28,6 +28,17 @@ export async function syncLatestCandles(symbols = []) {
 
 async function syncSymbolCandles(symbol) {
   try {
+    // Get coinId from Coin table
+    const coin = await prisma.coin.findUnique({
+      where: { symbol },
+      select: { id: true },
+    });
+
+    if (!coin) {
+      console.log(`⚠️ ${symbol}: Coin not found in database, skipping...`);
+      return { symbol, newCandles: 0 };
+    }
+
     // Get last candle time from database
     const lastCandle = await prisma.candle.findFirst({
       where: { symbol, timeframe: "1h" },
@@ -77,7 +88,7 @@ async function syncSymbolCandles(symbol) {
       return { symbol, newCandles: 0 };
     }
 
-    // Prepare data for database insert - ensure BigInt for time field
+    // Prepare data for database insert - ensure BigInt for time field and include coinId
     const candleData = completeCandles.map((candle) => ({
       symbol,
       timeframe: "1h",
@@ -87,6 +98,7 @@ async function syncSymbolCandles(symbol) {
       low: candle.low,
       close: candle.close,
       volume: candle.volume,
+      coinId: coin.id, // ✅ Add coinId
     }));
 
     // Batch insert with upsert to handle duplicates
@@ -162,4 +174,160 @@ export function getCacheStatus() {
     totalSymbols: lastUpdateCache.size,
     lastUpdates: Object.fromEntries(lastUpdateCache),
   };
+}
+
+export async function syncHistoricalData(
+  symbols = [],
+  startDate = "2020-01-01"
+) {
+  console.log(`📚 Starting FAST historical data sync from ${startDate}...`);
+  console.log(`📊 Processing ${symbols.length} symbols...`);
+
+  const targetStartTime = new Date(startDate).getTime();
+  const currentTime = Date.now();
+  const totalDuration = Date.now();
+
+  const results = {
+    successful: 0,
+    failed: 0,
+    totalCandles: 0,
+    skipped: 0,
+    errors: [],
+  };
+
+  // Process symbols one by one to avoid overwhelming the API
+  for (let i = 0; i < symbols.length; i++) {
+    const symbol = symbols[i];
+    console.log(`\n[${i + 1}/${symbols.length}] ${symbol}...`);
+
+    try {
+      // Get coinId from Coin table
+      const coin = await prisma.coin.findUnique({
+        where: { symbol },
+        select: { id: true },
+      });
+
+      if (!coin) {
+        console.log(`⚠️ Coin not found in database`);
+        results.failed++;
+        results.errors.push({ symbol, error: "Coin not found" });
+        continue;
+      }
+
+      // Quick check: Get ONLY newest candle time
+      const newestCandle = await prisma.candle.findFirst({
+        where: { symbol, timeframe: "1h" },
+        orderBy: { time: "desc" },
+        select: { time: true },
+      });
+
+      const oneHour = 60 * 60 * 1000;
+      const currentHour = Math.floor(currentTime / oneHour) * oneHour;
+      let fetchStartTime;
+      let fetchEndTime = currentTime;
+
+      if (!newestCandle) {
+        // No data - fetch everything from start date
+        fetchStartTime = targetStartTime;
+        console.log(`📥 Fetching from ${startDate} to now`);
+      } else {
+        // Has data - fetch from last candle onwards
+        const newestTime =
+          newestCandle.time instanceof Date
+            ? newestCandle.time.getTime()
+            : Number(newestCandle.time);
+
+        fetchStartTime = newestTime + oneHour; // Start after last candle
+
+        // Check if already up to date
+        if (fetchStartTime >= currentHour) {
+          console.log(`✅ Already up to date`);
+          results.skipped++;
+          continue;
+        }
+
+        console.log(
+          `📥 Fetching from ${new Date(fetchStartTime).toISOString().split("T")[0]} onwards`
+        );
+      }
+
+      // Fetch data
+      const candles = await fetchHistoricalCandles(
+        symbol,
+        fetchStartTime,
+        fetchEndTime
+      );
+
+      if (candles.length === 0) {
+        console.log(`⚠️ No data available from API`);
+        results.skipped++;
+        continue;
+      }
+
+      // Filter complete candles
+      const completeCandles = candles.filter((candle) => {
+        const candleHour = Math.floor(candle.time / oneHour) * oneHour;
+        return candleHour < currentHour;
+      });
+
+      if (completeCandles.length === 0) {
+        console.log(`⚠️ No complete candles`);
+        results.skipped++;
+        continue;
+      }
+
+      // Save to database
+      const candleData = completeCandles.map((candle) => ({
+        symbol,
+        timeframe: "1h",
+        time: BigInt(Math.floor(candle.time)),
+        open: candle.open,
+        high: candle.high,
+        low: candle.low,
+        close: candle.close,
+        volume: candle.volume,
+        coinId: coin.id,
+      }));
+
+      await prisma.candle.createMany({
+        data: candleData,
+        skipDuplicates: true,
+      });
+
+      results.successful++;
+      results.totalCandles += candleData.length;
+
+      const dateRange = `${new Date(completeCandles[0].time).toISOString().split("T")[0]} → ${new Date(completeCandles[completeCandles.length - 1].time).toISOString().split("T")[0]}`;
+      console.log(`✅ Saved ${candleData.length} candles (${dateRange})`);
+
+      // Delay between symbols
+      if (i < symbols.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+    } catch (error) {
+      results.failed++;
+      results.errors.push({ symbol, error: error.message });
+      console.error(`❌ ${symbol}: ${error.message}`);
+      continue;
+    }
+  }
+
+  const duration = Date.now() - totalDuration;
+  console.log(`\n${"=".repeat(60)}`);
+  console.log(`📊 SYNC SUMMARY:`);
+  console.log(`   ✅ Updated: ${results.successful}/${symbols.length}`);
+  console.log(`   ⏭️  Skipped: ${results.skipped}/${symbols.length}`);
+  console.log(`   ❌ Failed: ${results.failed}/${symbols.length}`);
+  console.log(`   💾 Total candles: ${results.totalCandles.toLocaleString()}`);
+  console.log(`   ⏱️  Duration: ${(duration / 1000 / 60).toFixed(2)} minutes`);
+  console.log(`${"=".repeat(60)}\n`);
+
+  if (results.errors.length > 0 && results.errors.length <= 10) {
+    console.log(`⚠️  Errors:`);
+    results.errors.forEach(({ symbol, error }) => {
+      console.log(`   - ${symbol}: ${error}`);
+    });
+  }
+
+  return results;
 }

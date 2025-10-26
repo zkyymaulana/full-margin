@@ -1,12 +1,25 @@
 import { useMarketCapLive } from "../hooks/useMarketcap";
 import { useState } from "react";
 import { useDarkMode } from "../contexts/DarkModeContext";
+import { useSymbol } from "../contexts/SymbolContext";
+import { useNavigate } from "react-router-dom";
+import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip } from "recharts";
 
 function MarketCap() {
-  const { data, isLoading, error, refetch } = useMarketCapLive();
-  const { isDarkMode } = useDarkMode();
   const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [limit, setLimit] = useState(100);
+
+  const { data, isLoading, error, refetch } = useMarketCapLive(limit);
+  const { isDarkMode } = useDarkMode();
+  const { setSelectedSymbol } = useSymbol();
+  const navigate = useNavigate();
+
+  // Handler untuk navigasi ke dashboard dengan symbol yang dipilih
+  const handleCoinClick = (symbol) => {
+    setSelectedSymbol(symbol);
+    navigate("/dashboard");
+  };
 
   if (isLoading) {
     return (
@@ -35,28 +48,16 @@ function MarketCap() {
     );
   }
 
-  const coins = data?.success ? data.data : [];
-  const totalCoins = data?.total || 0;
-
-  // Calculate market stats
-  const calculateStats = () => {
-    let totalVolume = 0;
-    let gainers = 0;
-    let losers = 0;
-
-    coins.forEach((coin) => {
-      totalVolume += coin.volume * coin.price;
-      const change = coin.open
-        ? ((coin.price - coin.open) / coin.open) * 100
-        : 0;
-      if (change > 0) gainers++;
-      if (change < 0) losers++;
-    });
-
-    return { totalVolume, gainers, losers };
+  const coins = data?.data || [];
+  const summary = data?.summary || {
+    totalMarketCap: 0,
+    totalVolume24h: 0,
+    btcDominance: 0,
+    activeCoins: 0,
+    gainers: 0,
+    losers: 0,
   };
-
-  const stats = calculateStats();
+  const timestamp = data?.timestamp || new Date().toISOString();
 
   // Filter coins
   const filteredCoins = coins.filter((coin) => {
@@ -67,10 +68,8 @@ function MarketCap() {
     if (!matchesSearch) return false;
 
     if (filter === "all") return true;
-
-    const change = coin.open ? ((coin.price - coin.open) / coin.open) * 100 : 0;
-    if (filter === "gainers") return change > 0;
-    if (filter === "losers") return change < 0;
+    if (filter === "gainers") return coin.change24h > 0;
+    if (filter === "losers") return coin.change24h < 0;
 
     return true;
   });
@@ -83,6 +82,8 @@ function MarketCap() {
       })}`;
     if (price >= 1) return `$${price.toFixed(2)}`;
     if (price >= 0.01) return `$${price.toFixed(4)}`;
+    if (price >= 0.0001) return `$${price.toFixed(6)}`;
+    if (price > 0) return `$${price.toFixed(10)}`;
     return `$${price.toFixed(8)}`;
   };
 
@@ -135,9 +136,11 @@ function MarketCap() {
             <div className="text-sm opacity-90">Total Market Cap</div>
             <div className="text-2xl">💰</div>
           </div>
-          <div className="text-3xl font-bold">$0</div>
+          <div className="text-3xl font-bold">
+            {formatMarketCap(summary.totalMarketCap)}
+          </div>
           <div className="text-xs opacity-75 mt-1">
-            Updated: {new Date().toLocaleTimeString()}
+            Updated: {new Date(timestamp).toLocaleTimeString()}
           </div>
         </div>
 
@@ -147,9 +150,9 @@ function MarketCap() {
             <div className="text-2xl">📊</div>
           </div>
           <div className="text-3xl font-bold">
-            {formatMarketCap(stats.totalVolume)}
+            {formatMarketCap(summary.totalVolume24h)}
           </div>
-          <div className="text-xs opacity-75 mt-1">Tracked by CoinGecko</div>
+          <div className="text-xs opacity-75 mt-1">Live from Coinbase</div>
         </div>
 
         <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
@@ -157,9 +160,9 @@ function MarketCap() {
             <div className="text-sm opacity-90">BTC Dominance</div>
             <div className="text-2xl">₿</div>
           </div>
-          <div className="text-3xl font-bold">0%</div>
+          <div className="text-3xl font-bold">{summary.btcDominance}%</div>
           <div className="text-xs opacity-75 mt-1">
-            Gainers: {stats.gainers} • Losers: {stats.losers}
+            Gainers: {summary.gainers} • Losers: {summary.losers}
           </div>
         </div>
 
@@ -168,7 +171,7 @@ function MarketCap() {
             <div className="text-sm opacity-90">Active Coins</div>
             <div className="text-2xl">🎯</div>
           </div>
-          <div className="text-3xl font-bold">{totalCoins}</div>
+          <div className="text-3xl font-bold">{summary.activeCoins}</div>
           <div className="text-xs opacity-75 mt-1">
             <div className="w-2 h-2 bg-white rounded-full inline-block animate-pulse mr-1"></div>
             Live Data
@@ -207,6 +210,8 @@ function MarketCap() {
               <option value="losers">Losers Only</option>
             </select>
             <select
+              value={limit}
+              onChange={(e) => setLimit(Number(e.target.value))}
               className={`px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm ${
                 isDarkMode
                   ? "border-gray-600 bg-gray-700 text-white"
@@ -285,7 +290,7 @@ function MarketCap() {
                     isDarkMode ? "text-gray-300" : "text-gray-700"
                   }`}
                 >
-                  No.
+                  Rank
                 </th>
                 <th
                   className={`text-left py-3 px-4 text-sm font-semibold ${
@@ -334,7 +339,7 @@ function MarketCap() {
                     isDarkMode ? "text-gray-300" : "text-gray-700"
                   }`}
                 >
-                  Chart
+                  Last 10 Candles
                 </th>
               </tr>
             </thead>
@@ -354,12 +359,16 @@ function MarketCap() {
                   </td>
                 </tr>
               ) : (
-                filteredCoins.map((coin, index) => {
-                  const change = coin.open
-                    ? ((coin.price - coin.open) / coin.open) * 100
-                    : 0;
-                  const isPositive = change >= 0;
-                  const marketCap = coin.volume * coin.price;
+                filteredCoins.map((coin) => {
+                  const isPositive = coin.change24h >= 0;
+
+                  // Transform history array to chart data format
+                  const chartData = (coin.history || []).map(
+                    (price, index) => ({
+                      index,
+                      price,
+                    })
+                  );
 
                   return (
                     <tr
@@ -369,6 +378,7 @@ function MarketCap() {
                           ? "border-gray-700 hover:bg-gray-700"
                           : "border-gray-100 hover:bg-blue-50"
                       }`}
+                      onClick={() => handleCoinClick(coin.symbol)}
                     >
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-2">
@@ -377,7 +387,7 @@ function MarketCap() {
                               isDarkMode ? "text-gray-400" : "text-gray-500"
                             }`}
                           >
-                            {index + 1}
+                            #{filteredCoins.indexOf(coin) + 1}
                           </span>
                         </div>
                       </td>
@@ -401,7 +411,7 @@ function MarketCap() {
                                 isDarkMode ? "text-gray-400" : "text-gray-500"
                               }`}
                             >
-                              Rank #{coin.rank}
+                              {coin.symbol}
                             </div>
                           </div>
                         </div>
@@ -441,7 +451,7 @@ function MarketCap() {
                           >
                             <span>{isPositive ? "↗" : "↘"}</span>
                             {isPositive ? "+" : ""}
-                            {change.toFixed(2)}%
+                            {coin.change24h.toFixed(2)}%
                           </span>
                         </div>
                       </td>
@@ -468,25 +478,126 @@ function MarketCap() {
                             isDarkMode ? "text-white" : "text-gray-900"
                           }`}
                         >
-                          {formatMarketCap(marketCap)}
+                          {formatMarketCap(coin.marketCap)}
                         </div>
                       </td>
-                      <td className="py-4 px-4 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <div className="flex items-end gap-0.5 h-8">
-                            {[...Array(7)].map((_, i) => (
-                              <div
-                                key={i}
-                                className={`w-1 rounded-t ${
-                                  isPositive ? "bg-green-400" : "bg-red-400"
-                                }`}
-                                style={{
-                                  height: `${Math.random() * 100}%`,
-                                  opacity: 0.3 + Math.random() * 0.7,
-                                }}
-                              ></div>
-                            ))}
-                          </div>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center justify-center">
+                          {chartData.length > 0 ? (
+                            (() => {
+                              // Calculate min, max, and delta for adaptive domain
+                              const prices = coin.history || [];
+                              const min = Math.min(...prices);
+                              const max = Math.max(...prices);
+                              const delta = max - min;
+
+                              // Determine if the chart is flat (stablecoin or no movement)
+                              const isFlat =
+                                delta === 0 || coin.change24h === 0;
+
+                              // Adaptive domain calculation
+                              const domainMin =
+                                delta === 0 ? min - 0.5 : min - delta * 0.1;
+                              const domainMax =
+                                delta === 0 ? max + 0.5 : max + delta * 0.1;
+
+                              // Clean gradient ID (remove special characters)
+                              const gradientId = `grad-${coin.symbol.replace(
+                                /[^a-zA-Z0-9]/g,
+                                ""
+                              )}`;
+
+                              // Determine stroke color
+                              const strokeColor = isFlat
+                                ? isDarkMode
+                                  ? "#6b7280"
+                                  : "#9ca3af"
+                                : coin.chartColor === "green"
+                                ? "#22c55e"
+                                : "#ef4444";
+
+                              return (
+                                <ResponsiveContainer width={120} height={60}>
+                                  <LineChart data={chartData}>
+                                    <defs>
+                                      <linearGradient
+                                        id={gradientId}
+                                        x1="0"
+                                        y1="0"
+                                        x2="0"
+                                        y2="1"
+                                      >
+                                        <stop
+                                          offset="0%"
+                                          stopColor={
+                                            isFlat
+                                              ? isDarkMode
+                                                ? "#6b7280"
+                                                : "#9ca3af"
+                                              : coin.chartColor === "green"
+                                              ? "#4ade80"
+                                              : "#f87171"
+                                          }
+                                          stopOpacity={isFlat ? 0.4 : 0.8}
+                                        />
+                                        <stop
+                                          offset="100%"
+                                          stopColor={
+                                            isFlat
+                                              ? isDarkMode
+                                                ? "#4b5563"
+                                                : "#d1d5db"
+                                              : coin.chartColor === "green"
+                                              ? "#22c55e"
+                                              : "#ef4444"
+                                          }
+                                          stopOpacity={0.05}
+                                        />
+                                      </linearGradient>
+                                    </defs>
+                                    <YAxis
+                                      hide
+                                      domain={[domainMin, domainMax]}
+                                    />
+                                    <Tooltip
+                                      content={({ active, payload }) => {
+                                        if (active && payload && payload[0]) {
+                                          return (
+                                            <div
+                                              className={`px-2 py-1 text-xs rounded shadow-lg ${
+                                                isDarkMode
+                                                  ? "bg-gray-800 text-white border border-gray-700"
+                                                  : "bg-white text-gray-900 border border-gray-200"
+                                              }`}
+                                            >
+                                              {formatPrice(payload[0].value)}
+                                            </div>
+                                          );
+                                        }
+                                        return null;
+                                      }}
+                                    />
+                                    <Line
+                                      type="monotone"
+                                      dataKey="price"
+                                      stroke={strokeColor}
+                                      strokeWidth={isFlat ? 1.5 : 2}
+                                      dot={false}
+                                      isAnimationActive={false}
+                                    />
+                                  </LineChart>
+                                </ResponsiveContainer>
+                              );
+                            })()
+                          ) : (
+                            <span
+                              className={`text-xs ${
+                                isDarkMode ? "text-gray-500" : "text-gray-400"
+                              }`}
+                            >
+                              No data
+                            </span>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -508,7 +619,8 @@ function MarketCap() {
               isDarkMode ? "text-gray-400" : "text-gray-600"
             }`}
           >
-            Showing {filteredCoins.length} of {totalCoins} coins
+            Showing {filteredCoins.length} of {coins.length} coins (Limit:{" "}
+            {limit})
           </div>
           <div className="flex gap-2">
             <button

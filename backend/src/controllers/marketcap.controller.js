@@ -58,7 +58,9 @@ export async function getMarketcapLiveController(req, res) {
 
     res.json({
       success: true,
-      message: "Berhasil mengambil data live ticker.",
+      message: "Berhasil mengambil data market cap dengan history.",
+      timestamp: new Date().toISOString(),
+      summary: result.summary,
       total: result.total,
       data: result.data,
     });

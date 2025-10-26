@@ -65,7 +65,7 @@ export async function getMarketcapRealtime() {
 
     const matched = [];
     for (const coin of top) {
-      if (matched.length >= 20) break;
+      if (matched.length >= 100) break;
       const pair = BASES.map((b) => `${coin.symbol}-${b}`).find((p) =>
         pairs.has(p)
       );
@@ -112,7 +112,7 @@ export async function getMarketcapRealtime() {
 }
 
 /**
- * ⚡ Ambil harga live + candle terakhir untuk coin teratas
+ * ⚡ Ambil harga live + candle terakhir untuk coin teratas + history + summary
  */
 export async function getMarketcapLive(limit = 20) {
   try {
@@ -131,31 +131,98 @@ export async function getMarketcapLive(limit = 20) {
         message: "⚠️ Belum ada coin di DB. Jalankan /api/marketcap dulu.",
       };
 
-    const results = [];
-    for (const c of coins) {
-      const t = await fetchTicker(c.symbol);
-      if (t)
-        results.push({
-          rank: c.rank,
-          name: c.name,
-          symbol: t.symbol,
-          price: t.price,
-          volume: t.volume,
-          high: t.high,
-          low: t.low,
-          open: t.open,
-          time: t.time,
-        });
+    console.log(`⚡ Mengambil data live ticker...`);
+
+    // 2️⃣ Fetch LIVE data from Coinbase ticker untuk semua coins
+    const data = [];
+    for (const coin of coins) {
+      // ✅ ALWAYS fetch live data from Coinbase ticker
+      const liveData = await fetchTicker(coin.symbol);
+
+      if (!liveData) {
+        console.log(`❌ Failed to fetch live data for ${coin.symbol}`);
+        continue; // Skip jika gagal fetch
+      }
+
+      // Get last 10 candles for history chart (oldest to newest)
+      const historyCandles = await prisma.candle.findMany({
+        where: { symbol: coin.symbol },
+        orderBy: { time: "desc" },
+        take: 10,
+      });
+
+      // Reverse to get oldest → newest, extract close prices
+      const history = historyCandles
+        .reverse()
+        .map((c) => Number(c.close.toFixed(2)));
+
+      // Calculate market cap using LIVE price and volume
+      const marketCap = Number((liveData.volume * liveData.price).toFixed(2));
+
+      // Calculate change24h using LIVE data
+      const change24h =
+        liveData.open > 0
+          ? Number(
+              (
+                ((liveData.price - liveData.open) / liveData.open) *
+                100
+              ).toFixed(2)
+            )
+          : 0;
+
+      // Determine chart color using LIVE price
+      const chartColor = liveData.price >= liveData.open ? "green" : "red";
+
+      data.push({
+        rank: coin.rank,
+        name: coin.name || coin.symbol.split("-")[0],
+        symbol: coin.symbol,
+        price: Number(liveData.price.toFixed(2)), // ✅ LIVE price
+        volume: Number(liveData.volume.toFixed(2)), // ✅ LIVE volume
+        marketCap,
+        open: Number(liveData.open.toFixed(2)), // ✅ LIVE open
+        high: Number(liveData.high.toFixed(2)), // ✅ LIVE high
+        low: Number(liveData.low.toFixed(2)), // ✅ LIVE low
+        change24h,
+        chartColor,
+        history, // Historical data dari database untuk chart
+      });
     }
 
-    // ✅ Urutkan hasil berdasarkan rank (terkecil = teratas) dan batasi sesuai limit
-    results.sort((a, b) => (a.rank || 999999) - (b.rank || 999999));
-    const limited = results.slice(0, take);
+    // 3️⃣ Calculate summary metrics
+    const totalMarketCap = data.reduce((sum, coin) => sum + coin.marketCap, 0);
+    const totalVolume24h = data.reduce((sum, coin) => sum + coin.volume, 0);
+
+    // Find BTC for dominance calculation
+    const btcCoin = data.find(
+      (coin) => coin.symbol.startsWith("BTC-") || coin.symbol === "BTC"
+    );
+    const btcDominance =
+      btcCoin && totalMarketCap > 0
+        ? Number(((btcCoin.marketCap / totalMarketCap) * 100).toFixed(2))
+        : 0;
+
+    const activeCoins = data.length;
+    const gainers = data.filter((coin) => coin.change24h > 0).length;
+    const losers = data.filter((coin) => coin.change24h < 0).length;
 
     console.log(
-      `✅ ${limited.length} data live berhasil diambil (top ${take} berdasarkan rank).`
+      `✅ ${data.length} data live berhasil diambil (top ${take} berdasarkan rank).`
     );
-    return { success: true, total: limited.length, data: limited };
+
+    return {
+      success: true,
+      total: data.length,
+      summary: {
+        totalMarketCap: Number(totalMarketCap.toFixed(2)),
+        totalVolume24h: Number(totalVolume24h.toFixed(2)),
+        btcDominance,
+        activeCoins,
+        gainers,
+        losers,
+      },
+      data,
+    };
   } catch (e) {
     console.error("❌ Live error:", e.message);
     return { success: false, message: e.message };

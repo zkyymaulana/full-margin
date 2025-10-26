@@ -2,8 +2,10 @@ import cron from "node-cron";
 import {
   syncLatestCandles,
   getActiveSymbols,
+  syncHistoricalData,
 } from "../sync/candle-sync.service.js";
 import { calculateAndSaveIndicators } from "../indicators/indicator.service.js";
+import { prisma } from "../../lib/prisma.js";
 
 // Store active cron jobs
 const activeJobs = new Map();
@@ -13,6 +15,7 @@ const jobStats = {
   failedRuns: 0,
   lastRun: null,
   lastRunDuration: 0,
+  historicalSyncCompleted: false,
 };
 
 // Cache untuk symbols agar tidak query database setiap kali
@@ -26,6 +29,9 @@ export async function startAllSchedulers() {
   try {
     // Load initial symbols
     await refreshSymbolsCache();
+
+    // Check and perform historical data sync if needed (runs once on startup)
+    await checkAndSyncHistoricalData();
 
     // Start main hourly job - runs at minute 59 of every hour (1 minute before candle close)
     // This gives us time to fetch and process data before the next candle starts
@@ -41,12 +47,142 @@ export async function startAllSchedulers() {
     // Start health check job - every 5 minutes
     startHealthCheckJob();
 
+    // Start daily historical check job - runs daily at 3 AM to check for missing data
+    startDailyHistoricalCheckJob();
+
     console.log("✅ All schedulers started successfully");
     return true;
   } catch (error) {
     console.error("❌ Failed to start schedulers:", error.message);
     throw error;
   }
+}
+
+async function checkAndSyncHistoricalData() {
+  console.log("🔍 Quick historical data check for all symbols...");
+
+  try {
+    if (symbolsCache.length === 0) {
+      console.log("⚠️ No symbols found, skipping historical check");
+      return;
+    }
+
+    // Get target start date from env or default to 2020-01-01
+    const targetStartDate =
+      process.env.CANDLE_START_DATE || "2020-01-01T00:00:00Z";
+    const targetStartTime = new Date(targetStartDate).getTime();
+    const currentTime = Date.now();
+
+    console.log(
+      `📅 Target start date: ${new Date(targetStartTime).toISOString()}`
+    );
+    console.log(`📊 Checking ${symbolsCache.length} symbols...`);
+
+    const symbolsNeedingSync = [];
+    let completeCount = 0;
+
+    // Quick check each symbol
+    for (const symbol of symbolsCache) {
+      try {
+        // Get only the newest candle time (fastest query)
+        const newestCandle = await prisma.candle.findFirst({
+          where: { symbol, timeframe: "1h" },
+          orderBy: { time: "desc" },
+          select: { time: true },
+        });
+
+        if (!newestCandle) {
+          // No data at all
+          console.log(`❌ ${symbol}: No data`);
+          symbolsNeedingSync.push(symbol);
+          continue;
+        }
+
+        const newestTime =
+          newestCandle.time instanceof Date
+            ? newestCandle.time.getTime()
+            : Number(newestCandle.time);
+
+        // Check if data is up to date (within last 3 hours)
+        const threeHoursAgo = currentTime - 3 * 60 * 60 * 1000;
+
+        if (newestTime < threeHoursAgo) {
+          console.log(
+            `⚠️ ${symbol}: Outdated (last: ${new Date(newestTime).toISOString()})`
+          );
+          symbolsNeedingSync.push(symbol);
+        } else {
+          console.log(`✅ ${symbol}: Up to date`);
+          completeCount++;
+        }
+      } catch (error) {
+        console.error(`❌ ${symbol}: Check failed - ${error.message}`);
+        symbolsNeedingSync.push(symbol);
+      }
+    }
+
+    // Summary
+    console.log(`\n${"=".repeat(60)}`);
+    console.log(`📊 QUICK CHECK SUMMARY:`);
+    console.log(`   ✅ Up to date: ${completeCount}/${symbolsCache.length}`);
+    console.log(
+      `   ⚠️  Need sync: ${symbolsNeedingSync.length}/${symbolsCache.length}`
+    );
+    console.log(`${"=".repeat(60)}\n`);
+
+    // If any symbols need sync, start historical sync in background
+    if (symbolsNeedingSync.length > 0) {
+      console.log(
+        `🔄 Starting quick sync for ${symbolsNeedingSync.length} symbols...`
+      );
+      console.log(`⏰ This will run in the background.`);
+
+      // Start historical sync in background
+      syncHistoricalData(symbolsNeedingSync, targetStartDate.split("T")[0])
+        .then((result) => {
+          jobStats.historicalSyncCompleted = true;
+          console.log("✅ Historical sync completed!");
+          console.log(
+            `   💾 Total candles: ${result.totalCandles.toLocaleString()}`
+          );
+          console.log(
+            `   ✅ Success: ${result.successful}/${symbolsNeedingSync.length}`
+          );
+          console.log(
+            `   ❌ Failed: ${result.failed}/${symbolsNeedingSync.length}`
+          );
+        })
+        .catch((error) => {
+          console.error("❌ Historical sync failed:", error.message);
+        });
+    } else {
+      console.log("✅ All symbols are up to date!");
+      jobStats.historicalSyncCompleted = true;
+    }
+  } catch (error) {
+    console.error("❌ Historical data check failed:", error.message);
+  }
+}
+
+function startDailyHistoricalCheckJob() {
+  // Runs daily at 3 AM to check for and fill any gaps in historical data
+  const job = cron.schedule(
+    "0 0 3 * * *",
+    async () => {
+      console.log(
+        `🔍 [${new Date().toISOString()}] Running daily historical data check...`
+      );
+      await checkAndSyncHistoricalData();
+    },
+    {
+      scheduled: false,
+      timezone: "Asia/Jakarta",
+    }
+  );
+
+  job.start();
+  activeJobs.set("daily-historical-check", job);
+  console.log("🔍 Daily historical check job scheduled (every day at 3:00 AM)");
 }
 
 function startHourlyCandleJob() {
