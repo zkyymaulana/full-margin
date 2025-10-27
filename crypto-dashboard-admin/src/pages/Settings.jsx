@@ -1,10 +1,80 @@
 import { useAuth } from "../hooks/useAuth";
 import { useDarkMode } from "../contexts/DarkModeContext";
 import { toast } from "react-toastify";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  getTelegramConfig,
+  toggleTelegram,
+  updateSignalMode,
+  testTelegramConnection,
+} from "../services/api.service";
+import { useState } from "react";
 
 function Settings() {
   const { user } = useAuth();
   const { isDarkMode, toggleDarkMode } = useDarkMode();
+  const queryClient = useQueryClient();
+  const [isTesting, setIsTesting] = useState(false);
+
+  // Fetch Telegram config
+  const { data: telegramConfig, isLoading: configLoading } = useQuery({
+    queryKey: ["telegramConfig"],
+    queryFn: getTelegramConfig,
+    refetchInterval: 30000, // Refresh setiap 30 detik
+  });
+
+  // Toggle Telegram mutation
+  const toggleMutation = useMutation({
+    mutationFn: toggleTelegram,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(["telegramConfig"]);
+      toast.success(data.message || "Telegram settings updated");
+    },
+    onError: (error) => {
+      toast.error(
+        error.response?.data?.message || "Failed to update Telegram settings"
+      );
+    },
+  });
+
+  // Update signal mode mutation
+  const updateModeMutation = useMutation({
+    mutationFn: updateSignalMode,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(["telegramConfig"]);
+      toast.success(data.message || "Signal mode updated");
+    },
+    onError: (error) => {
+      toast.error(
+        error.response?.data?.message || "Failed to update signal mode"
+      );
+    },
+  });
+
+  const handleTelegramToggle = () => {
+    const currentState = telegramConfig?.config?.enabled || false;
+    toggleMutation.mutate(!currentState);
+  };
+
+  const handleSignalModeChange = (mode) => {
+    updateModeMutation.mutate(mode);
+  };
+
+  const handleTestConnection = async () => {
+    setIsTesting(true);
+    try {
+      const result = await testTelegramConnection();
+      if (result.success) {
+        toast.success("✅ Test message sent! Check your Telegram");
+      } else {
+        toast.error("❌ Failed to send test message");
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to test connection");
+    } finally {
+      setIsTesting(false);
+    }
+  };
 
   const handleResetCache = () => {
     // Clear all localStorage
@@ -38,6 +108,11 @@ function Settings() {
     }, 500);
   };
 
+  const config = telegramConfig?.config || {};
+  const isEnabled = config.enabled || false;
+  const isConfigured = config.configured || false;
+  const signalMode = config.signalMode || "multi";
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -70,6 +145,7 @@ function Settings() {
           </h2>
 
           <div className="space-y-4">
+            {/* Dark Mode Toggle */}
             <div
               className={`flex items-center justify-between p-4 rounded-lg ${
                 isDarkMode ? "bg-gray-700/50" : "bg-gray-50"
@@ -108,42 +184,202 @@ function Settings() {
               </label>
             </div>
 
+            {/* Telegram Notifications Toggle */}
             <div
               className={`flex items-center justify-between p-4 rounded-lg ${
                 isDarkMode ? "bg-gray-700/50" : "bg-gray-50"
               }`}
             >
-              <div>
-                <div
-                  className={`font-medium ${
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  }`}
-                >
-                  Telegram Notifications
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`font-medium ${
+                      isDarkMode ? "text-white" : "text-gray-900"
+                    }`}
+                  >
+                    📱 Telegram Notifications
+                  </div>
+                  {!isConfigured && (
+                    <span
+                      className={`text-xs px-2 py-1 rounded ${
+                        isDarkMode
+                          ? "bg-yellow-900/30 text-yellow-400"
+                          : "bg-yellow-100 text-yellow-800"
+                      }`}
+                    >
+                      Not Configured
+                    </span>
+                  )}
+                  {configLoading && (
+                    <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                  )}
                 </div>
                 <div
                   className={`text-sm ${
                     isDarkMode ? "text-gray-400" : "text-gray-600"
                   }`}
                 >
-                  Receive Telegram alerts
+                  Receive trading signal alerts via Telegram
                 </div>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
-                  defaultChecked
                   className="sr-only peer"
+                  checked={isEnabled}
+                  onChange={handleTelegramToggle}
+                  disabled={!isConfigured || toggleMutation.isPending}
                 />
                 <div
                   className={`w-11 h-6 rounded-full peer peer-focus:outline-none peer-focus:ring-4 ${
                     isDarkMode
                       ? "bg-gray-600 peer-focus:ring-blue-800"
                       : "bg-gray-200 peer-focus:ring-blue-300"
-                  } peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600`}
+                  } peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
+                    isConfigured
+                      ? "peer-checked:bg-blue-600"
+                      : "opacity-50 cursor-not-allowed"
+                  }`}
                 ></div>
               </label>
             </div>
+
+            {/* Signal Mode Selection */}
+            {isConfigured && (
+              <div
+                className={`p-4 rounded-lg ${
+                  isDarkMode ? "bg-gray-700/50" : "bg-gray-50"
+                }`}
+              >
+                <div
+                  className={`font-medium mb-3 ${
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  }`}
+                >
+                  Signal Mode
+                </div>
+                <div className="space-y-2">
+                  {[
+                    {
+                      value: "multi",
+                      label: "Multi-Indicator",
+                      emoji: "🎯",
+                      desc: "Optimized combined signals (Recommended)",
+                    },
+                    {
+                      value: "single",
+                      label: "Single Indicator",
+                      emoji: "📊",
+                      desc: "Individual indicator signals",
+                    },
+                    {
+                      value: "both",
+                      label: "Both",
+                      emoji: "📈",
+                      desc: "All signals (may cause spam)",
+                    },
+                  ].map((mode) => (
+                    <label
+                      key={mode.value}
+                      className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                        signalMode === mode.value
+                          ? isDarkMode
+                            ? "bg-blue-900/30 border border-blue-500"
+                            : "bg-blue-50 border border-blue-300"
+                          : isDarkMode
+                          ? "bg-gray-800 hover:bg-gray-750"
+                          : "bg-white hover:bg-gray-50"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="signalMode"
+                        value={mode.value}
+                        checked={signalMode === mode.value}
+                        onChange={(e) => handleSignalModeChange(e.target.value)}
+                        disabled={updateModeMutation.isPending}
+                        className="mt-1"
+                      />
+                      <div className="flex-1">
+                        <div
+                          className={`font-medium ${
+                            isDarkMode ? "text-white" : "text-gray-900"
+                          }`}
+                        >
+                          {mode.emoji} {mode.label}
+                        </div>
+                        <div
+                          className={`text-sm ${
+                            isDarkMode ? "text-gray-400" : "text-gray-600"
+                          }`}
+                        >
+                          {mode.desc}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Test Connection Button */}
+            {isConfigured && (
+              <button
+                onClick={handleTestConnection}
+                disabled={isTesting}
+                className={`w-full p-4 rounded-lg transition-colors ${
+                  isDarkMode
+                    ? "bg-green-900/20 hover:bg-green-900/30 text-green-400"
+                    : "bg-green-50 hover:bg-green-100 text-green-700"
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  {isTesting ? (
+                    <>
+                      <div className="animate-spin h-4 w-4 border-2 border-green-500 border-t-transparent rounded-full"></div>
+                      <span>Sending test message...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>🧪</span>
+                      <span className="font-medium">
+                        Test Telegram Connection
+                      </span>
+                    </>
+                  )}
+                </div>
+              </button>
+            )}
+
+            {/* Configuration Warning */}
+            {!isConfigured && (
+              <div
+                className={`p-4 rounded-lg ${
+                  isDarkMode ? "bg-yellow-900/20" : "bg-yellow-50"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">⚠️</span>
+                  <div>
+                    <div
+                      className={`font-medium ${
+                        isDarkMode ? "text-yellow-300" : "text-yellow-800"
+                      }`}
+                    >
+                      Telegram Not Configured
+                    </div>
+                    <div
+                      className={`text-sm mt-1 ${
+                        isDarkMode ? "text-yellow-400" : "text-yellow-700"
+                      }`}
+                    >
+                      Please configure your Telegram bot token and chat ID in
+                      the backend environment variables (.env file).
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

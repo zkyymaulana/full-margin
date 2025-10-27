@@ -9,6 +9,7 @@ import singleIndicatorRoute from "./singleIndicator.route.js";
 import comparisonRoute from "./comparison.route.js";
 import schedulerRoute from "./scheduler.route.js";
 import userRoute from "./user.route.js";
+import telegramRoute from "./telegram.route.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
@@ -31,6 +32,9 @@ router.use("/comparison", comparisonRoute);
 
 // Scheduler management
 router.use("/scheduler", schedulerRoute);
+
+// Telegram notifications
+router.use("/telegram", telegramRoute);
 
 // Default 404 handler
 router.use("*", (_, res) =>

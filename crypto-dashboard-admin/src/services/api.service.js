@@ -156,4 +156,32 @@ export const changeUserPassword = async (passwordData) => {
   return data;
 };
 
+// =====================================================
+// 📱 TELEGRAM API METHODS
+// =====================================================
+
+// Get Telegram configuration
+export const getTelegramConfig = async () => {
+  const { data } = await apiClient.get("/telegram/config");
+  return data;
+};
+
+// Toggle Telegram notifications
+export const toggleTelegram = async (enabled) => {
+  const { data } = await apiClient.post("/telegram/toggle", { enabled });
+  return data;
+};
+
+// Update signal mode
+export const updateSignalMode = async (mode) => {
+  const { data } = await apiClient.post("/telegram/signal-mode", { mode });
+  return data;
+};
+
+// Test Telegram connection
+export const testTelegramConnection = async () => {
+  const { data } = await apiClient.get("/telegram/test");
+  return data;
+};
+
 export default apiClient;

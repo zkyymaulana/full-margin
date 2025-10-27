@@ -5,6 +5,10 @@ import {
   syncHistoricalData,
 } from "../sync/candle-sync.service.js";
 import { calculateAndSaveIndicators } from "../indicators/indicator.service.js";
+import {
+  detectAndNotifyAllSymbols,
+  autoOptimizeCoinsWithoutWeights,
+} from "../signals/signal-detection.service.js";
 import { prisma } from "../../lib/prisma.js";
 
 // Store active cron jobs
@@ -49,6 +53,9 @@ export async function startAllSchedulers() {
 
     // Start daily historical check job - runs daily at 3 AM to check for missing data
     startDailyHistoricalCheckJob();
+
+    // 🆕 Start weekly optimization check job - runs every Sunday at 2 AM
+    startWeeklyOptimizationCheckJob();
 
     console.log("✅ All schedulers started successfully");
     return true;
@@ -183,6 +190,34 @@ function startDailyHistoricalCheckJob() {
   job.start();
   activeJobs.set("daily-historical-check", job);
   console.log("🔍 Daily historical check job scheduled (every day at 3:00 AM)");
+}
+
+function startWeeklyOptimizationCheckJob() {
+  // Runs every Sunday at 2 AM to check which coins need optimization
+  const job = cron.schedule(
+    "0 0 2 * * 0",
+    async () => {
+      console.log(
+        `🔍 [${new Date().toISOString()}] Running weekly optimization check...`
+      );
+
+      if (symbolsCache.length === 0) {
+        await refreshSymbolsCache();
+      }
+
+      await autoOptimizeCoinsWithoutWeights(symbolsCache);
+    },
+    {
+      scheduled: false,
+      timezone: "Asia/Jakarta",
+    }
+  );
+
+  job.start();
+  activeJobs.set("weekly-optimization-check", job);
+  console.log(
+    "🔍 Weekly optimization check job scheduled (every Sunday at 2:00 AM)"
+  );
 }
 
 function startHourlyCandleJob() {
@@ -332,6 +367,26 @@ async function runMainSyncJob(isBackup = false) {
         if (i + CONCURRENCY_LIMIT < symbolsWithNewCandles.length) {
           await new Promise((resolve) => setTimeout(resolve, 200));
         }
+      }
+    }
+
+    // Step 3: 🔔 DETECT AND SEND TELEGRAM SIGNALS (only in main job, not backup)
+    if (!isBackup) {
+      console.log(`\n🔔 Detecting and sending trading signals...`);
+
+      try {
+        // Detect signals for all symbols
+        // Mode: "multi" = only multi-indicator signals (recommended for production)
+        // Mode: "single" = only single indicator signals
+        // Mode: "both" = both single and multi (may cause spam)
+        const signalMode = process.env.SIGNAL_MODE || "multi";
+
+        await detectAndNotifyAllSymbols(symbolsCache, signalMode);
+
+        console.log(`✅ Signal detection and notification completed`);
+      } catch (signalError) {
+        console.error(`❌ Error in signal detection:`, signalError.message);
+        // Don't throw error, continue with the main job
       }
     }
 
