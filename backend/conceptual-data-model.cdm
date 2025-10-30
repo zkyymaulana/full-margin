@@ -1,0 +1,693 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Model xmlns:a="attribute" xmlns:c="collection" xmlns:o="object">
+  <o:RootObject Id="o1">
+    <a:SessionID>00000000-0000-0000-0000-000000000000</a:SessionID>
+    <c:Children>
+      <o:Model Id="o2">
+        <a:ObjectID>CRYPTO_MONITORING_CDM</a:ObjectID>
+        <a:Name>Cryptocurrency Monitoring System - CDM</a:Name>
+        <a:Code>CRYPTO_CDM</a:Code>
+        <a:CreationDate>1730275200</a:CreationDate>
+        <a:Creator>System</a:Creator>
+        <a:ModificationDate>1730275200</a:ModificationDate>
+        <a:Modifier>System</a:Modifier>
+        <c:Entities>
+          
+          <!-- Entity: User -->
+          <o:Entity Id="o3">
+            <a:ObjectID>USER_ENTITY</a:ObjectID>
+            <a:Name>User</a:Name>
+            <a:Code>USER</a:Code>
+            <a:Description>Entitas yang menyimpan informasi pengguna sistem</a:Description>
+            <c:Attributes>
+              <o:EntityAttribute Id="o4">
+                <a:ObjectID>USER_ID</a:ObjectID>
+                <a:Name>User ID</a:Name>
+                <a:Code>id</a:Code>
+                <a:DataType>Integer</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+                <a:PrimaryKey>1</a:PrimaryKey>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o5">
+                <a:ObjectID>USER_EMAIL</a:ObjectID>
+                <a:Name>Email</a:Name>
+                <a:Code>email</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>255</a:Length>
+                <a:Mandatory>1</a:Mandatory>
+                <a:Unique>1</a:Unique>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o6">
+                <a:ObjectID>USER_NAME</a:ObjectID>
+                <a:Name>Name</a:Name>
+                <a:Code>name</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>255</a:Length>
+                <a:Mandatory>0</a:Mandatory>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o7">
+                <a:ObjectID>USER_PASSWORD_HASH</a:ObjectID>
+                <a:Name>Password Hash</a:Name>
+                <a:Code>passwordHash</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>255</a:Length>
+                <a:Mandatory>1</a:Mandatory>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o8">
+                <a:ObjectID>USER_AVATAR_URL</a:ObjectID>
+                <a:Name>Avatar URL</a:Name>
+                <a:Code>avatarUrl</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>500</a:Length>
+                <a:Mandatory>0</a:Mandatory>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o9">
+                <a:ObjectID>USER_CREATED_AT</a:ObjectID>
+                <a:Name>Created At</a:Name>
+                <a:Code>createdAt</a:Code>
+                <a:DataType>DateTime</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o10">
+                <a:ObjectID>USER_LAST_LOGIN</a:ObjectID>
+                <a:Name>Last Login</a:Name>
+                <a:Code>lastLogin</a:Code>
+                <a:DataType>DateTime</a:DataType>
+                <a:Mandatory>0</a:Mandatory>
+              </o:EntityAttribute>
+            </c:Attributes>
+          </o:Entity>
+
+          <!-- Entity: AuthLog -->
+          <o:Entity Id="o11">
+            <a:ObjectID>AUTH_LOG_ENTITY</a:ObjectID>
+            <a:Name>Auth Log</a:Name>
+            <a:Code>AUTH_LOG</a:Code>
+            <a:Description>Entitas yang menyimpan log aktivitas autentikasi pengguna (login/logout)</a:Description>
+            <c:Attributes>
+              <o:EntityAttribute Id="o12">
+                <a:ObjectID>AUTH_LOG_ID</a:ObjectID>
+                <a:Name>Auth Log ID</a:Name>
+                <a:Code>id</a:Code>
+                <a:DataType>Integer</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+                <a:PrimaryKey>1</a:PrimaryKey>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o13">
+                <a:ObjectID>AUTH_LOG_USER_ID</a:ObjectID>
+                <a:Name>User ID</a:Name>
+                <a:Code>userId</a:Code>
+                <a:DataType>Integer</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+                <a:ForeignKey>1</a:ForeignKey>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o14">
+                <a:ObjectID>AUTH_LOG_ACTION</a:ObjectID>
+                <a:Name>Action</a:Name>
+                <a:Code>action</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>50</a:Length>
+                <a:Mandatory>1</a:Mandatory>
+                <a:Comment>login atau logout</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o15">
+                <a:ObjectID>AUTH_LOG_CREATED_AT</a:ObjectID>
+                <a:Name>Created At</a:Name>
+                <a:Code>createdAt</a:Code>
+                <a:DataType>DateTime</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+              </o:EntityAttribute>
+            </c:Attributes>
+          </o:Entity>
+
+          <!-- Entity: Coin -->
+          <o:Entity Id="o16">
+            <a:ObjectID>COIN_ENTITY</a:ObjectID>
+            <a:Name>Coin</a:Name>
+            <a:Code>COIN</a:Code>
+            <a:Description>Entitas yang menyimpan master data cryptocurrency</a:Description>
+            <c:Attributes>
+              <o:EntityAttribute Id="o17">
+                <a:ObjectID>COIN_ID</a:ObjectID>
+                <a:Name>Coin ID</a:Name>
+                <a:Code>id</a:Code>
+                <a:DataType>Integer</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+                <a:PrimaryKey>1</a:PrimaryKey>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o18">
+                <a:ObjectID>COIN_SYMBOL</a:ObjectID>
+                <a:Name>Symbol</a:Name>
+                <a:Code>symbol</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>20</a:Length>
+                <a:Mandatory>1</a:Mandatory>
+                <a:Unique>1</a:Unique>
+                <a:Comment>Contoh: BTC-USD, ETH-USD</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o19">
+                <a:ObjectID>COIN_NAME</a:ObjectID>
+                <a:Name>Name</a:Name>
+                <a:Code>name</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>100</a:Length>
+                <a:Mandatory>0</a:Mandatory>
+                <a:Comment>Contoh: Bitcoin, Ethereum</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o20">
+                <a:ObjectID>COIN_RANK</a:ObjectID>
+                <a:Name>Rank</a:Name>
+                <a:Code>rank</a:Code>
+                <a:DataType>Integer</a:DataType>
+                <a:Mandatory>0</a:Mandatory>
+                <a:Comment>Ranking berdasarkan market cap</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o21">
+                <a:ObjectID>COIN_CREATED_AT</a:ObjectID>
+                <a:Name>Created At</a:Name>
+                <a:Code>createdAt</a:Code>
+                <a:DataType>DateTime</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+              </o:EntityAttribute>
+            </c:Attributes>
+          </o:Entity>
+
+          <!-- Entity: Candle -->
+          <o:Entity Id="o22">
+            <a:ObjectID>CANDLE_ENTITY</a:ObjectID>
+            <a:Name>Candle</a:Name>
+            <a:Code>CANDLE</a:Code>
+            <a:Description>Entitas yang menyimpan data OHLCV (Open, High, Low, Close, Volume) dari Coinbase API</a:Description>
+            <c:Attributes>
+              <o:EntityAttribute Id="o23">
+                <a:ObjectID>CANDLE_ID</a:ObjectID>
+                <a:Name>Candle ID</a:Name>
+                <a:Code>id</a:Code>
+                <a:DataType>Integer</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+                <a:PrimaryKey>1</a:PrimaryKey>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o24">
+                <a:ObjectID>CANDLE_SYMBOL</a:ObjectID>
+                <a:Name>Symbol</a:Name>
+                <a:Code>symbol</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>20</a:Length>
+                <a:Mandatory>1</a:Mandatory>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o25">
+                <a:ObjectID>CANDLE_TIMEFRAME</a:ObjectID>
+                <a:Name>Timeframe</a:Name>
+                <a:Code>timeframe</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>10</a:Length>
+                <a:Mandatory>1</a:Mandatory>
+                <a:Comment>Contoh: 1h, 4h, 1d</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o26">
+                <a:ObjectID>CANDLE_TIME</a:ObjectID>
+                <a:Name>Time</a:Name>
+                <a:Code>time</a:Code>
+                <a:DataType>BigInt</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+                <a:Comment>Unix timestamp</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o27">
+                <a:ObjectID>CANDLE_OPEN</a:ObjectID>
+                <a:Name>Open</a:Name>
+                <a:Code>open</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+                <a:Comment>Harga pembukaan</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o28">
+                <a:ObjectID>CANDLE_HIGH</a:ObjectID>
+                <a:Name>High</a:Name>
+                <a:Code>high</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+                <a:Comment>Harga tertinggi</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o29">
+                <a:ObjectID>CANDLE_LOW</a:ObjectID>
+                <a:Name>Low</a:Name>
+                <a:Code>low</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+                <a:Comment>Harga terendah</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o30">
+                <a:ObjectID>CANDLE_CLOSE</a:ObjectID>
+                <a:Name>Close</a:Name>
+                <a:Code>close</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+                <a:Comment>Harga penutupan</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o31">
+                <a:ObjectID>CANDLE_VOLUME</a:ObjectID>
+                <a:Name>Volume</a:Name>
+                <a:Code>volume</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+                <a:Comment>Volume perdagangan</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o32">
+                <a:ObjectID>CANDLE_COIN_ID</a:ObjectID>
+                <a:Name>Coin ID</a:Name>
+                <a:Code>coinId</a:Code>
+                <a:DataType>Integer</a:DataType>
+                <a:Mandatory>0</a:Mandatory>
+                <a:ForeignKey>1</a:ForeignKey>
+              </o:EntityAttribute>
+            </c:Attributes>
+          </o:Entity>
+
+          <!-- Entity: TopCoin -->
+          <o:Entity Id="o33">
+            <a:ObjectID>TOP_COIN_ENTITY</a:ObjectID>
+            <a:Name>Top Coin</a:Name>
+            <a:Code>TOP_COIN</a:Code>
+            <a:Description>Entitas yang menyimpan snapshot data top 100 cryptocurrency dari CoinMarketCap</a:Description>
+            <c:Attributes>
+              <o:EntityAttribute Id="o34">
+                <a:ObjectID>TOP_COIN_ID</a:ObjectID>
+                <a:Name>Top Coin ID</a:Name>
+                <a:Code>id</a:Code>
+                <a:DataType>Integer</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+                <a:PrimaryKey>1</a:PrimaryKey>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o35">
+                <a:ObjectID>TOP_COIN_RANK</a:ObjectID>
+                <a:Name>Rank</a:Name>
+                <a:Code>rank</a:Code>
+                <a:DataType>Integer</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o36">
+                <a:ObjectID>TOP_COIN_NAME</a:ObjectID>
+                <a:Name>Name</a:Name>
+                <a:Code>name</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>100</a:Length>
+                <a:Mandatory>1</a:Mandatory>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o37">
+                <a:ObjectID>TOP_COIN_SYMBOL</a:ObjectID>
+                <a:Name>Symbol</a:Name>
+                <a:Code>symbol</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>20</a:Length>
+                <a:Mandatory>1</a:Mandatory>
+                <a:Unique>1</a:Unique>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o38">
+                <a:ObjectID>TOP_COIN_PRICE</a:ObjectID>
+                <a:Name>Price</a:Name>
+                <a:Code>price</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o39">
+                <a:ObjectID>TOP_COIN_MARKET_CAP</a:ObjectID>
+                <a:Name>Market Cap</a:Name>
+                <a:Code>marketCap</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o40">
+                <a:ObjectID>TOP_COIN_VOLUME_24H</a:ObjectID>
+                <a:Name>Volume 24h</a:Name>
+                <a:Code>volume24h</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o41">
+                <a:ObjectID>TOP_COIN_CREATED_AT</a:ObjectID>
+                <a:Name>Created At</a:Name>
+                <a:Code>createdAt</a:Code>
+                <a:DataType>DateTime</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+              </o:EntityAttribute>
+            </c:Attributes>
+          </o:Entity>
+
+          <!-- Entity: Indicator -->
+          <o:Entity Id="o42">
+            <a:ObjectID>INDICATOR_ENTITY</a:ObjectID>
+            <a:Name>Indicator</a:Name>
+            <a:Code>INDICATOR</a:Code>
+            <a:Description>Entitas yang menyimpan hasil perhitungan 8 indikator teknikal dan sinyal trading</a:Description>
+            <c:Attributes>
+              <o:EntityAttribute Id="o43">
+                <a:ObjectID>INDICATOR_ID</a:ObjectID>
+                <a:Name>Indicator ID</a:Name>
+                <a:Code>id</a:Code>
+                <a:DataType>Integer</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+                <a:PrimaryKey>1</a:PrimaryKey>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o44">
+                <a:ObjectID>INDICATOR_SYMBOL</a:ObjectID>
+                <a:Name>Symbol</a:Name>
+                <a:Code>symbol</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>20</a:Length>
+                <a:Mandatory>1</a:Mandatory>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o45">
+                <a:ObjectID>INDICATOR_TIMEFRAME</a:ObjectID>
+                <a:Name>Timeframe</a:Name>
+                <a:Code>timeframe</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>10</a:Length>
+                <a:Mandatory>1</a:Mandatory>
+                <a:DefaultValue>1h</a:DefaultValue>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o46">
+                <a:ObjectID>INDICATOR_TIME</a:ObjectID>
+                <a:Name>Time</a:Name>
+                <a:Code>time</a:Code>
+                <a:DataType>BigInt</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+              </o:EntityAttribute>
+              
+              <!-- Technical Indicators -->
+              <o:EntityAttribute Id="o47">
+                <a:Name>SMA 20</a:Name>
+                <a:Code>sma20</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Comment>Simple Moving Average 20 periods</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o48">
+                <a:Name>SMA 50</a:Name>
+                <a:Code>sma50</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Comment>Simple Moving Average 50 periods</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o49">
+                <a:Name>EMA 20</a:Name>
+                <a:Code>ema20</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Comment>Exponential Moving Average 20 periods</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o50">
+                <a:Name>EMA 50</a:Name>
+                <a:Code>ema50</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Comment>Exponential Moving Average 50 periods</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o51">
+                <a:Name>RSI</a:Name>
+                <a:Code>rsi</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Comment>Relative Strength Index 14 periods</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o52">
+                <a:Name>MACD</a:Name>
+                <a:Code>macd</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Comment>Moving Average Convergence Divergence</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o53">
+                <a:Name>MACD Signal Line</a:Name>
+                <a:Code>macdSignalLine</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Comment>MACD Signal Line</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o54">
+                <a:Name>MACD Histogram</a:Name>
+                <a:Code>macdHist</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Comment>MACD Histogram</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o55">
+                <a:Name>Bollinger Upper</a:Name>
+                <a:Code>bbUpper</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Comment>Bollinger Bands Upper Band</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o56">
+                <a:Name>Bollinger Lower</a:Name>
+                <a:Code>bbLower</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Comment>Bollinger Bands Lower Band</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o57">
+                <a:Name>Stochastic %K</a:Name>
+                <a:Code>stochK</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Comment>Stochastic Oscillator %K</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o58">
+                <a:Name>Stochastic %D</a:Name>
+                <a:Code>stochD</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Comment>Stochastic Oscillator %D</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o59">
+                <a:Name>Stochastic RSI %K</a:Name>
+                <a:Code>stochRsiK</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Comment>Stochastic RSI %K</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o60">
+                <a:Name>Stochastic RSI %D</a:Name>
+                <a:Code>stochRsiD</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Comment>Stochastic RSI %D</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o61">
+                <a:Name>Parabolic SAR</a:Name>
+                <a:Code>psar</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Comment>Parabolic Stop and Reverse</a:Comment>
+              </o:EntityAttribute>
+              
+              <!-- Signal Values -->
+              <o:EntityAttribute Id="o62">
+                <a:Name>SMA Signal</a:Name>
+                <a:Code>smaSignal</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>10</a:Length>
+                <a:Comment>buy, sell, neutral</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o63">
+                <a:Name>EMA Signal</a:Name>
+                <a:Code>emaSignal</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>10</a:Length>
+                <a:Comment>buy, sell, neutral</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o64">
+                <a:Name>RSI Signal</a:Name>
+                <a:Code>rsiSignal</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>10</a:Length>
+                <a:Comment>buy, sell, neutral</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o65">
+                <a:Name>MACD Signal</a:Name>
+                <a:Code>macdSignal</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>10</a:Length>
+                <a:Comment>buy, sell, neutral</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o66">
+                <a:Name>Bollinger Signal</a:Name>
+                <a:Code>bbSignal</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>10</a:Length>
+                <a:Comment>buy, sell, neutral</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o67">
+                <a:Name>Stochastic Signal</a:Name>
+                <a:Code>stochSignal</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>10</a:Length>
+                <a:Comment>buy, sell, neutral</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o68">
+                <a:Name>Stochastic RSI Signal</a:Name>
+                <a:Code>stochRsiSignal</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>10</a:Length>
+                <a:Comment>buy, sell, neutral</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o69">
+                <a:Name>Parabolic SAR Signal</a:Name>
+                <a:Code>psarSignal</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>10</a:Length>
+                <a:Comment>buy, sell, neutral</a:Comment>
+              </o:EntityAttribute>
+              
+              <!-- Overall Signal -->
+              <o:EntityAttribute Id="o70">
+                <a:Name>Overall Signal</a:Name>
+                <a:Code>overallSignal</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>20</a:Length>
+                <a:Comment>strong_buy, buy, neutral, sell, strong_sell</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o71">
+                <a:Name>Signal Strength</a:Name>
+                <a:Code>signalStrength</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Comment>0.0 to 1.0 confidence level</a:Comment>
+              </o:EntityAttribute>
+              
+              <o:EntityAttribute Id="o72">
+                <a:Name>Created At</a:Name>
+                <a:Code>createdAt</a:Code>
+                <a:DataType>DateTime</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o73">
+                <a:Name>Updated At</a:Name>
+                <a:Code>updatedAt</a:Code>
+                <a:DataType>DateTime</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+              </o:EntityAttribute>
+            </c:Attributes>
+          </o:Entity>
+
+          <!-- Entity: IndicatorWeight -->
+          <o:Entity Id="o74">
+            <a:ObjectID>INDICATOR_WEIGHT_ENTITY</a:ObjectID>
+            <a:Name>Indicator Weight</a:Name>
+            <a:Code>INDICATOR_WEIGHT</a:Code>
+            <a:Description>Entitas yang menyimpan bobot optimal multi-indikator hasil optimasi dengan hybrid search (Grid + Random Search)</a:Description>
+            <c:Attributes>
+              <o:EntityAttribute Id="o75">
+                <a:ObjectID>INDICATOR_WEIGHT_ID</a:ObjectID>
+                <a:Name>Indicator Weight ID</a:Name>
+                <a:Code>id</a:Code>
+                <a:DataType>Integer</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+                <a:PrimaryKey>1</a:PrimaryKey>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o76">
+                <a:Name>Symbol</a:Name>
+                <a:Code>symbol</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>20</a:Length>
+                <a:Mandatory>1</a:Mandatory>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o77">
+                <a:Name>Timeframe</a:Name>
+                <a:Code>timeframe</a:Code>
+                <a:DataType>String</a:DataType>
+                <a:Length>10</a:Length>
+                <a:Mandatory>1</a:Mandatory>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o78">
+                <a:Name>Start Train</a:Name>
+                <a:Code>startTrain</a:Code>
+                <a:DataType>BigInt</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+                <a:Comment>Unix timestamp awal training data</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o79">
+                <a:Name>End Train</a:Name>
+                <a:Code>endTrain</a:Code>
+                <a:DataType>BigInt</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+                <a:Comment>Unix timestamp akhir training data</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o80">
+                <a:Name>Weights</a:Name>
+                <a:Code>weights</a:Code>
+                <a:DataType>JSON</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+                <a:Comment>Bobot untuk 8 indikator dalam format JSON</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o81">
+                <a:Name>ROI</a:Name>
+                <a:Code>roi</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+                <a:Comment>Return on Investment dari backtest</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o82">
+                <a:Name>Win Rate</a:Name>
+                <a:Code>winRate</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+                <a:Comment>Persentase win rate dari backtest</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o83">
+                <a:Name>Max Drawdown</a:Name>
+                <a:Code>maxDrawdown</a:Code>
+                <a:DataType>Float</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+                <a:DefaultValue>0</a:DefaultValue>
+                <a:Comment>Penurunan maksimal modal dari peak</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o84">
+                <a:Name>Candle Count</a:Name>
+                <a:Code>candleCount</a:Code>
+                <a:DataType>Integer</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+                <a:DefaultValue>0</a:DefaultValue>
+                <a:Comment>Jumlah candle yang digunakan untuk training</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o85">
+                <a:Name>Trades</a:Name>
+                <a:Code>trades</a:Code>
+                <a:DataType>Integer</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+                <a:DefaultValue>0</a:DefaultValue>
+                <a:Comment>Total jumlah transaksi dalam backtest</a:Comment>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o86">
+                <a:Name>Created At</a:Name>
+                <a:Code>createdAt</a:Code>
+                <a:DataType>DateTime</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+              </o:EntityAttribute>
+              <o:EntityAttribute Id="o87">
+                <a:Name>Updated At</a:Name>
+                <a:Code>updatedAt</a:Code>
+                <a:DataType>DateTime</a:DataType>
+                <a:Mandatory>1</a:Mandatory>
+              </o:EntityAttribute>
+            </c:Attributes>
+          </o:Entity>
+
+        </c:Entities>
+
+        <!-- Relationships -->
+        <c:Relationships>
+          
+          <!-- Relationship: User -> AuthLog (1:N) -->
+          <o:Relationship Id="o88">
+            <a:ObjectID>USER_AUTH_LOG_REL</a:ObjectID>
+            <a:Name>User melakukan Auth Log</a:Name>
+            <a:Code>USER_AUTH_LOG</a:Code>
+            <a:Entity1>o3</a:Entity1>
+            <a:Entity2>o11</a:Entity2>
+            <a:Cardinality1>1..1</a:Cardinality1>
+            <a:Cardinality2>0..n</a:Cardinality2>
+            <a:Description>Seorang user dapat memiliki banyak log autentikasi (login/logout)</a:Description>
+          </o:Relationship>
+
+          <!-- Relationship: Coin -> Candle (1:N) -->
+          <o:Relationship Id="o89">
+            <a:ObjectID>COIN_CANDLE_REL</a:ObjectID>
+            <a:Name>Coin memiliki Candle</a:Name>
+            <a:Code>COIN_CANDLE</a:Code>
+            <a:Entity1>o16</a:Entity1>
+            <a:Entity2>o22</a:Entity2>
+            <a:Cardinality1>0..1</a:Cardinality1>
+            <a:Cardinality2>0..n</a:Cardinality2>
+            <a:Description>Satu coin dapat memiliki banyak data candle OHLCV dari berbagai timeframe</a:Description>
+          </o:Relationship>
+
+        </c:Relationships>
+
+      </o:Model>
+    </c:Children>
+  </o:RootObject>
+</Model>

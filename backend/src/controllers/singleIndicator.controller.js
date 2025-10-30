@@ -4,14 +4,23 @@ import {
   backtestAllIndicators,
 } from "../services/indicators/indicator-backtest.service.js";
 
+// 🕒 Format tanggal ke Bahasa Indonesia (Asia/Jakarta)
+const formatDate = (t) =>
+  new Intl.DateTimeFormat("id-ID", {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone: "Asia/Jakarta",
+  }).format(new Date(Number(t)));
+
 /* ==========================================================
-   🔧 HELPER: Fetch Full Dataset (No Limit)
+   🔧 Ambil Semua Data Candle & Indikator
 ========================================================== */
 async function getIndicatorsWithPrices(symbol, timeframe) {
   console.log(`📊 Fetching full dataset for ${symbol} (${timeframe})...`);
-  const startTime = Date.now();
+  const start = Date.now();
 
-  const [indicatorData, candles] = await Promise.all([
+  // Ambil semua data indikator dan candle mentah
+  const [indicators, candles] = await Promise.all([
     prisma.indicator.findMany({
       where: { symbol, timeframe },
       orderBy: { time: "asc" },
@@ -23,18 +32,26 @@ async function getIndicatorsWithPrices(symbol, timeframe) {
     }),
   ]);
 
-  const candleMap = new Map(candles.map((c) => [c.time.toString(), c.close]));
-  const data = indicatorData
-    .map((i) => ({
-      ...i,
-      close: candleMap.get(i.time.toString()),
-    }))
+  const priceMap = new Map(candles.map((c) => [c.time.toString(), c.close]));
+  const data = indicators
+    .map((i) => ({ ...i, close: priceMap.get(i.time.toString()) }))
     .filter((i) => i.close != null);
 
-  const duration = Date.now() - startTime;
-  console.log(`✅ Loaded ${data.length} data points in ${duration}ms`);
+  const duration = (Date.now() - start) / 1000;
 
-  return data;
+  const range = {
+    start: formatDate(data[0]?.time),
+    end: formatDate(data[data.length - 1]?.time),
+  };
+
+  const dataset = {
+    candleStart: formatDate(candles[0]?.time),
+    indicatorStart: formatDate(indicators[0]?.time),
+    candleCount: candles.length,
+    indicatorCount: indicators.length,
+  };
+
+  return { data, total: data.length, range, dataset, duration };
 }
 
 /* ==========================================================
@@ -43,36 +60,49 @@ async function getIndicatorsWithPrices(symbol, timeframe) {
 export async function backtestSingleIndicatorController(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
-    const indicatorName = req.params.indicator || req.body.indicator;
+    const indicator = req.params.indicator || req.body.indicator;
     const timeframe = "1h";
 
-    if (!indicatorName) {
+    if (!indicator) {
       return res.status(400).json({
         success: false,
         message:
-          "Indicator name is required. Valid options: SMA, EMA, RSI, MACD, BollingerBands, Stochastic, PSAR, StochasticRSI",
+          "Indicator name required. Valid: SMA, EMA, RSI, MACD, BollingerBands, Stochastic, PSAR, StochasticRSI",
       });
     }
 
     console.log(
-      `\n📊 Starting single indicator backtest for ${symbol} - ${indicatorName}`
+      `\n📊 Starting single indicator backtest for ${symbol} - ${indicator}`
     );
-    const data = await getIndicatorsWithPrices(symbol, timeframe);
+    const { data, total, range, dataset } = await getIndicatorsWithPrices(
+      symbol,
+      timeframe
+    );
 
-    if (data.length < 50) {
+    if (total < 50) {
       return res.status(400).json({
         success: false,
-        message: `Insufficient data for backtest (${data.length}/50 required)`,
+        message: `Data tidak cukup untuk backtest (${total}/50)`,
         symbol,
         timeframe,
       });
     }
 
-    const result = await backtestSingleIndicator(data, indicatorName);
-    result.symbol = symbol;
-    result.timeframe = timeframe;
+    const start = Date.now();
+    const result = await backtestSingleIndicator(data, indicator);
 
-    res.json(result);
+    res.json({
+      success: true,
+      symbol,
+      timeframe,
+      indicator,
+      totalData: total,
+      range,
+      dataset,
+      processingTime,
+      timestamp: new Date().toISOString(),
+      ...result,
+    });
   } catch (err) {
     console.error("❌ backtestSingleIndicator:", err.message);
     res.status(500).json({
@@ -84,30 +114,45 @@ export async function backtestSingleIndicatorController(req, res) {
 }
 
 /* ==========================================================
-   📊 BACKTEST ALL INDICATORS (Comparison)
+   📊 BACKTEST SEMUA INDIKATOR (COMPARISON)
 ========================================================== */
 export async function backtestAllIndicatorsController(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
     const timeframe = "1h";
 
-    console.log(`\n📊 Starting all indicators comparison for ${symbol}`);
-    const data = await getIndicatorsWithPrices(symbol, timeframe);
+    console.log(
+      `\n📊 Starting all indicators backtest for ${symbol} (${timeframe})`
+    );
+    const { data, total, range, dataset } = await getIndicatorsWithPrices(
+      symbol,
+      timeframe
+    );
 
-    if (data.length < 50) {
+    if (total < 50) {
       return res.status(400).json({
         success: false,
-        message: `Insufficient data for backtest (${data.length}/50 required)`,
+        message: `Data tidak cukup untuk backtest (${total}/50)`,
         symbol,
         timeframe,
       });
     }
 
+    const start = Date.now();
     const result = await backtestAllIndicators(data);
-    result.symbol = symbol;
-    result.timeframe = timeframe;
+    const processingTime = `${((Date.now() - start) / 1000).toFixed(2)}s`;
 
-    res.json(result);
+    res.json({
+      success: true,
+      symbol,
+      timeframe,
+      totalData: total,
+      range,
+      dataset,
+      processingTime,
+      timestamp: new Date().toISOString(),
+      ...result,
+    });
   } catch (err) {
     console.error("❌ backtestAllIndicators:", err.message);
     res.status(500).json({

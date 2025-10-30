@@ -1,12 +1,14 @@
+// src/controllers/multiIndicator.controller.js
 import { prisma } from "../lib/prisma.js";
-import { optimizeIndicatorWeights } from "../services/multiIndicator/multiIndicator-analyzer.service.js";
 import {
+  // pakai alias supaya jelas ini versi rule-based dari servicemu
+  optimizeIndicatorWeights as optimizeRuleBased,
   calculateIndividualSignals,
   scoreSignal,
 } from "../services/multiIndicator/multiIndicator-analyzer.service.js";
 
 /* ==========================================================
-   🔧 HELPER: Fetch Dataset within Fixed Epoch Window
+   🔧 HELPER: Ambil indikator + harga (close) pada rentang epoch
 ========================================================== */
 async function getIndicatorsWithPrices(
   symbol,
@@ -14,9 +16,6 @@ async function getIndicatorsWithPrices(
   startEpoch,
   endEpoch
 ) {
-  console.log(
-    `📊 Fetching dataset for ${symbol} (${timeframe}) between ${new Date(Number(startEpoch)).toISOString()} and ${new Date(Number(endEpoch)).toISOString()}...`
-  );
   const t0 = Date.now();
 
   const [indicatorData, candles] = await Promise.all([
@@ -39,11 +38,11 @@ async function getIndicatorsWithPrices(
     }),
   ]);
 
-  if ((indicatorData?.length ?? 0) === 0 || (candles?.length ?? 0) === 0) {
+  if (!indicatorData?.length || !candles?.length) {
     console.warn(
-      "⚠️  No candle data found for",
+      "⚠️  Data indikator atau candle kosong untuk:",
       symbol,
-      "in given epoch range"
+      timeframe
     );
   }
 
@@ -55,78 +54,43 @@ async function getIndicatorsWithPrices(
     }))
     .filter((i) => i.close != null);
 
-  console.log(`✅ Loaded ${data.length} data points in ${Date.now() - t0}ms`);
+  console.log(`✅ Loaded ${data.length} rows in ${Date.now() - t0}ms`);
   return data;
 }
 
 /* ==========================================================
-   🎯 OPTIMIZE MULTI-INDICATOR WEIGHTS
-   Based on: Sukma & Namahoot (2025)
+   🧮 UTIL: Max Drawdown dari equity curve
+========================================================== */
+function calcMaxDrawdown(curve) {
+  if (!Array.isArray(curve) || curve.length === 0) return 0.01;
+  let peak = curve[0];
+  let maxDD = 0;
+  for (const v of curve) {
+    if (v > peak) peak = v;
+    const dd = ((peak - v) / peak) * 100;
+    if (dd > maxDD) maxDD = dd;
+  }
+  return +Math.max(maxDD, 0.01).toFixed(2);
+}
+
+/* ==========================================================
+   🎯 OPTIMIZE MULTI-INDICATOR WEIGHTS (Rule-Based)
+   Konsisten dengan Sukma & Namahoot (2025)
 ========================================================== */
 export async function optimizeIndicatorWeightsController(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
-    const timeframe = "1h";
+    // kalau mau fleksibel, bisa ambil dari query: ?timeframe=1h
+    const timeframe = (req.query.timeframe || "1h").toLowerCase();
 
-    const startEpoch = new Date("2020-01-01").getTime();
-    const endEpoch = new Date("2025-01-01").getTime();
+    // Window tetap (ikuti servicemu)
+    const startEpoch = new Date("2020-01-01T00:00:00Z").getTime();
+    const endEpoch = new Date("2025-01-01T00:00:00Z").getTime();
 
-    const defaultIndicators = [
-      "SMA",
-      "EMA",
-      "RSI",
-      "MACD",
-      "BollingerBands",
-      "Stochastic",
-      "PSAR",
-      "StochasticRSI",
-    ];
-    const selectedIndicators = req.body.indicators || defaultIndicators;
-
-    const validIndicators = defaultIndicators;
-    const invalidIndicators = selectedIndicators.filter(
-      (ind) => !validIndicators.includes(ind)
+    console.log(
+      `\n🎯 Starting rule-based optimization for ${symbol} (${timeframe})`
     );
 
-    if (invalidIndicators.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid indicators: ${invalidIndicators.join(", ")}. Valid options: ${validIndicators.join(", ")}`,
-      });
-    }
-
-    // 1) Try cache
-    const cached = await prisma.indicatorWeight.findFirst({
-      where: {
-        symbol,
-        timeframe,
-        startTrain: BigInt(startEpoch),
-        endTrain: BigInt(endEpoch),
-      },
-    });
-
-    if (cached) {
-      console.log("⚡ Using cached optimized weights from DB");
-      return res.json({
-        success: true,
-        cached: true,
-        symbol,
-        timeframe,
-        startTrain: cached.startTrain,
-        endTrain: cached.endTrain,
-        bestWeights: cached.weights,
-        bestResult: {
-          roi: cached.roi,
-          winRate: cached.winRate,
-          maxDrawdown: cached.maxDrawdown,
-          trades: cached.trades ?? 0,
-        },
-        candleCount: cached.candleCount,
-        updatedAt: cached.updatedAt,
-      });
-    }
-
-    console.log(`\n🎯 Starting multi-indicator optimization for ${symbol}`);
     const data = await getIndicatorsWithPrices(
       symbol,
       timeframe,
@@ -134,13 +98,12 @@ export async function optimizeIndicatorWeightsController(req, res) {
       endEpoch
     );
 
-    if (data.length === 0) {
+    if (!data.length) {
       return res.status(400).json({
         success: false,
         message: "No data found in the requested epoch range.",
       });
     }
-
     if (data.length < 50) {
       return res.status(400).json({
         success: false,
@@ -148,94 +111,82 @@ export async function optimizeIndicatorWeightsController(req, res) {
       });
     }
 
-    const result = await optimizeIndicatorWeights(data, selectedIndicators, {
-      samples: Math.min(Math.max(Number(req.body.samples) || 800, 500), 1200),
-      maxDurationSec: 170,
-      symbol,
-      timeframe,
-      startTrain: startEpoch,
-      endTrain: endEpoch,
-      candleCount: data.length,
-    });
+    // Jalankan evaluasi/optimasi rule-based dari service
+    // Pastikan service-mu men‐return { methodology, bestCombo, bestWeights, performance, allResults }
+    const result = await optimizeRuleBased(data);
 
-    // Persist if service didn't already persist (safety)
-    if (!result.persisted && !result.cachedPersist) {
-      await prisma.indicatorWeight.upsert({
-        where: {
-          symbol_timeframe_startTrain_endTrain: {
-            symbol,
-            timeframe,
-            startTrain: BigInt(startEpoch),
-            endTrain: BigInt(endEpoch),
-          },
-        },
-        update: {
-          weights: result.bestWeights,
-          roi: result.bestResult.roi,
-          winRate: result.bestResult.winRate,
-          maxDrawdown: result.bestResult.maxDrawdown,
-          candleCount: data.length,
-          trades: result.bestResult.trades ?? 0,
-        },
-        create: {
+    // Safety guard kalau struktur balikannya tidak lengkap
+    if (!result || !result.bestWeights || !result.performance) {
+      return res.status(500).json({
+        success: false,
+        message: "Optimization service did not return expected fields.",
+      });
+    }
+
+    // Simpan hasil terbaik ke DB (gunakan composite unique key)
+    await prisma.indicatorWeight.upsert({
+      where: {
+        symbol_timeframe_startTrain_endTrain: {
           symbol,
           timeframe,
           startTrain: BigInt(startEpoch),
           endTrain: BigInt(endEpoch),
-          weights: result.bestWeights,
-          roi: result.bestResult.roi,
-          winRate: result.bestResult.winRate,
-          maxDrawdown: result.bestResult.maxDrawdown,
-          candleCount: data.length,
-          trades: result.bestResult.trades ?? 0,
         },
-      });
-    }
+      },
+      update: {
+        weights: result.bestWeights,
+        roi: result.performance.roi,
+        winRate: result.performance.winRate,
+        maxDrawdown: result.performance.maxDrawdown,
+        candleCount: data.length,
+        trades: result.performance.trades ?? 0,
+      },
+      create: {
+        symbol,
+        timeframe,
+        startTrain: BigInt(startEpoch),
+        endTrain: BigInt(endEpoch),
+        weights: result.bestWeights,
+        roi: result.performance.roi,
+        winRate: result.performance.winRate,
+        maxDrawdown: result.performance.maxDrawdown,
+        candleCount: data.length,
+        trades: result.performance.trades ?? 0,
+      },
+    });
 
-    result.symbol = symbol;
-    result.timeframe = timeframe;
-    result.dataPoints = data.length;
-    result.cached = false;
-    result.startTrain = BigInt(startEpoch);
-    result.endTrain = BigInt(endEpoch);
-
-    res.json(result);
+    // Jangan kirim BigInt di JSON (ubah ke Number)
+    return res.json({
+      success: true,
+      symbol,
+      timeframe,
+      methodology: result.methodology,
+      bestCombo: result.bestCombo,
+      bestWeights: result.bestWeights,
+      performance: result.performance,
+      allResults: result.allResults,
+      dataPoints: data.length,
+      startTrain: startEpoch,
+      endTrain: endEpoch,
+    });
   } catch (err) {
-    console.error("❌ optimizeIndicatorWeights:", err.message);
-    res.status(500).json({
+    console.error("❌ optimizeIndicatorWeights:", err);
+    return res.status(500).json({
       success: false,
-      message: err.message,
-      stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
+      message: err?.message || "Unknown error",
     });
   }
 }
 
-// Helper for backtest max drawdown
-function calcMaxDrawdown(curve) {
-  if (!Array.isArray(curve) || curve.length === 0) return 0.01;
-  let peak = curve[0];
-  let maxDD = 0;
-  let minVal = curve[0];
-  for (const v of curve) {
-    if (v > peak) peak = v;
-    if (v < minVal) minVal = v;
-    if (peak > 0) {
-      const dd = ((peak - v) / peak) * 100;
-      if (dd > maxDD) maxDD = dd;
-    }
-  }
-  const start = curve[0];
-  const baseDD = start > 0 ? ((start - minVal) / start) * 100 : 0;
-  const finalDD = Math.max(maxDD, baseDD);
-  return +(finalDD > 0 ? finalDD : 0.01).toFixed(2);
-}
-
+/* ==========================================================
+   📈 BACKTEST MENGGUNAKAN WEIGHTS TERBARU DI DB
+========================================================== */
 export async function backtestWithOptimizedWeightsController(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
-    const timeframe = "1h";
+    const timeframe = (req.query.timeframe || "1h").toLowerCase();
 
-    // 1) Fetch latest optimized weights
+    // Ambil bobot terbaru
     const latest = await prisma.indicatorWeight.findFirst({
       where: { symbol, timeframe },
       orderBy: { updatedAt: "desc" },
@@ -244,15 +195,15 @@ export async function backtestWithOptimizedWeightsController(req, res) {
     if (!latest) {
       return res.status(404).json({
         success: false,
-        message: "No optimized weights found for this coin",
+        message: "No optimized weights found for this coin/timeframe.",
       });
     }
 
     const weights = latest.weights || {};
-    const startTrain = latest.startTrain;
-    const endTrain = latest.endTrain;
+    const startTrain = latest.startTrain; // BigInt
+    const endTrain = latest.endTrain; // BigInt
 
-    // 2) Load indicators and candle closes within training window
+    // Muat kembali data pada periode training (konsisten)
     const [indicatorData, candles] = await Promise.all([
       prisma.indicator.findMany({
         where: {
@@ -278,19 +229,19 @@ export async function backtestWithOptimizedWeightsController(req, res) {
       .map((i) => ({ ...i, close: candleMap.get(i.time.toString()) }))
       .filter((i) => i.close != null);
 
-    if (data.length === 0) {
+    if (!data.length) {
       return res.status(400).json({
         success: false,
         message: "No data found in the optimized period.",
       });
     }
 
-    // 3) Simulate backtest using the optimized weights
+    // Backtest sederhana dengan scoring ter‐normalisasi
     const HOLD_THRESHOLD = 0.15;
     const INITIAL_CAPITAL = 10000;
 
     let cap = INITIAL_CAPITAL;
-    let pos = null;
+    let pos = null; // "BUY" atau null
     let entry = 0;
     let wins = 0;
     let trades = 0;
@@ -301,26 +252,27 @@ export async function backtestWithOptimizedWeightsController(req, res) {
     for (let i = 0; i < data.length; i++) {
       const cur = data[i];
       const prev = i > 0 ? data[i - 1] : null;
+      const price = cur.close;
 
       const signals = calculateIndividualSignals(cur, prev);
 
-      let combined = 0;
-      let totalW = 0;
+      let sum = 0;
+      let tot = 0;
       for (const k of indKeys) {
         const w = Number(weights[k] ?? 0);
         if (!w) continue;
-        const s = scoreSignal(signals[k]);
-        combined += w * s;
-        totalW += w;
+        // scoreSignal sekarang hanya -1, 0, 1 (tanpa strong)
+        const sVal = scoreSignal(signals[k]);
+        sum += w * sVal;
+        tot += w;
       }
 
-      const combinedScore = totalW > 0 ? combined / totalW : 0;
-      const price = cur.close;
+      const score = tot > 0 ? sum / tot : 0;
 
-      if (combinedScore > HOLD_THRESHOLD && !pos) {
+      if (score > HOLD_THRESHOLD && !pos) {
         pos = "BUY";
         entry = price;
-      } else if (combinedScore < -HOLD_THRESHOLD && pos === "BUY") {
+      } else if (score < -HOLD_THRESHOLD && pos === "BUY") {
         const pnl = price - entry;
         if (pnl > 0) wins++;
         cap += (cap / entry) * pnl;
@@ -345,9 +297,14 @@ export async function backtestWithOptimizedWeightsController(req, res) {
       trades,
       maxDrawdown,
       finalCapital: +cap.toFixed(2),
+      methodology: "Rule-Based Weighted Multi-Indicator Backtest",
+      timestamp: new Date().toISOString(),
     });
   } catch (err) {
     console.error("❌ backtestWithOptimizedWeights:", err);
-    return res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({
+      success: false,
+      message: err?.message || "Unknown error",
+    });
   }
 }

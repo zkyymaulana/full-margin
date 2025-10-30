@@ -52,7 +52,9 @@ async function initializeSystem() {
   }
 
   console.log("🎯 Semua background service aktif!");
-  console.log("📈 Auto sync candle & indicators setiap jam pada menit ke-59");
+  console.log(
+    "📈 Auto sync candle & indicators setiap jam (pukul 00:00 tiap jam, setelah candle close)"
+  );
   console.log("🔄 Backup sync setiap jam pada menit ke-2");
   console.log("💖 Health monitoring setiap 5 menit");
 }

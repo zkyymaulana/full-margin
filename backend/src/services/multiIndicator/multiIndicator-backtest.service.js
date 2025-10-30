@@ -3,7 +3,13 @@ import {
   scoreSignal,
 } from "./multiIndicator-analyzer.service.js";
 
-// Helper: Calculate Max Drawdown (%) from equity curve
+/**
+ * BACKTEST MULTI-INDICATOR STRATEGY
+ * ---------------------------------
+ * Dijalankan dengan bobot tetap (tanpa optimasi acak).
+ * Hasil: ROI, WinRate, MaxDrawdown, Trades.
+ */
+
 function calcMaxDrawdown(curve) {
   if (!Array.isArray(curve) || curve.length === 0) return 0.01;
   let peak = curve[0];
@@ -18,12 +24,6 @@ function calcMaxDrawdown(curve) {
   return +Math.max(maxDD, 0.01).toFixed(2);
 }
 
-/**
- * Backtest multi-indicator strategy using provided weights.
- * - data: array of indicator rows that MUST include .close price
- * - weights: { SMA, EMA, RSI, MACD, BollingerBands, Stochastic, PSAR, StochasticRSI }
- * - options.fastMode: if true, threshold 0.15 and no fees/SL/TP
- */
 export async function backtestWithWeights(data, weights = {}, options = {}) {
   if (!data?.length) throw new Error("Data is required");
 
@@ -55,7 +55,7 @@ export async function backtestWithWeights(data, weights = {}, options = {}) {
     let sum = 0;
     let tot = 0;
     for (const k of keys) {
-      const normKey = k === "ParabolicSAR" ? "PSAR" : k; // normalize naming
+      const normKey = k === "ParabolicSAR" ? "PSAR" : k;
       const w = Number(weights[k] ?? 0);
       if (!w || !(normKey in sigs)) continue;
       const sval = scoreSignal(sigs[normKey]);
@@ -86,8 +86,8 @@ export async function backtestWithWeights(data, weights = {}, options = {}) {
   return {
     success: true,
     methodology: options.fastMode
-      ? "Weighted Multi-Indicator Backtest (fastMode)"
-      : "Weighted Multi-Indicator Backtest",
+      ? "Rule-Based Weighted Multi-Indicator Backtest (fastMode)"
+      : "Rule-Based Weighted Multi-Indicator Backtest",
     roi,
     winRate,
     trades,
