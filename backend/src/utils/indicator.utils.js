@@ -62,7 +62,7 @@ export function calculateIndividualSignals(ind) {
     SMA: signalFuncs.sma(ind.sma20, ind.sma50, p),
     EMA: signalFuncs.ema(ind.ema20, ind.ema50, p),
     RSI: signalFuncs.rsi(ind.rsi),
-    MACD: signalFuncs.macd(ind.macd, ind.macdSignal ?? ind.macdSignalLine),
+    MACD: signalFuncs.macd(ind.macd, ind.macdSignalLine), // ✅ Standardized MACD naming for consistency
     BollingerBands: signalFuncs.bollingerBands(p, ind.bbUpper, ind.bbLower),
     Stochastic: signalFuncs.stochastic(ind.stochK, ind.stochD),
     PSAR: signalFuncs.psar(p, ind.psar),

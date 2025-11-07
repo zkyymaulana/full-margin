@@ -1,6 +1,6 @@
 import { prisma } from "../../lib/prisma.js";
 
-/** 🔹 Ambil waktu candle terakhir untuk symbol */
+/** Ambil waktu candle terakhir untuk symbol */
 export async function getLastCandleTime(symbol) {
   try {
     const last = await prisma.candle.findFirst({
@@ -15,7 +15,7 @@ export async function getLastCandleTime(symbol) {
   }
 }
 
-/** 🔹 Hitung total candle yang tersimpan untuk symbol tertentu */
+/** Hitung total candle yang tersimpan untuk symbol tertentu */
 export async function getCandleCount(symbol) {
   try {
     return await prisma.candle.count({
@@ -27,7 +27,7 @@ export async function getCandleCount(symbol) {
   }
 }
 
-/** 🔹 Ambil candle dari DB dengan pagination */
+/** Ambil candle dari DB dengan pagination */
 export async function getChartData(symbol, limit = 500, offset = 0) {
   const total = await getCandleCount(symbol);
   const candles = await prisma.candle.findMany({
@@ -45,11 +45,10 @@ export async function getChartData(symbol, limit = 500, offset = 0) {
     },
   });
 
-  // ✅ PERBAIKAN: Konsistensi format waktu untuk matching dengan indicator
   return {
     total,
     candles: candles.map((c) => ({
-      time: c.time, // ✅ Gunakan format BigInt asli dari database
+      time: c.time, // format BigInt asli dari database
       open: c.open,
       high: c.high,
       low: c.low,
@@ -59,12 +58,12 @@ export async function getChartData(symbol, limit = 500, offset = 0) {
   };
 }
 
-/** 🔹 Ambil candle dari DB dengan pagination - Data Terbaru Dulu */
+/** Ambil candle dari DB dengan pagination - Data Terbaru Dulu */
 export async function getChartDataNewest(symbol, limit = 1000, offset = 0) {
   const total = await getCandleCount(symbol);
   const candles = await prisma.candle.findMany({
     where: { symbol, timeframe: "1h" },
-    orderBy: { time: "desc" }, // ✅ DESC untuk data terbaru dulu
+    orderBy: { time: "desc" }, // DESC untuk data terbaru dulu
     skip: offset,
     take: limit,
     select: {
@@ -80,7 +79,7 @@ export async function getChartDataNewest(symbol, limit = 1000, offset = 0) {
   return {
     total,
     candles: candles.map((c) => ({
-      time: c.time, // ✅ Gunakan format BigInt asli dari database
+      time: c.time, // Gunakan format BigInt asli dari database
       open: c.open,
       high: c.high,
       low: c.low,
@@ -90,7 +89,7 @@ export async function getChartDataNewest(symbol, limit = 1000, offset = 0) {
   };
 }
 
-/** 🔹 Simpan candles ke DB (dipakai scheduler otomatis) */
+/** Simpan candles ke DB (dipakai scheduler otomatis) */
 export async function saveCandlesToDB(symbol, coinId, candles) {
   try {
     if (!candles?.length) return { success: false, message: "No candles" };
@@ -98,7 +97,7 @@ export async function saveCandlesToDB(symbol, coinId, candles) {
     const data = candles.map((c) => ({
       symbol,
       timeframe: "1h",
-      time: BigInt(c.time), // ✅ PERBAIKAN: Langsung gunakan milidetik dari candle.time
+      time: BigInt(c.time), // Langsung gunakan milidetik dari candle.time
       open: c.open,
       high: c.high,
       low: c.low,

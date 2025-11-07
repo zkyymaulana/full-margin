@@ -51,6 +51,7 @@ export async function detectAndNotifySingleIndicatorSignals(
       }
     };
 
+    // ✅ Standardized MACD naming for consistency
     checkSignal("RSI", indicator.rsi, indicator.rsiSignal);
     checkSignal("MACD", indicator.macd, indicator.macdSignal);
     checkSignal("SMA", indicator.sma20, indicator.smaSignal);

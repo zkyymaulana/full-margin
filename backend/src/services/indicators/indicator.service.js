@@ -472,15 +472,19 @@ function calculateSignals(indicators, price) {
   }
 
   // MACD Signal
+  // ✅ Standardized MACD naming for consistency
   if (
     indicators.macd !== null &&
-    indicators.macdSignal !== null &&
+    indicators.macdSignalLine !== null &&
     indicators.macdHist !== null
   ) {
-    if (indicators.macd > indicators.macdSignal && indicators.macdHist > 0) {
+    if (
+      indicators.macd > indicators.macdSignalLine &&
+      indicators.macdHist > 0
+    ) {
       signals.macdSignal = "buy";
     } else if (
-      indicators.macd < indicators.macdSignal &&
+      indicators.macd < indicators.macdSignalLine &&
       indicators.macdHist < 0
     ) {
       signals.macdSignal = "sell";
@@ -785,6 +789,7 @@ export async function backfillSignalsForExistingData(symbol, timeframe = "1h") {
       const price = candle.close;
 
       // Create indicators object for signal calculation
+      // ✅ Standardized MACD naming for consistency
       const indicators = {
         sma20: indicator.sma20,
         sma50: indicator.sma50,
@@ -792,7 +797,7 @@ export async function backfillSignalsForExistingData(symbol, timeframe = "1h") {
         ema50: indicator.ema50,
         rsi: indicator.rsi,
         macd: indicator.macd,
-        macdSignal: indicator.macdSignalLine, // Note: using macdSignalLine from DB
+        macdSignalLine: indicator.macdSignalLine,
         macdHist: indicator.macdHist,
         bbUpper: indicator.bbUpper,
         bbLower: indicator.bbLower,

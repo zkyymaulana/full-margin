@@ -35,7 +35,7 @@ export async function getChart(req, res) {
     const minTime = Math.min(...times);
     const maxTime = Math.max(...times);
 
-    // 🔍 Cek apakah indikator sudah lengkap untuk rentang waktu ini
+    // Cek apakah indikator sudah lengkap untuk rentang waktu ini
     let indicators = await prisma.indicator.findMany({
       where: {
         symbol,

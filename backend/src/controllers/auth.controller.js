@@ -6,7 +6,6 @@ import {
 import { verifyGoogleToken } from "../services/auth/google-auth.service.js";
 import { verifyToken, generateToken } from "../utils/jwt.js";
 import { prisma } from "../lib/prisma.js";
-import { formatWibTime } from "../utils/time.js";
 
 export async function register(req, res) {
   try {
@@ -21,7 +20,7 @@ export async function register(req, res) {
         id: user.id,
         email: user.email,
         name: user.name,
-        lastLogin: formatWibTime(user.lastLogin),
+        lastLogin: user.lastLogin,
       },
     });
   } catch (err) {
@@ -42,7 +41,7 @@ export async function login(req, res) {
         id: user.id,
         email: user.email,
         name: user.name,
-        lastLogin: formatWibTime(user.lastLogin),
+        lastLogin: user.lastLogin,
       },
     });
   } catch (err) {
@@ -126,7 +125,7 @@ export async function loginWithGoogle(req, res) {
         email: user.email,
         name: user.name,
         picture: user.avatarUrl,
-        lastLogin: formatWibTime(user.lastLogin),
+        lastLogin: user.lastLogin,
       },
     });
   } catch (err) {

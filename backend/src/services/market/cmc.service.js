@@ -9,7 +9,7 @@ const CMC_BASE_URL =
   process.env.CMC_API_URL || "https://pro-api.coinmarketcap.com/v1";
 
 /**
- * 🔹 Sinkronisasi Top 100 Coin dari CoinMarketCap + update rank di Coinbase data
+ * 🔹 Sinkronisasi Top 100 Coin dari CoinMarketCap + update rank
  */
 export async function syncTopCoins(limit = 100) {
   console.log(`🚀 Mengambil data Top ${limit} Coin dari CoinMarketCap...`);
@@ -42,7 +42,7 @@ export async function syncTopCoins(limit = 100) {
       volume24h: c.quote.USD.volume_24h,
     }));
 
-    // Simpan ke tabel TopCoin (boleh overwrite)
+    // Simpan ke tabel TopCoin
     for (const coin of coins) {
       await prisma.topCoin.upsert({
         where: { symbol: coin.symbol },
@@ -53,7 +53,7 @@ export async function syncTopCoins(limit = 100) {
 
     console.log(`✅ ${coins.length} coin disimpan ke TopCoin.`);
 
-    // ✅ PERBAIKAN: Langsung update rank untuk coin yang sudah ada di tabel Coin
+    // Langsung update rank untuk coin yang sudah ada di tabel Coin
     let updatedCount = 0;
     for (const coin of coins) {
       // Cari dengan berbagai kemungkinan format pair

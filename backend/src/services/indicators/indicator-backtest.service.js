@@ -97,49 +97,6 @@ function validateAndFillRsiData(data) {
 }
 
 /* ==========================================================
-   🧠 ADAPTIVE RSI HELPER (Enhanced with minimum 25-point spread)
-========================================================== */
-function computeAdaptiveRsiThreshold(data) {
-  const rsiValues = data.map((d) => d.rsi).filter((v) => v != null && v > 0);
-
-  if (rsiValues.length === 0) {
-    console.error("❌ ERROR: No valid RSI data found!");
-    throw new Error("No valid RSI data found — check indicator calculation.");
-  }
-
-  if (rsiValues.length < 50) {
-    console.warn(
-      "⚠️  RSI values too few for adaptive threshold. Using defaults."
-    );
-    return { low: 30, high: 70 };
-  }
-
-  // Calculate mean and standard deviation
-  const mean = rsiValues.reduce((a, b) => a + b, 0) / rsiValues.length;
-  const variance =
-    rsiValues.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / rsiValues.length;
-  const std = Math.sqrt(variance);
-
-  // Adaptive thresholds based on data distribution
-  let low = Math.max(20, mean - std * 0.8);
-  let high = Math.min(80, mean + std * 0.8);
-
-  // 🔧 FIX: Ensure minimum spread of 25 points
-  const currentSpread = high - low;
-  if (currentSpread < 25) {
-    const mid = (high + low) / 2;
-    low = Math.max(20, mid - 12.5);
-    high = Math.min(80, mid + 12.5);
-  }
-
-  console.log(
-    `⚙️  Adaptive RSI: Mean=${mean.toFixed(2)}, StdDev=${std.toFixed(2)}, Low=${low.toFixed(2)}, High=${high.toFixed(2)}, Spread=${(high - low).toFixed(2)}`
-  );
-
-  return { low: +low.toFixed(2), high: +high.toFixed(2) };
-}
-
-/* ==========================================================
    🧠 SIGNAL FUNCTIONS (FIXED)
 ========================================================== */
 function makeSignalFuncs({ rsiLow = 30, rsiHigh = 70 } = {}) {
@@ -498,7 +455,8 @@ export async function backtestSingleIndicator(data, indicatorName) {
   if (!data?.length) throw new Error("Historical data is required.");
 
   data = validateAndFillRsiData(data);
-  const { low: RSI_LOW, high: RSI_HIGH } = computeAdaptiveRsiThreshold(data);
+  const RSI_LOW = 30;
+  const RSI_HIGH = 70;
   const funcs = makeSignalFuncs({ rsiLow: RSI_LOW, rsiHigh: RSI_HIGH });
 
   const splitIndex = Math.floor(data.length * 0.8);

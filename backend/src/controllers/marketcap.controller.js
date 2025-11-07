@@ -5,13 +5,7 @@ import {
 } from "../services/market/marketcap.service.js";
 import { prisma } from "../lib/prisma.js";
 
-/**
- * GET /api/marketcap
- * 🔹 Sinkronisasi top 200 coin dari CMC, pairing dengan Coinbase,
- * lalu simpan 100 coin valid ke database.
- * Mengembalikan daftar coin + symbol.
- */
-export async function getMarketcap(req, res) {
+export async function getCoinMarketcap(req, res) {
   try {
     console.log("🔄 Memulai proses sinkronisasi marketcap...");
     const result = await getMarketcapRealtime();
@@ -45,8 +39,7 @@ export async function getMarketcap(req, res) {
  */
 export async function getMarketcapLiveController(req, res) {
   try {
-    console.log("⚡ Mengambil data live ticker...");
-    const limit = Number(req.query.limit) || 20; // ✅ support query limit
+    const limit = Number(req.query.limit) || 20;
     const result = await getMarketcapLive(limit);
 
     if (!result.success) {
