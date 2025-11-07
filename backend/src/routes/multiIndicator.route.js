@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   optimizeIndicatorWeightsController,
   backtestWithOptimizedWeightsController,
+  backtestWithEqualWeightsController,
 } from "../controllers/multiIndicator.controller.js";
 
 const router = Router();
@@ -55,5 +56,7 @@ router.post("/:symbol/optimize-weights", optimizeIndicatorWeightsController);
  * }
  */
 router.get("/:symbol/backtest", backtestWithOptimizedWeightsController);
+
+router.get("/:symbol/backtest-equal", backtestWithEqualWeightsController);
 
 export default router;

@@ -1,10 +1,14 @@
-import { useState, useEffect, useRef } from "react";
-import { useCandles } from "../hooks/useCandles";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useMarketCapLive } from "../hooks/useMarketcap";
 import { useSymbol } from "../contexts/SymbolContext";
 import { useDarkMode } from "../contexts/DarkModeContext";
 import { createChart } from "lightweight-charts";
 import { Link } from "react-router-dom";
+import {
+  fetchCandlesByUrl,
+  fetchCandlesWithPagination,
+} from "../services/api.service";
 
 function Dashboard() {
   const { selectedSymbol } = useSymbol();
@@ -15,6 +19,25 @@ function Dashboard() {
   const chartRef = useRef(null);
   const seriesRef = useRef(null);
   const indicatorSeriesRef = useRef({});
+
+  // 🔥 PAGINATION STATE untuk Infinite Scroll
+  const [allCandlesData, setAllCandlesData] = useState([]);
+  const [pageInfo, setPageInfo] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    nextUrl: null,
+    prevUrl: null,
+    isLoading: false,
+    hasMore: true,
+  });
+
+  // Refs untuk pagination logic
+  const isLoadingMoreRef = useRef(false);
+  const hasMoreDataRef = useRef(true);
+  const visibleRangeSubscriptionRef = useRef(null);
+  const debounceTimerRef = useRef(null);
+  const lastFetchTimeRef = useRef(0);
+  const nextUrlRef = useRef(null);
 
   // Refs untuk oscillator charts
   const rsiChartRef = useRef(null);
@@ -375,12 +398,391 @@ function Dashboard() {
     },
   });
 
-  // Fetch data
-  const { data: candlesData, isLoading: candlesLoading } = useCandles(
-    selectedSymbol,
-    timeframe
-  );
+  // Fetch data - GUNAKAN fetchCandlesWithPagination untuk initial load
+  const {
+    data: candlesData,
+    isLoading: candlesLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ["candles", selectedSymbol, timeframe],
+    queryFn: () =>
+      fetchCandlesWithPagination(selectedSymbol, timeframe, 1, 1000),
+    staleTime: 60000,
+    enabled: !!selectedSymbol,
+  });
   const { data: marketCapData } = useMarketCapLive();
+
+  // 🔥 INFINITE SCROLL: Fungsi untuk merge data candles tanpa duplikasi
+  const mergeCandlesData = useCallback((existingData, newData) => {
+    // Buat Set dari existing times untuk cek duplikasi
+    const existingTimes = new Set(existingData.map((d) => d.time.toString()));
+
+    // Filter data baru yang belum ada
+    const uniqueNewData = newData.filter(
+      (d) => !existingTimes.has(d.time.toString())
+    );
+
+    // Gabungkan dan sort berdasarkan time (ascending - oldest first)
+    const merged = [...existingData, ...uniqueNewData];
+    merged.sort((a, b) => {
+      const timeA = typeof a.time === "string" ? Number(a.time) : a.time;
+      const timeB = typeof b.time === "string" ? Number(b.time) : b.time;
+      return timeA - timeB;
+    });
+
+    console.log(
+      `📊 Merged data: ${existingData.length} + ${uniqueNewData.length} = ${merged.length} candles`
+    );
+    return merged;
+  }, []);
+
+  // 🔥 INFINITE SCROLL: Fungsi untuk fetch page berikutnya
+  const fetchMoreData = useCallback(async () => {
+    // Prevent multiple simultaneous fetches
+    if (
+      isLoadingMoreRef.current ||
+      !hasMoreDataRef.current ||
+      !nextUrlRef.current
+    ) {
+      return;
+    }
+
+    // Debouncing: prevent too frequent requests (minimum 500ms between fetches)
+    const now = Date.now();
+    if (now - lastFetchTimeRef.current < 500) {
+      console.log("⏸️ Debounced: Too soon since last fetch");
+      return;
+    }
+
+    isLoadingMoreRef.current = true;
+    lastFetchTimeRef.current = now;
+
+    setPageInfo((prev) => ({ ...prev, isLoading: true }));
+
+    console.log(`🔄 Fetching more data from: ${nextUrlRef.current}`);
+
+    try {
+      // 📊 STEP 1: Simpan state sebelum fetch
+      const prevTotal = allCandlesData.length;
+      const currentLogicalRange = chartRef.current
+        ?.timeScale()
+        .getVisibleLogicalRange();
+
+      console.log(
+        `📊 Before fetch: ${prevTotal} candles, logical range: ${
+          currentLogicalRange
+            ? `${currentLogicalRange.from.toFixed(
+                2
+              )} → ${currentLogicalRange.to.toFixed(2)}`
+            : "null"
+        }`
+      );
+
+      // 🌐 STEP 2: Fetch data baru
+      const response = await fetchCandlesByUrl(nextUrlRef.current);
+
+      if (response?.success && response.data?.length > 0) {
+        console.log(
+          `✅ Fetched ${response.data.length} new candles (Page ${response.page}/${response.totalPages})`
+        );
+
+        // 🔧 STEP 3: Matikan autoscale sementara
+        if (chartRef.current) {
+          chartRef.current.applyOptions({
+            rightPriceScale: {
+              autoScale: false,
+            },
+          });
+          console.log("🔒 AutoScale disabled temporarily");
+        }
+
+        // 📦 STEP 4: Merge new data dengan existing data
+        const mergedData = mergeCandlesData(allCandlesData, response.data);
+        const addedBars = mergedData.length - prevTotal;
+
+        console.log(
+          `🧮 Bars added: ${addedBars} (${prevTotal} → ${mergedData.length})`
+        );
+
+        // 💾 STEP 5: Update state dengan merged data
+        setAllCandlesData(mergedData);
+
+        // 📍 STEP 6: Restore scroll position dengan offset untuk bars baru
+        if (currentLogicalRange && chartRef.current && addedBars > 0) {
+          // Tunggu React render data baru ke chart
+          setTimeout(() => {
+            try {
+              // Hitung range baru dengan offset
+              const newLogicalRange = {
+                from: currentLogicalRange.from + addedBars,
+                to: currentLogicalRange.to + addedBars,
+              };
+
+              console.log(
+                `📍 Adjusting logical range: ${currentLogicalRange.from.toFixed(
+                  2
+                )} → ${newLogicalRange.from.toFixed(
+                  2
+                )}, ${currentLogicalRange.to.toFixed(
+                  2
+                )} → ${newLogicalRange.to.toFixed(2)}`
+              );
+
+              // Set range baru
+              chartRef.current
+                .timeScale()
+                .setVisibleLogicalRange(newLogicalRange);
+              console.log("✅ Scroll position preserved with offset");
+
+              // Re-enable autoscale setelah delay
+              setTimeout(() => {
+                if (chartRef.current) {
+                  chartRef.current.applyOptions({
+                    rightPriceScale: {
+                      autoScale: true,
+                    },
+                  });
+                  console.log("🔓 AutoScale re-enabled");
+                }
+              }, 200);
+            } catch (e) {
+              console.warn("Failed to adjust scroll position:", e);
+
+              // Fallback: re-enable autoscale
+              if (chartRef.current) {
+                chartRef.current.applyOptions({
+                  rightPriceScale: {
+                    autoScale: true,
+                  },
+                });
+              }
+            }
+          }, 100); // Delay untuk memastikan setData() selesai
+        }
+
+        // 🔄 STEP 7: Update pagination info
+        const hasNext = response.pagination?.next?.url != null;
+        nextUrlRef.current = response.pagination?.next?.url || null;
+        hasMoreDataRef.current = hasNext;
+
+        setPageInfo({
+          currentPage: response.page,
+          totalPages: response.totalPages,
+          nextUrl: response.pagination?.next?.url || null,
+          prevUrl: response.pagination?.prev?.url || null,
+          isLoading: false,
+          hasMore: hasNext,
+        });
+
+        console.log(
+          `✅ Pagination updated: Page ${response.page}/${response.totalPages}, hasMore: ${hasNext}`
+        );
+      } else {
+        console.log("⚠️ No more data available");
+        hasMoreDataRef.current = false;
+        setPageInfo((prev) => ({ ...prev, hasMore: false, isLoading: false }));
+
+        // Re-enable autoscale jika fetch gagal
+        if (chartRef.current) {
+          chartRef.current.applyOptions({
+            rightPriceScale: {
+              autoScale: true,
+            },
+          });
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error fetching more data:", error);
+      setPageInfo((prev) => ({ ...prev, isLoading: false }));
+
+      // Re-enable autoscale jika error
+      if (chartRef.current) {
+        chartRef.current.applyOptions({
+          rightPriceScale: {
+            autoScale: true,
+          },
+        });
+      }
+    } finally {
+      isLoadingMoreRef.current = false;
+    }
+  }, [mergeCandlesData, allCandlesData]);
+
+  // 🔥 INFINITE SCROLL: Setup pagination listener untuk detect scroll ke edge kiri
+  const setupPaginationListener = useCallback(
+    (chart, series) => {
+      if (!chart || !series) {
+        console.warn("⚠️ setupPaginationListener: chart or series is null");
+        return;
+      }
+
+      const timeScale = chart.timeScale();
+
+      const handleVisibleLogicalRangeChange = (logicalRange) => {
+        if (!logicalRange) return;
+
+        // 🔍 PERBAIKAN: Gunakan barsInLogicalRange untuk deteksi akurat
+        const barsInfo = series.barsInLogicalRange(logicalRange);
+
+        if (!barsInfo) {
+          console.log("⚠️ barsInfo is null");
+          return;
+        }
+
+        const { barsBefore, barsAfter } = barsInfo;
+
+        // 📊 Debug logs untuk monitoring
+        console.log(
+          `📍 Scroll Position: barsBefore=${barsBefore}, barsAfter=${barsAfter}, from=${logicalRange.from.toFixed(
+            2
+          )}, to=${logicalRange.to.toFixed(2)}`
+        );
+
+        // 🎯 Deteksi jika user scroll mendekati edge kiri (older data)
+        // barsBefore < 50 = ada kurang dari 50 candles sebelum visible range
+        const isNearLeftEdge = barsBefore !== null && barsBefore < 50;
+
+        if (
+          isNearLeftEdge &&
+          hasMoreDataRef.current &&
+          !isLoadingMoreRef.current
+        ) {
+          console.log(
+            `🟢 Trigger fetchMoreData() | barsBefore: ${barsBefore}, hasMore: ${hasMoreDataRef.current}, isLoading: ${isLoadingMoreRef.current}`
+          );
+
+          // Debounce dengan timer
+          if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
+          }
+
+          debounceTimerRef.current = setTimeout(() => {
+            console.log("🚀 Executing fetchMoreData()...");
+            fetchMoreData();
+          }, 300); // 300ms debounce
+        } else {
+          // Debug info kenapa tidak trigger
+          if (!isNearLeftEdge) {
+            console.log(`⏸️ Not near edge: barsBefore=${barsBefore} >= 50`);
+          }
+          if (!hasMoreDataRef.current) {
+            console.log("⏸️ No more data available");
+          }
+          if (isLoadingMoreRef.current) {
+            console.log("⏸️ Already loading...");
+          }
+        }
+      };
+
+      // Subscribe to logical range changes
+      console.log("🎯 Subscribing to visible logical range changes...");
+      const unsubscribe = timeScale.subscribeVisibleLogicalRangeChange(
+        handleVisibleLogicalRangeChange
+      );
+      visibleRangeSubscriptionRef.current = unsubscribe;
+
+      // Test initial state
+      const initialRange = timeScale.getVisibleLogicalRange();
+      if (initialRange) {
+        const initialBarsInfo = series.barsInLogicalRange(initialRange);
+        console.log(
+          `📊 Initial bars: barsBefore=${initialBarsInfo?.barsBefore}, barsAfter=${initialBarsInfo?.barsAfter}`
+        );
+      }
+
+      return unsubscribe;
+    },
+    [fetchMoreData]
+  );
+
+  // 🔥 INFINITE SCROLL: Effect untuk load initial data dan setup pagination
+  useEffect(() => {
+    if (!candlesData?.success || !candlesData.data?.length) return;
+
+    console.log(`📊 Initial data loaded: ${candlesData.data.length} candles`);
+    console.log(`📄 Page ${candlesData.page}/${candlesData.totalPages}`);
+
+    // Set initial data
+    setAllCandlesData(candlesData.data);
+
+    // Update pagination info dari response
+    const hasNext = candlesData.pagination?.next?.url != null;
+    nextUrlRef.current = candlesData.pagination?.next?.url || null;
+    hasMoreDataRef.current = hasNext;
+
+    setPageInfo({
+      currentPage: candlesData.page || 1,
+      totalPages: candlesData.totalPages || 1,
+      nextUrl: candlesData.pagination?.next?.url || null,
+      prevUrl: candlesData.pagination?.prev?.url || null,
+      isLoading: false,
+      hasMore: hasNext,
+    });
+
+    console.log(
+      `🔗 Next URL: ${candlesData.pagination?.next?.url ? "Available" : "None"}`
+    );
+    console.log(`📊 Has more data: ${hasNext}`);
+  }, [candlesData]);
+
+  // 🔥 INFINITE SCROLL: Setup pagination listener ketika chart ready
+  useEffect(() => {
+    if (!chartRef.current || !seriesRef.current) return;
+
+    console.log("🎯 Setting up pagination listener...");
+    const cleanup = setupPaginationListener(
+      chartRef.current,
+      seriesRef.current
+    );
+
+    return () => {
+      if (cleanup) cleanup();
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [setupPaginationListener]);
+
+  // 🔥 INFINITE SCROLL: Update chart data ketika allCandlesData berubah
+  useEffect(() => {
+    if (!seriesRef.current || !allCandlesData.length) return;
+
+    console.log(
+      `📈 Updating chart with ${allCandlesData.length} total candles`
+    );
+
+    const chartData = allCandlesData
+      .map((d) => ({
+        time: Number(d.time) / 1000,
+        open: Number(d.open),
+        high: Number(d.high),
+        low: Number(d.low),
+        close: Number(d.close),
+      }))
+      .sort((a, b) => a.time - b.time);
+
+    seriesRef.current.setData(chartData);
+
+    // Update data range untuk limit zoom
+    if (chartData.length > 0) {
+      dataRangeRef.current = {
+        minTime: chartData[0].time,
+        maxTime: chartData[chartData.length - 1].time,
+      };
+    }
+
+    // Fit content hanya untuk initial load, tidak untuk pagination
+    if (
+      chartRef.current &&
+      allCandlesData.length === candlesData?.data?.length
+    ) {
+      chartRef.current.timeScale().fitContent();
+      const visibleRange = chartRef.current.timeScale().getVisibleRange();
+      if (visibleRange) {
+        currentVisibleRangeRef.current = visibleRange;
+      }
+    }
+  }, [allCandlesData, candlesData?.data?.length]);
 
   // Available indicators - pisahkan overlay dan oscillator
   const overlayIndicators = [
@@ -796,6 +1198,211 @@ function Dashboard() {
       console.error("Error creating MACD chart:", error);
     }
   }, [activeIndicators, isDarkMode]);
+
+  // 🔥 PAGINATION FIX: Update RSI chart data dari allCandlesData
+  useEffect(() => {
+    if (
+      !rsiSeriesRef.current ||
+      !allCandlesData.length ||
+      !activeIndicators.includes("rsi")
+    ) {
+      return;
+    }
+
+    const rsiData = allCandlesData
+      .map((d) => ({
+        time: Number(d.time) / 1000,
+        value: d.indicators?.rsi?.[14],
+      }))
+      .filter((d) => d.value !== null && d.value !== undefined)
+      .sort((a, b) => a.time - b.time);
+
+    if (rsiData.length > 0) {
+      rsiSeriesRef.current.setData(rsiData);
+      console.log(`📊 RSI updated: ${rsiData.length} points`);
+    }
+  }, [allCandlesData, activeIndicators]);
+
+  // 🔥 PAGINATION FIX: Update Stochastic chart data dari allCandlesData
+  useEffect(() => {
+    if (
+      !stochasticKSeriesRef.current ||
+      !allCandlesData.length ||
+      !activeIndicators.includes("stochastic")
+    ) {
+      return;
+    }
+
+    const kData = allCandlesData
+      .map((d) => ({
+        time: Number(d.time) / 1000,
+        value: d.indicators?.stochastic?.["%K"],
+      }))
+      .filter((d) => d.value !== null && d.value !== undefined)
+      .sort((a, b) => a.time - b.time);
+
+    const dData = allCandlesData
+      .map((d) => ({
+        time: Number(d.time) / 1000,
+        value: d.indicators?.stochastic?.["%D"],
+      }))
+      .filter((d) => d.value !== null && d.value !== undefined)
+      .sort((a, b) => a.time - b.time);
+
+    if (kData.length > 0) {
+      stochasticKSeriesRef.current.setData(kData);
+      stochasticDSeriesRef.current.setData(dData);
+      console.log(`📊 Stochastic updated: ${kData.length} points`);
+    }
+  }, [allCandlesData, activeIndicators]);
+
+  // 🔥 PAGINATION FIX: Update Stochastic RSI chart data dari allCandlesData
+  useEffect(() => {
+    if (
+      !stochRsiKSeriesRef.current ||
+      !allCandlesData.length ||
+      !activeIndicators.includes("stochasticRsi")
+    ) {
+      return;
+    }
+
+    const kData = allCandlesData
+      .map((d) => ({
+        time: Number(d.time) / 1000,
+        value: d.indicators?.stochasticRsi?.["%K"],
+      }))
+      .filter((d) => d.value !== null && d.value !== undefined)
+      .sort((a, b) => a.time - b.time);
+
+    const dData = allCandlesData
+      .map((d) => ({
+        time: Number(d.time) / 1000,
+        value: d.indicators?.stochasticRsi?.["%D"],
+      }))
+      .filter((d) => d.value !== null && d.value !== undefined)
+      .sort((a, b) => a.time - b.time);
+
+    if (kData.length > 0) {
+      stochRsiKSeriesRef.current.setData(kData);
+      stochRsiDSeriesRef.current.setData(dData);
+      console.log(`📊 Stochastic RSI updated: ${kData.length} points`);
+    }
+  }, [allCandlesData, activeIndicators]);
+
+  // 🔥 PAGINATION FIX: Update MACD chart data dari allCandlesData
+  useEffect(() => {
+    if (
+      !macdLineSeriesRef.current ||
+      !allCandlesData.length ||
+      !activeIndicators.includes("macd")
+    ) {
+      return;
+    }
+
+    const macdData = allCandlesData
+      .map((d) => ({
+        time: Number(d.time) / 1000,
+        value: d.indicators?.macd?.macd,
+      }))
+      .filter((d) => d.value !== null && d.value !== undefined)
+      .sort((a, b) => a.time - b.time);
+
+    const signalData = allCandlesData
+      .map((d) => ({
+        time: Number(d.time) / 1000,
+        value: parseFloat(d.indicators?.macd?.signalLine),
+      }))
+      .filter(
+        (d) => d.value !== null && d.value !== undefined && !isNaN(d.value)
+      )
+      .sort((a, b) => a.time - b.time);
+
+    const histogramData = allCandlesData
+      .map((d) => ({
+        time: Number(d.time) / 1000,
+        value: d.indicators?.macd?.histogram,
+        color: d.indicators?.macd?.histogram >= 0 ? "#26a69a" : "#ef5350",
+      }))
+      .filter((d) => d.value !== null && d.value !== undefined)
+      .sort((a, b) => a.time - b.time);
+
+    if (macdData.length > 0) {
+      macdLineSeriesRef.current.setData(macdData);
+      macdSignalSeriesRef.current.setData(signalData);
+      macdHistogramSeriesRef.current.setData(histogramData);
+      console.log(`📊 MACD updated: ${macdData.length} points`);
+    }
+  }, [allCandlesData, activeIndicators]);
+
+  // 🔥 PAGINATION FIX: Update overlay indicators dari allCandlesData
+  useEffect(() => {
+    if (!chartRef.current || !allCandlesData.length) return;
+
+    // Clear existing overlay indicator series
+    Object.values(indicatorSeriesRef.current).forEach((series) => {
+      if (Array.isArray(series)) {
+        series.forEach((s) => chartRef.current.removeSeries(s));
+      } else if (series) {
+        chartRef.current.removeSeries(series);
+      }
+    });
+    indicatorSeriesRef.current = {};
+
+    // Add active overlay indicators to chart
+    overlayIndicators.forEach((indicator) => {
+      if (!activeIndicators.includes(indicator.id)) return;
+
+      // Check jika indikator memiliki multiple periods (SMA/EMA)
+      if (indicator.periods && indicator.colors) {
+        const seriesArray = [];
+
+        indicator.periods.forEach((period, index) => {
+          const chartData = allCandlesData
+            .map((d) => ({
+              time: Number(d.time) / 1000,
+              value: getIndicatorValueByPeriod(d, indicator.type, period),
+            }))
+            .filter((d) => d.value !== null && d.value !== undefined)
+            .sort((a, b) => a.time - b.time);
+
+          if (chartData.length > 0) {
+            const lineSeries = chartRef.current.addLineSeries({
+              color: indicator.colors[index],
+              lineWidth: 2,
+              title: `${indicator.type.toUpperCase()} ${period}`,
+            });
+            lineSeries.setData(chartData);
+            seriesArray.push(lineSeries);
+          }
+        });
+
+        indicatorSeriesRef.current[indicator.id] = seriesArray;
+      } else {
+        // Single series untuk Bollinger Bands dan PSAR
+        const chartData = allCandlesData
+          .map((d) => ({
+            time: Number(d.time) / 1000,
+            value: getIndicatorValue(d, indicator.type),
+          }))
+          .filter((d) => d.value !== null && d.value !== undefined)
+          .sort((a, b) => a.time - b.time);
+
+        if (chartData.length > 0) {
+          const lineSeries = chartRef.current.addLineSeries({
+            color: indicator.color,
+            lineWidth: 2,
+            title: indicator.label,
+          });
+          lineSeries.setData(chartData);
+          indicatorSeriesRef.current[indicator.id] = lineSeries;
+        }
+      }
+    });
+
+    console.log(
+      `📊 Overlay indicators updated from ${allCandlesData.length} candles`
+    );
+  }, [activeIndicators, allCandlesData]);
 
   // Update main chart data
   useEffect(() => {

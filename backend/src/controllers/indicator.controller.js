@@ -91,21 +91,67 @@ export async function getIndicators(req, res) {
       }),
     ]);
 
-    // Gabungkan harga dan indikator
+    // Gabungkan harga dan indikator dengan struktur lengkap
     const priceMap = new Map(
       candlePrices.map((c) => [Number(c.time), c.close])
     );
-    const organized = data.map((d) => ({
-      time: Number(d.time),
-      price: priceMap.get(Number(d.time)) ?? null,
-      indicators: {
-        sma: { 20: d.sma20, 50: d.sma50, signal: d.smaSignal },
-        ema: { 20: d.ema20, 50: d.ema50, signal: d.emaSignal },
-        rsi: { 14: d.rsi, signal: d.rsiSignal },
-      },
-      overallSignal: d.overallSignal,
-      signalStrength: d.signalStrength,
-    }));
+
+    const organized = data.map((d) => {
+      // 🔧 Calculate Bollinger Middle if not in DB
+      const bbMiddle =
+        d.bbUpper && d.bbLower
+          ? (d.bbUpper + d.bbLower) / 2
+          : (d.sma20 ?? null);
+
+      return {
+        time: Number(d.time),
+        price: priceMap.get(Number(d.time)) ?? null,
+        indicators: {
+          sma: {
+            20: d.sma20 ?? null,
+            50: d.sma50 ?? null,
+            signal: d.smaSignal ?? "neutral",
+          },
+          ema: {
+            20: d.ema20 ?? null,
+            50: d.ema50 ?? null,
+            signal: d.emaSignal ?? "neutral",
+          },
+          rsi: {
+            14: d.rsi ?? null,
+            signal: d.rsiSignal ?? "neutral",
+          },
+          macd: {
+            macd: d.macd ?? null,
+            signalLine: d.macdSignalLine ?? null,
+            histogram: d.macdHist ?? null,
+            signal: d.macdSignal ?? "neutral",
+          },
+          bollingerBands: {
+            upper: d.bbUpper ?? null,
+            middle: bbMiddle, // ✅ Now includes calculated middle value
+            lower: d.bbLower ?? null,
+            signal: d.bbSignal ?? "neutral",
+          },
+          stochastic: {
+            "%K": d.stochK ?? null,
+            "%D": d.stochD ?? null,
+            signal: d.stochSignal ?? "neutral",
+          },
+          stochasticRsi: {
+            "%K": d.stochRsiK ?? null,
+            "%D": d.stochRsiD ?? null,
+            signal: d.stochRsiSignal ?? "neutral",
+          },
+          parabolicSar: {
+            value: d.psar ?? null,
+            signal: d.psarSignal ?? "neutral",
+          },
+        },
+        overallSignal: d.overallSignal ?? "neutral",
+        signalStrength: d.signalStrength ?? 0.5,
+      };
+    });
 
     const processingTime = Date.now() - startTime;
     const rangeStart = formatReadableDate(

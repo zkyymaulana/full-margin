@@ -2,11 +2,6 @@ import { OAuth2Client } from "google-auth-library";
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-/**
- * Verify Google OAuth token
- * @param {string} token - Google credential token from frontend
- * @returns {Promise<Object>} User profile data
- */
 export async function verifyGoogleToken(token) {
   try {
     const ticket = await client.verifyIdToken({

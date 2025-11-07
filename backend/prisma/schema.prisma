@@ -15,7 +15,6 @@ model User {
   createdAt    DateTime   @default(now())
   lastLogin    DateTime?
   authLogs     AuthLog[]
-  // Removed signals relation as Signal model is not used
   avatarUrl    String?
 }
 
@@ -77,7 +76,7 @@ model Indicator {
   ema50      Float?  
   rsi        Float?
   macd       Float?
-  macdSignalLine Float?  // Renamed from macdSignal to avoid conflict
+  macdSignalLine Float?  
   macdHist   Float?
   bbUpper    Float?
   bbLower    Float?
@@ -89,13 +88,13 @@ model Indicator {
   
   // === Signal Values (for performance optimization) ===
   smaSignal      String? // "buy", "sell", "neutral"
-  emaSignal      String? // "buy", "sell", "neutral"
-  rsiSignal      String? // "buy", "sell", "neutral"
-  macdSignal     String? // "buy", "sell", "neutral"
-  bbSignal       String? // "buy", "sell", "neutral"
-  stochSignal    String? // "buy", "sell", "neutral"
-  stochRsiSignal String? // "buy", "sell", "neutral"
-  psarSignal     String? // "buy", "sell", "neutral"
+  emaSignal      String? 
+  rsiSignal      String? 
+  macdSignal     String? 
+  bbSignal       String? 
+  stochSignal    String? 
+  stochRsiSignal String? 
+  psarSignal     String? 
   
   // === Overall Signal Analysis ===
   overallSignal  String? // "strong_buy", "buy", "neutral", "sell", "strong_sell"

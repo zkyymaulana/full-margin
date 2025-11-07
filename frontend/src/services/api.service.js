@@ -79,6 +79,28 @@ export const fetchCandles = async (symbol = "BTC-USD", timeframe = "1h") => {
   return data;
 };
 
+// Candlestick data with pagination support
+export const fetchCandlesWithPagination = async (
+  symbol = "BTC-USD",
+  timeframe = "1h",
+  page = 1,
+  limit = 1000
+) => {
+  const { data } = await apiClient.get(`/chart/${symbol}`, {
+    params: { timeframe, page, limit },
+    timeout: 10000,
+  });
+  return data;
+};
+
+// Fetch candles by full URL (for pagination next/prev)
+export const fetchCandlesByUrl = async (url) => {
+  const { data } = await axios.get(url, {
+    timeout: 10000,
+  });
+  return data;
+};
+
 // Marketcap live
 export const fetchMarketCapLive = async (limit = 100) => {
   const { data } = await apiClient.get("/marketcap/live", {

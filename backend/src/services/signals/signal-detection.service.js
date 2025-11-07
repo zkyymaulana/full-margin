@@ -5,22 +5,23 @@ import {
 } from "../telegram/telegram.service.js";
 import {
   calculateIndividualSignals,
-  scoreSignal,
-} from "../multiIndicator/multiIndicator-analyzer.service.js";
+  calculateWeightedSignal,
+} from "../../utils/indicator.utils.js";
+import { fetchLatestIndicatorData } from "../../utils/db.utils.js";
 
 /**
- * 🎯 SIGNAL DETECTION SERVICE
- * ---------------------------
+ * 🎯 SIGNAL DETECTION SERVICE (CLEAN VERSION)
+ * -------------------------------------------
  * Deteksi sinyal trading dari indikator dan kirim notifikasi
  * - Single Indicator Signals
- * - Multi-Indicator Signals (dengan optimized weights)
+ * - Multi-Indicator Signals (berdasarkan optimized weights)
  */
 
-const HOLD_THRESHOLD = 0.15; // Threshold untuk BUY/SELL decision
+const HOLD_THRESHOLD = 0.15;
 
-/**
- * 🔍 Deteksi dan kirim sinyal single indicator untuk symbol
- */
+/* =========================================================
+   🔍 SINGLE INDICATOR SIGNAL DETECTION
+========================================================= */
 export async function detectAndNotifySingleIndicatorSignals(
   symbol,
   timeframe = "1h"
@@ -28,8 +29,7 @@ export async function detectAndNotifySingleIndicatorSignals(
   try {
     console.log(`🔍 Detecting single indicator signals for ${symbol}...`);
 
-    // Get latest indicator data
-    const [latestIndicator, latestCandle] = await Promise.all([
+    const [indicator, candle] = await Promise.all([
       prisma.indicator.findFirst({
         where: { symbol, timeframe },
         orderBy: { time: "desc" },
@@ -40,66 +40,24 @@ export async function detectAndNotifySingleIndicatorSignals(
       }),
     ]);
 
-    if (!latestIndicator || !latestCandle) {
-      console.log(`⚠️ No data found for ${symbol}`);
-      return { success: false, reason: "no_data" };
-    }
+    if (!indicator || !candle) return { success: false, reason: "no_data" };
 
-    const price = latestCandle.close;
+    const price = candle.close;
     const signals = [];
 
-    // Check RSI signal
-    if (latestIndicator.rsi !== null) {
-      const rsiSignal = latestIndicator.rsiSignal || "neutral";
-      if (rsiSignal === "buy" || rsiSignal === "sell") {
-        signals.push({
-          indicator: "RSI",
-          signal: rsiSignal,
-          value: latestIndicator.rsi,
-        });
+    const checkSignal = (key, value, signalValue) => {
+      if (signalValue === "buy" || signalValue === "sell") {
+        signals.push({ indicator: key, signal: signalValue, value });
       }
-    }
+    };
 
-    // Check MACD signal
-    if (latestIndicator.macdSignal) {
-      const macdSignal = latestIndicator.macdSignal || "neutral";
-      if (macdSignal === "buy" || macdSignal === "sell") {
-        signals.push({
-          indicator: "MACD",
-          signal: macdSignal,
-          value: latestIndicator.macd,
-        });
-      }
-    }
+    checkSignal("RSI", indicator.rsi, indicator.rsiSignal);
+    checkSignal("MACD", indicator.macd, indicator.macdSignal);
+    checkSignal("SMA", indicator.sma20, indicator.smaSignal);
+    checkSignal("EMA", indicator.ema20, indicator.emaSignal);
 
-    // Check SMA signal
-    if (latestIndicator.smaSignal) {
-      const smaSignal = latestIndicator.smaSignal || "neutral";
-      if (smaSignal === "buy" || smaSignal === "sell") {
-        signals.push({
-          indicator: "SMA",
-          signal: smaSignal,
-          value: latestIndicator.sma20,
-        });
-      }
-    }
-
-    // Check EMA signal
-    if (latestIndicator.emaSignal) {
-      const emaSignal = latestIndicator.emaSignal || "neutral";
-      if (emaSignal === "buy" || emaSignal === "sell") {
-        signals.push({
-          indicator: "EMA",
-          signal: emaSignal,
-          value: latestIndicator.ema20,
-        });
-      }
-    }
-
-    // Send notifications for each signal
-    const sentCount = 0;
     for (const sig of signals) {
-      const result = await sendSingleIndicatorSignal({
+      await sendSingleIndicatorSignal({
         symbol,
         indicator: sig.indicator,
         signal: sig.signal,
@@ -107,28 +65,19 @@ export async function detectAndNotifySingleIndicatorSignals(
         indicatorValue: sig.value,
         timeframe,
       });
-
-      if (result.success) {
-        console.log(
-          `✅ Sent ${sig.indicator} ${sig.signal} signal for ${symbol}`
-        );
-      }
+      console.log(`✅ Sent ${sig.indicator} ${sig.signal} for ${symbol}`);
     }
 
-    return {
-      success: true,
-      signalsDetected: signals.length,
-      signalsSent: sentCount,
-    };
-  } catch (error) {
-    console.error(`❌ Error detecting signals for ${symbol}:`, error.message);
-    return { success: false, error: error.message };
+    return { success: true, signalsDetected: signals.length };
+  } catch (err) {
+    console.error(`❌ Error detecting signals for ${symbol}:`, err.message);
+    return { success: false, error: err.message };
   }
 }
 
-/**
- * 🎯 Deteksi dan kirim sinyal multi-indicator untuk symbol
- */
+/* =========================================================
+   🎯 MULTI INDICATOR SIGNAL DETECTION
+========================================================= */
 export async function detectAndNotifyMultiIndicatorSignals(
   symbol,
   timeframe = "1h"
@@ -136,286 +85,131 @@ export async function detectAndNotifyMultiIndicatorSignals(
   try {
     console.log(`🎯 Detecting multi-indicator signals for ${symbol}...`);
 
-    // Get latest optimized weights
     const latestWeights = await prisma.indicatorWeight.findFirst({
       where: { symbol, timeframe },
       orderBy: { updatedAt: "desc" },
     });
 
-    if (!latestWeights) {
-      console.log(`⚠️ No optimized weights found for ${symbol}`);
-      return { success: false, reason: "no_weights" };
+    if (!latestWeights) return { success: false, reason: "no_weights" };
+
+    const { indicator, prevIndicator, candle } = await fetchLatestIndicatorData(
+      symbol,
+      timeframe
+    );
+    if (!indicator || !candle) return { success: false, reason: "no_data" };
+
+    const current = { ...indicator, close: candle.close };
+    const prev = prevIndicator ? { ...prevIndicator } : null;
+
+    const signals = calculateIndividualSignals(current, prev);
+    const { normalized, signal } = calculateWeightedSignal(
+      signals,
+      latestWeights.weights,
+      HOLD_THRESHOLD
+    );
+
+    if (signal === "neutral") {
+      console.log(
+        `⚪ Neutral signal for ${symbol} (score: ${normalized.toFixed(2)})`
+      );
+      return { success: true, signal: "neutral", score: normalized };
     }
 
-    // Get latest indicator data
-    const [latestIndicator, prevIndicator, latestCandle] = await Promise.all([
-      prisma.indicator.findFirst({
-        where: { symbol, timeframe },
-        orderBy: { time: "desc" },
-      }),
-      prisma.indicator.findFirst({
-        where: { symbol, timeframe },
-        orderBy: { time: "desc" },
-        skip: 1,
-      }),
-      prisma.candle.findFirst({
-        where: { symbol, timeframe },
-        orderBy: { time: "desc" },
-      }),
-    ]);
-
-    if (!latestIndicator || !latestCandle) {
-      console.log(`⚠️ No indicator data found for ${symbol}`);
-      return { success: false, reason: "no_data" };
-    }
-
-    // Transform indicator data
-    const currentData = {
-      close: latestCandle.close,
-      sma20: latestIndicator.sma20,
-      sma50: latestIndicator.sma50,
-      sma200: latestIndicator.sma200,
-      ema20: latestIndicator.ema20,
-      ema50: latestIndicator.ema50,
-      ema200: latestIndicator.ema200,
-      rsi: latestIndicator.rsi,
-      macd: latestIndicator.macd,
-      macdSignal: latestIndicator.macdSignalLine,
-      macdHist: latestIndicator.macdHist,
-      bbUpper: latestIndicator.bbUpper,
-      bbMiddle: latestIndicator.bbMiddle,
-      bbLower: latestIndicator.bbLower,
-      stochK: latestIndicator.stochK,
-      stochD: latestIndicator.stochD,
-      stochRsiK: latestIndicator.stochRsiK,
-      stochRsiD: latestIndicator.stochRsiD,
-      psar: latestIndicator.psar,
-    };
-
-    const prevData = prevIndicator
-      ? {
-          close: prevIndicator.close,
-          sma20: prevIndicator.sma20,
-          sma50: prevIndicator.sma50,
-          ema20: prevIndicator.ema20,
-          ema50: prevIndicator.ema50,
-          macdHist: prevIndicator.macdHist,
-          bbUpper: prevIndicator.bbUpper,
-          bbLower: prevIndicator.bbLower,
-          stochK: prevIndicator.stochK,
-          stochD: prevIndicator.stochD,
-          stochRsiK: prevIndicator.stochRsiK,
-          stochRsiD: prevIndicator.stochRsiD,
-          psar: prevIndicator.psar,
-        }
-      : null;
-
-    // Calculate individual signals
-    const signals = calculateIndividualSignals(currentData, prevData);
-
-    // Calculate weighted score
-    const weights = latestWeights.weights;
-    const indicators = Object.keys(weights);
-
-    let combinedScore = 0;
-    let totalWeight = 0;
-    const activeIndicators = [];
-
-    indicators.forEach((ind) => {
-      const weight = weights[ind];
-      if (weight > 0) {
-        const signal = signals[ind];
-        const signalValue = scoreSignal(signal);
-        combinedScore += weight * signalValue;
-        totalWeight += weight;
-        activeIndicators.push({ name: ind, weight });
-      }
+    const result = await sendMultiIndicatorSignal({
+      symbol,
+      signal,
+      price: candle.close,
+      activeIndicators: Object.entries(latestWeights.weights).map(([k, w]) => ({
+        name: k,
+        weight: w,
+      })),
+      performance: {
+        roi: latestWeights.testROI || latestWeights.roi,
+        winRate: latestWeights.testWinRate || latestWeights.winRate,
+        sharpe: (
+          latestWeights.testSharpe ||
+          latestWeights.sharpeRatio ||
+          0
+        ).toFixed(3),
+        trades: latestWeights.testTrades || latestWeights.trades,
+      },
+      timeframe,
     });
 
-    const normalizedScore = totalWeight > 0 ? combinedScore / totalWeight : 0;
-
-    // Determine signal
-    let finalSignal = "neutral";
-    if (normalizedScore > HOLD_THRESHOLD) {
-      finalSignal = "buy";
-    } else if (normalizedScore < -HOLD_THRESHOLD) {
-      finalSignal = "sell";
-    }
-
-    // Only send notification if signal is BUY or SELL
-    if (finalSignal !== "neutral") {
-      const result = await sendMultiIndicatorSignal({
-        symbol,
-        signal: finalSignal,
-        price: latestCandle.close,
-        activeIndicators,
-        performance: {
-          roi: latestWeights.testROI || latestWeights.roi,
-          winRate: latestWeights.testWinRate || latestWeights.winRate,
-          sharpe: (
-            latestWeights.testSharpe ||
-            latestWeights.sharpeRatio ||
-            0
-          ).toFixed(3),
-          trades: latestWeights.testTrades || latestWeights.trades,
-        },
-        timeframe,
-      });
-
-      if (result.success) {
-        console.log(
-          `✅ Sent multi-indicator ${finalSignal} signal for ${symbol}`
-        );
-        return { success: true, signal: finalSignal, score: normalizedScore };
-      }
-    } else {
-      console.log(
-        `⚪ Neutral signal for ${symbol} (score: ${normalizedScore.toFixed(2)})`
-      );
-    }
-
-    return { success: true, signal: finalSignal, score: normalizedScore };
-  } catch (error) {
+    if (result.success)
+      console.log(`✅ Sent ${signal.toUpperCase()} signal for ${symbol}`);
+    return { success: true, signal, score: normalized };
+  } catch (err) {
     console.error(
       `❌ Error detecting multi-indicator signals for ${symbol}:`,
-      error.message
+      err.message
     );
-    return { success: false, error: error.message };
+    return { success: false, error: err.message };
   }
 }
 
-/**
- * 🔄 Deteksi dan kirim sinyal untuk semua symbol aktif
- */
+/* =========================================================
+   🔄 DETECT SIGNALS FOR ALL SYMBOLS
+========================================================= */
 export async function detectAndNotifyAllSymbols(symbols, mode = "both") {
   console.log(
     `🔄 Detecting signals for ${symbols.length} symbols (mode: ${mode})...`
   );
 
   const results = {
-    singleIndicator: { success: 0, failed: 0, neutral: 0 },
-    multiIndicator: { success: 0, failed: 0, neutral: 0, needsOptimization: 0 },
+    single: { success: 0, failed: 0 },
+    multi: { success: 0, failed: 0, neutral: 0, noWeights: 0 },
   };
 
   for (const symbol of symbols) {
     try {
-      // Single indicator signals
       if (mode === "single" || mode === "both") {
-        const singleResult =
-          await detectAndNotifySingleIndicatorSignals(symbol);
-        if (singleResult.success) {
-          results.singleIndicator.success++;
-        } else if (singleResult.reason === "no_data") {
-          results.singleIndicator.failed++;
-        } else {
-          results.singleIndicator.neutral++;
-        }
-
-        // Small delay to avoid rate limiting
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        const r = await detectAndNotifySingleIndicatorSignals(symbol);
+        r.success ? results.single.success++ : results.single.failed++;
+        await new Promise((r) => setTimeout(r, 400));
       }
 
-      // Multi-indicator signals
       if (mode === "multi" || mode === "both") {
-        const multiResult = await detectAndNotifyMultiIndicatorSignals(symbol);
-
-        if (multiResult.success && multiResult.signal !== "neutral") {
-          results.multiIndicator.success++;
-        } else if (multiResult.reason === "no_weights") {
-          results.multiIndicator.needsOptimization++;
-          console.log(`⚠️ ${symbol}: Needs optimization - skipping for now`);
-        } else if (multiResult.reason === "no_data") {
-          results.multiIndicator.failed++;
-        } else {
-          results.multiIndicator.neutral++;
-        }
-
-        // Small delay to avoid rate limiting
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        const r = await detectAndNotifyMultiIndicatorSignals(symbol);
+        if (r.reason === "no_weights") results.multi.noWeights++;
+        else if (r.signal === "neutral") results.multi.neutral++;
+        else if (r.success) results.multi.success++;
+        else results.multi.failed++;
+        await new Promise((r) => setTimeout(r, 400));
       }
-    } catch (error) {
-      console.error(`❌ Error processing ${symbol}:`, error.message);
-      results.multiIndicator.failed++;
+    } catch (err) {
+      console.error(`❌ Error processing ${symbol}:`, err.message);
+      results.multi.failed++;
     }
   }
 
-  console.log(`\n📊 SIGNAL DETECTION SUMMARY:`);
-  if (mode === "single" || mode === "both") {
-    console.log(`   Single Indicator:`);
-    console.log(`      ✅ Sent: ${results.singleIndicator.success}`);
-    console.log(
-      `      ⚪ Neutral/Duplicate: ${results.singleIndicator.neutral}`
-    );
-    console.log(`      ❌ Failed: ${results.singleIndicator.failed}`);
-  }
-  if (mode === "multi" || mode === "both") {
-    console.log(`   Multi-Indicator:`);
-    console.log(`      ✅ Sent: ${results.multiIndicator.success}`);
-    console.log(
-      `      ⚪ Neutral/Duplicate: ${results.multiIndicator.neutral}`
-    );
-    console.log(
-      `      ⚠️  Needs Optimization: ${results.multiIndicator.needsOptimization}`
-    );
-    console.log(`      ❌ Failed: ${results.multiIndicator.failed}`);
-  }
-
+  console.log("📊 Detection Summary:", results);
   return results;
 }
 
-/**
- * 🎯 Auto-optimize koin yang belum punya weights (background job)
- */
+/* =========================================================
+   🧠 CHECK & OPTIMIZE WEIGHTLESS COINS
+========================================================= */
 export async function autoOptimizeCoinsWithoutWeights(
   symbols,
   timeframe = "1h"
 ) {
-  console.log(`\n🔍 Checking for coins without optimized weights...`);
-
-  const coinsNeedingOptimization = [];
-
+  const needs = [];
   for (const symbol of symbols) {
-    const existingWeights = await prisma.indicatorWeight.findFirst({
+    const existing = await prisma.indicatorWeight.findFirst({
       where: { symbol, timeframe },
-      orderBy: { updatedAt: "desc" },
     });
-
-    if (!existingWeights) {
-      // Check if has enough data (at least 1000 candles)
-      const candleCount = await prisma.candle.count({
-        where: { symbol, timeframe },
-      });
-
-      if (candleCount >= 1000) {
-        coinsNeedingOptimization.push(symbol);
-      } else {
-        console.log(
-          `⏭️ ${symbol}: Insufficient data (${candleCount}/1000 candles)`
-        );
-      }
+    if (!existing) {
+      const count = await prisma.candle.count({ where: { symbol, timeframe } });
+      if (count >= 1000) needs.push(symbol);
+      else console.log(`⏭️ ${symbol}: Only ${count}/1000 candles`);
     }
   }
 
-  if (coinsNeedingOptimization.length === 0) {
-    console.log(`✅ All coins already have optimized weights!`);
-    return { optimized: 0, failed: 0 };
-  }
+  if (!needs.length) return console.log("✅ All coins optimized.");
 
-  console.log(
-    `\n🎯 Found ${coinsNeedingOptimization.length} coins needing optimization:`
-  );
-  console.log(`   ${coinsNeedingOptimization.join(", ")}`);
-  console.log(
-    `\n⚠️ Note: This is informational only. Please optimize manually via API:`
-  );
-  coinsNeedingOptimization.forEach((symbol) => {
-    console.log(`   POST /api/multiIndicator/${symbol}/optimize-weights`);
-  });
-
-  return {
-    coinsNeedingOptimization,
-    count: coinsNeedingOptimization.length,
-  };
+  console.log(`🎯 Coins needing optimization: ${needs.join(", ")}`);
+  return { count: needs.length, needs };
 }
 
 export default {

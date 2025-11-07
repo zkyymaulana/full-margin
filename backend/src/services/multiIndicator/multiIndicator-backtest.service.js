@@ -1,99 +1,65 @@
 import {
   calculateIndividualSignals,
   scoreSignal,
-} from "./multiIndicator-analyzer.service.js";
+  calcMaxDrawdown,
+} from "../../utils/indicator.utils.js";
 
-/**
- * BACKTEST MULTI-INDICATOR STRATEGY
- * ---------------------------------
- * Dijalankan dengan bobot tetap (tanpa optimasi acak).
- * Hasil: ROI, WinRate, MaxDrawdown, Trades.
- */
+export async function backtestWithWeights(
+  data,
+  weights = {},
+  { fastMode = false } = {}
+) {
+  if (!data?.length) throw new Error("Data historis kosong");
 
-function calcMaxDrawdown(curve) {
-  if (!Array.isArray(curve) || curve.length === 0) return 0.01;
-  let peak = curve[0];
-  let maxDD = 0;
-  for (const v of curve) {
-    if (v > peak) peak = v;
-    if (peak > 0) {
-      const dd = ((peak - v) / peak) * 100;
-      if (dd > maxDD) maxDD = dd;
-    }
-  }
-  return +Math.max(maxDD, 0.01).toFixed(2);
-}
+  const HOLD_THRESHOLD = 0.15;
+  const INITIAL_CAPITAL = 10_000;
 
-export async function backtestWithWeights(data, weights = {}, options = {}) {
-  if (!data?.length) throw new Error("Data is required");
-
-  const HOLD_THRESHOLD = options.fastMode
-    ? 0.15
-    : (options.holdThreshold ?? 0.15);
-  const INITIAL = 10000;
-
-  let cap = INITIAL;
-  let pos = null;
+  let capital = INITIAL_CAPITAL;
+  let position = null;
   let entry = 0;
   let wins = 0;
   let trades = 0;
   const equityCurve = [];
 
-  const keys = Object.keys(weights || {});
+  const keys = Object.keys(weights);
 
   for (let i = 0; i < data.length; i++) {
     const cur = data[i];
-    const prev = i > 0 ? data[i - 1] : null;
+    const prev = i ? data[i - 1] : null;
     const price = cur.close;
-    if (!price) {
-      equityCurve.push(cap);
-      continue;
-    }
+    if (!price) continue;
 
-    const sigs = calculateIndividualSignals(cur, prev);
+    const signals = calculateIndividualSignals(cur, prev);
+    const weighted = keys.map(
+      (k) => (weights[k] ?? 0) * scoreSignal(signals[k] ?? "neutral")
+    );
+    const score = weighted.reduce((a, b) => a + b, 0) / (keys.length || 1);
 
-    let sum = 0;
-    let tot = 0;
-    for (const k of keys) {
-      const normKey = k === "ParabolicSAR" ? "PSAR" : k;
-      const w = Number(weights[k] ?? 0);
-      if (!w || !(normKey in sigs)) continue;
-      const sval = scoreSignal(sigs[normKey]);
-      sum += w * sval;
-      tot += w;
-    }
-
-    const score = tot > 0 ? sum / tot : 0;
-
-    if (score > HOLD_THRESHOLD && !pos) {
-      pos = "BUY";
+    // Simple trading rule
+    if (score > HOLD_THRESHOLD && !position) {
+      position = "BUY";
       entry = price;
-    } else if (score < -HOLD_THRESHOLD && pos === "BUY") {
+    } else if (score < -HOLD_THRESHOLD && position === "BUY") {
       const pnl = price - entry;
       if (pnl > 0) wins++;
-      cap += (cap / entry) * pnl;
-      pos = null;
+      capital += (capital / entry) * pnl;
+      position = null;
       trades++;
     }
 
-    equityCurve.push(cap);
+    equityCurve.push(capital);
   }
-
-  const roi = +(((cap - INITIAL) / INITIAL) * 100).toFixed(2);
-  const winRate = trades ? +((wins / trades) * 100).toFixed(2) : 0;
-  const maxDrawdown = calcMaxDrawdown(equityCurve);
 
   return {
     success: true,
-    methodology: options.fastMode
-      ? "Rule-Based Weighted Multi-Indicator Backtest (fastMode)"
-      : "Rule-Based Weighted Multi-Indicator Backtest",
-    roi,
-    winRate,
+    methodology: fastMode
+      ? "Fast Rule-Based Multi-Indicator Backtest"
+      : "Rule-Based Multi-Indicator Backtest",
+    roi: +(((capital - INITIAL_CAPITAL) / INITIAL_CAPITAL) * 100).toFixed(2),
+    winRate: trades ? +((wins / trades) * 100).toFixed(2) : 0,
     trades,
-    finalCapital: +cap.toFixed(2),
-    maxDrawdown,
+    finalCapital: +capital.toFixed(2),
+    maxDrawdown: calcMaxDrawdown(equityCurve),
     dataPoints: data.length,
-    timestamp: new Date().toISOString(),
   };
 }
