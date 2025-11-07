@@ -79,7 +79,7 @@ model Indicator {
   macdSignalLine Float?  
   macdHist   Float?
   bbUpper    Float?
-  bbMiddle   Float?  // ✅ Added middle band (SMA) for direct use in frontend charts
+  bbMiddle   Float?
   bbLower    Float?
   stochK     Float?
   stochD     Float?
