@@ -1,6 +1,10 @@
 import axios from "axios";
 import http from "http";
 import https from "https";
+import {
+  cleanCandleData,
+  removeDuplicateCandles,
+} from "../../utils/dataCleaner.js";
 
 const API_URL =
   process.env.COINBASE_API_URL || "https://api.exchange.coinbase.com";
@@ -75,8 +79,11 @@ export async function fetchHistoricalCandles(symbol, start, end) {
     current = next + HOUR_MS;
   }
 
-  console.log(`📦 ${symbol}: Total ${allCandles.length} candle dikumpulkan`);
-  return allCandles.sort((a, b) => a.time - b.time);
+  // 🧹 Bersihkan dan validasi semua candle sebelum return
+  const sortedCandles = allCandles.sort((a, b) => a.time - b.time);
+  const cleanedCandles = cleanCandleData(sortedCandles);
+  const finalCandles = removeDuplicateCandles(cleanedCandles);
+  return finalCandles;
 }
 
 async function delay(ms) {

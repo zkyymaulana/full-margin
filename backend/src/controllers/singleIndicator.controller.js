@@ -2,7 +2,7 @@ import { prisma } from "../lib/prisma.js";
 import {
   backtestSingleIndicator,
   backtestAllIndicators,
-} from "../services/indicators/indicator-backtest.service.js";
+} from "../services/backtest/backtest.service.js";
 
 // 🕒 Format tanggal ke Bahasa Indonesia (Asia/Jakarta)
 const formatDate = (t) =>
@@ -16,17 +16,37 @@ const formatDate = (t) =>
    🔧 Ambil Semua Data Candle & Indikator
 ========================================================== */
 async function getIndicatorsWithPrices(symbol, timeframe) {
-  console.log(`📊 Fetching full dataset for ${symbol} (${timeframe})...`);
+  console.log(
+    `📊 Fetching dataset for ${symbol} (${timeframe}) between 2020–2025...`
+  );
   const start = Date.now();
 
-  // Ambil semua data indikator dan candle mentah
+  // Rentang waktu (dalam epoch milliseconds)
+  const startTime = new Date("2020-01-01T00:00:00Z").getTime();
+  const endTime = new Date("2025-01-01T00:00:00Z").getTime();
+
+  // Ambil data indikator dan candle sesuai rentang waktu
   const [indicators, candles] = await Promise.all([
     prisma.indicator.findMany({
-      where: { symbol, timeframe },
+      where: {
+        symbol,
+        timeframe,
+        time: {
+          gte: startTime,
+          lte: endTime,
+        },
+      },
       orderBy: { time: "asc" },
     }),
     prisma.candle.findMany({
-      where: { symbol, timeframe },
+      where: {
+        symbol,
+        timeframe,
+        time: {
+          gte: startTime,
+          lte: endTime,
+        },
+      },
       orderBy: { time: "asc" },
       select: { time: true, close: true },
     }),

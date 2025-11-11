@@ -1,72 +1,73 @@
 import { backtestWithWeights } from "./multiIndicator-backtest.service.js";
+import crypto from "crypto";
 
-const GROUPS = {
-  TREND: ["SMA", "EMA", "PSAR"],
-  MOMENTUM: ["RSI", "MACD", "Stochastic", "StochasticRSI"],
-  VOLATILITY: ["BollingerBands"],
-};
+function coinSeed(symbol) {
+  const hash = crypto.createHash("md5").update(symbol).digest("hex");
+  return parseInt(hash.slice(0, 8), 16);
+}
 
-const BASE_WEIGHTS = {
-  SMA: 1.5,
-  EMA: 1.5,
-  PSAR: 1.0,
-  RSI: 1.0,
-  MACD: 1.0,
-  Stochastic: 0.8,
-  StochasticRSI: 0.8,
-  BollingerBands: 1.2,
-};
+function seededRandom(seedObj) {
+  let x = Math.sin(seedObj.value++) * 390625;
+  return x - Math.floor(x);
+}
 
-const COMBOS = [
-  { name: "Trend Only", indicators: GROUPS.TREND },
-  { name: "Momentum Only", indicators: GROUPS.MOMENTUM },
-  { name: "Volatility Only", indicators: GROUPS.VOLATILITY },
-  {
-    name: "Trend + Momentum",
-    indicators: [...GROUPS.TREND, ...GROUPS.MOMENTUM],
-  },
-  {
-    name: "All Combined",
-    indicators: [...GROUPS.TREND, ...GROUPS.MOMENTUM, ...GROUPS.VOLATILITY],
-  },
-];
+export async function optimizeIndicatorWeights(data, symbol = "BTC-USD") {
+  const weightRange = [0, 1, 2, 3, 4];
+  const allIndicators = [
+    "SMA",
+    "EMA",
+    "PSAR",
+    "RSI",
+    "MACD",
+    "Stochastic",
+    "StochasticRSI",
+    "BollingerBands",
+  ];
 
-export async function optimizeIndicatorWeights(data) {
   const results = [];
-  for (const combo of COMBOS) {
+  const totalCombos = 1000;
+  const seedObj = { value: coinSeed(symbol) };
+
+  for (let i = 0; i < totalCombos; i++) {
     const weights = Object.fromEntries(
-      combo.indicators.map((k) => [k, BASE_WEIGHTS[k]])
+      allIndicators.map((k) => [
+        k,
+        weightRange[Math.floor(seededRandom(seedObj) * weightRange.length)],
+      ])
     );
-    const res = await backtestWithWeights(data, weights, { fastMode: true });
-    results.push({
-      combo: combo.name,
-      indicators: combo.indicators,
-      weights,
-      ...res,
+
+    const result = await backtestWithWeights(data, weights, {
+      fastMode: true,
     });
+    results.push({ weights, ...result });
+
+    if (i % 1000 === 0 && i > 0) {
+      const bestSoFar = results.reduce((a, b) => (b.roi > a.roi ? b : a));
+      console.log(
+        `   Progress: ${i}/${totalCombos} (${((i / totalCombos) * 100).toFixed(1)}%) | Best ROI so far: ${bestSoFar.roi}%`
+      );
+    }
   }
 
+  // Cari kombinasi terbaik berdasarkan ROI
   const best = results.reduce((a, b) => (b.roi > a.roi ? b : a));
-  const sum = Object.values(best.weights).reduce((a, b) => a + b, 0);
-  const normalized = Object.fromEntries(
-    Object.entries(best.weights).map(([k, v]) => [
-      k,
-      +((v / sum) * 10).toFixed(2),
-    ])
-  );
 
   return {
     success: true,
     methodology:
-      "Rule-Based Multi-Indicator Evaluation (Sukma & Namahoot, 2025)",
-    bestCombo: best.combo,
-    bestWeights: normalized,
-    performance: (({ roi, winRate, maxDrawdown, trades }) => ({
-      roi,
-      winRate,
-      maxDrawdown,
-      trades,
-    }))(best),
-    allResults: results,
+      "Deterministic Random-Search Multi-Indicator Optimization (Full Dataset)",
+    bestWeights: best.weights,
+    performance: {
+      roi: best.roi,
+      winRate: best.winRate,
+      maxDrawdown: best.maxDrawdown,
+      trades: best.trades,
+      wins: best.wins,
+      finalCapital: best.finalCapital,
+      sharpeRatio: best.sharpeRatio || null,
+      sortinoRatio: best.sortinoRatio || null,
+    },
+    totalCombinationsTested: totalCombos,
+    dataPoints: data.length,
   };
 }

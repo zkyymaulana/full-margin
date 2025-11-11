@@ -5,6 +5,7 @@ import {
 } from "../services/market/marketcap.service.js";
 import { prisma } from "../lib/prisma.js";
 
+// Sinkronisasi Top Coin dari CoinMarketCap + pairing dengan Coinbase.
 export async function getCoinMarketcap(req, res) {
   try {
     console.log("🔄 Memulai proses sinkronisasi marketcap...");
@@ -32,11 +33,7 @@ export async function getCoinMarketcap(req, res) {
   }
 }
 
-/**
- * GET /api/marketcap/live
- * 🔹 Mengambil data harga dan candle live untuk 100 coin dari database,
- * berdasarkan data Coinbase (ticker & OHLC).
- */
+// Ambil data harga & candle live dari Coinbase untuk top coin.
 export async function getMarketcapLiveController(req, res) {
   try {
     const limit = Number(req.query.limit) || 20;
@@ -66,10 +63,7 @@ export async function getMarketcapLiveController(req, res) {
   }
 }
 
-/**
- * GET /api/marketcap/symbol
- * 🔹 Mengambil daftar semua symbol coin yang ada di database
- */
+// Mengambil daftar semua symbol coin dari database.
 export async function getCoinSymbols(req, res) {
   try {
     console.log("📋 Mengambil daftar symbol coin dari database...");

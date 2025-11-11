@@ -7,7 +7,7 @@
  */
 
 import { prisma } from "../../lib/prisma.js";
-import { backtestAllIndicators } from "../indicators/indicator-backtest.service.js";
+import { backtestAllIndicators } from "../backtest/backtest.service.js";
 import { backtestWithWeights } from "../multiIndicator/multiIndicator-backtest.service.js";
 
 /* ==========================================================

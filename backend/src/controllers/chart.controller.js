@@ -1,6 +1,6 @@
 import { prisma } from "../lib/prisma.js";
 import { getChartDataNewest } from "../services/charts/chartdata.service.js";
-import { getCoinLiveDetail } from "../services/market/marketcap.service.js";
+import { getCoinLiveDetail } from "../services/market/index.js";
 import { calculateAndSaveIndicators } from "../services/indicators/indicator.service.js";
 
 export async function getChart(req, res) {

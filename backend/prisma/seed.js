@@ -12,7 +12,6 @@ export async function seedAdmin() {
   // Cek apakah admin sudah ada
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    console.log("✅ Admin sudah ada:", existing.email);
     return existing;
   }
 
@@ -24,7 +23,7 @@ export async function seedAdmin() {
     data: { email, name, passwordHash },
   });
 
-  console.log("🎉 Admin berhasil dibuat:", { email, password });
+  console.log("Admin berhasil dibuat:", { email, password });
   return user;
 }
 
@@ -33,7 +32,7 @@ if (process.argv[1].includes("seed.js")) {
   seedAdmin()
     .then(() => prisma.$disconnect())
     .catch((err) => {
-      console.error("❌ Error saat seeding:", err);
+      console.error("Error saat seeding:", err);
       prisma.$disconnect();
     });
 }

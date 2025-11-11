@@ -6,7 +6,7 @@ import { prisma } from "./lib/prisma.js";
 
 // Services
 import { seedAdmin } from "../prisma/seed.js";
-import { syncTopCoins } from "./services/market/cmc.service.js";
+import { syncTopCoins } from "./services/market/cmcTopCoins.service.js";
 import { getMarketcapRealtime } from "./services/market/marketcap.service.js";
 import { startAllSchedulers } from "./services/scheduler/scheduler.service.js";
 

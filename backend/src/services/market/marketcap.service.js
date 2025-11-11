@@ -1,50 +1,12 @@
-import axios from "axios";
+// pairing & live marketcap summary
 import dotenv from "dotenv";
 import { prisma } from "../../lib/prisma.js";
-import { syncTopCoins } from "./cmc.service.js";
+import { syncTopCoins } from "./cmcTopCoins.service.js";
+import { fetchPairs, fetchTicker } from "./coinbase.service.js";
 
 dotenv.config();
 
-const API = process.env.COINBASE_API_URL || "https://api.exchange.coinbase.com";
-const TIMEOUT = 10000;
 const BASES = ["USD", "USDT", "EUR", "USDC"];
-
-/** Ambil semua pair aktif dari Coinbase */
-async function fetchPairs() {
-  try {
-    const { data } = await axios.get(`${API}/products`, { timeout: TIMEOUT });
-    return new Set(
-      data
-        .filter((p) => p.status === "online" && !p.trading_disabled)
-        .map((p) => p.id.toUpperCase())
-    );
-  } catch {
-    console.error("❌ Gagal mengambil pair Coinbase");
-    return new Set();
-  }
-}
-
-/** Ambil data harga & OHLC dari Coinbase */
-async function fetchTicker(symbol) {
-  try {
-    const [ticker, stats] = await Promise.all([
-      axios.get(`${API}/products/${symbol}/ticker`, { timeout: TIMEOUT }),
-      axios.get(`${API}/products/${symbol}/stats`, { timeout: TIMEOUT }),
-    ]);
-
-    return {
-      symbol,
-      price: +ticker.data.price || 0,
-      volume: +(ticker.data.volume || stats.data.volume || 0),
-      high: +stats.data.high || 0,
-      low: +stats.data.low || 0,
-      open: +stats.data.open || 0,
-      time: new Date(ticker.data.time || new Date()).getTime(),
-    };
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Ambil top 200 dari CMC → Pairing dengan Coinbase → Simpan top 100 ke DB
@@ -224,37 +186,6 @@ export async function getMarketcapLive(limit = 20) {
     };
   } catch (e) {
     console.error("❌ Live error:", e.message);
-    return { success: false, message: e.message };
-  }
-}
-
-/**
- * Ambil detail live 1 coin (untuk chart)
- */
-export async function getCoinLiveDetail(symbol) {
-  try {
-    const t = await fetchTicker(symbol);
-    if (t) return { success: true, data: t };
-
-    const coin = await prisma.coin.findUnique({
-      where: { symbol },
-      include: { candles: { orderBy: { time: "desc" }, take: 1 } },
-    });
-
-    if (!coin?.candles?.[0])
-      return { success: false, message: `Data ${symbol} tidak ditemukan` };
-
-    return {
-      success: true,
-      data: {
-        symbol,
-        price: coin.candles[0].close,
-        volume: coin.candles[0].volume,
-        time: Number(coin.candles[0].time),
-      },
-    };
-  } catch (e) {
-    console.error(`❌ getCoinLiveDetail error: ${e.message}`);
     return { success: false, message: e.message };
   }
 }

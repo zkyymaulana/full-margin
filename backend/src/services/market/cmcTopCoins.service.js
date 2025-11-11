@@ -1,7 +1,8 @@
-// src/services/market/cmc.service.js
 import axios from "axios";
 import dotenv from "dotenv";
 import { prisma } from "../../lib/prisma.js";
+import { cleanTopCoinData } from "../../utils/dataCleaner.js";
+import { fetchPairs } from "./coinbase.service.js";
 
 dotenv.config();
 
@@ -9,14 +10,14 @@ const CMC_BASE_URL =
   process.env.CMC_API_URL || "https://pro-api.coinmarketcap.com/v1";
 
 /**
- * 🔹 Sinkronisasi Top 100 Coin dari CoinMarketCap + update rank
+ * Sinkronisasi Top 100 Coin dari CoinMarketCap + update rank
  */
 export async function syncTopCoins(limit = 100) {
-  console.log(`🚀 Mengambil data Top ${limit} Coin dari CoinMarketCap...`);
+  console.log(`Mengambil data Top ${limit} Coin dari CoinMarketCap...`);
 
   try {
     if (!process.env.CMC_API_KEY)
-      throw new Error("❌ CMC_API_KEY tidak ditemukan di .env");
+      throw new Error("CMC_API_KEY tidak ditemukan di .env");
 
     // Ambil data dari CMC
     const { data } = await axios.get(
@@ -33,7 +34,7 @@ export async function syncTopCoins(limit = 100) {
 
     if (!data?.data) throw new Error("Data dari CMC kosong.");
 
-    const coins = data.data.map((c) => ({
+    const rawCoins = data.data.map((c) => ({
       rank: c.cmc_rank,
       name: c.name,
       symbol: c.symbol.toUpperCase(),
@@ -41,6 +42,10 @@ export async function syncTopCoins(limit = 100) {
       marketCap: c.quote.USD.market_cap,
       volume24h: c.quote.USD.volume_24h,
     }));
+
+    const coins = cleanTopCoinData(rawCoins);
+    if (coins.length === 0)
+      throw new Error("Tidak ada coin valid setelah data cleaning.");
 
     // Simpan ke tabel TopCoin
     for (const coin of coins) {
@@ -51,12 +56,12 @@ export async function syncTopCoins(limit = 100) {
       });
     }
 
-    console.log(`✅ ${coins.length} coin disimpan ke TopCoin.`);
+    // Ambil pair dari Coinbase untuk validasi
+    const activePairs = await fetchPairs();
 
-    // Langsung update rank untuk coin yang sudah ada di tabel Coin
+    // Update rank di tabel Coin
     let updatedCount = 0;
     for (const coin of coins) {
-      // Cari dengan berbagai kemungkinan format pair
       const possiblePairs = [
         `${coin.symbol}-USD`,
         `${coin.symbol}-USDT`,
@@ -65,23 +70,25 @@ export async function syncTopCoins(limit = 100) {
       ];
 
       for (const pair of possiblePairs) {
+        if (!activePairs.has(pair)) continue; // skip jika tidak aktif di Coinbase
+
         const updated = await prisma.coin.updateMany({
           where: { symbol: pair },
           data: { rank: coin.rank, name: coin.name },
         });
 
         if (updated.count > 0) {
-          console.log(`✅ Rank ${coin.rank} diperbarui untuk ${pair}`);
+          console.log(`Rank ${coin.rank} diperbarui untuk ${pair}`);
           updatedCount++;
-          break; // Keluar dari loop jika sudah ketemu dan update
+          break;
         }
       }
     }
 
-    console.log(`✅ Total ${updatedCount} coin berhasil diperbarui ranknya.`);
+    console.log(`${updatedCount} coin berhasil diperbarui ranknya.`);
     return { success: true, total: updatedCount, coinsFromCMC: coins.length };
   } catch (err) {
-    console.error("❌ Gagal sinkronisasi:", err.message);
+    console.error("❌ Sync error:", err.message);
     return { success: false, error: err.message };
   }
 }
