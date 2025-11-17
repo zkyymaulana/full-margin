@@ -24,7 +24,7 @@ export function createBollingerBandsCalculator(period = 20, multiplier = 2) {
         };
       }
 
-      // Rumus Deviasi Standar (σ):
+      // Rumus standar Devasi (σ):
       // σ = √((Σ (Pi - SMA)²) / n)
       const prices = window.getArray();
       const variance =
@@ -34,7 +34,7 @@ export function createBollingerBandsCalculator(period = 20, multiplier = 2) {
       // Rumus Bollinger Bands:
       // Upper Band = SMA + (k × σ)
       // Lower Band = SMA − (k × σ)
-      // Biasanya k = 2 (dua kali deviasi standar)
+      // Biasanya k = 2 (dua kali standar Devasi)
       const upper = smaValue + multiplier * stdDev;
       const lower = smaValue - multiplier * stdDev;
 

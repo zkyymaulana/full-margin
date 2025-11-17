@@ -53,8 +53,8 @@ export async function getMarketcapRealtime() {
         rank: coin.rank,
         name: coin.name,
         symbol: pair,
-        price: +coin.price.toFixed(4),
-        marketCap: Math.round(coin.marketCap),
+        // price: +coin.price.toFixed(4),
+        // marketCap: Math.round(coin.marketCap),
       });
     }
 
@@ -75,6 +75,7 @@ export async function getMarketcapRealtime() {
 
 /**
  * ⚡ Ambil harga live + candle terakhir untuk coin teratas + history + summary
+ * Data 100% dari Coinbase (price, volume, marketCap calculated from Coinbase data)
  */
 export async function getMarketcapLive(limit = 20) {
   try {
@@ -93,16 +94,22 @@ export async function getMarketcapLive(limit = 20) {
         message: "⚠️ Belum ada coin di DB. Jalankan /api/marketcap dulu.",
       };
 
-    console.log(`⚡ Mengambil data live ticker...`);
+    console.log(
+      `⚡ Mengambil data live dari Coinbase untuk ${coins.length} coins...`
+    );
 
     // Fetch LIVE data from Coinbase ticker untuk semua coins
     const data = [];
+    let successCount = 0;
+    let failedCount = 0;
+
     for (const coin of coins) {
       const liveData = await fetchTicker(coin.symbol);
 
-      if (!liveData) {
-        console.log(`❌ Failed to fetch live data for ${coin.symbol}`);
-        continue; // Skip jika gagal fetch
+      if (!liveData || !liveData.price || !liveData.volume) {
+        console.warn(`⚠️ Data tidak lengkap untuk ${coin.symbol}, skip...`);
+        failedCount++;
+        continue; // Skip jika data tidak valid
       }
 
       // Get last 10 candles for history chart (oldest to newest)
@@ -117,40 +124,45 @@ export async function getMarketcapLive(limit = 20) {
         .reverse()
         .map((c) => Number(c.close.toFixed(2)));
 
-      // Calculate market cap using LIVE price and volume
-      const marketCap = Number((liveData.volume * liveData.price).toFixed(2));
+      // ✅ Calculate market cap from Coinbase data only
+      const price = Number(liveData.price);
+      const volume = Number(liveData.volume);
+      const marketCap = Number((volume * price).toFixed(2));
 
-      // Calculate change24h using LIVE data
+      // ✅ Calculate change24h using Coinbase LIVE data
+      const open = Number(liveData.open);
       const change24h =
-        liveData.open > 0
-          ? Number(
-              (
-                ((liveData.price - liveData.open) / liveData.open) *
-                100
-              ).toFixed(2)
-            )
-          : 0;
+        open > 0 ? Number((((price - open) / open) * 100).toFixed(2)) : 0;
 
-      // Determine chart color using LIVE price
-      const chartColor = liveData.price >= liveData.open ? "green" : "red";
+      // ✅ Determine chart color based on price vs open
+      const chartColor = price >= open ? "green" : "red";
 
       data.push({
         rank: coin.rank,
         name: coin.name || coin.symbol.split("-")[0],
         symbol: coin.symbol,
-        price: Number(liveData.price.toFixed(2)),
-        volume: Number(liveData.volume.toFixed(2)),
-        marketCap,
-        open: Number(liveData.open.toFixed(2)),
+        price: Number(price.toFixed(2)),
+        volume: Number(volume.toFixed(2)),
+        marketCap, // Calculated from Coinbase volume * price
+        open: Number(open.toFixed(2)),
         high: Number(liveData.high.toFixed(2)),
         low: Number(liveData.low.toFixed(2)),
         change24h,
         chartColor,
         history, // Historical data dari database untuk chart
       });
+
+      successCount++;
     }
 
-    // Calculate summary metrics
+    if (data.length === 0) {
+      return {
+        success: false,
+        message: "Tidak ada data valid dari Coinbase",
+      };
+    }
+
+    // ✅ Calculate summary metrics from Coinbase data only
     const totalMarketCap = data.reduce((sum, coin) => sum + coin.marketCap, 0);
     const totalVolume24h = data.reduce((sum, coin) => sum + coin.volume, 0);
 
@@ -168,7 +180,7 @@ export async function getMarketcapLive(limit = 20) {
     const losers = data.filter((coin) => coin.change24h < 0).length;
 
     console.log(
-      `✅ ${data.length} data live berhasil diambil (top ${take} berdasarkan rank).`
+      `✅ ${successCount} coins berhasil (${failedCount} gagal) - Data 100% dari Coinbase`
     );
 
     return {

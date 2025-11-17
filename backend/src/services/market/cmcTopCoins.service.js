@@ -64,8 +64,9 @@ export async function syncTopCoins(limit = 100) {
     for (const coin of coins) {
       const possiblePairs = [
         `${coin.symbol}-USD`,
-        `${coin.symbol}-USDT`,
         `${coin.symbol}-EUR`,
+        `${coin.symbol}-USDT`,
+        `${coin.symbol}-GBP`,
         `${coin.symbol}-USDC`,
       ];
 
