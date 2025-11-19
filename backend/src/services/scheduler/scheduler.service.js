@@ -121,20 +121,11 @@ async function runMainSyncJob(isBackup = false) {
       `🎯 ${isBackup ? "Backup" : "Main"} sync for ${symbolsCache.length} symbols...`
     );
 
-    // 1️⃣ Sinkronisasi candle
+    // 1️⃣ Sinkronisasi candle (indicators calculated automatically inside)
     await syncLatestCandles(symbolsCache);
 
-    // 2️⃣ Hitung indikator (hanya untuk main job)
+    // 2️⃣ Deteksi sinyal & kirim notifikasi Telegram (hanya untuk main job)
     if (!isBackup) {
-      const CONCURRENCY = 3;
-      for (let i = 0; i < symbolsCache.length; i += CONCURRENCY) {
-        const batch = symbolsCache.slice(i, i + CONCURRENCY);
-        await Promise.allSettled(
-          batch.map((s) => calculateAndSaveIndicators(s, "1h"))
-        );
-      }
-
-      // 3️⃣ Deteksi sinyal & kirim notifikasi Telegram
       const mode = process.env.SIGNAL_MODE || "multi";
       await detectAndNotifyAllSymbols(symbolsCache, mode);
     }

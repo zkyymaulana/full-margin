@@ -147,10 +147,10 @@ export async function optimizeAllCoinsController(req, res) {
   try {
     const timeframe = (req.query.timeframe || "1h").toLowerCase();
 
-    // Ambil 100 coin teratas
+    // Ambil 20 coin teratas
     const coins = await prisma.coin.findMany({
       orderBy: { rank: "asc" },
-      take: 100,
+      take: 20,
       select: { symbol: true },
     });
 
@@ -625,10 +625,10 @@ export async function backtestAllWithBTCWeightsController(req, res) {
       });
     }
 
-    // Ambil top 100 aset dari tabel Coin
+    // Ambil top 20 aset dari tabel Coin
     const coins = await prisma.coin.findMany({
       orderBy: { rank: "asc" },
-      take: 100,
+      take: 20,
       select: { symbol: true },
     });
 

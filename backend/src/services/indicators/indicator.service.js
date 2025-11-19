@@ -93,6 +93,7 @@ export async function calculateAndSaveIndicators(symbol, timeframe = "1h") {
         macdSignalLine: macdVal.signalLine,
         macdHist: macdVal.histogram,
         bbUpper: bbVal.upper,
+        bbMiddle: bbVal.middle ?? bbVal.sma ?? sma20Val, // ✅ Save middle band
         bbLower: bbVal.lower,
         stochK: stochVal["%K"],
         stochD: stochVal["%D"],

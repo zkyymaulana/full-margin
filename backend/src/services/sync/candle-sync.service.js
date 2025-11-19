@@ -1,5 +1,6 @@
 import { prisma } from "../../lib/prisma.js";
 import { fetchHistoricalCandles } from "../coinbase/coinbase.service.js";
+import { calculateAndSaveIndicators } from "../indicators/indicator.service.js";
 
 // Cache untuk tracking last update time per symbol
 const lastUpdateCache = new Map();
@@ -107,6 +108,9 @@ async function syncSymbolCandles(symbol) {
       skipDuplicates: true,
     });
 
+    // ✅ AUTOMATICALLY CALCULATE INDICATORS AFTER SAVING CANDLES
+    await calculateAndSaveIndicators(symbol, "1h");
+
     // Update cache
     lastUpdateCache.set(symbol, now);
 
@@ -130,7 +134,7 @@ export async function getActiveSymbols() {
       where: { rank: { not: null } },
       orderBy: { rank: "asc" },
       select: { symbol: true },
-      take: 100,
+      take: 20, // ✅ Changed from 100 to 20
     });
 
     const result = coins.map((c) => c.symbol).filter(Boolean);
@@ -148,7 +152,6 @@ export async function getActiveSymbols() {
     return getDefaultSymbols();
   }
 }
-
 function getDefaultSymbols() {
   return [
     "BTC-USD",
@@ -293,6 +296,10 @@ export async function syncHistoricalData(
         data: candleData,
         skipDuplicates: true,
       });
+
+      // ✅ AUTOMATICALLY CALCULATE INDICATORS AFTER SAVING HISTORICAL CANDLES
+      console.log(`📊 Calculating indicators for ${symbol}...`);
+      await calculateAndSaveIndicators(symbol, "1h");
 
       results.successful++;
       results.totalCandles += candleData.length;

@@ -56,6 +56,7 @@ export async function getIndicators(req, res) {
         macdSignalLine: true,
         macdHist: true,
         bbUpper: true,
+        bbMiddle: true, // ✅ Fetch bbMiddle from database
         bbLower: true,
         stochK: true,
         stochD: true,
@@ -99,9 +100,10 @@ export async function getIndicators(req, res) {
     const organized = data.map((d) => {
       // 🔧 Calculate Bollinger Middle if not in DB
       const bbMiddle =
-        d.bbUpper && d.bbLower
+        d.bbMiddle ??
+        (d.bbUpper && d.bbLower
           ? (d.bbUpper + d.bbLower) / 2
-          : (d.sma20 ?? null);
+          : (d.sma20 ?? null));
 
       return {
         time: Number(d.time),

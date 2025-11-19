@@ -18,7 +18,9 @@ export function createBollingerBandsCalculator(period = 20, multiplier = 2) {
       if (!window.isFull() || smaValue === null) {
         return {
           upper: null,
+          middle: null,
           lower: null,
+          sma: null,
           period: period,
           multiplier: multiplier,
         };
@@ -33,12 +35,20 @@ export function createBollingerBandsCalculator(period = 20, multiplier = 2) {
 
       // Rumus Bollinger Bands:
       // Upper Band = SMA + (k × σ)
+      // Middle Band = SMA
       // Lower Band = SMA − (k × σ)
       // Biasanya k = 2 (dua kali standar Devasi)
       const upper = smaValue + multiplier * stdDev;
       const lower = smaValue - multiplier * stdDev;
 
-      return { upper, lower, period: period, multiplier: multiplier };
+      return {
+        upper,
+        middle: smaValue, // ✅ Middle band = SMA
+        lower,
+        sma: smaValue, // ✅ Keep SMA reference for compatibility
+        period: period,
+        multiplier: multiplier,
+      };
     },
   };
 }
