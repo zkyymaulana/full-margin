@@ -30,14 +30,91 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor - handle 401
+// Response interceptor - handle 401 and 403 token errors
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      localStorage.clear();
-      window.location.href = "/login";
+    console.log(
+      "🔍 API Error intercepted:",
+      error.response?.status,
+      error.response?.data
+    );
+
+    // Handle 401 Unauthorized OR 403 Forbidden (token errors)
+    const status = error.response?.status;
+    const errorMessage = error.response?.data?.message || "";
+    const errorSuccess = error.response?.data?.success;
+
+    // Check if it's 401 or 403 with token error
+    if (status === 401 || status === 403) {
+      console.log(`🚨 ${status} Error detected:`, errorMessage);
+
+      // Check if error is related to invalid or expired token
+      const isTokenError =
+        errorSuccess === false &&
+        (errorMessage.includes("Token tidak valid") ||
+          errorMessage.includes("sudah kadaluarsa") ||
+          errorMessage.includes("Unauthorized") ||
+          errorMessage.includes("Forbidden") ||
+          errorMessage.includes("Invalid token") ||
+          errorMessage.includes("Token expired") ||
+          errorMessage.includes("tidak valid") ||
+          errorMessage.includes("kadaluarsa") ||
+          errorMessage.toLowerCase().includes("token"));
+
+      if (isTokenError) {
+        console.log("🔒 Token invalid or expired. Logging out...");
+        console.log("🧹 Clearing localStorage...");
+
+        // Clear all auth data immediately
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("userId");
+        localStorage.removeItem("userEmail");
+        localStorage.removeItem("userName");
+        localStorage.removeItem("user");
+        localStorage.removeItem("lastLogin");
+
+        console.log("✅ localStorage cleared");
+
+        // Show notification
+        const toastElement = document.createElement("div");
+        toastElement.className =
+          "fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-[9999] flex items-center gap-2 animate-pulse";
+        toastElement.innerHTML = `
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+          </svg>
+          <span><strong>Session Expired!</strong> Redirecting to login...</span>
+        `;
+        document.body.appendChild(toastElement);
+
+        console.log("🔄 Redirecting to login page in 1 second...");
+
+        // Force redirect to login immediately
+        setTimeout(() => {
+          toastElement.remove();
+          console.log("🚀 Executing redirect now...");
+
+          // Multiple redirect methods to ensure it works
+          if (window.location.pathname !== "/login") {
+            window.location.href = "/login";
+
+            // Fallback if href doesn't work
+            setTimeout(() => {
+              window.location.replace("/login");
+            }, 100);
+          }
+        }, 1000);
+
+        // Prevent further API calls
+        return Promise.reject({
+          ...error,
+          handled: true,
+          message: "Session expired. Redirecting to login...",
+        });
+      }
     }
+
     return Promise.reject(error);
   }
 );
@@ -203,6 +280,18 @@ export const updateSignalMode = async (mode) => {
 // Test Telegram connection
 export const testTelegramConnection = async () => {
   const { data } = await apiClient.get("/telegram/test");
+  return data;
+};
+
+// ✅ NEW: Update user Telegram settings (Multi-User)
+export const updateUserTelegramSettings = async (userId, settings) => {
+  const { data } = await apiClient.patch(`/user/${userId}/telegram`, settings);
+  return data;
+};
+
+// ✅ NEW: Get user profile with Telegram info
+export const getUserTelegramInfo = async () => {
+  const { data } = await apiClient.get("/user/profile");
   return data;
 };
 

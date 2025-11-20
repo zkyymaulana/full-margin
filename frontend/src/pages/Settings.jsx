@@ -7,6 +7,8 @@ import {
   toggleTelegram,
   updateSignalMode,
   testTelegramConnection,
+  updateUserTelegramSettings,
+  getUserProfile,
 } from "../services/api.service";
 import { useState } from "react";
 
@@ -16,11 +18,44 @@ function Settings() {
   const queryClient = useQueryClient();
   const [isTesting, setIsTesting] = useState(false);
 
-  // Fetch Telegram config
+  // ✅ NEW: State untuk Telegram Chat ID
+  const [telegramChatId, setTelegramChatId] = useState("");
+  const [isSavingTelegram, setIsSavingTelegram] = useState(false);
+
+  // Fetch user profile (termasuk Telegram info)
+  const { data: userProfile, isLoading: profileLoading } = useQuery({
+    queryKey: ["userProfile"],
+    queryFn: getUserProfile,
+    onSuccess: (data) => {
+      // Set initial value dari database
+      if (data?.data?.telegramChatId) {
+        setTelegramChatId(data.data.telegramChatId);
+      }
+    },
+  });
+
+  // Fetch Telegram config (global backend config)
   const { data: telegramConfig, isLoading: configLoading } = useQuery({
     queryKey: ["telegramConfig"],
     queryFn: getTelegramConfig,
     refetchInterval: 30000, // Refresh setiap 30 detik
+  });
+
+  // ✅ NEW: Mutation untuk update Telegram user settings
+  const updateTelegramMutation = useMutation({
+    mutationFn: ({ userId, settings }) =>
+      updateUserTelegramSettings(userId, settings),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(["userProfile"]);
+      toast.success("Telegram settings saved successfully!");
+      setIsSavingTelegram(false);
+    },
+    onError: (error) => {
+      toast.error(
+        error.response?.data?.message || "Failed to save Telegram settings"
+      );
+      setIsSavingTelegram(false);
+    },
   });
 
   // Toggle Telegram mutation
@@ -51,9 +86,57 @@ function Settings() {
     },
   });
 
+  // ✅ NEW: Handler untuk save Telegram settings
+  const handleSaveTelegramSettings = () => {
+    // Validasi Chat ID
+    if (!telegramChatId || telegramChatId.trim() === "") {
+      toast.error("Please enter your Telegram Chat ID");
+      return;
+    }
+
+    // Validasi format (harus angka)
+    if (!/^\d+$/.test(telegramChatId.trim())) {
+      toast.error("Telegram Chat ID must be numeric");
+      return;
+    }
+
+    if (!user?.id) {
+      toast.error("User not found");
+      return;
+    }
+
+    setIsSavingTelegram(true);
+    updateTelegramMutation.mutate({
+      userId: user.id,
+      settings: {
+        telegramChatId: telegramChatId.trim(),
+        telegramEnabled: true, // Auto enable saat save
+      },
+    });
+  };
+
   const handleTelegramToggle = () => {
-    const currentState = telegramConfig?.config?.enabled || false;
-    toggleMutation.mutate(!currentState);
+    const currentEnabled = userProfile?.data?.telegramEnabled || false;
+    const hasChatId = userProfile?.data?.telegramChatId;
+
+    // Jika tidak ada Chat ID, blok toggle
+    if (!hasChatId) {
+      toast.warning("Please enter and save your Telegram Chat ID first!");
+      return;
+    }
+
+    if (!user?.id) {
+      toast.error("User not found");
+      return;
+    }
+
+    // Toggle enabled status
+    updateTelegramMutation.mutate({
+      userId: user.id,
+      settings: {
+        telegramEnabled: !currentEnabled,
+      },
+    });
   };
 
   const handleSignalModeChange = (mode) => {
@@ -61,6 +144,13 @@ function Settings() {
   };
 
   const handleTestConnection = async () => {
+    const userChatId = userProfile?.data?.telegramChatId;
+
+    if (!userChatId) {
+      toast.warning("Please save your Telegram Chat ID first!");
+      return;
+    }
+
     setIsTesting(true);
     try {
       const result = await testTelegramConnection();
@@ -109,9 +199,13 @@ function Settings() {
   };
 
   const config = telegramConfig?.config || {};
-  const isEnabled = config.enabled || false;
-  const isConfigured = config.configured || false;
+  const isBackendConfigured = config.configured || false;
   const signalMode = config.signalMode || "multi";
+
+  // ✅ User-specific Telegram settings
+  const userTelegramEnabled = userProfile?.data?.telegramEnabled || false;
+  const userTelegramChatId = userProfile?.data?.telegramChatId || null;
+  const isUserConfigured = !!userTelegramChatId;
 
   return (
     <div className="space-y-6">
@@ -184,68 +278,182 @@ function Settings() {
               </label>
             </div>
 
-            {/* Telegram Notifications Toggle */}
+            {/* ✅ UPDATED: Telegram Notifications Section */}
             <div
-              className={`flex items-center justify-between p-4 rounded-lg ${
-                isDarkMode ? "bg-gray-700/50" : "bg-gray-50"
+              className={`p-4 rounded-lg border-2 ${
+                isUserConfigured
+                  ? isDarkMode
+                    ? "bg-gray-700/50 border-green-500/30"
+                    : "bg-gray-50 border-green-300"
+                  : isDarkMode
+                  ? "bg-gray-700/50 border-yellow-500/30"
+                  : "bg-gray-50 border-yellow-300"
               }`}
             >
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`font-medium ${
-                      isDarkMode ? "text-white" : "text-gray-900"
-                    }`}
-                  >
-                    📱 Telegram Notifications
-                  </div>
-                  {!isConfigured && (
-                    <span
-                      className={`text-xs px-2 py-1 rounded ${
-                        isDarkMode
-                          ? "bg-yellow-900/30 text-yellow-400"
-                          : "bg-yellow-100 text-yellow-800"
+              <div className="space-y-4">
+                {/* Header dengan status */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`font-medium text-lg ${
+                        isDarkMode ? "text-white" : "text-gray-900"
                       }`}
                     >
-                      Not Configured
-                    </span>
-                  )}
-                  {configLoading && (
-                    <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                  )}
+                      📱 Telegram Notifications
+                    </div>
+                    {isUserConfigured ? (
+                      <span
+                        className={`text-xs px-2 py-1 rounded ${
+                          isDarkMode
+                            ? "bg-green-900/30 text-green-400"
+                            : "bg-green-100 text-green-800"
+                        }`}
+                      >
+                        ✅ Connected
+                      </span>
+                    ) : (
+                      <span
+                        className={`text-xs px-2 py-1 rounded ${
+                          isDarkMode
+                            ? "bg-yellow-900/30 text-yellow-400"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}
+                      >
+                        ⚠️ Not Connected
+                      </span>
+                    )}
+                    {profileLoading && (
+                      <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                    )}
+                  </div>
+
+                  {/* Toggle (hanya aktif jika sudah ada Chat ID) */}
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={userTelegramEnabled}
+                      onChange={handleTelegramToggle}
+                      disabled={
+                        !isUserConfigured || updateTelegramMutation.isPending
+                      }
+                    />
+                    <div
+                      className={`w-11 h-6 rounded-full peer peer-focus:outline-none peer-focus:ring-4 ${
+                        isDarkMode
+                          ? "bg-gray-600 peer-focus:ring-blue-800"
+                          : "bg-gray-200 peer-focus:ring-blue-300"
+                      } peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
+                        isUserConfigured
+                          ? "peer-checked:bg-blue-600"
+                          : "opacity-50 cursor-not-allowed"
+                      }`}
+                    ></div>
+                  </label>
                 </div>
-                <div
+
+                {/* Deskripsi */}
+                <p
                   className={`text-sm ${
                     isDarkMode ? "text-gray-400" : "text-gray-600"
                   }`}
                 >
-                  Receive trading signal alerts via Telegram
+                  Receive trading signal alerts directly to your personal
+                  Telegram account
+                </p>
+
+                {/* Input Telegram Chat ID */}
+                <div className="space-y-2">
+                  <label
+                    className={`block text-sm font-medium ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
+                    Telegram Chat ID
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={telegramChatId}
+                      onChange={(e) => setTelegramChatId(e.target.value)}
+                      placeholder="Enter your Telegram Chat ID"
+                      className={`flex-1 px-4 py-2 rounded-lg border ${
+                        isDarkMode
+                          ? "bg-gray-800 border-gray-600 text-white placeholder-gray-500"
+                          : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
+                      } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    />
+                    <button
+                      onClick={handleSaveTelegramSettings}
+                      disabled={isSavingTelegram || !telegramChatId}
+                      className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                        isDarkMode
+                          ? "bg-blue-600 hover:bg-blue-700 text-white"
+                          : "bg-blue-500 hover:bg-blue-600 text-white"
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {isSavingTelegram ? (
+                        <div className="flex items-center gap-2">
+                          <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                          <span>Saving...</span>
+                        </div>
+                      ) : (
+                        "Save"
+                      )}
+                    </button>
+                  </div>
+                  <p
+                    className={`text-xs ${
+                      isDarkMode ? "text-gray-500" : "text-gray-500"
+                    }`}
+                  >
+                    💡 To get your Chat ID: Open Telegram, search for your bot,
+                    send{" "}
+                    <code
+                      className={`px-1 py-0.5 rounded ${
+                        isDarkMode ? "bg-gray-700" : "bg-gray-200"
+                      }`}
+                    >
+                      /start
+                    </code>
+                    , and copy the Chat ID from the bot's reply.
+                  </p>
                 </div>
+
+                {/* Warning jika backend belum configured */}
+                {!isBackendConfigured && (
+                  <div
+                    className={`p-3 rounded-lg ${
+                      isDarkMode ? "bg-red-900/20" : "bg-red-50"
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <span className="text-lg">❌</span>
+                      <div>
+                        <div
+                          className={`font-medium text-sm ${
+                            isDarkMode ? "text-red-300" : "text-red-800"
+                          }`}
+                        >
+                          Backend Not Configured
+                        </div>
+                        <div
+                          className={`text-xs mt-1 ${
+                            isDarkMode ? "text-red-400" : "text-red-700"
+                          }`}
+                        >
+                          Please configure TELEGRAM_BOT_TOKEN in backend .env
+                          file first.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="sr-only peer"
-                  checked={isEnabled}
-                  onChange={handleTelegramToggle}
-                  disabled={!isConfigured || toggleMutation.isPending}
-                />
-                <div
-                  className={`w-11 h-6 rounded-full peer peer-focus:outline-none peer-focus:ring-4 ${
-                    isDarkMode
-                      ? "bg-gray-600 peer-focus:ring-blue-800"
-                      : "bg-gray-200 peer-focus:ring-blue-300"
-                  } peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
-                    isConfigured
-                      ? "peer-checked:bg-blue-600"
-                      : "opacity-50 cursor-not-allowed"
-                  }`}
-                ></div>
-              </label>
             </div>
 
             {/* Signal Mode Selection */}
-            {isConfigured && (
+            {isUserConfigured && isBackendConfigured && (
               <div
                 className={`p-4 rounded-lg ${
                   isDarkMode ? "bg-gray-700/50" : "bg-gray-50"
@@ -323,7 +531,7 @@ function Settings() {
             )}
 
             {/* Test Connection Button */}
-            {isConfigured && (
+            {isUserConfigured && isBackendConfigured && (
               <button
                 onClick={handleTestConnection}
                 disabled={isTesting}
@@ -352,7 +560,7 @@ function Settings() {
             )}
 
             {/* Configuration Warning */}
-            {!isConfigured && (
+            {!isBackendConfigured && (
               <div
                 className={`p-4 rounded-lg ${
                   isDarkMode ? "bg-yellow-900/20" : "bg-yellow-50"

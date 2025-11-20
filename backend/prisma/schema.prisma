@@ -16,6 +16,10 @@ model User {
   lastLogin    DateTime?
   authLogs     AuthLog[]
   avatarUrl    String?
+  
+  // === Telegram Notifications ===
+  telegramChatId  String?  // Telegram chat ID untuk notifikasi personal
+  telegramEnabled Boolean  @default(false) // Toggle untuk enable/disable notifikasi
 }
 
 model AuthLog {

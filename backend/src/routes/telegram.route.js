@@ -8,6 +8,9 @@ import {
   getTelegramConfigController,
   toggleTelegramController,
   updateSignalModeController,
+  telegramWebhookController,
+  broadcastController,
+  broadcastSignalController,
 } from "../controllers/telegram.controller.js";
 
 const router = express.Router();
@@ -17,6 +20,13 @@ const router = express.Router();
  * -------------------------------
  * Testing dan management notifikasi Telegram
  */
+
+// 🤖 Webhook untuk Telegram Bot (NO AUTH - webhook dari Telegram)
+router.post("/webhook", telegramWebhookController);
+
+// 📣 Broadcast endpoints
+router.post("/broadcast", broadcastController);
+router.post("/broadcast-signal", broadcastSignalController);
 
 // Get Telegram configuration status (public)
 router.get("/config", getTelegramConfigController);

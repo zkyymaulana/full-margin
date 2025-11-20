@@ -3,6 +3,8 @@ import { useAuth } from "./hooks/useAuth";
 import { SymbolProvider } from "./contexts/SymbolContext";
 import { SidebarProvider } from "./contexts/SidebarContext";
 import Layout from "./components/Layout";
+import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
@@ -11,23 +13,14 @@ import Comparison from "./pages/Comparison";
 import MarketCap from "./pages/MarketCap";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
-
-// Protected Route Component
-const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated } = useAuth();
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return children;
-};
+import Unauthorized from "./pages/Unauthorized";
 
 // Public Route (redirect if authenticated)
 const PublicRoute = ({ children }) => {
   const { isAuthenticated } = useAuth();
 
   if (isAuthenticated) {
+    console.log("✅ User already authenticated, redirecting to dashboard");
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -57,7 +50,10 @@ function App() {
             }
           />
 
-          {/* Protected Routes */}
+          {/* Unauthorized Page (standalone - no layout) */}
+          <Route path="/unauthorized" element={<Unauthorized />} />
+
+          {/* Protected Routes with Layout */}
           <Route
             path="/"
             element={
@@ -73,6 +69,16 @@ function App() {
             <Route path="marketcap" element={<MarketCap />} />
             <Route path="profile" element={<Profile />} />
             <Route path="settings" element={<Settings />} />
+
+            {/* Example: Admin-only route (uncomment when needed) */}
+            {/* <Route
+              path="admin"
+              element={
+                <AdminRoute>
+                  <AdminPanel />
+                </AdminRoute>
+              }
+            /> */}
           </Route>
 
           {/* Catch all */}

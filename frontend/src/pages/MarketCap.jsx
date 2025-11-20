@@ -8,7 +8,7 @@ import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip } from "recharts";
 function MarketCap() {
   const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [limit, setLimit] = useState(100);
+  const [limit, setLimit] = useState(20); // ✅ Changed from 100 to 20
 
   const { data, isLoading, error, refetch } = useMarketCapLive(limit);
   const { isDarkMode } = useDarkMode();
@@ -230,7 +230,8 @@ function MarketCap() {
                   : "border-gray-300 bg-white text-gray-900"
               }`}
             >
-              <option value="25">Show 25</option>
+              <option value="10">Show 10</option>
+              <option value="20">Show 20</option>
               <option value="50">Show 50</option>
               <option value="100">Show 100</option>
             </select>

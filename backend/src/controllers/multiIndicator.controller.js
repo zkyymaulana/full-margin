@@ -2,25 +2,63 @@ import { prisma } from "../lib/prisma.js";
 import { optimizeIndicatorWeights } from "../services/multiIndicator/multiIndicator-analyzer.service.js";
 import { backtestWithWeights } from "../services/multiIndicator/multiIndicator-backtest.service.js";
 
+// 🔒 FIXED TRAINING WINDOW (CONSISTENT ACROSS ALL FUNCTIONS)
+const FIXED_START_EPOCH = Date.parse("2020-01-01T00:00:00Z"); // 1578016800000
+const FIXED_END_EPOCH = Date.parse("2025-01-01T00:00:00Z"); // 1735689600000
+
 /* --- Optimize --- */
 export async function optimizeIndicatorWeightsController(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
     const timeframe = (req.query.timeframe || "1h").toLowerCase();
-    const startEpoch = Date.parse("2020-01-01T00:00:00Z");
-    const endEpoch = Date.parse("2025-01-01T00:00:00Z");
 
     console.log(
       `\n📊 Starting Full Exhaustive Search Optimization for ${symbol} (${timeframe})`
     );
+    console.log(`   Training window: 2020-01-01 → 2025-01-01 (FIXED)`);
+
     const startQuery = Date.now();
 
+    // 1️⃣ Check if optimization already exists
+    const existingWeight = await prisma.indicatorWeight.findFirst({
+      where: {
+        symbol,
+        timeframe,
+        startTrain: BigInt(FIXED_START_EPOCH),
+        endTrain: BigInt(FIXED_END_EPOCH),
+      },
+    });
+
+    if (existingWeight) {
+      console.log(`⏩ Optimization already exists for ${symbol}`);
+      console.log(
+        `   ROI: ${existingWeight.roi.toFixed(2)}%, WinRate: ${existingWeight.winRate.toFixed(2)}%`
+      );
+
+      return res.json({
+        success: true,
+        symbol,
+        timeframe,
+        skipped: true,
+        message: "Optimization already exists",
+        performance: {
+          roi: existingWeight.roi,
+          winRate: existingWeight.winRate,
+          maxDrawdown: existingWeight.maxDrawdown,
+          trades: existingWeight.trades,
+        },
+        weights: existingWeight.weights,
+        lastOptimized: existingWeight.updatedAt,
+      });
+    }
+
+    // 2️⃣ Fetch data within fixed window
     const [indicators, candles] = await Promise.all([
       prisma.indicator.findMany({
         where: {
           symbol,
           timeframe,
-          time: { gte: BigInt(startEpoch), lte: BigInt(endEpoch) },
+          time: { gte: BigInt(FIXED_START_EPOCH), lt: BigInt(FIXED_END_EPOCH) },
         },
         orderBy: { time: "asc" },
       }),
@@ -28,7 +66,7 @@ export async function optimizeIndicatorWeightsController(req, res) {
         where: {
           symbol,
           timeframe,
-          time: { gte: BigInt(startEpoch), lte: BigInt(endEpoch) },
+          time: { gte: BigInt(FIXED_START_EPOCH), lt: BigInt(FIXED_END_EPOCH) },
         },
         orderBy: { time: "asc" },
         select: { time: true, close: true },
@@ -80,14 +118,14 @@ export async function optimizeIndicatorWeightsController(req, res) {
     // Jalankan Full Exhaustive Search Optimization (5^8 = 390,625 combinations)
     const result = await optimizeIndicatorWeights(data, symbol);
 
-    // Save to database (tanpa executionTimeSeconds karena tidak ada di schema)
+    // Save to database with FIXED epochs
     await prisma.indicatorWeight.upsert({
       where: {
         symbol_timeframe_startTrain_endTrain: {
           symbol,
           timeframe,
-          startTrain: BigInt(startEpoch),
-          endTrain: BigInt(endEpoch),
+          startTrain: BigInt(FIXED_START_EPOCH),
+          endTrain: BigInt(FIXED_END_EPOCH),
         },
       },
       update: {
@@ -101,8 +139,8 @@ export async function optimizeIndicatorWeightsController(req, res) {
       create: {
         symbol,
         timeframe,
-        startTrain: BigInt(startEpoch),
-        endTrain: BigInt(endEpoch),
+        startTrain: BigInt(FIXED_START_EPOCH),
+        endTrain: BigInt(FIXED_END_EPOCH),
         roi: result.performance.roi,
         winRate: result.performance.winRate,
         maxDrawdown: result.performance.maxDrawdown,
@@ -128,8 +166,8 @@ export async function optimizeIndicatorWeightsController(req, res) {
       bestWeights: result.bestWeights,
       performance: result.performance,
       totalCombinationsTested: result.totalCombinationsTested,
-      optimizationTimeSeconds: result.executionTimeSeconds, // dari service
-      totalProcessingTime, // termasuk DB query & save
+      optimizationTimeSeconds: result.executionTimeSeconds,
+      totalProcessingTime,
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
@@ -146,6 +184,9 @@ export async function optimizeIndicatorWeightsController(req, res) {
 export async function optimizeAllCoinsController(req, res) {
   try {
     const timeframe = (req.query.timeframe || "1h").toLowerCase();
+
+    console.log(`\n🚀 Starting mass optimization for 20 top coins...`);
+    console.log(`   Training window: 2020-01-01 → 2025-01-01 (FIXED)\n`);
 
     // Ambil 20 coin teratas
     const coins = await prisma.coin.findMany({
@@ -166,95 +207,122 @@ export async function optimizeAllCoinsController(req, res) {
     let skippedCount = 0;
     let failedCount = 0;
 
-    console.log(
-      `\n🚀 Starting mass optimization for ${coins.length} top coins...\n`
-    );
-
-    // Proses setiap coin secara sequential (satu per satu)
+    // Proses setiap coin secara sequential
     for (const [index, coin] of coins.entries()) {
       const symbol = coin.symbol.toUpperCase();
       const progress = `[${index + 1}/${coins.length}]`;
 
       try {
-        // 1️⃣ Ambil data candle dan indikator terlebih dahulu
-        const [indicators, candles] = await Promise.all([
-          prisma.indicator.findMany({
-            where: { symbol, timeframe },
-            orderBy: { time: "asc" },
-          }),
-          prisma.candle.findMany({
-            where: { symbol, timeframe },
-            orderBy: { time: "asc" },
-            select: { time: true, close: true },
-          }),
-        ]);
-
-        // 2️⃣ Validasi data candle
-        if (!candles.length) {
-          console.warn(`${progress} ⚠️ Data candle kosong untuk ${symbol}`);
-          results.push({
-            symbol,
-            success: false,
-            message: "Data candle kosong",
-          });
-          failedCount++;
-          continue;
-        }
-
-        // 3️⃣ Gabungkan indikator + harga berdasarkan timestamp
-        const map = new Map(candles.map((c) => [c.time.toString(), c.close]));
-        const data = indicators
-          .filter((i) => map.has(i.time.toString()))
-          .map((i) => ({ ...i, close: map.get(i.time.toString()) }));
-
-        // 4️⃣ Validasi data gabungan (minimal 100 data points)
-        if (!data.length || data.length < 100) {
-          console.warn(
-            `${progress} ⚠️ Data tidak cukup untuk ${symbol} (${data.length}/100 minimum)`
-          );
-          results.push({
-            symbol,
-            success: false,
-            message: `Data tidak cukup untuk optimasi (${data.length}/100 minimum)`,
-          });
-          failedCount++;
-          continue;
-        }
-
-        // 5️⃣ Dapatkan timestamp data yang sebenarnya
-        const actualStart = data[0]?.time;
-        const actualEnd = data[data.length - 1]?.time;
-
-        // 6️⃣ CEK DATABASE: apakah sudah ada hasil optimasi untuk range data ini?
+        // 1️⃣ CEK DATABASE: apakah sudah ada dengan startTrain & endTrain yang FIXED?
         const existingWeight = await prisma.indicatorWeight.findFirst({
           where: {
             symbol,
             timeframe,
-            startTrain: actualStart,
-            endTrain: actualEnd,
+            startTrain: BigInt(FIXED_START_EPOCH),
+            endTrain: BigInt(FIXED_END_EPOCH),
           },
         });
 
         if (existingWeight) {
           console.log(
-            `${progress} ⏩ Melewati ${symbol}, hasil optimasi sudah ada di database`
+            `${progress} ⏩ Skipping ${symbol} - already optimized (ROI: ${existingWeight.roi.toFixed(2)}%, WinRate: ${existingWeight.winRate.toFixed(2)}%)`
           );
           results.push({
             symbol,
             success: true,
             skipped: true,
-            message: "Sudah dioptimasi sebelumnya",
+            message: "Already optimized",
             roi: existingWeight.roi,
             winRate: existingWeight.winRate,
+            maxDrawdown: existingWeight.maxDrawdown,
+            trades: existingWeight.trades,
+            lastOptimized: existingWeight.updatedAt,
           });
           skippedCount++;
           continue;
         }
 
-        // 7️⃣ Jika belum ada, jalankan optimasi
+        // 2️⃣ Jika belum ada, fetch data dengan FIXED window
         console.log(`${progress} 📊 Optimizing ${symbol}...`);
 
-        // Format tanggal untuk logging
+        const [indicators, candles] = await Promise.all([
+          prisma.indicator.findMany({
+            where: {
+              symbol,
+              timeframe,
+              time: {
+                gte: BigInt(FIXED_START_EPOCH),
+                lt: BigInt(FIXED_END_EPOCH),
+              },
+            },
+            orderBy: { time: "asc" },
+          }),
+          prisma.candle.findMany({
+            where: {
+              symbol,
+              timeframe,
+              time: {
+                gte: BigInt(FIXED_START_EPOCH),
+                lt: BigInt(FIXED_END_EPOCH),
+              },
+            },
+            orderBy: { time: "asc" },
+            select: { time: true, close: true },
+          }),
+        ]);
+
+        // 3️⃣ Validasi data candle
+        if (!candles.length) {
+          console.warn(`${progress} ⚠️ No candle data for ${symbol}`);
+          results.push({
+            symbol,
+            success: false,
+            message: "No candle data",
+          });
+          failedCount++;
+          continue;
+        }
+
+        // 4️⃣ Gabungkan indikator + harga
+        const map = new Map(candles.map((c) => [c.time.toString(), c.close]));
+        const data = indicators
+          .filter((i) => map.has(i.time.toString()))
+          .map((i) => ({ ...i, close: map.get(i.time.toString()) }));
+
+        // 5️⃣ Validasi data gabungan
+        if (!data.length || data.length < 100) {
+          console.warn(
+            `${progress} ⚠️ Insufficient data for ${symbol} (${data.length}/100 minimum)`
+          );
+          results.push({
+            symbol,
+            success: false,
+            message: `Insufficient data (${data.length}/100 minimum)`,
+          });
+          failedCount++;
+          continue;
+        }
+
+        // 6️⃣ Jalankan optimasi
+        const result = await optimizeIndicatorWeights(data, symbol);
+
+        // 7️⃣ Simpan dengan FIXED epochs
+        await prisma.indicatorWeight.create({
+          data: {
+            symbol,
+            timeframe,
+            startTrain: BigInt(FIXED_START_EPOCH),
+            endTrain: BigInt(FIXED_END_EPOCH),
+            roi: result.performance.roi,
+            winRate: result.performance.winRate,
+            maxDrawdown: result.performance.maxDrawdown,
+            trades: result.performance.trades,
+            candleCount: data.length,
+            weights: result.bestWeights,
+          },
+        });
+
+        // Format tanggal untuk response
         const formatDate = (t) =>
           new Intl.DateTimeFormat("id-ID", {
             dateStyle: "long",
@@ -262,42 +330,7 @@ export async function optimizeAllCoinsController(req, res) {
             timeZone: "Asia/Jakarta",
           }).format(new Date(Number(t)));
 
-        // 8️⃣ Jalankan Full Exhaustive Search Optimization
-        const result = await optimizeIndicatorWeights(data, symbol);
-
-        // 9️⃣ Simpan hasil ke database
-        await prisma.indicatorWeight.upsert({
-          where: {
-            symbol_timeframe_startTrain_endTrain: {
-              symbol,
-              timeframe,
-              startTrain: actualStart,
-              endTrain: actualEnd,
-            },
-          },
-          update: {
-            roi: result.performance.roi,
-            winRate: result.performance.winRate,
-            maxDrawdown: result.performance.maxDrawdown,
-            trades: result.performance.trades,
-            candleCount: data.length,
-            weights: result.bestWeights,
-          },
-          create: {
-            symbol,
-            timeframe,
-            startTrain: actualStart,
-            endTrain: actualEnd,
-            roi: result.performance.roi,
-            winRate: result.performance.winRate,
-            maxDrawdown: result.performance.maxDrawdown,
-            trades: result.performance.trades,
-            candleCount: data.length,
-            weights: result.bestWeights,
-          },
-        });
-
-        // 🔟 Tambahkan ke hasil dan log sukses
+        // 8️⃣ Tambahkan ke hasil
         results.push({
           symbol,
           success: true,
@@ -305,8 +338,8 @@ export async function optimizeAllCoinsController(req, res) {
           timeframe,
           dataPoints: data.length,
           range: {
-            start: formatDate(actualStart),
-            end: formatDate(actualEnd),
+            start: formatDate(data[0].time),
+            end: formatDate(data[data.length - 1].time),
           },
           performance: result.performance,
           optimizationTimeSeconds: result.executionTimeSeconds,
@@ -314,7 +347,7 @@ export async function optimizeAllCoinsController(req, res) {
 
         successCount++;
         console.log(
-          `${progress} ✅ ${symbol} selesai → ROI: ${result.performance.roi.toFixed(2)}% | WinRate: ${result.performance.winRate.toFixed(2)}%`
+          `${progress} ✅ ${symbol} completed → ROI: ${result.performance.roi.toFixed(2)}% | WinRate: ${result.performance.winRate.toFixed(2)}%`
         );
       } catch (err) {
         console.error(
@@ -330,7 +363,6 @@ export async function optimizeAllCoinsController(req, res) {
       }
     }
 
-    // 🔟 Kembalikan summary hasil ke client
     const summaryMessage = `Optimasi selesai (${successCount} berhasil / ${skippedCount} dilewati / ${failedCount} gagal)`;
 
     console.log(`\n✅ ${summaryMessage}`);
@@ -364,8 +396,14 @@ export async function backtestWithOptimizedWeightsController(req, res) {
       `\n📊 Starting optimized-weight backtest for ${symbol} (${timeframe})`
     );
 
+    // Find weight dengan FIXED window
     const latest = await prisma.indicatorWeight.findFirst({
-      where: { symbol, timeframe },
+      where: {
+        symbol,
+        timeframe,
+        startTrain: BigInt(FIXED_START_EPOCH),
+        endTrain: BigInt(FIXED_END_EPOCH),
+      },
       orderBy: { updatedAt: "desc" },
     });
 
@@ -382,7 +420,7 @@ export async function backtestWithOptimizedWeightsController(req, res) {
         where: {
           symbol,
           timeframe,
-          time: { gte: latest.startTrain, lte: latest.endTrain },
+          time: { gte: BigInt(FIXED_START_EPOCH), lt: BigInt(FIXED_END_EPOCH) },
         },
         orderBy: { time: "asc" },
       }),
@@ -390,7 +428,7 @@ export async function backtestWithOptimizedWeightsController(req, res) {
         where: {
           symbol,
           timeframe,
-          time: { gte: latest.startTrain, lte: latest.endTrain },
+          time: { gte: BigInt(FIXED_START_EPOCH), lt: BigInt(FIXED_END_EPOCH) },
         },
         orderBy: { time: "asc" },
         select: { time: true, close: true },
@@ -481,23 +519,17 @@ export async function backtestWithEqualWeightsController(req, res) {
     console.log(
       `\n📊 Starting equal-weight backtest for ${symbol} (${timeframe})`
     );
-
-    // Filter rentang waktu 2020-2025
-    const startTime = new Date("2020-01-01T00:00:00Z").getTime();
-    const endTime = new Date("2025-01-01T00:00:00Z").getTime();
+    console.log(`   Training window: 2020-01-01 → 2025-01-01 (FIXED)`);
 
     const startQuery = Date.now();
 
-    // Ambil data historis dengan filter waktu
+    // Ambil data dengan FIXED window
     const [indicators, candles] = await Promise.all([
       prisma.indicator.findMany({
         where: {
           symbol,
           timeframe,
-          time: {
-            gte: startTime,
-            lte: endTime,
-          },
+          time: { gte: BigInt(FIXED_START_EPOCH), lt: BigInt(FIXED_END_EPOCH) },
         },
         orderBy: { time: "asc" },
       }),
@@ -505,10 +537,7 @@ export async function backtestWithEqualWeightsController(req, res) {
         where: {
           symbol,
           timeframe,
-          time: {
-            gte: startTime,
-            lte: endTime,
-          },
+          time: { gte: BigInt(FIXED_START_EPOCH), lt: BigInt(FIXED_END_EPOCH) },
         },
         orderBy: { time: "asc" },
         select: { time: true, close: true },
@@ -566,7 +595,6 @@ export async function backtestWithEqualWeightsController(req, res) {
     const equalWeights = Object.fromEntries(allIndicators.map((k) => [k, 1]));
 
     // Jalankan backtest
-    const backtestStart = Date.now();
     const result = await backtestWithWeights(data, equalWeights);
     const processingTime = `${((Date.now() - startQuery) / 1000).toFixed(2)}s`;
 
@@ -612,9 +640,14 @@ export async function backtestAllWithBTCWeightsController(req, res) {
   try {
     const timeframe = (req.query.timeframe || "1h").toLowerCase();
 
-    // Ambil bobot hasil optimasi BTC-USD
+    // Ambil bobot BTC dengan FIXED window
     const btcWeights = await prisma.indicatorWeight.findFirst({
-      where: { symbol: "BTC-USD", timeframe },
+      where: {
+        symbol: "BTC-USD",
+        timeframe,
+        startTrain: BigInt(FIXED_START_EPOCH),
+        endTrain: BigInt(FIXED_END_EPOCH),
+      },
       orderBy: { updatedAt: "desc" },
     });
 
@@ -643,17 +676,32 @@ export async function backtestAllWithBTCWeightsController(req, res) {
     console.log(
       `🚀 Backtesting all ${coins.length} coins using BTC weights...`
     );
+    console.log(`   Training window: 2020-01-01 → 2025-01-01 (FIXED)\n`);
 
     for (const coin of coins) {
       const symbol = coin.symbol.toUpperCase();
 
       const [indicators, candles] = await Promise.all([
         prisma.indicator.findMany({
-          where: { symbol, timeframe },
+          where: {
+            symbol,
+            timeframe,
+            time: {
+              gte: BigInt(FIXED_START_EPOCH),
+              lt: BigInt(FIXED_END_EPOCH),
+            },
+          },
           orderBy: { time: "asc" },
         }),
         prisma.candle.findMany({
-          where: { symbol, timeframe },
+          where: {
+            symbol,
+            timeframe,
+            time: {
+              gte: BigInt(FIXED_START_EPOCH),
+              lt: BigInt(FIXED_END_EPOCH),
+            },
+          },
           select: { time: true, close: true },
         }),
       ]);

@@ -29,20 +29,25 @@ console.log(`   Chat ID: ${TELEGRAM_CHAT_ID ? "✅ Configured" : "❌ Missing"}`
 const lastSignalCache = new Map();
 
 /**
- * 📨 Kirim pesan ke Telegram
+ * 📨 Kirim pesan ke Telegram (support dynamic chat ID)
+ * @param {string} message - Pesan yang akan dikirim
+ * @param {string} chatId - Telegram Chat ID tujuan
  */
-async function sendTelegramMessage(message, options = {}) {
+async function sendTelegramMessage(message, chatId = null, options = {}) {
+  // Jika chatId tidak diberikan, gunakan default dari env (backward compatibility)
+  const targetChatId = chatId || TELEGRAM_CHAT_ID;
+
   if (!TELEGRAM_ENABLED) {
     console.log("⚠️ Telegram notifications disabled (TELEGRAM_ENABLED=false)");
     return { success: false, reason: "disabled" };
   }
 
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+  if (!TELEGRAM_BOT_TOKEN || !targetChatId) {
     console.error("❌ Telegram credentials not configured");
     console.error(
       `   Bot Token: ${TELEGRAM_BOT_TOKEN ? "Present" : "Missing"}`
     );
-    console.error(`   Chat ID: ${TELEGRAM_CHAT_ID ? "Present" : "Missing"}`);
+    console.error(`   Chat ID: ${targetChatId ? "Present" : "Missing"}`);
     return { success: false, reason: "not_configured" };
   }
 
@@ -50,14 +55,14 @@ async function sendTelegramMessage(message, options = {}) {
     const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
 
     const response = await axios.post(url, {
-      chat_id: TELEGRAM_CHAT_ID,
+      chat_id: targetChatId,
       text: message,
       parse_mode: options.parseMode || "Markdown",
       disable_web_page_preview: options.disablePreview !== false,
     });
 
     if (response.data.ok) {
-      console.log("✅ Telegram message sent successfully");
+      console.log(`✅ Telegram message sent to ${targetChatId}`);
       return { success: true, messageId: response.data.result.message_id };
     }
 
@@ -244,4 +249,134 @@ Time: ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}
   return await sendTelegramMessage(message.trim());
 }
 
+/**
+ * 📣 Broadcast pesan ke semua user yang mengaktifkan notifikasi Telegram
+ * @param {string} message - Pesan yang akan dikirim
+ * @param {object} options - Opsi pengiriman pesan
+ * @returns {object} - Hasil broadcast
+ */
+export async function broadcastTelegram(message, options = {}) {
+  try {
+    console.log("📣 Broadcasting Telegram message to all enabled users...");
+
+    // Ambil semua user yang mengaktifkan notifikasi Telegram
+    const enabledUsers = await prisma.user.findMany({
+      where: {
+        telegramEnabled: true,
+        telegramChatId: { not: null },
+      },
+      select: {
+        id: true,
+        email: true,
+        telegramChatId: true,
+      },
+    });
+
+    if (enabledUsers.length === 0) {
+      console.log("⚠️ No users with Telegram enabled");
+      return {
+        success: true,
+        sent: 0,
+        failed: 0,
+        message: "No users to notify",
+      };
+    }
+
+    console.log(`📤 Sending to ${enabledUsers.length} users...`);
+
+    const results = {
+      sent: 0,
+      failed: 0,
+      errors: [],
+    };
+
+    // Kirim pesan ke setiap user
+    for (const user of enabledUsers) {
+      try {
+        const result = await sendTelegramMessage(
+          message,
+          user.telegramChatId,
+          options
+        );
+
+        if (result.success) {
+          results.sent++;
+          console.log(`  ✅ Sent to ${user.email} (${user.telegramChatId})`);
+        } else {
+          results.failed++;
+          results.errors.push({
+            userId: user.id,
+            email: user.email,
+            reason: result.reason,
+          });
+          console.log(`  ❌ Failed to send to ${user.email}: ${result.reason}`);
+        }
+
+        // Delay kecil untuk menghindari rate limiting
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      } catch (error) {
+        results.failed++;
+        results.errors.push({
+          userId: user.id,
+          email: user.email,
+          error: error.message,
+        });
+        console.error(`  ❌ Error sending to ${user.email}:`, error.message);
+      }
+    }
+
+    console.log(
+      `✅ Broadcast completed: ${results.sent} sent, ${results.failed} failed`
+    );
+
+    return {
+      success: true,
+      sent: results.sent,
+      failed: results.failed,
+      total: enabledUsers.length,
+      errors: results.errors,
+    };
+  } catch (error) {
+    console.error("❌ Broadcast error:", error.message);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+}
+
+/**
+ * 📣 Broadcast sinyal trading ke semua user
+ */
+export async function broadcastTradingSignal({
+  symbol,
+  signal,
+  price,
+  type = "multi",
+  details = {},
+}) {
+  const signalEmoji = signal === "buy" ? "🟢" : signal === "sell" ? "🔴" : "⚪";
+  const signalText = signal.toUpperCase();
+
+  let message = `
+${signalEmoji} *${signalText} SIGNAL* ${signalEmoji}
+
+📊 *Symbol:* ${symbol}
+💰 *Price:* $${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+⏰ *Type:* ${type === "multi" ? "Multi-Indicator" : "Single-Indicator"}
+🕐 *Time:* ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}
+`;
+
+  if (details.indicators) {
+    message += `\n🎯 *Active Indicators:*\n${details.indicators}`;
+  }
+
+  if (details.performance) {
+    message += `\n\n📈 *Performance:*\n${details.performance}`;
+  }
+
+  return await broadcastTelegram(message.trim());
+}
+
+// Export sendTelegramMessage for backward compatibility
 export { sendTelegramMessage };
