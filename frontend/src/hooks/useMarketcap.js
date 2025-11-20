@@ -8,7 +8,7 @@ import {
 } from "../services/api.service";
 
 // Get live marketcap data
-export const useMarketCapLive = (limit = 100) => {
+export const useMarketCapLive = (limit = 20) => {
   return useQuery({
     queryKey: ["marketcap", "live", limit],
     queryFn: () => fetchMarketCapLive(limit),

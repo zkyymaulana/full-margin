@@ -99,6 +99,7 @@ export async function getChart(req, res) {
               },
               bollingerBands: {
                 upper: ind.bbUpper,
+                middle: ind.bbMiddle,
                 lower: ind.bbLower,
               },
               stochastic: {

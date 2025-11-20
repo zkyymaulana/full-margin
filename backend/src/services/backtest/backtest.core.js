@@ -47,9 +47,11 @@ export function makeSignalFuncs({ rsiLow = 30, rsiHigh = 70 } = {}) {
     },
 
     // Bollinger Bands: price near upper/lower band
-    bollingerBands: (p, up, low) => {
+    bollingerBands: (p, up, low, middle) => {
       if (!p || !up || !low) return "neutral";
       const width = up - low;
+      const mid = middle || (up + low) / 2;
+
       if (p > up - width * 0.1) return "sell";
       if (p < low + width * 0.1) return "buy";
       return "neutral";
@@ -148,7 +150,12 @@ export function runBacktestCore(
           signal = funcs.ema(c.ema20, c.ema50, price);
           break;
         case "BollingerBands":
-          signal = funcs.bollingerBands(price, c.bbUpper, c.bbLower);
+          signal = funcs.bollingerBands(
+            price,
+            c.bbUpper,
+            c.bbLower,
+            c.bbMiddle
+          );
           break;
         case "Stochastic":
           signal = funcs.stochastic(c.stochK, c.stochD);

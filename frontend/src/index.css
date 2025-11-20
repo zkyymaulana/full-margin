@@ -20,6 +20,19 @@
 }
 
 /* =========================
+   TradingView Logo/Watermark Removal - SAFE VERSION
+   ========================= */
+/* Only hide actual TradingView logo images - DO NOT touch chart DOM elements */
+img[src*="tradingview"],
+img[alt*="TradingView"],
+img[alt*="tradingview"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* =========================
    Components Layer
    ========================= */
 @layer components {

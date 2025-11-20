@@ -42,7 +42,7 @@ export const signalFuncs = {
           : "neutral",
   psar: (p, ps) =>
     !p || !ps ? "neutral" : p > ps ? "buy" : p < ps ? "sell" : "neutral",
-  bollingerBands: (p, up, low) =>
+  bollingerBands: (p, up, low, middle) =>
     !p || !up || !low
       ? "neutral"
       : p < low
@@ -63,7 +63,12 @@ export function calculateIndividualSignals(ind) {
     EMA: signalFuncs.ema(ind.ema20, ind.ema50, p),
     RSI: signalFuncs.rsi(ind.rsi),
     MACD: signalFuncs.macd(ind.macd, ind.macdSignalLine), // ✅ Standardized MACD naming for consistency
-    BollingerBands: signalFuncs.bollingerBands(p, ind.bbUpper, ind.bbLower),
+    BollingerBands: signalFuncs.bollingerBands(
+      p,
+      ind.bbUpper,
+      ind.bbLower,
+      ind.bbMiddle
+    ),
     Stochastic: signalFuncs.stochastic(ind.stochK, ind.stochD),
     PSAR: signalFuncs.psar(p, ind.psar),
     StochasticRSI: signalFuncs.stochasticRsi(ind.stochRsiK, ind.stochRsiD),

@@ -79,6 +79,9 @@ export function calculateSignals(indicators, price) {
   // SELL: harga mendekati pita atas
   if (indicators.bbUpper && indicators.bbLower && price) {
     const width = indicators.bbUpper - indicators.bbLower;
+    const middle =
+      indicators.bbMiddle || (indicators.bbUpper + indicators.bbLower) / 2;
+
     if (price > indicators.bbUpper - width * 0.1) signals.bbSignal = "sell";
     else if (price < indicators.bbLower + width * 0.1) signals.bbSignal = "buy";
     else signals.bbSignal = "neutral";
