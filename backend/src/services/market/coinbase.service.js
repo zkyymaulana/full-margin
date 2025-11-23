@@ -26,6 +26,7 @@ export async function fetchPairs() {
 
 /**
  * Ambil data harga dan OHLC dari Coinbase
+ * 🐛 Fixed: Tidak lagi memaksa nilai 0 untuk coin dengan harga kecil (seperti SHIB)
  */
 export async function fetchTicker(symbol) {
   try {
@@ -34,18 +35,53 @@ export async function fetchTicker(symbol) {
       axios.get(`${API}/products/${symbol}/stats`, { timeout: TIMEOUT }),
     ]);
 
+    // 🎯 Parsing aman: null jika tidak ada, BUKAN 0
+    const price =
+      ticker.data && ticker.data.price != null
+        ? Number(ticker.data.price)
+        : null;
+
+    const volume =
+      ticker.data && ticker.data.volume != null
+        ? Number(ticker.data.volume)
+        : stats.data && stats.data.volume != null
+          ? Number(stats.data.volume)
+          : null;
+
+    const high =
+      stats.data && stats.data.high != null ? Number(stats.data.high) : null;
+
+    const low =
+      stats.data && stats.data.low != null ? Number(stats.data.low) : null;
+
+    const open =
+      stats.data && stats.data.open != null ? Number(stats.data.open) : null;
+
+    const time = ticker.data?.time
+      ? new Date(ticker.data.time).getTime()
+      : new Date().getTime();
+
+    // 🔍 Debug log jika data kritis tidak tersedia
+    if (price == null || open == null || high == null || low == null) {
+      console.warn(
+        `⚠️ Missing ticker data for ${symbol}:`,
+        `price=${price}, open=${open}, high=${high}, low=${low}, volume=${volume}`
+      );
+    }
+
     const rawData = {
       symbol,
-      price: +ticker.data.price || 0,
-      volume: +(ticker.data.volume || stats.data.volume || 0),
-      high: +stats.data.high || 0,
-      low: +stats.data.low || 0,
-      open: +stats.data.open || 0,
-      time: new Date(ticker.data.time || new Date()).getTime(),
+      price,
+      volume,
+      high,
+      low,
+      open,
+      time,
     };
 
     return cleanTickerData(rawData);
-  } catch {
+  } catch (err) {
+    console.error(`❌ Error fetching ticker for ${symbol}:`, err.message);
     return null;
   }
 }

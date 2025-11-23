@@ -15,9 +15,11 @@ import { fetchLatestIndicatorData } from "../../utils/db.utils.js";
  * Deteksi sinyal trading dari indikator dan kirim notifikasi
  * - Single Indicator Signals
  * - Multi-Indicator Signals (berdasarkan optimized weights)
+ *
+ * 📚 Threshold = 0 (sesuai jurnal, tanpa hold zone)
  */
 
-const HOLD_THRESHOLD = 0.15;
+// ❌ HOLD_THRESHOLD dihapus - mengikuti jurnal dengan threshold = 0
 
 /* =========================================================
    🔍 SINGLE INDICATOR SIGNAL DETECTION
@@ -77,7 +79,7 @@ export async function detectAndNotifySingleIndicatorSignals(
 }
 
 /* =========================================================
-   🎯 MULTI INDICATOR SIGNAL DETECTION
+   🎯 MULTI INDICATOR SIGNAL DETECTION (REFACTORED)
 ========================================================= */
 export async function detectAndNotifyMultiIndicatorSignals(
   symbol,
@@ -103,23 +105,39 @@ export async function detectAndNotifyMultiIndicatorSignals(
     const prev = prevIndicator ? { ...prevIndicator } : null;
 
     const signals = calculateIndividualSignals(current, prev);
-    const { normalized, signal } = calculateWeightedSignal(
+
+    // ✅ Ambil strength dari calculateWeightedSignal (single source of truth)
+    const { normalized, signal, strength } = calculateWeightedSignal(
       signals,
-      latestWeights.weights,
-      HOLD_THRESHOLD
+      latestWeights.weights
     );
+
+    // ✅ Log rinci untuk debugging
+    console.log(`📊 [MultiIndicator] ${symbol} weighted result:`, {
+      signal: signal.toUpperCase(),
+      strength: strength.toFixed(3),
+      normalized: normalized.toFixed(3),
+      price: candle.close.toFixed(2),
+    });
 
     if (signal === "neutral") {
       console.log(
-        `⚪ Neutral signal for ${symbol} (score: ${normalized.toFixed(2)})`
+        `⚪ ${symbol} NEUTRAL | strength: ${strength.toFixed(3)} | score: ${normalized.toFixed(3)}`
       );
-      return { success: true, signal: "neutral", score: normalized };
+      return {
+        success: true,
+        signal: "neutral",
+        score: normalized,
+        strength: 0,
+      }; // ✅ Force strength = 0 untuk neutral
     }
 
+    // ✅ Kirim ke Telegram dengan strength yang konsisten
     const result = await sendMultiIndicatorSignal({
       symbol,
       signal,
       price: candle.close,
+      strength, // ✅ Kirim strength ke Telegram
       activeIndicators: Object.entries(latestWeights.weights).map(([k, w]) => ({
         name: k,
         weight: w,
@@ -137,9 +155,13 @@ export async function detectAndNotifyMultiIndicatorSignals(
       timeframe,
     });
 
-    if (result.success)
-      console.log(`✅ Sent ${signal.toUpperCase()} signal for ${symbol}`);
-    return { success: true, signal, score: normalized };
+    if (result.success) {
+      console.log(
+        `✅ ${symbol} ${signal.toUpperCase()} | strength: ${strength.toFixed(3)} | score: ${normalized.toFixed(3)}`
+      );
+    }
+
+    return { success: true, signal, score: normalized, strength };
   } catch (err) {
     console.error(
       `❌ Error detecting multi-indicator signals for ${symbol}:`,

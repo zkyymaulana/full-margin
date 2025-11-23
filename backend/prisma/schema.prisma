@@ -35,6 +35,7 @@ model Coin {
   symbol    String   @unique
   name      String?
   rank      Int?
+  logo      String?  // ✅ URL logo dari CoinMarketCap
   createdAt DateTime @default(now())
   candles   Candle[] @relation("CoinCandles")
 }
@@ -122,11 +123,18 @@ model IndicatorWeight {
   startTrain   BigInt
   endTrain     BigInt
   weights      Json
-  roi          Float
-  winRate      Float
-  maxDrawdown  Float   @default(0)
+
+  // === METRIK EVALUASI ===
+  roi           Float
+  winRate       Float
+  maxDrawdown   Float
+  sharpeRatio   Float?
+  trades        Int
+  finalCapital  Float
+
+  // === INFO DATA ===
   candleCount  Int     @default(0)
-  trades       Int     @default(0)
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

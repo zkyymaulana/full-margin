@@ -59,10 +59,29 @@ function MainChart({
 
     const chart = createChart(chartContainerRef.current, chartOptions);
 
-    // Explicitly disable watermark
+    // ✅ Configure time formatting
     chart.applyOptions({
       watermark: {
         visible: false,
+      },
+      localization: {
+        // 🕐 Format untuk crosshair tooltip SAJA (saat hover)
+        // Output: "30 Okt 2025 14:00"
+        timeFormatter: (time) => {
+          const date = new Date(time * 1000);
+          return date.toLocaleString("id-ID", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          });
+        },
+      },
+      timeScale: {
+        timeVisible: false, // ❌ Sembunyikan jam di time scale bawah
+        secondsVisible: false,
       },
     });
 
@@ -235,6 +254,168 @@ function MainChart({
       `📊 Overlay indicators updated from ${allCandlesData.length} candles`
     );
   }, [activeIndicators, allCandlesData]);
+
+  // Update multi-indicator signal markers (BUY/SELL arrows)
+  // ✅ ULTRA STRICT VALIDATION - Zero tolerance for non-DB signals
+  useEffect(() => {
+    if (!seriesRef.current || !allCandlesData.length) return;
+
+    console.log("🔍 [MARKER SYNC] Starting validation...");
+    console.log(`📊 Total candles received: ${allCandlesData.length}`);
+
+    // 1️⃣ Filter ONLY DB-sourced signals (ultra strict validation)
+    const validSignals = [];
+
+    for (const candle of allCandlesData) {
+      // ❌ Reject if no multiSignal at all
+      if (!candle.multiSignal) {
+        continue;
+      }
+
+      // ❌ Reject if source is not exactly "db"
+      if (candle.multiSignal.source !== "db") {
+        console.warn("⚠️ [REJECTED] Non-DB signal:", {
+          time: new Date(Number(candle.time)).toISOString(),
+          source: candle.multiSignal.source,
+        });
+        continue;
+      }
+
+      // ❌ CRITICAL: Reject ALL neutral signals
+      if (candle.multiSignal.signal === "neutral") {
+        // Don't even log this, it's expected behavior
+        continue;
+      }
+
+      // ❌ Reject if signal is not exactly "buy" or "sell"
+      if (
+        candle.multiSignal.signal !== "buy" &&
+        candle.multiSignal.signal !== "sell"
+      ) {
+        console.warn("⚠️ [REJECTED] Invalid signal value:", {
+          time: new Date(Number(candle.time)).toISOString(),
+          signal: candle.multiSignal.signal,
+        });
+        continue;
+      }
+
+      // ✅ Only accept if ALL conditions pass
+      validSignals.push(candle);
+    }
+
+    console.log(
+      `✅ [DB SIGNALS] ${validSignals.length} valid buy/sell signals from database`
+    );
+    console.log(
+      `   Neutral signals filtered out: ${
+        allCandlesData.filter((c) => c.multiSignal?.signal === "neutral").length
+      }`
+    );
+
+    // 2️⃣ Sort by time ascending (oldest first)
+    const sortedSignals = [...validSignals].sort(
+      (a, b) => Number(a.time) - Number(b.time)
+    );
+
+    // 3️⃣ Remove consecutive duplicates (keep only direction changes)
+    const signalChanges = [];
+    let previousSignal = null;
+
+    sortedSignals.forEach((candle, index) => {
+      const currentSignal = candle.multiSignal.signal;
+
+      // Debug log for EVERY signal (not just first/last) to catch mismatch
+      if (process.env.NODE_ENV === "development") {
+        console.log(`[DEBUG SIGNAL #${index}]`, {
+          time: new Date(Number(candle.time)).toISOString(),
+          timestamp: Number(candle.time),
+          signal: currentSignal,
+          source: candle.multiSignal.source,
+          strength: candle.multiSignal.strength,
+          rawSignal: candle.multiSignal.rawSignal,
+          previous: previousSignal,
+          willShow: currentSignal !== previousSignal,
+        });
+      }
+
+      // Only add marker if signal CHANGED from previous
+      if (currentSignal !== previousSignal) {
+        signalChanges.push(candle);
+        previousSignal = currentSignal;
+      }
+    });
+
+    console.log(
+      `📍 [SIGNAL CHANGES] ${signalChanges.length} direction changes detected`
+    );
+    console.log(
+      `   BUY signals: ${
+        signalChanges.filter((c) => c.multiSignal.signal === "buy").length
+      }`
+    );
+    console.log(
+      `   SELL signals: ${
+        signalChanges.filter((c) => c.multiSignal.signal === "sell").length
+      }`
+    );
+
+    // 4️⃣ Convert to lightweight-charts marker format
+    const markers = signalChanges.map((c) => {
+      const timeInSeconds = Number(c.time) / 1000; // ✅ Convert milliseconds to seconds
+      const isBuy = c.multiSignal.signal === "buy";
+
+      // ✅ VALIDATION: Ensure time is valid
+      if (isNaN(timeInSeconds) || timeInSeconds <= 0) {
+        console.error("❌ [INVALID TIME]", {
+          original: c.time,
+          converted: timeInSeconds,
+        });
+      }
+
+      return {
+        time: timeInSeconds,
+        position: isBuy ? "belowBar" : "aboveBar",
+        color: isBuy ? "#26a69a" : "#ef5350", // Green for BUY, Red for SELL
+        shape: isBuy ? "arrowUp" : "arrowDown",
+        text: isBuy ? "BUY" : "SELL",
+      };
+    });
+
+    // 5️⃣ Apply markers to candlestick series
+    seriesRef.current.setMarkers(markers);
+
+    // 6️⃣ Final validation log
+    if (markers.length > 0) {
+      console.log(
+        `✅ [MARKERS APPLIED] ${markers.length} markers successfully set`
+      );
+      console.log(
+        `📊 [REDUCTION] ${sortedSignals.length} signals → ${
+          markers.length
+        } markers (${((markers.length / sortedSignals.length) * 100).toFixed(
+          1
+        )}% after deduplication)`
+      );
+
+      // Log ALL markers for debugging
+      console.table(
+        markers.map((m) => ({
+          time: new Date(m.time * 1000).toISOString(),
+          signal: m.text,
+          position: m.position,
+        }))
+      );
+    } else {
+      console.log(
+        `⚠️ [NO MARKERS] No signal changes detected - chart will be clean`
+      );
+      console.log(
+        `   This is normal if all signals are neutral or consecutive duplicates`
+      );
+    }
+
+    console.log("─────────────────────────────────────────────────────");
+  }, [allCandlesData]);
 
   return (
     <div

@@ -130,7 +130,23 @@ function Header() {
             }`}
           >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md">
+              {/* ✅ Use logo from API instead of initial */}
+              {currentSymbolInfo?.logo ? (
+                <img
+                  src={currentSymbolInfo.logo}
+                  alt={currentSymbolInfo.name}
+                  className="w-8 h-8 rounded-full object-cover shadow-md"
+                  onError={(e) => {
+                    // Fallback to gradient initial if image fails to load
+                    e.target.style.display = "none";
+                    e.target.nextElementSibling.style.display = "flex";
+                  }}
+                />
+              ) : null}
+              <div
+                className="w-8 h-8 bg-linear-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md"
+                style={{ display: currentSymbolInfo?.logo ? "none" : "flex" }}
+              >
                 {currentSymbolInfo?.name?.charAt(0) || "?"}
               </div>
               <div className="text-left">
@@ -235,7 +251,23 @@ function Header() {
                           : ""
                       }`}
                     >
-                      <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-sm">
+                      {/* ✅ Use logo from API instead of initial */}
+                      {symbol.logo ? (
+                        <img
+                          src={symbol.logo}
+                          alt={symbol.name}
+                          className="w-8 h-8 rounded-full object-cover shadow-md"
+                          onError={(e) => {
+                            // Fallback to gradient initial if image fails to load
+                            e.target.style.display = "none";
+                            e.target.nextElementSibling.style.display = "flex";
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-sm"
+                        style={{ display: symbol.logo ? "none" : "flex" }}
+                      >
                         {symbol.name.charAt(0)}
                       </div>
                       <div className="flex-1 text-left">

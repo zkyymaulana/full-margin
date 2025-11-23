@@ -39,6 +39,12 @@ function getWeightCombination(index, indicators) {
 /**
  * ⚡ Fast backtest using precomputed indicators
  * Includes early stopping when capital drops below 40% of initial
+ *
+ * Metrik evaluasi sesuai skripsi:
+ * - ROI (Return on Investment)
+ * - Win Rate
+ * - Maximum Drawdown (MDD)
+ * - Sharpe Ratio
  */
 function backtestWithWeightsCached(cache, weights) {
   const INITIAL_CAPITAL = 10_000;
@@ -61,7 +67,6 @@ function backtestWithWeightsCached(cache, weights) {
       finalCapital: 0,
       maxDrawdown: 100,
       sharpeRatio: null,
-      sortinoRatio: null,
     };
   }
 
@@ -109,24 +114,43 @@ function backtestWithWeightsCached(cache, weights) {
     trades++;
   }
 
-  // Calculate risk metrics
-  const { sharpeRatio, sortinoRatio } = calcRiskMetrics(equityCurve);
+  // 📊 Calculate performance metrics based on thesis requirements
+  // 1. ROI = ((Final Capital - Initial Capital) / Initial Capital) * 100
+  const roi = ((capital - INITIAL_CAPITAL) / INITIAL_CAPITAL) * 100;
+
+  // 2. Win Rate = (Winning Trades / Total Trades) * 100
+  const winRate = trades > 0 ? (wins / trades) * 100 : 0;
+
+  // 3. Maximum Drawdown = (Peak - Lowest After Peak) / Peak * 100
+  const maxDrawdown = calcMaxDrawdown(equityCurve);
+
+  // 4. Sharpe Ratio = Average Return / Std Dev of Returns (risk-free rate = 0)
+  const { sharpeRatio } = calcRiskMetrics(equityCurve);
 
   return {
-    roi: +(((capital - INITIAL_CAPITAL) / INITIAL_CAPITAL) * 100).toFixed(2),
-    winRate: trades ? +((wins / trades) * 100).toFixed(2) : 0,
+    roi: +roi.toFixed(2),
+    winRate: +winRate.toFixed(2),
     trades,
     wins,
     finalCapital: +capital.toFixed(2),
-    maxDrawdown: calcMaxDrawdown(equityCurve),
+    maxDrawdown,
     sharpeRatio,
-    sortinoRatio,
   };
 }
 
 /**
  * 🎯 Full Exhaustive Search Optimization (5^8 = 390,625 combinations)
  * Uses in-memory caching for maximum performance
+ *
+ * Optimasi berdasarkan metodologi skripsi:
+ * "Sistem Pendukung Keputusan Perdagangan Cryptocurrency
+ *  Berbasis Analisis Multi-Indikator Teknikal"
+ *
+ * Metrik evaluasi:
+ * - ROI (Return on Investment) - Metrik utama optimasi
+ * - Win Rate
+ * - Maximum Drawdown (MDD) - Filter risiko
+ * - Sharpe Ratio - Tie-breaker untuk ROI yang sama
  */
 export async function optimizeIndicatorWeights(data, symbol = "BTC-USD") {
   const startTime = performance.now();
@@ -159,17 +183,24 @@ export async function optimizeIndicatorWeights(data, symbol = "BTC-USD") {
     `✅ Indicators precomputed in ${((performance.now() - startTime) / 1000).toFixed(2)}s\n`
   );
 
-  // Step 2: Test all combinations
+  // Step 2: Test all combinations with ROI as primary optimization metric
   let best = null;
-  let bestROI = -Infinity;
+  let bestScore = -Infinity;
 
   for (let i = 0; i < totalCombinations; i++) {
     const weights = getWeightCombination(i, allIndicators);
     const result = backtestWithWeightsCached(cache, weights);
 
-    // Track best result (no need to store all results)
-    if (result.roi > bestROI) {
-      bestROI = result.roi;
+    // 🎯 Optimization scoring based on thesis methodology:
+    // - Primary: ROI (maximize profit)
+    // - Secondary: Sharpe Ratio (risk-adjusted return)
+    // - Penalty: Max Drawdown (minimize risk)
+    const score =
+      result.roi - result.maxDrawdown * 0.5 + (result.sharpeRatio || 0) * 2;
+
+    // Track best result
+    if (score > bestScore) {
+      bestScore = score;
       best = { weights, ...result };
     }
 
@@ -182,7 +213,7 @@ export async function optimizeIndicatorWeights(data, symbol = "BTC-USD") {
 
       console.log(
         `   Progress: ${(i + 1).toLocaleString()}/${totalCombinations.toLocaleString()} ` +
-          `(${progress}%) | Best ROI: ${bestROI.toFixed(2)}% | ` +
+          `(${progress}%) | Best ROI: ${best.roi.toFixed(2)}% | ` +
           `ETA: ${remaining > 60 ? (remaining / 60).toFixed(1) + "m" : remaining.toFixed(0) + "s"}`
       );
     }
@@ -190,7 +221,10 @@ export async function optimizeIndicatorWeights(data, symbol = "BTC-USD") {
 
   const totalTime = (performance.now() - startTime) / 1000;
   console.log(`\n✅ Optimization completed in ${totalTime.toFixed(2)}s`);
-  console.log(`🏆 Best ROI found: ${bestROI.toFixed(2)}%`);
+  console.log(`🏆 Best ROI found: ${best.roi.toFixed(2)}%`);
+  console.log(`📊 Win Rate: ${best.winRate.toFixed(2)}%`);
+  console.log(`📉 Max Drawdown: ${best.maxDrawdown.toFixed(2)}%`);
+  console.log(`📈 Sharpe Ratio: ${best.sharpeRatio?.toFixed(2) || "N/A"}`);
 
   return {
     success: true,
@@ -204,7 +238,6 @@ export async function optimizeIndicatorWeights(data, symbol = "BTC-USD") {
       wins: best.wins,
       finalCapital: best.finalCapital,
       sharpeRatio: best.sharpeRatio || null,
-      sortinoRatio: best.sortinoRatio || null,
     },
     totalCombinationsTested: totalCombinations,
     dataPoints: data.length,

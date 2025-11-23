@@ -36,7 +36,7 @@ app.get("/", (_, res) => res.redirect("/api"));
 async function initializeSystem() {
   const steps = [
     ["👤 Seeding admin", seedAdmin],
-    ["📊 Sync Top 100 CMC", syncTopCoins],
+    ["📊 Sync Top 20 CMC", syncTopCoins],
     ["🔗 Matching pairs Coinbase", getMarketcapRealtime],
     ["⏰ Start automated schedulers", startAllSchedulers],
   ];

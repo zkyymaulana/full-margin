@@ -5,6 +5,15 @@ import {
 } from "../../utils/indicator.utils.js";
 import { calcRiskMetrics } from "../backtest/backtest.utils.js";
 
+/**
+ * 📊 Backtest Multi-Indicator Strategy dengan Weighted Signals
+ *
+ * Metrik evaluasi sesuai skripsi:
+ * - ROI (Return on Investment)
+ * - Win Rate
+ * - Maximum Drawdown (MDD)
+ * - Sharpe Ratio
+ */
 export async function backtestWithWeights(
   data,
   weights = {},
@@ -61,22 +70,31 @@ export async function backtestWithWeights(
     trades++;
   }
 
-  // Calculate risk metrics (Sharpe & Sortino Ratio)
-  const { sharpeRatio, sortinoRatio } = calcRiskMetrics(equityCurve);
+  // 📊 Calculate performance metrics based on thesis requirements
+  // 1. ROI = ((Final Capital - Initial Capital) / Initial Capital) * 100
+  const roi = ((capital - INITIAL_CAPITAL) / INITIAL_CAPITAL) * 100;
+
+  // 2. Win Rate = (Winning Trades / Total Trades) * 100
+  const winRate = trades > 0 ? (wins / trades) * 100 : 0;
+
+  // 3. Maximum Drawdown = (Peak - Lowest After Peak) / Peak * 100
+  const maxDrawdown = calcMaxDrawdown(equityCurve);
+
+  // 4. Sharpe Ratio = Average Return / Std Dev of Returns (risk-free rate = 0)
+  const { sharpeRatio } = calcRiskMetrics(equityCurve);
 
   return {
     success: true,
     methodology: fastMode
       ? "Fast Rule-Based Multi-Indicator Backtest"
       : "Rule-Based Multi-Indicator Backtest",
-    roi: +(((capital - INITIAL_CAPITAL) / INITIAL_CAPITAL) * 100).toFixed(2),
-    winRate: trades ? +((wins / trades) * 100).toFixed(2) : 0,
+    roi: +roi.toFixed(2),
+    winRate: +winRate.toFixed(2),
     trades,
     wins,
     finalCapital: +capital.toFixed(2),
-    maxDrawdown: calcMaxDrawdown(equityCurve),
+    maxDrawdown,
     sharpeRatio,
-    sortinoRatio,
     dataPoints: data.length,
   };
 }

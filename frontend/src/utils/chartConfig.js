@@ -91,7 +91,7 @@ export const getBaseChartOptions = (
 });
 
 export const getTimeScaleOptions = (showTimeScale = true) => ({
-  timeVisible: showTimeScale,
+  timeVisible: false, // ❌ Jangan tampilkan jam di time scale bawah
   secondsVisible: false,
   rightOffset: 20,
   barSpacing: 8,
@@ -103,25 +103,6 @@ export const getTimeScaleOptions = (showTimeScale = true) => ({
   borderVisible: showTimeScale,
   borderColor: "#4b5563",
   visible: true,
-  tickMarkFormatter: (time, tickMarkType, locale) => {
-    const date = new Date(time * 1000);
-    switch (tickMarkType) {
-      case 0:
-        return date.getFullYear().toString();
-      case 1:
-        return date.toLocaleDateString(locale, { month: "short" });
-      case 2:
-        return date.getDate().toString();
-      case 3:
-        return date.toLocaleTimeString(locale, {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        });
-      default:
-        return "";
-    }
-  },
 });
 
 // Available indicators configuration

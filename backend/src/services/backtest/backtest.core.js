@@ -200,19 +200,26 @@ export function runBacktestCore(
   console.log(`  Signal distribution for ${indicatorName}:`, signalCounts);
   console.log(`  Trades executed: ${trades}, Wins: ${wins}`);
 
+  // 📊 Calculate performance metrics based on thesis requirements
+  // 1. ROI = ((Final Capital - Initial Capital) / Initial Capital) * 100
   const roi = ((cap - INITIAL_CAPITAL) / INITIAL_CAPITAL) * 100;
-  const winRate = trades ? (wins / trades) * 100 : 0;
+
+  // 2. Win Rate = (Winning Trades / Total Trades) * 100
+  const winRate = trades > 0 ? (wins / trades) * 100 : 0;
+
+  // 3. Maximum Drawdown = (Peak - Lowest After Peak) / Peak * 100
   const maxDrawdown = calcMaxDrawdown(curve);
-  const { sharpeRatio, sortinoRatio } = calcRiskMetrics(curve);
+
+  // 4. Sharpe Ratio = Average Return / Std Dev of Returns (risk-free rate = 0)
+  const { sharpeRatio } = calcRiskMetrics(curve);
 
   return {
     roi: +roi.toFixed(2),
-    winRate,
+    winRate: +winRate.toFixed(2),
     maxDrawdown,
     trades,
     wins,
-    finalCapital: cap,
+    finalCapital: +cap.toFixed(2),
     sharpeRatio,
-    sortinoRatio,
   };
 }

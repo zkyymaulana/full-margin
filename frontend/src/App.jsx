@@ -8,7 +8,7 @@ import AdminRoute from "./components/AdminRoute";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
-import Indicators from "./pages/Indicators";
+import Indicators from "./pages/Indicators"; // ✅ Kembalikan ke Indicators karena file belum direname
 import Comparison from "./pages/Comparison";
 import MarketCap from "./pages/MarketCap";
 import Profile from "./pages/Profile";
@@ -64,7 +64,7 @@ function App() {
           >
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="indicators" element={<Indicators />} />
+            <Route path="signals" element={<Indicators />} />
             <Route path="comparison" element={<Comparison />} />
             <Route path="marketcap" element={<MarketCap />} />
             <Route path="profile" element={<Profile />} />

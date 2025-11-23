@@ -429,7 +429,7 @@ const IndicatorCard = ({
 // ========================================
 // MAIN COMPONENT
 // ========================================
-function Indicators() {
+function Signals() {
   const { selectedSymbol } = useSymbol();
   const { isDarkMode } = useDarkMode();
   const {
@@ -1302,4 +1302,4 @@ function Indicators() {
   );
 }
 
-export default Indicators;
+export default Signals;

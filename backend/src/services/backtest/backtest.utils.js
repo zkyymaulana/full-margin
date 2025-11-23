@@ -63,28 +63,40 @@ export function calcMaxDrawdown(equity) {
   return +maxDD.toFixed(2);
 }
 
-// 📊 Hitung Sharpe & Sortino ratio
+// 📊 Hitung Sharpe Ratio (tanpa Sortino Ratio)
+/**
+ * Sharpe Ratio = Average Return / Standard Deviation of Returns
+ * Assumes risk-free rate = 0
+ * Uses sample standard deviation
+ */
 export function calcRiskMetrics(equity) {
-  if (!equity || equity.length < 2)
-    return { sharpeRatio: null, sortinoRatio: null };
+  if (!equity || equity.length < 2) {
+    return { sharpeRatio: null };
+  }
 
+  // Calculate returns from equity curve
   const returns = [];
-  for (let i = 1; i < equity.length; i++)
+  for (let i = 1; i < equity.length; i++) {
     returns.push((equity[i] - equity[i - 1]) / equity[i - 1]);
+  }
 
+  if (returns.length === 0) {
+    return { sharpeRatio: null };
+  }
+
+  // Average return
   const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
-  const std = Math.sqrt(
-    returns.reduce((s, r) => s + (r - mean) ** 2, 0) / returns.length
-  );
 
-  const neg = returns.filter((r) => r < 0);
-  const downside = Math.sqrt(
-    neg.reduce((s, r) => s + r ** 2, 0) / (neg.length || 1)
-  );
+  // Sample standard deviation (n-1)
+  const variance =
+    returns.reduce((s, r) => s + (r - mean) ** 2, 0) / (returns.length - 1);
+  const std = Math.sqrt(variance);
 
-  const annual = Math.sqrt(252 * 24);
+  // Sharpe Ratio (annualized for hourly data: sqrt(252 * 24))
+  const annualizationFactor = Math.sqrt(252 * 24);
+  const sharpeRatio = std > 0 ? (mean / std) * annualizationFactor : null;
+
   return {
-    sharpeRatio: std ? +((mean / std) * annual).toFixed(2) : null,
-    sortinoRatio: downside ? +((mean / downside) * annual).toFixed(2) : null,
+    sharpeRatio: sharpeRatio !== null ? +sharpeRatio.toFixed(2) : null,
   };
 }

@@ -406,7 +406,24 @@ function MarketCap() {
                       </td>
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold shadow-md">
+                          {/* ✅ Use logo from API instead of gradient initial */}
+                          {coin.logo ? (
+                            <img
+                              src={coin.logo}
+                              alt={coin.name}
+                              className="w-10 h-10 rounded-full object-cover shadow-md"
+                              onError={(e) => {
+                                // Fallback to gradient initial if image fails to load
+                                e.target.style.display = "none";
+                                e.target.nextElementSibling.style.display =
+                                  "flex";
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold shadow-md"
+                            style={{ display: coin.logo ? "none" : "flex" }}
+                          >
                             {coin.name.charAt(0)}
                           </div>
                           <div>

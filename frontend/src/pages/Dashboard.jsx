@@ -34,16 +34,37 @@ function Dashboard() {
     queryKey: ["candles", selectedSymbol, timeframe],
     queryFn: () =>
       fetchCandlesWithPagination(selectedSymbol, timeframe, 1, 1000),
-    staleTime: 60000,
+    staleTime: 0, // ✅ FORCE FRESH DATA - No cache tolerance
+    cacheTime: 0, // ✅ Don't keep old data in memory
+    refetchOnMount: true, // ✅ Always refetch when component mounts
+    refetchOnWindowFocus: false, // ❌ Don't refetch on window focus (annoying)
     enabled: !!selectedSymbol,
   });
 
   const { data: marketCapData } = useMarketCapLive();
 
-  // Initialize data
+  // Initialize data - RESET state when new data arrives
   useEffect(() => {
     if (candlesData?.success && candlesData.data?.length) {
-      setAllCandlesData(candlesData.data);
+      console.log("🔄 [DATA REFRESH] New candles data received from API");
+      console.log(`📊 Total candles: ${candlesData.data.length}`);
+
+      // ✅ FORCE RESET state to clear old data
+      setAllCandlesData([]); // Clear first
+
+      setTimeout(() => {
+        setAllCandlesData(candlesData.data); // Then set new data
+        console.log("✅ [STATE RESET] allCandlesData updated with fresh data");
+
+        // Debug: Log first candle's multiSignal
+        if (candlesData.data[0]?.multiSignal) {
+          console.log("🔍 [FIRST CANDLE SIGNAL]", {
+            time: new Date(Number(candlesData.data[0].time)).toISOString(),
+            multiSignal: candlesData.data[0].multiSignal,
+          });
+        }
+      }, 0);
+
       pagination.initializePagination(candlesData);
     }
   }, [candlesData]);

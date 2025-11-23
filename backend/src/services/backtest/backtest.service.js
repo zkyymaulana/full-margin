@@ -39,6 +39,12 @@ export async function backtestSingleIndicator(data, indicatorName) {
  * Menjalankan backtest untuk semua 8 indikator teknikal menggunakan FULL dataset.
  * Signals selalu dihitung ulang (rule-based) untuk validasi akademis yang konsisten.
  * Tidak ada train/test split - semua data digunakan untuk backtest.
+ *
+ * Metrik evaluasi sesuai skripsi:
+ * - ROI (Return on Investment)
+ * - Win Rate
+ * - Maximum Drawdown (MDD)
+ * - Sharpe Ratio
  */
 export async function backtestAllIndicators(data) {
   const list = [
@@ -75,25 +81,25 @@ export async function backtestAllIndicators(data) {
           trades: 0,
           wins: 0,
           finalCapital: 10000,
+          sharpeRatio: null,
         },
         error: err.message,
       });
     }
   }
 
-  // 📊 Display summary table
+  // 📊 Display summary table (thesis metrics only)
   console.log("\n📊 BACKTEST RESULTS SUMMARY (FULL PERIOD 2020-2025):");
   console.table(
     results.map((r) => ({
       Indicator: r.indicator,
       "ROI %": r.performance.roi,
-      "Win Rate %": r.performance.winRate.toFixed(2),
+      "Win Rate %": r.performance.winRate,
       "Max DD %": r.performance.maxDrawdown,
-      "Total Trades": r.performance.trades,
-      "Winning Trades": r.performance.wins,
+      Trades: r.performance.trades,
+      Wins: r.performance.wins,
       "Final Capital": `$${r.performance.finalCapital.toFixed(2)}`,
-      "Sharpe Ratio": r.performance.sharpeRatio || "N/A",
-      "Sortino Ratio": r.performance.sortinoRatio || "N/A",
+      "Sharpe Ratio": r.performance.sharpeRatio ?? "N/A",
     }))
   );
 

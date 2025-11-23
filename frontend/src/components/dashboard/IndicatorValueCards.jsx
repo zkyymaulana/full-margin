@@ -77,7 +77,7 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
         {
           label: "RSI",
           value: formatValue(indicators.rsi?.[14]),
-          isBadge: true,
+          bg: true,
         },
       ],
       signal:
@@ -100,8 +100,8 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
         { label: "Max Step:", value: "0.2", bg: true },
         {
           label: "Current Value",
-          value: `$${formatValue(indicators.parabolicSar?.value)}K`,
-          isHighlight: true,
+          value: `${formatValue(indicators.parabolicSar?.value)}`,
+          bg: true,
         },
       ],
       signal: getPsarSignal(),
@@ -163,11 +163,6 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
         { label: "Slow:", value: "26", bg: true },
         { label: "Signal:", value: "9", bg: true },
         { label: "MACD:", value: formatValue(indicators.macd?.macd), bg: true },
-        {
-          label: "Signal Line:",
-          value: indicators.macd?.signalLine > 0 ? "buy" : "sell",
-          isBadge: true,
-        },
         {
           label: "Histogram:",
           value: formatValue(indicators.macd?.histogram),
@@ -250,17 +245,17 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
         { label: "Multiplier:", value: "2", bg: true },
         {
           label: "Upper:",
-          value: `$${formatValue(indicators.bollingerBands?.upper)}K`,
+          value: `${formatValue(indicators.bollingerBands?.upper)}`,
           bg: true,
         },
         {
           label: "Middle:",
-          value: `$${formatValue(indicators.bollingerBands?.middle)}K`,
+          value: `${formatValue(indicators.bollingerBands?.middle)}`,
           bg: true,
         },
         {
           label: "Lower:",
-          value: `$${formatValue(indicators.bollingerBands?.lower)}K`,
+          value: `${formatValue(indicators.bollingerBands?.lower)}`,
           bg: true,
         },
       ],
@@ -279,7 +274,7 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
       {visibleCards.map((card) => (
         <div
           key={card.id}
-          className={`rounded-xl p-4 ${
+          className={`rounded-xl p-4 h-full flex flex-col ${
             isDarkMode ? "bg-gray-800" : "bg-white"
           } shadow-sm border ${
             isDarkMode ? "border-gray-700" : "border-gray-200"
@@ -311,8 +306,8 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
             </div>
           </div>
 
-          {/* Values */}
-          <div className="space-y-2">
+          {/* Content (values) */}
+          <div className="space-y-2 flex-1">
             {card.values.map((item, index) => (
               <div key={index}>
                 {item.isBadge ? (

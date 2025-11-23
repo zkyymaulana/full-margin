@@ -27,10 +27,30 @@ function Sidebar() {
   };
 
   const menuItems = [
-    { path: "/dashboard", icon: "📊", label: "Dashboard" },
-    { path: "/indicators", icon: "📈", label: "Indicators" },
-    { path: "/comparison", icon: "⚖️", label: "Comparison" },
-    { path: "/marketcap", icon: "🪙", label: "Market Cap" },
+    {
+      path: "/dashboard",
+      icon: "📊",
+      label: "Dashboard",
+      show: true,
+    },
+    {
+      path: "/signals",
+      icon: "📈",
+      label: "Signals",
+      show: true,
+    },
+    {
+      path: "/comparison",
+      icon: "⚖️",
+      label: "Comparison",
+      show: true,
+    },
+    {
+      path: "/marketcap",
+      icon: "🪙",
+      label: "Market Cap",
+      show: true,
+    },
   ];
 
   const formatTime = (date) => {

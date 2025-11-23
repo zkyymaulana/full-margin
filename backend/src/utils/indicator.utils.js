@@ -88,27 +88,88 @@ export function calcMaxDrawdown(curve) {
 }
 
 /**
- * 🔢 Hitung sinyal gabungan berbobot
+ * 🔢 Hitung sinyal gabungan berbobot (REFACTORED)
+ * 📚 Threshold mengikuti jurnal: threshold = 0
+ *
+ * Logic:
+ * - normalizedScore > 0 → BUY
+ * - normalizedScore < 0 → SELL
+ * - normalizedScore === 0 → NEUTRAL
+ *
+ * ✅ KONSISTENSI STRENGTH:
+ * - Jika signal = "neutral" → strength HARUS = 0
+ * - Jika signal = "buy"/"sell" → strength = Math.abs(normalizedScore)
  */
-export function calculateWeightedSignal(signals, weights, threshold = 0.15) {
+export function calculateWeightedSignal(signals, weights) {
   const indicators = Object.keys(weights);
-  let combined = 0,
-    total = 0;
+  let combined = 0;
+  let totalWeight = 0;
 
+  console.log(
+    `🔍 [weightedSignal] Calculating for ${indicators.length} indicators...`
+  );
+
+  // ✅ Log detail per indikator (breakdown)
+  const breakdown = [];
   for (const ind of indicators) {
     const w = weights[ind] ?? 0;
-    combined += w * scoreSignal(signals[ind] ?? "neutral");
-    total += w;
+    const sig = signals[ind] ?? "neutral";
+    const score = scoreSignal(sig);
+    const contribution = w * score;
+
+    combined += contribution;
+    totalWeight += w;
+
+    breakdown.push({
+      indicator: ind,
+      signal: sig,
+      weight: w.toFixed(2),
+      score,
+      contribution: contribution.toFixed(3),
+    });
   }
 
-  const normalized = total > 0 ? combined / total : 0;
+  console.table(breakdown);
+
+  const normalized = totalWeight > 0 ? combined / totalWeight : 0;
+
+  console.log(
+    `📊 [weightedSignal] Combined: ${combined.toFixed(3)} / TotalWeight: ${totalWeight.toFixed(3)} = Normalized: ${normalized.toFixed(3)}`
+  );
+
+  // ✅ Threshold = 0 sesuai jurnal (tanpa hold zone)
+  let signal = "neutral";
+  let strength = 0;
+
+  if (normalized > 0) {
+    signal = "buy";
+    strength = Math.abs(normalized); // ✅ Strength = absolute value
+  } else if (normalized < 0) {
+    signal = "sell";
+    strength = Math.abs(normalized); // ✅ Strength = absolute value
+  } else {
+    // normalized === 0
+    signal = "neutral";
+    strength = 0; // ✅ CRITICAL: neutral HARUS strength = 0
+  }
+
+  console.log(`✅ [weightedSignal] Final:`, {
+    signal,
+    strength: strength.toFixed(3),
+    normalized: normalized.toFixed(3),
+  });
+
+  // ✅ FINAL VALIDATION: Double-check konsistensi
+  if (signal === "neutral" && strength !== 0) {
+    console.error(
+      `❌ [weightedSignal] CRITICAL: neutral escaped with strength ${strength}! Forcing to 0.`
+    );
+    strength = 0;
+  }
+
   return {
     normalized,
-    signal:
-      normalized > threshold
-        ? "buy"
-        : normalized < -threshold
-          ? "sell"
-          : "neutral",
+    signal,
+    strength, // ✅ Return strength untuk konsistensi
   };
 }

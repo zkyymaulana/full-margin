@@ -54,13 +54,6 @@ function TopCoinsSection({ topCoins }) {
               ? ((coin.price - coin.open) / coin.open) * 100
               : 0;
             const isPositive = change >= 0;
-            const gradients = [
-              "from-yellow-500 to-orange-500",
-              "from-gray-400 to-gray-600",
-              "from-amber-600 to-amber-800",
-              "from-blue-500 to-purple-500",
-              "from-green-500 to-teal-500",
-            ];
 
             return (
               <div
@@ -73,9 +66,30 @@ function TopCoinsSection({ topCoins }) {
               >
                 <div className="flex items-center gap-2 mb-3">
                   <div
-                    className={`w-6 h-6 bg-liniear-to-r ${gradients[index]} rounded-full flex items-center justify-center text-white text-xs font-bold`}
+                    className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold ${
+                      isDarkMode ? "bg-gray-700" : "bg-gray-200"
+                    }`}
                   >
                     {coin.rank}
+                  </div>
+                  {/* ✅ Use logo from API instead of gradient initial */}
+                  {coin.logo ? (
+                    <img
+                      src={coin.logo}
+                      alt={coin.name}
+                      className="w-8 h-8 rounded-full object-cover shadow-md"
+                      onError={(e) => {
+                        // Fallback to gradient initial if image fails to load
+                        e.target.style.display = "none";
+                        e.target.nextElementSibling.style.display = "flex";
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-sm"
+                    style={{ display: coin.logo ? "none" : "flex" }}
+                  >
+                    {coin.name.charAt(0)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div

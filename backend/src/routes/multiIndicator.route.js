@@ -5,6 +5,7 @@ import {
   backtestWithEqualWeightsController,
   optimizeAllCoinsController,
   backtestAllWithBTCWeightsController,
+  validateSignalConsistencyController,
 } from "../controllers/multiIndicator.controller.js";
 
 const router = Router();
@@ -18,5 +19,8 @@ router.get("/:symbol/backtest", backtestWithOptimizedWeightsController);
 router.get("/:symbol/backtest-equal", backtestWithEqualWeightsController);
 
 router.get("/backtest-all-btc", backtestAllWithBTCWeightsController);
+
+// 🔍 Signal Validation Endpoint
+router.get("/:symbol/validate-signals", validateSignalConsistencyController);
 
 export default router;

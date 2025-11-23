@@ -1,27 +1,49 @@
 // src/utils/dataCleaner.js
 
-/** Membersihkan data ticker dari Coinbase */
+/**
+ * Membersihkan data ticker dari Coinbase
+ * 🐛 Fixed: Tidak membulatkan harga kecil (seperti SHIB) menjadi 0
+ */
 export function cleanTickerData(data) {
   if (!data) return null;
 
   const { symbol, price, volume, high, low, open, time } = data;
 
-  // Validasi nilai numerik (tidak boleh NaN atau <= 0)
-  if ([price, volume, high, low, open].some((v) => !isFinite(v) || v <= 0))
+  // ✅ Validasi: Tolak hanya jika null, NaN, atau negatif
+  // TIDAK menolak angka kecil seperti 0.00000862
+  if (
+    price == null ||
+    volume == null ||
+    high == null ||
+    low == null ||
+    open == null ||
+    !isFinite(price) ||
+    !isFinite(volume) ||
+    !isFinite(high) ||
+    !isFinite(low) ||
+    !isFinite(open) ||
+    price < 0 ||
+    volume < 0 ||
+    high < 0 ||
+    low < 0 ||
+    open < 0
+  ) {
     return null;
+  }
 
-  // Validasi logika harga (low tidak boleh lebih besar dari high)
+  // ✅ Validasi logika harga (low tidak boleh lebih besar dari high)
   if (low > high) return null;
 
-  // Normalisasi format angka dan waktu
+  // 🎯 Kembalikan nilai asli TANPA pembulatan toFixed(2)
+  // Biarkan precision penuh untuk aset mikro seperti SHIB
   return {
     symbol,
-    price: Number(price.toFixed(2)),
-    volume: Number(volume.toFixed(2)),
-    high: Number(high.toFixed(2)),
-    low: Number(low.toFixed(2)),
-    open: Number(open.toFixed(2)),
-    time: new Date(time).getTime() || Date.now(),
+    price: Number(price), // ✅ TIDAK pakai toFixed(2)
+    volume: Number(volume),
+    high: Number(high),
+    low: Number(low),
+    open: Number(open),
+    time: typeof time === "number" ? time : new Date(time).getTime(),
   };
 }
 

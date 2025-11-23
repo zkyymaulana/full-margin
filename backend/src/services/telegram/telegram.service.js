@@ -125,12 +125,16 @@ _Single Indicator Strategy_
 }
 
 /**
- * 🔔 Kirim notifikasi sinyal multi-indicator
+ * 🔔 Kirim notifikasi sinyal multi-indicator (REFACTORED V2)
+ * ✅ Hapus Active Indicators & Weights
+ * ✅ Perbaiki Max Drawdown
+ * ✅ Tambahkan STRONG BUY/STRONG SELL berdasarkan strength threshold
  */
 export async function sendMultiIndicatorSignal({
   symbol,
   signal,
   price,
+  strength = 0, // ✅ Terima strength dari caller
   activeIndicators,
   performance,
   timeframe = "1h",
@@ -147,34 +151,77 @@ export async function sendMultiIndicatorSignal({
   // Update cache
   lastSignalCache.set(cacheKey, signal);
 
-  // Format sinyal emoji
-  const signalEmoji = signal === "buy" ? "🟢" : signal === "sell" ? "🔴" : "⚪";
-  const signalText = signal.toUpperCase();
+  // ✅ VALIDATION: Jika neutral, strength harus 0
+  if (signal === "neutral" && strength !== 0) {
+    console.warn(
+      `⚠️ [Telegram] MISMATCH: neutral with strength ${strength} → forcing to 0`
+    );
+    strength = 0;
+  }
 
-  // Format active indicators
-  const indicatorsList = activeIndicators
-    .map(({ name, weight }) => `  • ${name}: ${weight}`)
-    .join("\n");
+  // ✅ Determine signal label dengan threshold
+  // strength < 0.5 → "BUY" / "SELL"
+  // strength >= 0.5 → "STRONG BUY" / "STRONG SELL"
+  let signalLabel = signal.toUpperCase();
+  let signalEmoji = "⚪";
 
-  // Build message
+  if (signal === "buy") {
+    signalLabel = strength >= 0.5 ? "STRONG BUY" : "BUY";
+    signalEmoji = strength >= 0.5 ? "🟢🟢" : "🟢";
+  } else if (signal === "sell") {
+    signalLabel = strength >= 0.5 ? "STRONG SELL" : "SELL";
+    signalEmoji = strength >= 0.5 ? "🔴🔴" : "🔴";
+  }
+
+  // Format price dengan USD currency
+  const formatCurrency = (value) => {
+    return `$${value.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
+  // Format tanggal dan waktu (dd/mm/yyyy, HH:MM)
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Asia/Jakarta",
+  });
+  const timeStr = now.toLocaleTimeString("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Asia/Jakarta",
+  });
+
+  // ✅ Fix Max Drawdown: Jika undefined/null, set ke 0 atau ambil dari performance
+  const maxDrawdown =
+    performance.maxDrawdown !== undefined &&
+    performance.maxDrawdown !== null &&
+    !isNaN(performance.maxDrawdown)
+      ? performance.maxDrawdown.toFixed(2)
+      : "0.00";
+
+  // ✅ Build message TANPA Active Indicators & Weights
   const message = `
-${signalEmoji} *${signalText} SIGNAL* ${signalEmoji}
+${signalEmoji} *${signalLabel} SIGNAL* ${signalEmoji}
 
 📊 *Symbol:* ${symbol}
-💰 *Price:* $${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-⏰ *Timeframe:* ${timeframe}
-🕐 *Time:* ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}
+💰 *Price:* ${formatCurrency(price)}
+💪 *Signal Strength:* ${(strength * 100).toFixed(1)}%
+⏱ *Timeframe:* ${timeframe}
+🕒 *Time:* ${dateStr}, ${timeStr}
 
-🎯 *Active Indicators:*
-${indicatorsList}
+📈 *Performance Metrics:*
+• ROI : ${performance.roi.toFixed(2)}%
+• Win Rate : ${performance.winRate.toFixed(2)}%
+• Max Drawdown : ${maxDrawdown}%
+• Sharpe Ratio : ${performance.sharpe}
+• Trades : ${performance.trades}
 
-📈 *Performance:*
-  • ROI: ${performance.roi}%
-  • Win Rate: ${performance.winRate}%
-  • Sharpe: ${performance.sharpe}
-  • Trades: ${performance.trades}
-
-_Multi-Indicator Optimized Strategy_
+_Multi-Indicator Optimized Strategy (Backtested)_
 `;
 
   return await sendTelegramMessage(message.trim());
