@@ -20,16 +20,98 @@
 }
 
 /* =========================
-   TradingView Logo/Watermark Removal - SAFE VERSION
+   TradingView Logo/Watermark Removal - ULTRA AGGRESSIVE VERSION
    ========================= */
-/* Only hide actual TradingView logo images - DO NOT touch chart DOM elements */
+/* 🛡️ Multiple strategies to completely eliminate TradingView branding */
+
+/* Strategy 1: Target by src/alt attributes */
 img[src*="tradingview"],
+img[src*="TradingView"],
 img[alt*="TradingView"],
 img[alt*="tradingview"] {
   display: none !important;
   opacity: 0 !important;
   visibility: hidden !important;
   pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  position: absolute !important;
+  left: -9999px !important;
+}
+
+/* Strategy 2: Target by common TradingView logo class patterns */
+img[class*="tv-logo"],
+img[class*="tradingview-logo"],
+img[class*="tv-attr"],
+a[href*="tradingview"] > img,
+a[href*="tradingview.com"] > img {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Strategy 3: Target SVG logos (icon version) */
+svg[class*="tv-"],
+svg[class*="tradingview"],
+a[href*="tradingview"] > svg {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Strategy 4: Target watermark/attribution containers */
+div[class*="watermark"] img,
+div[class*="logo"] img[src*="tradingview"],
+div[class*="tv-attr"],
+div[class*="attribution"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* Strategy 5: Target anchor links to TradingView */
+a[href*="tradingview.com"],
+a[href*="tradingview"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Strategy 6: Nuclear option - hide any element containing "TradingView" text */
+[class*="tv-"],
+[data-name*="tradingview"],
+[title*="TradingView"],
+[title*="tradingview"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* ⚠️ CRITICAL SAFETY: Whitelist essential chart elements */
+/* These rules ensure chart canvas and containers are NOT affected */
+canvas,
+div[class*="chart"]:not([class*="tv-"]),
+div[class*="pane"],
+div[class*="series"],
+table {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Specific lightweight-charts elements protection */
+.tv-lightweight-charts,
+.tv-lightweight-charts canvas,
+.tv-lightweight-charts table {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
 }
 
 /* =========================

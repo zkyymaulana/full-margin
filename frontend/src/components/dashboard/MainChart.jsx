@@ -9,6 +9,126 @@ import {
 } from "../../utils/chartConfig";
 
 /**
+ * 🛡️ AGGRESSIVE TradingView Logo Removal Hook
+ * Uses multiple strategies to completely remove logo
+ */
+const useSafeTradingViewLogoRemoval = () => {
+  useEffect(() => {
+    // ✅ Strategy 1: Remove IMG elements
+    const removeTradingViewLogo = () => {
+      // Remove all TradingView logo images
+      document
+        .querySelectorAll(
+          'img[src*="tradingview"], img[alt*="TradingView"], img[alt*="tradingview"]'
+        )
+        .forEach((el) => {
+          if (el.tagName === "IMG") {
+            el.remove();
+          }
+        });
+
+      // ✅ Strategy 2: Remove SVG elements (icon might be SVG)
+      document
+        .querySelectorAll('svg[class*="tv-"], svg[class*="tradingview"]')
+        .forEach((el) => {
+          if (el.tagName === "SVG") {
+            el.remove();
+          }
+        });
+
+      // ✅ Strategy 3: Remove anchor links to TradingView
+      document.querySelectorAll('a[href*="tradingview"]').forEach((el) => {
+        // Only remove if it contains an img or svg child
+        if (el.querySelector("img, svg")) {
+          el.remove();
+        }
+      });
+
+      // ✅ Strategy 4: Hide elements with specific classes/attributes
+      document
+        .querySelectorAll('[class*="tv-attr"], [class*="attribution"]')
+        .forEach((el) => {
+          const text = el.textContent?.toLowerCase() || "";
+          if (text.includes("tradingview") || text.includes("trading view")) {
+            el.style.display = "none";
+            el.style.visibility = "hidden";
+            el.style.opacity = "0";
+          }
+        });
+    };
+
+    // Initial cleanup (run immediately)
+    removeTradingViewLogo();
+
+    // Run after short delay to catch delayed renders
+    setTimeout(removeTradingViewLogo, 100);
+    setTimeout(removeTradingViewLogo, 500);
+
+    // ✅ MutationObserver - watches for dynamic logo injection
+    const observer = new MutationObserver((mutations) => {
+      let shouldRemove = false;
+
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === 1) {
+            // Element node
+            const tagName = node.tagName;
+
+            // Check for IMG elements
+            if (tagName === "IMG") {
+              const src = node.getAttribute("src") || "";
+              const alt = node.getAttribute("alt") || "";
+              if (
+                src.includes("tradingview") ||
+                alt.toLowerCase().includes("tradingview")
+              ) {
+                shouldRemove = true;
+              }
+            }
+
+            // Check for SVG elements
+            if (tagName === "SVG") {
+              const className = node.getAttribute("class") || "";
+              if (
+                className.includes("tv-") ||
+                className.includes("tradingview")
+              ) {
+                shouldRemove = true;
+              }
+            }
+
+            // Check for anchor elements
+            if (tagName === "A") {
+              const href = node.getAttribute("href") || "";
+              if (href.includes("tradingview")) {
+                shouldRemove = true;
+              }
+            }
+          }
+        });
+      });
+
+      if (shouldRemove) {
+        removeTradingViewLogo();
+      }
+    });
+
+    // Start observing with aggressive config
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["src", "alt", "href", "class"],
+    });
+
+    // Cleanup on unmount
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+};
+
+/**
  * Main Chart Component
  * Displays candlestick chart with overlay indicators (SMA, EMA, Bollinger, PSAR)
  */
@@ -24,28 +144,8 @@ function MainChart({
   const chartContainerRef = useRef(null);
   const indicatorSeriesRef = useRef({});
 
-  // Remove TradingView logos/watermarks - SAFE VERSION
-  useEffect(() => {
-    const removeTvLogo = () => {
-      // ONLY remove actual TradingView logo images
-      // DO NOT touch chart DOM elements (canvas, divs, etc.)
-      document
-        .querySelectorAll(
-          'img[src*="tradingview"], img[alt*="TradingView"], img[alt*="tradingview"]'
-        )
-        .forEach((el) => {
-          // Extra safety: only remove if it's actually an img element
-          if (el.tagName === "IMG") {
-            el.remove();
-          }
-        });
-    };
-
-    removeTvLogo();
-    const interval = setInterval(removeTvLogo, 300);
-
-    return () => clearInterval(interval);
-  }, []);
+  // ✅ USE SAFE LOGO REMOVAL HOOK
+  useSafeTradingViewLogoRemoval();
 
   // Initialize main chart
   useEffect(() => {
