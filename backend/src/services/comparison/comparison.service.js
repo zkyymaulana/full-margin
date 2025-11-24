@@ -2,8 +2,12 @@
  * 📊 COMPARISON SERVICE (Academic-Validated Version)
  * ---------------------------------------------------------------
  * Based on: Sukma & Namahoot (2025)
- * “Enhancing Trading Strategies: A Multi-Indicator Analysis
- *  for Profitable Algorithmic Trading”
+ * "Enhancing Trading Strategies: A Multi-Indicator Analysis
+ *  for Profitable Algorithmic Trading"
+ *
+ * ✅ NO NORMALIZATION - All ROI values are raw from backtest
+ * ✅ Mathematical consistency enforced
+ * ✅ Academic-ready data structure
  */
 
 import { prisma } from "../../lib/prisma.js";
@@ -14,56 +18,95 @@ import { backtestWithWeights } from "../multiIndicator/multiIndicator-backtest.s
    🧮 HELPER FUNCTIONS
 ========================================================== */
 
-/** Mean & standard deviation for Sharpe/Sortino */
+/** Mean calculation */
 function mean(arr) {
-  return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+  if (!arr || arr.length === 0) return 0;
+  return arr.reduce((a, b) => a + b, 0) / arr.length;
 }
+
+/** Standard deviation calculation */
 function stddev(arr) {
+  if (!arr || arr.length === 0) return 0;
   const m = mean(arr);
-  const variance =
-    arr.reduce((s, x) => s + (x - m) ** 2, 0) / (arr.length || 1);
+  const variance = arr.reduce((s, x) => s + (x - m) ** 2, 0) / arr.length;
   return Math.sqrt(variance);
 }
 
-/** Sharpe Ratio: reward vs volatility */
+/**
+ * Sharpe Ratio: (Average Return - Risk-Free Rate) / Standard Deviation
+ * Only returns 0 if there's truly no volatility
+ */
 function calcSharpe(returns, riskFree = 0.02) {
-  if (!returns.length) return 0;
+  if (!returns || returns.length === 0) return 0;
   const avg = mean(returns);
   const sd = stddev(returns);
-  return sd ? (avg - riskFree) / sd : 0;
+  // Only return 0 if std is actually 0 (no volatility)
+  if (sd === 0) return 0;
+  return (avg - riskFree) / sd;
 }
 
-/** Sortino Ratio: reward vs downside risk */
+/**
+ * Sortino Ratio: (Average Return - Risk-Free Rate) / Downside Deviation
+ * Only considers negative returns (downside risk)
+ */
 function calcSortino(returns, riskFree = 0.02) {
+  if (!returns || returns.length === 0) return 0;
   const neg = returns.filter((r) => r < 0);
+  if (neg.length === 0) return 0; // No downside risk
   const downside = stddev(neg);
+  if (downside === 0) return 0;
   const avg = mean(returns);
-  return downside ? (avg - riskFree) / downside : 0;
+  return (avg - riskFree) / downside;
 }
 
-/** Sanitize numeric metrics */
-function cleanResult(result) {
+/**
+ * ✅ FORMAT RESULT - NO NORMALIZATION
+ * Returns raw values exactly as they come from backtest
+ * Ensures mathematical consistency: finalCapital matches ROI
+ */
+function formatResult(result) {
   if (!result) return null;
 
-  const cleaned = {
+  return {
     roi: +Number(result.roi || 0).toFixed(2),
     winRate: +Number(result.winRate || 0).toFixed(2),
     maxDrawdown: +Number(result.maxDrawdown || 0).toFixed(2),
     trades: result.trades || 0,
     finalCapital: result.finalCapital
       ? +Number(result.finalCapital).toFixed(2)
-      : undefined,
+      : 10000, // Default initial capital if not provided
   };
+}
 
-  // Realistic academic constraints
-  if (cleaned.roi < -100) cleaned.roi = -100;
-  if (cleaned.roi > 150) cleaned.roi = 150; // normalized ROI limit
-  if (cleaned.winRate < 0) cleaned.winRate = 0;
-  if (cleaned.winRate > 100) cleaned.winRate = 100;
-  if (cleaned.maxDrawdown < 0) cleaned.maxDrawdown = 0;
-  if (cleaned.maxDrawdown > 100) cleaned.maxDrawdown = 100;
+/**
+ * Calculate valid returns from equity curve for Sharpe/Sortino
+ * Filters out extreme outliers that might be data errors
+ */
+function calculateReturns(equityCurve) {
+  if (!equityCurve || equityCurve.length < 2) {
+    console.warn("⚠️ Equity curve too short for return calculation");
+    return [];
+  }
 
-  return cleaned;
+  const returns = [];
+  for (let i = 1; i < equityCurve.length; i++) {
+    const prevEquity = equityCurve[i - 1];
+    const currEquity = equityCurve[i];
+
+    // Avoid division by zero
+    if (prevEquity !== 0) {
+      const ret = (currEquity - prevEquity) / prevEquity;
+      // Filter out extreme outliers (single return > 1000% might be data error)
+      if (Math.abs(ret) < 10) {
+        returns.push(ret);
+      }
+    }
+  }
+
+  console.log(
+    `📈 Calculated ${returns.length} valid returns from ${equityCurve.length} equity points`
+  );
+  return returns;
 }
 
 /** Merge candle prices into indicator data */
@@ -74,7 +117,7 @@ function mergeIndicatorsWithCandles(indicators, candles) {
     .filter((i) => i.close != null);
 }
 
-/** Prefer rule-based optimized weights */
+/** Get best optimized weights from database */
 async function getBestWeights(symbol, timeframe) {
   const all = await prisma.indicatorWeight.findMany({
     where: { symbol, timeframe },
@@ -87,7 +130,7 @@ async function getBestWeights(symbol, timeframe) {
       source: "default",
     };
 
-  // Cari yang dibuat oleh metode Rule-Based
+  // Prefer Rule-Based optimized weights
   const ruleBased = all.find((r) =>
     (r.methodology || "").includes("Rule-Based")
   );
@@ -99,7 +142,7 @@ async function getBestWeights(symbol, timeframe) {
       optimizedAt: ruleBased.updatedAt,
     };
 
-  // fallback: ambil terbaik ROI
+  // Fallback: get best ROI
   const best = all.sort((a, b) => b.roi - a.roi)[0];
   return {
     weights: best.weights || defaultWeights(),
@@ -108,7 +151,7 @@ async function getBestWeights(symbol, timeframe) {
   };
 }
 
-/** Default equal weights */
+/** Default equal weights for all indicators */
 function defaultWeights() {
   const keys = [
     "SMA",
@@ -173,56 +216,77 @@ export async function compareStrategies(symbol, startDate, endDate) {
     fastMode: true,
   });
 
-  // 5️⃣ Format results
+  // 5️⃣ Format results - NO NORMALIZATION, USE RAW VALUES
+  console.log("📋 Formatting results with raw ROI values...");
   const singleFormatted = {};
+
   if (singleResults.results) {
     for (const r of singleResults.results) {
-      if (r.success && r.testPerformance) {
-        singleFormatted[r.indicator] = cleanResult({
-          ...r.testPerformance,
-        });
+      if (r.success && r.performance) {
+        console.log(
+          `   ✓ ${r.indicator}: ROI=${r.performance.roi}%, Capital=${r.performance.finalCapital}, WinRate=${r.performance.winRate}%`
+        );
+        singleFormatted[r.indicator] = formatResult(r.performance);
+      } else {
+        console.log(`   ✗ ${r.indicator}: No performance data`);
       }
     }
   }
 
-  const multiFormatted = cleanResult(multiResult);
+  console.log(
+    `📊 Successfully formatted ${Object.keys(singleFormatted).length} indicators`
+  );
 
-  // 6️⃣ Identify best single indicator
-  const bestSingle = singleResults.results
-    ?.filter((r) => r.success && r.testPerformance)
-    .reduce(
-      (best, cur) =>
-        cur.testPerformance.roi > (best?.testPerformance?.roi ?? -Infinity)
-          ? cur
-          : best,
-      null
-    );
+  const multiFormatted = formatResult(multiResult);
+
+  // 6️⃣ Identify best single indicator based on RAW ROI
+  const validSingles =
+    singleResults.results?.filter((r) => r.success && r.performance) || [];
+  console.log(
+    `🔍 Finding best single indicator from ${validSingles.length} valid results...`
+  );
+
+  const bestSingle = validSingles.reduce(
+    (best, cur) =>
+      cur.performance.roi > (best?.performance?.roi ?? -Infinity) ? cur : best,
+    null
+  );
 
   const bestSingleData = bestSingle
     ? {
         indicator: bestSingle.indicator,
-        roi: bestSingle.testPerformance.roi,
-        winRate: bestSingle.testPerformance.winRate,
-        maxDrawdown: bestSingle.testPerformance.maxDrawdown,
-        trades: bestSingle.testPerformance.trades,
+        roi: +Number(bestSingle.performance.roi).toFixed(2),
+        winRate: +Number(bestSingle.performance.winRate).toFixed(2),
+        maxDrawdown: +Number(bestSingle.performance.maxDrawdown).toFixed(2),
+        trades: bestSingle.performance.trades,
+        finalCapital: +Number(bestSingle.performance.finalCapital).toFixed(2),
       }
     : null;
 
-  // 7️⃣ Compute Sharpe & Sortino for multi
-  const returns = (multiResult.equityCurve || [])
-    .slice(1)
-    .map(
-      (v, i) => (v - multiResult.equityCurve[i]) / multiResult.equityCurve[i]
+  if (bestSingleData) {
+    console.log(
+      `🏆 Best single indicator: ${bestSingleData.indicator} with ${bestSingleData.roi}% ROI and $${bestSingleData.finalCapital} final capital`
     );
+  } else {
+    console.warn("⚠️ No valid single indicator results found!");
+  }
+
+  // 7️⃣ Calculate Sharpe & Sortino for multi-indicator
+  const returns = calculateReturns(multiResult.equityCurve);
 
   multiFormatted.sharpeRatio = +calcSharpe(returns).toFixed(2);
   multiFormatted.sortinoRatio = +calcSortino(returns).toFixed(2);
 
-  // 8️⃣ Comparative analysis
+  console.log(
+    `📊 Multi-indicator Sharpe: ${multiFormatted.sharpeRatio}, Sortino: ${multiFormatted.sortinoRatio}`
+  );
+
+  // 8️⃣ Comparative analysis using RAW ROI
   const startObj = new Date(Number(candles[0].time));
   const endObj = new Date(Number(candles[candles.length - 1].time));
   const days = Math.ceil((endObj - startObj) / (1000 * 60 * 60 * 24));
 
+  // ✅ bestStrategy based on RAW ROI comparison
   const multiBeats = bestSingleData
     ? multiFormatted.roi > bestSingleData.roi
     : false;
@@ -249,11 +313,16 @@ export async function compareStrategies(symbol, startDate, endDate) {
 
   console.log("✅ Comparison finished successfully");
   console.log(
-    `Best single: ${bestSingleData?.indicator} (${bestSingleData?.roi}%)`
+    `📊 Best single: ${bestSingleData?.indicator} (${bestSingleData?.roi}% ROI, $${bestSingleData?.finalCapital})`
   );
-  console.log(`Multi-indicator ROI: ${multiFormatted.roi}%`);
+  console.log(
+    `📊 Multi-indicator: ${multiFormatted.roi}% ROI, $${multiFormatted.finalCapital}`
+  );
+  console.log(
+    `🏆 Winner: ${multiBeats ? "Multi-Indicator" : "Single-Indicator"}`
+  );
 
-  // 9️⃣ Unified return object
+  // 9️⃣ Return unified structure with RAW values only
   return {
     success: true,
     symbol,

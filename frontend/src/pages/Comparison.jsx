@@ -617,8 +617,8 @@ function Comparison() {
               </p>
             </div>
             <div className="p-6">
-              <div className="overflow-x-auto">
-                <table className="w-full">
+              <div className="w-full overflow-x-auto">
+                <table className="w-full min-w-full table-auto">
                   <thead>
                     <tr
                       className={`border-b ${
@@ -626,42 +626,42 @@ function Comparison() {
                       }`}
                     >
                       <th
-                        className={`text-left py-3 px-4 text-sm font-semibold ${
+                        className={`text-left py-3 px-4 text-sm font-semibold whitespace-nowrap ${
                           isDarkMode ? "text-gray-300" : "text-gray-700"
                         }`}
                       >
                         Strategy
                       </th>
                       <th
-                        className={`text-right py-3 px-4 text-sm font-semibold ${
+                        className={`text-right py-3 px-4 text-sm font-semibold whitespace-nowrap ${
                           isDarkMode ? "text-gray-300" : "text-gray-700"
                         }`}
                       >
                         ROI
                       </th>
                       <th
-                        className={`text-right py-3 px-4 text-sm font-semibold ${
+                        className={`text-right py-3 px-4 text-sm font-semibold whitespace-nowrap ${
                           isDarkMode ? "text-gray-300" : "text-gray-700"
                         }`}
                       >
                         Win Rate
                       </th>
                       <th
-                        className={`text-right py-3 px-4 text-sm font-semibold ${
+                        className={`text-right py-3 px-4 text-sm font-semibold whitespace-nowrap ${
                           isDarkMode ? "text-gray-300" : "text-gray-700"
                         }`}
                       >
                         Trades
                       </th>
                       <th
-                        className={`text-right py-3 px-4 text-sm font-semibold ${
+                        className={`text-right py-3 px-4 text-sm font-semibold whitespace-nowrap ${
                           isDarkMode ? "text-gray-300" : "text-gray-700"
                         }`}
                       >
                         Final Capital
                       </th>
                       <th
-                        className={`text-right py-3 px-4 text-sm font-semibold ${
+                        className={`text-right py-3 px-4 text-sm font-semibold whitespace-nowrap ${
                           isDarkMode ? "text-gray-300" : "text-gray-700"
                         }`}
                       >
@@ -916,8 +916,8 @@ function Comparison() {
                 </div>
               </div>
               <div className="p-6">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
+                <div className="w-full overflow-x-auto">
+                  <table className="w-full min-w-full table-auto">
                     <thead>
                       <tr
                         className={`border-b ${
@@ -925,42 +925,42 @@ function Comparison() {
                         }`}
                       >
                         <th
-                          className={`text-left py-3 px-4 text-sm font-semibold ${
+                          className={`text-left py-3 px-4 text-sm font-semibold whitespace-nowrap ${
                             isDarkMode ? "text-gray-300" : "text-gray-700"
                           }`}
                         >
                           Strategy
                         </th>
                         <th
-                          className={`text-right py-3 px-4 text-sm font-semibold ${
+                          className={`text-right py-3 px-4 text-sm font-semibold whitespace-nowrap ${
                             isDarkMode ? "text-gray-300" : "text-gray-700"
                           }`}
                         >
                           ROI
                         </th>
                         <th
-                          className={`text-right py-3 px-4 text-sm font-semibold ${
+                          className={`text-right py-3 px-4 text-sm font-semibold whitespace-nowrap ${
                             isDarkMode ? "text-gray-300" : "text-gray-700"
                           }`}
                         >
                           Win Rate
                         </th>
                         <th
-                          className={`text-right py-3 px-4 text-sm font-semibold ${
+                          className={`text-right py-3 px-4 text-sm font-semibold whitespace-nowrap ${
                             isDarkMode ? "text-gray-300" : "text-gray-700"
                           }`}
                         >
                           Trades
                         </th>
                         <th
-                          className={`text-right py-3 px-4 text-sm font-semibold ${
+                          className={`text-right py-3 px-4 text-sm font-semibold whitespace-nowrap ${
                             isDarkMode ? "text-gray-300" : "text-gray-700"
                           }`}
                         >
                           Final Capital
                         </th>
                         <th
-                          className={`text-right py-3 px-4 text-sm font-semibold ${
+                          className={`text-right py-3 px-4 text-sm font-semibold whitespace-nowrap ${
                             isDarkMode ? "text-gray-300" : "text-gray-700"
                           }`}
                         >

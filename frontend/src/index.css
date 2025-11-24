@@ -92,16 +92,38 @@ a[href*="tradingview"] {
   visibility: hidden !important;
 }
 
-/* ⚠️ CRITICAL SAFETY: Whitelist essential chart elements */
-/* These rules ensure chart canvas and containers are NOT affected */
 canvas,
 div[class*="chart"]:not([class*="tv-"]),
 div[class*="pane"],
-div[class*="series"],
-table {
+div[class*="series"] {
   display: block !important;
   opacity: 1 !important;
   visibility: visible !important;
+}
+
+/* KEMBALIKAN table ke perilaku aslinya */
+table {
+  display: table !important;
+  width: 100%;
+  table-layout: auto;
+  border-collapse: collapse;
+}
+
+thead {
+  display: table-header-group !important;
+}
+
+tbody {
+  display: table-row-group !important;
+}
+
+tr {
+  display: table-row !important;
+}
+
+td,
+th {
+  display: table-cell !important;
 }
 
 /* Specific lightweight-charts elements protection */
