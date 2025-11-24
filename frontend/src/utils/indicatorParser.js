@@ -49,8 +49,51 @@ export const getIndicatorSignal = (signal, isDarkMode) => {
 };
 
 /**
+ * 🎯 SAFE SIGNAL VALIDATOR
+ * ✅ Force only valid database signals
+ * ✅ Prevent recalculation or inference
+ */
+export const safeSignal = (signal) => {
+  if (!signal) return "neutral";
+  const normalized = signal.toLowerCase();
+
+  // ✅ Only accept valid signals
+  if (!["buy", "sell", "neutral"].includes(normalized)) {
+    console.warn(
+      "⚠️ [INVALID SIGNAL] Received:",
+      signal,
+      "→ Defaulting to neutral"
+    );
+    return "neutral";
+  }
+
+  return normalized;
+};
+
+/**
+ * 🎯 COUNT SIGNALS FROM DATABASE ONLY
+ * ✅ No calculation, pure DB read
+ */
+export const countSignalsFromDB = (indicators) => {
+  if (!indicators) {
+    return { buy: 0, sell: 0, neutral: 0 };
+  }
+
+  const signals = Object.values(indicators).map((ind) =>
+    safeSignal(ind?.signal)
+  );
+
+  return {
+    buy: signals.filter((s) => s === "buy").length,
+    sell: signals.filter((s) => s === "sell").length,
+    neutral: signals.filter((s) => s === "neutral").length,
+  };
+};
+
+/**
  * Parse indicators from API response and categorize them
  * Returns only 8 core indicators without sub-lines
+ * ✅ 100% DATABASE SIGNALS - NO CALCULATION
  */
 export const parseIndicators = (indicators = {}, price = 0, weights = {}) => {
   const parsed = {
@@ -59,123 +102,89 @@ export const parseIndicators = (indicators = {}, price = 0, weights = {}) => {
     volatility: [],
   };
 
-  // Parse SMA (Trend)
+  // Parse SMA (Trend) - ✅ Database signal only
   if (indicators.sma) {
     parsed.trend.push({
       name: "SMA",
       key: "SMA",
-      signal: indicators.sma.signal || "neutral",
+      signal: safeSignal(indicators.sma.signal),
       weight: weights.SMA || 0,
       type: "trend",
     });
   }
 
-  // Parse EMA (Trend)
+  // Parse EMA (Trend) - ✅ Database signal only
   if (indicators.ema) {
     parsed.trend.push({
       name: "EMA",
       key: "EMA",
-      signal: indicators.ema.signal || "neutral",
+      signal: safeSignal(indicators.ema.signal),
       weight: weights.EMA || 0,
       type: "trend",
     });
   }
 
-  // Parse Parabolic SAR (Trend)
-  if (indicators.parabolicSar?.value !== undefined) {
-    const psarSignal =
-      price > indicators.parabolicSar.value
-        ? "buy"
-        : price < indicators.parabolicSar.value
-        ? "sell"
-        : "neutral";
+  // Parse Parabolic SAR (Trend) - ✅ Database signal only
+  if (indicators.parabolicSar) {
     parsed.trend.push({
       name: "Parabolic SAR",
       key: "PSAR",
-      signal: psarSignal,
+      signal: safeSignal(indicators.parabolicSar.signal),
       weight: weights.PSAR || 0,
       type: "trend",
     });
   }
 
-  // Parse RSI (Momentum)
+  // Parse RSI (Momentum) - ✅ Database signal only
   if (indicators.rsi) {
     parsed.momentum.push({
       name: "RSI",
       key: "RSI",
-      signal: indicators.rsi.signal || "neutral",
+      signal: safeSignal(indicators.rsi.signal),
       weight: weights.RSI || 0,
       type: "momentum",
     });
   }
 
-  // Parse MACD (Momentum) - Single indicator
+  // Parse MACD (Momentum) - ✅ Database signal only
   if (indicators.macd) {
-    const macdSignal =
-      indicators.macd.histogram > 0
-        ? "buy"
-        : indicators.macd.histogram < 0
-        ? "sell"
-        : "neutral";
-
     parsed.momentum.push({
       name: "MACD",
       key: "MACD",
-      signal: macdSignal,
+      signal: safeSignal(indicators.macd.signal),
       weight: weights.MACD || 0,
       type: "momentum",
     });
   }
 
-  // Parse Stochastic (Momentum) - Single indicator
+  // Parse Stochastic (Momentum) - ✅ Database signal only
   if (indicators.stochastic) {
-    const stochSignal =
-      indicators.stochastic["%K"] > 80
-        ? "sell"
-        : indicators.stochastic["%K"] < 20
-        ? "buy"
-        : "neutral";
-
     parsed.momentum.push({
       name: "Stochastic Oscillator",
       key: "Stochastic",
-      signal: stochSignal,
+      signal: safeSignal(indicators.stochastic.signal),
       weight: weights.Stochastic || 0,
       type: "momentum",
     });
   }
 
-  // Parse Stochastic RSI (Momentum) - Single indicator
+  // Parse Stochastic RSI (Momentum) - ✅ Database signal only
   if (indicators.stochasticRsi) {
-    const stochRsiSignal =
-      indicators.stochasticRsi["%K"] > 0.8
-        ? "sell"
-        : indicators.stochasticRsi["%K"] < 0.2
-        ? "buy"
-        : "neutral";
-
     parsed.momentum.push({
       name: "Stochastic RSI",
       key: "StochasticRSI",
-      signal: stochRsiSignal,
+      signal: safeSignal(indicators.stochasticRsi.signal),
       weight: weights.StochasticRSI || 0,
       type: "momentum",
     });
   }
 
-  // Parse Bollinger Bands (Volatility) - Single indicator
+  // Parse Bollinger Bands (Volatility) - ✅ Database signal only
   if (indicators.bollingerBands) {
-    const bbSignal =
-      price > indicators.bollingerBands.upper
-        ? "sell"
-        : price < indicators.bollingerBands.lower
-        ? "buy"
-        : "neutral";
-
     parsed.volatility.push({
       name: "Bollinger Bands",
       key: "BollingerBands",
-      signal: bbSignal,
+      signal: safeSignal(indicators.bollingerBands.signal),
       weight: weights.BollingerBands || 0,
       type: "volatility",
     });
@@ -187,6 +196,7 @@ export const parseIndicators = (indicators = {}, price = 0, weights = {}) => {
 /**
  * Parse indicators from API response and categorize them
  * Returns detailed indicators with parameters (e.g., SMA 20, SMA 50, RSI 14)
+ * ✅ 100% DATABASE SIGNALS - NO CALCULATION
  */
 export const parseIndicatorsDetailed = (
   indicators = {},
@@ -199,7 +209,7 @@ export const parseIndicatorsDetailed = (
     volatility: [],
   };
 
-  // Parse SMA (Trend) - with periods
+  // Parse SMA (Trend) - with periods - ✅ Database signal only
   if (indicators.sma) {
     const periods = Object.keys(indicators.sma).filter(
       (key) => key !== "signal"
@@ -209,14 +219,14 @@ export const parseIndicatorsDetailed = (
         name: `SMA ${period}`,
         key: `SMA_${period}`,
         value: indicators.sma[period],
-        signal: indicators.sma.signal || "neutral",
+        signal: safeSignal(indicators.sma.signal),
         weight: weights.SMA || 0,
         type: "trend",
       });
     });
   }
 
-  // Parse EMA (Trend) - with periods
+  // Parse EMA (Trend) - with periods - ✅ Database signal only
   if (indicators.ema) {
     const periods = Object.keys(indicators.ema).filter(
       (key) => key !== "signal"
@@ -226,32 +236,26 @@ export const parseIndicatorsDetailed = (
         name: `EMA ${period}`,
         key: `EMA_${period}`,
         value: indicators.ema[period],
-        signal: indicators.ema.signal || "neutral",
+        signal: safeSignal(indicators.ema.signal),
         weight: weights.EMA || 0,
         type: "trend",
       });
     });
   }
 
-  // Parse Parabolic SAR (Trend)
+  // Parse Parabolic SAR (Trend) - ✅ Database signal only
   if (indicators.parabolicSar?.value !== undefined) {
-    const psarSignal =
-      price > indicators.parabolicSar.value
-        ? "buy"
-        : price < indicators.parabolicSar.value
-        ? "sell"
-        : "neutral";
     parsed.trend.push({
       name: "Parabolic SAR",
       key: "PSAR",
       value: indicators.parabolicSar.value,
-      signal: psarSignal,
+      signal: safeSignal(indicators.parabolicSar.signal),
       weight: weights.PSAR || 0,
       type: "trend",
     });
   }
 
-  // Parse RSI (Momentum) - with period
+  // Parse RSI (Momentum) - with period - ✅ Database signal only
   if (indicators.rsi) {
     const periods = Object.keys(indicators.rsi).filter(
       (key) => key !== "signal"
@@ -261,21 +265,16 @@ export const parseIndicatorsDetailed = (
         name: `RSI ${period}`,
         key: `RSI_${period}`,
         value: indicators.rsi[period],
-        signal: indicators.rsi.signal || "neutral",
+        signal: safeSignal(indicators.rsi.signal),
         weight: weights.RSI || 0,
         type: "momentum",
       });
     });
   }
 
-  // Parse MACD (Momentum)
+  // Parse MACD (Momentum) - ✅ Database signal only
   if (indicators.macd) {
-    const macdSignal =
-      indicators.macd.histogram > 0
-        ? "buy"
-        : indicators.macd.histogram < 0
-        ? "sell"
-        : "neutral";
+    const macdSignal = safeSignal(indicators.macd.signal);
 
     parsed.momentum.push({
       name: "MACD",
@@ -303,14 +302,9 @@ export const parseIndicatorsDetailed = (
     });
   }
 
-  // Parse Stochastic (Momentum)
+  // Parse Stochastic (Momentum) - ✅ Database signal only
   if (indicators.stochastic) {
-    const stochSignal =
-      indicators.stochastic["%K"] > 80
-        ? "sell"
-        : indicators.stochastic["%K"] < 20
-        ? "buy"
-        : "neutral";
+    const stochSignal = safeSignal(indicators.stochastic.signal);
 
     parsed.momentum.push({
       name: "Stochastic %K",
@@ -330,14 +324,9 @@ export const parseIndicatorsDetailed = (
     });
   }
 
-  // Parse Stochastic RSI (Momentum)
+  // Parse Stochastic RSI (Momentum) - ✅ Database signal only (FIX FOR SCREENSHOT ISSUE!)
   if (indicators.stochasticRsi) {
-    const stochRsiSignal =
-      indicators.stochasticRsi["%K"] > 0.8
-        ? "sell"
-        : indicators.stochasticRsi["%K"] < 0.2
-        ? "buy"
-        : "neutral";
+    const stochRsiSignal = safeSignal(indicators.stochasticRsi.signal);
 
     parsed.momentum.push({
       name: "Stochastic RSI %K",
@@ -357,14 +346,9 @@ export const parseIndicatorsDetailed = (
     });
   }
 
-  // Parse Bollinger Bands (Volatility)
+  // Parse Bollinger Bands (Volatility) - ✅ Database signal only
   if (indicators.bollingerBands) {
-    const bbSignal =
-      price > indicators.bollingerBands.upper
-        ? "sell"
-        : price < indicators.bollingerBands.lower
-        ? "buy"
-        : "neutral";
+    const bbSignal = safeSignal(indicators.bollingerBands.signal);
 
     parsed.volatility.push({
       name: "Bollinger Upper",

@@ -4,6 +4,7 @@ import { fetchCandlesByUrl } from "../services/api.service";
 /**
  * Custom hook for infinite scroll pagination in charts
  * Handles loading more historical data when scrolling left
+ * ✅ OPTIMIZED: URL dedup, AbortController, preload, smart guards
  */
 export const useChartPagination = (allCandlesData, setAllCandlesData) => {
   const isLoadingMoreRef = useRef(false);
@@ -12,6 +13,14 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
   const debounceTimerRef = useRef(null);
   const lastFetchTimeRef = useRef(0);
   const nextUrlRef = useRef(null);
+  const abortControllerRef = useRef(null);
+  const fetchLockRef = useRef(false);
+
+  // ✅ NEW: URL deduplication - track fetched URLs
+  const fetchedUrlsRef = useRef(new Set());
+
+  // ✅ NEW: Track last visible range to detect significant changes
+  const lastVisibleRangeRef = useRef(null);
 
   const [pageInfo, setPageInfo] = useState({
     currentPage: 1,
@@ -23,28 +32,32 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
   });
 
   // Merge candles data without duplicates
+  // ✅ OPTIMIZED: Assume backend data is sorted, avoid full array sort
   const mergeCandlesData = useCallback((existingData, newData) => {
     const existingTimes = new Set(existingData.map((d) => d.time.toString()));
     const uniqueNewData = newData.filter(
       (d) => !existingTimes.has(d.time.toString())
     );
 
-    const merged = [...existingData, ...uniqueNewData];
-    merged.sort((a, b) => {
-      const timeA = typeof a.time === "string" ? Number(a.time) : a.time;
-      const timeB = typeof b.time === "string" ? Number(b.time) : b.time;
-      return timeA - timeB;
-    });
+    // ✅ OPTIMIZATION: Prepend without sorting (backend already sorted descending)
+    const merged = [...uniqueNewData, ...existingData];
 
     console.log(
-      `📊 Merged data: ${existingData.length} + ${uniqueNewData.length} = ${merged.length} candles`
+      `📦 [MERGE] Added ${uniqueNewData.length} new candles (total: ${merged.length})`
     );
     return merged;
   }, []);
 
   // Fetch more data for pagination
+  // ✅ OPTIMIZED: AbortController, URL dedup, hard lock, smart debounce
   const fetchMoreData = useCallback(
     async (chartRef) => {
+      // ✅ HARD LOCK: Prevent multiple simultaneous requests
+      if (fetchLockRef.current) {
+        console.log("🔒 [HARD LOCK] Fetch already in progress, skipping");
+        return;
+      }
+
       if (
         isLoadingMoreRef.current ||
         !hasMoreDataRef.current ||
@@ -53,17 +66,39 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
         return;
       }
 
-      const now = Date.now();
-      if (now - lastFetchTimeRef.current < 500) {
-        console.log("⏸️ Debounced: Too soon since last fetch");
+      // ✅ URL DEDUPLICATION: Skip if already fetched
+      if (fetchedUrlsRef.current.has(nextUrlRef.current)) {
+        console.log(
+          `⏭️ [DEDUP] URL already fetched, skipping: ${nextUrlRef.current}`
+        );
         return;
       }
 
+      // ✅ DEBOUNCE: Minimum 600ms between fetches
+      const now = Date.now();
+      if (now - lastFetchTimeRef.current < 600) {
+        console.log(
+          `⏸️ [DEBOUNCE] Too soon (${now - lastFetchTimeRef.current}ms < 600ms)`
+        );
+        return;
+      }
+
+      // ✅ Set hard lock & loading state
+      fetchLockRef.current = true;
       isLoadingMoreRef.current = true;
       lastFetchTimeRef.current = now;
       setPageInfo((prev) => ({ ...prev, isLoading: true }));
 
-      console.log(`🔄 Fetching more data from: ${nextUrlRef.current}`);
+      // ✅ Cancel previous request if exists
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        console.log("❌ [ABORT] Cancelled previous fetch request");
+      }
+
+      // ✅ Create new AbortController
+      abortControllerRef.current = new AbortController();
+
+      console.log(`🔄 [FETCH] Loading: ${nextUrlRef.current}`);
 
       try {
         const prevTotal = allCandlesData.length;
@@ -71,12 +106,18 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
           ?.timeScale()
           .getVisibleLogicalRange();
 
-        const response = await fetchCandlesByUrl(nextUrlRef.current);
+        const response = await fetchCandlesByUrl(
+          nextUrlRef.current,
+          abortControllerRef.current.signal
+        );
 
         if (response?.success && response.data?.length > 0) {
           console.log(
-            `✅ Fetched ${response.data.length} new candles (Page ${response.page}/${response.totalPages})`
+            `✅ [FETCH] Got ${response.data.length} candles (Page ${response.page}/${response.totalPages})`
           );
+
+          // ✅ Mark URL as fetched
+          fetchedUrlsRef.current.add(nextUrlRef.current);
 
           if (chartRef.current) {
             chartRef.current.applyOptions({
@@ -87,36 +128,41 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
           const mergedData = mergeCandlesData(allCandlesData, response.data);
           const addedBars = mergedData.length - prevTotal;
 
-          setAllCandlesData(mergedData);
+          // ✅ OPTIMIZATION: Only update state if data actually changed
+          if (addedBars > 0) {
+            setAllCandlesData(mergedData);
 
-          if (currentLogicalRange && chartRef.current && addedBars > 0) {
-            setTimeout(() => {
-              try {
-                const newLogicalRange = {
-                  from: currentLogicalRange.from + addedBars,
-                  to: currentLogicalRange.to + addedBars,
-                };
+            if (currentLogicalRange && chartRef.current) {
+              setTimeout(() => {
+                try {
+                  const newLogicalRange = {
+                    from: currentLogicalRange.from + addedBars,
+                    to: currentLogicalRange.to + addedBars,
+                  };
 
-                chartRef.current
-                  .timeScale()
-                  .setVisibleLogicalRange(newLogicalRange);
+                  chartRef.current
+                    .timeScale()
+                    .setVisibleLogicalRange(newLogicalRange);
 
-                setTimeout(() => {
+                  setTimeout(() => {
+                    if (chartRef.current) {
+                      chartRef.current.applyOptions({
+                        rightPriceScale: { autoScale: true },
+                      });
+                    }
+                  }, 200);
+                } catch (e) {
+                  console.warn("Failed to adjust scroll position:", e);
                   if (chartRef.current) {
                     chartRef.current.applyOptions({
                       rightPriceScale: { autoScale: true },
                     });
                   }
-                }, 200);
-              } catch (e) {
-                console.warn("Failed to adjust scroll position:", e);
-                if (chartRef.current) {
-                  chartRef.current.applyOptions({
-                    rightPriceScale: { autoScale: true },
-                  });
                 }
-              }
-            }, 100);
+              }, 100);
+            }
+          } else {
+            console.log("⏭️ [SKIP] No new data added, state unchanged");
           }
 
           const hasNext = response.pagination?.next?.url != null;
@@ -140,81 +186,120 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
           }));
         }
       } catch (error) {
-        console.error("❌ Error fetching more data:", error);
+        // ✅ Ignore abort errors
+        if (error.name === "AbortError") {
+          console.log("⚠️ [ABORT] Fetch aborted");
+        } else {
+          console.error("❌ [ERROR] Fetch failed:", error);
+        }
         setPageInfo((prev) => ({ ...prev, isLoading: false }));
       } finally {
+        // ✅ Release locks
         isLoadingMoreRef.current = false;
+        fetchLockRef.current = false;
+        abortControllerRef.current = null;
       }
     },
     [allCandlesData, mergeCandlesData, setAllCandlesData]
   );
 
   // Setup pagination listener
+  // ✅ OPTIMIZED: Preload at 120 bars, smart range detection
   const setupPaginationListener = useCallback(
     (chart, series) => {
-      if (!chart || !series) {
-        console.warn("⚠️ setupPaginationListener: chart or series is null");
-        return;
-      }
+      if (!chart) return;
 
-      const timeScale = chart.timeScale();
-
-      const handleVisibleLogicalRangeChange = (logicalRange) => {
-        if (!logicalRange) return;
-
-        const barsInfo = series.barsInLogicalRange(logicalRange);
-        if (!barsInfo) return;
-
-        const { barsBefore } = barsInfo;
-        const isNearLeftEdge = barsBefore !== null && barsBefore < 50;
-
-        if (
-          isNearLeftEdge &&
-          hasMoreDataRef.current &&
-          !isLoadingMoreRef.current
-        ) {
-          if (debounceTimerRef.current) {
-            clearTimeout(debounceTimerRef.current);
-          }
-
-          debounceTimerRef.current = setTimeout(() => {
-            fetchMoreData({ current: chart });
-          }, 300);
+      const handleVisibleRangeChange = () => {
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current);
         }
+
+        debounceTimerRef.current = setTimeout(() => {
+          try {
+            const logicalRange = chart.timeScale().getVisibleLogicalRange();
+            if (!logicalRange) return;
+
+            // ✅ SMART GUARD: Only trigger if range changed significantly
+            if (lastVisibleRangeRef.current) {
+              const rangeDiff = Math.abs(
+                logicalRange.from - lastVisibleRangeRef.current.from
+              );
+
+              // Skip if range change is too small (< 5 bars)
+              if (rangeDiff < 5) {
+                return;
+              }
+            }
+
+            // ✅ Update last visible range
+            lastVisibleRangeRef.current = logicalRange;
+
+            const barsInfo = series.barsInLogicalRange(logicalRange);
+            if (!barsInfo) return;
+
+            const barsBefore = Math.max(0, Math.ceil(logicalRange.from));
+
+            // ✅ PRELOAD: Trigger at 120 bars (earlier than before)
+            if (
+              barsBefore < 120 &&
+              hasMoreDataRef.current &&
+              !isLoadingMoreRef.current
+            ) {
+              console.log(
+                `📍 [SCROLL] Bars before visible: ${barsBefore} → Preloading...`
+              );
+              fetchMoreData(chart);
+            }
+          } catch (error) {
+            console.error("Error in visible range handler:", error);
+          }
+        }, 150); // 150ms debounce
       };
 
-      const unsubscribe = timeScale.subscribeVisibleLogicalRangeChange(
-        handleVisibleLogicalRangeChange
-      );
-      visibleRangeSubscriptionRef.current = unsubscribe;
+      visibleRangeSubscriptionRef.current = chart
+        .timeScale()
+        .subscribeVisibleLogicalRangeChange(handleVisibleRangeChange);
 
-      return unsubscribe;
+      return () => {
+        if (visibleRangeSubscriptionRef.current) {
+          visibleRangeSubscriptionRef.current();
+          visibleRangeSubscriptionRef.current = null;
+        }
+      };
     },
     [fetchMoreData]
   );
 
-  // Initialize pagination info
-  const initializePagination = useCallback((candlesData) => {
-    if (!candlesData?.success || !candlesData.data?.length) return;
+  // Initialize pagination
+  const initializePagination = useCallback((response) => {
+    if (response?.pagination) {
+      nextUrlRef.current = response.pagination.next?.url || null;
+      hasMoreDataRef.current = response.pagination.next?.url != null;
 
-    const hasNext = candlesData.pagination?.next?.url != null;
-    nextUrlRef.current = candlesData.pagination?.next?.url || null;
-    hasMoreDataRef.current = hasNext;
+      // ✅ Reset fetched URLs on new symbol/data
+      fetchedUrlsRef.current.clear();
+      lastVisibleRangeRef.current = null;
 
-    setPageInfo({
-      currentPage: candlesData.page || 1,
-      totalPages: candlesData.totalPages || 1,
-      nextUrl: candlesData.pagination?.next?.url || null,
-      prevUrl: candlesData.pagination?.prev?.url || null,
-      isLoading: false,
-      hasMore: hasNext,
-    });
+      setPageInfo({
+        currentPage: response.page || 1,
+        totalPages: response.totalPages || 1,
+        nextUrl: response.pagination.next?.url || null,
+        prevUrl: response.pagination.prev?.url || null,
+        isLoading: false,
+        hasMore: response.pagination.next?.url != null,
+      });
+
+      console.log(
+        `🎯 [INIT] Pagination ready (Page ${response.page}/${response.totalPages})`
+      );
+    }
   }, []);
 
   return {
     pageInfo,
     setupPaginationListener,
     initializePagination,
+    fetchMoreData,
     debounceTimerRef,
   };
 };

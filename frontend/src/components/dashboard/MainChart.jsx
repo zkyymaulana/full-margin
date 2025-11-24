@@ -256,60 +256,48 @@ function MainChart({
   }, [activeIndicators, allCandlesData]);
 
   // Update multi-indicator signal markers (BUY/SELL arrows)
-  // ✅ ULTRA STRICT VALIDATION - Zero tolerance for non-DB signals
+  // ✅ PURE DATABASE SIGNALS - NO FRONTEND CALCULATION
+  // ✅ Only render if source === "db"
   useEffect(() => {
     if (!seriesRef.current || !allCandlesData.length) return;
 
-    console.log("🔍 [MARKER SYNC] Starting validation...");
-    console.log(`📊 Total candles received: ${allCandlesData.length}`);
+    console.log("🔍 [MARKER] Rendering database signals...");
+    console.log(`📊 Total candles: ${allCandlesData.length}`);
 
-    // 1️⃣ Filter ONLY DB-sourced signals (ultra strict validation)
-    const validSignals = [];
+    // 1️⃣ Filter ONLY database signals (strict validation)
+    const validSignals = allCandlesData.filter((candle) => {
+      // ❌ Reject if no multiSignal
+      if (!candle.multiSignal) return false;
 
-    for (const candle of allCandlesData) {
-      // ❌ Reject if no multiSignal at all
-      if (!candle.multiSignal) {
-        continue;
-      }
-
-      // ❌ Reject if source is not exactly "db"
+      // ❌ CRITICAL: Reject if source is NOT "db"
       if (candle.multiSignal.source !== "db") {
-        console.warn("⚠️ [REJECTED] Non-DB signal:", {
+        console.warn("⚠️ [REJECTED] Non-database signal detected:", {
           time: new Date(Number(candle.time)).toISOString(),
           source: candle.multiSignal.source,
         });
-        continue;
+        return false;
       }
 
-      // ❌ CRITICAL: Reject ALL neutral signals
-      if (candle.multiSignal.signal === "neutral") {
-        // Don't even log this, it's expected behavior
-        continue;
-      }
+      // ❌ Skip neutral signals
+      if (candle.multiSignal.signal === "neutral") return false;
 
-      // ❌ Reject if signal is not exactly "buy" or "sell"
-      if (
-        candle.multiSignal.signal !== "buy" &&
-        candle.multiSignal.signal !== "sell"
-      ) {
-        console.warn("⚠️ [REJECTED] Invalid signal value:", {
-          time: new Date(Number(candle.time)).toISOString(),
-          signal: candle.multiSignal.signal,
-        });
-        continue;
-      }
+      // ❌ Skip weak signals (strength < 0.05) - Performance filter
+      if (Math.abs(candle.multiSignal.strength) < 0.05) return false;
 
-      // ✅ Only accept if ALL conditions pass
-      validSignals.push(candle);
-    }
+      // ✅ Only accept buy/sell with sufficient strength from database
+      return (
+        candle.multiSignal.signal === "buy" ||
+        candle.multiSignal.signal === "sell"
+      );
+    });
 
     console.log(
-      `✅ [DB SIGNALS] ${validSignals.length} valid buy/sell signals from database`
+      `✅ [DB SIGNALS] ${validSignals.length} valid signals from database`
     );
     console.log(
-      `   Neutral signals filtered out: ${
-        allCandlesData.filter((c) => c.multiSignal?.signal === "neutral").length
-      }`
+      `   Filtered out: ${
+        allCandlesData.length - validSignals.length
+      } (neutral + weak + non-db)`
     );
 
     // 2️⃣ Sort by time ascending (oldest first)
@@ -321,22 +309,8 @@ function MainChart({
     const signalChanges = [];
     let previousSignal = null;
 
-    sortedSignals.forEach((candle, index) => {
+    sortedSignals.forEach((candle) => {
       const currentSignal = candle.multiSignal.signal;
-
-      // Debug log for EVERY signal (not just first/last) to catch mismatch
-      if (process.env.NODE_ENV === "development") {
-        console.log(`[DEBUG SIGNAL #${index}]`, {
-          time: new Date(Number(candle.time)).toISOString(),
-          timestamp: Number(candle.time),
-          signal: currentSignal,
-          source: candle.multiSignal.source,
-          strength: candle.multiSignal.strength,
-          rawSignal: candle.multiSignal.rawSignal,
-          previous: previousSignal,
-          willShow: currentSignal !== previousSignal,
-        });
-      }
 
       // Only add marker if signal CHANGED from previous
       if (currentSignal !== previousSignal) {
@@ -346,72 +320,37 @@ function MainChart({
     });
 
     console.log(
-      `📍 [SIGNAL CHANGES] ${signalChanges.length} direction changes detected`
+      `📍 [SIGNAL CHANGES] ${signalChanges.length} direction changes`
     );
     console.log(
-      `   BUY signals: ${
+      `   BUY: ${
         signalChanges.filter((c) => c.multiSignal.signal === "buy").length
-      }`
-    );
-    console.log(
-      `   SELL signals: ${
+      } | SELL: ${
         signalChanges.filter((c) => c.multiSignal.signal === "sell").length
       }`
     );
 
     // 4️⃣ Convert to lightweight-charts marker format
     const markers = signalChanges.map((c) => {
-      const timeInSeconds = Number(c.time) / 1000; // ✅ Convert milliseconds to seconds
+      const timeInSeconds = Number(c.time) / 1000;
       const isBuy = c.multiSignal.signal === "buy";
-
-      // ✅ VALIDATION: Ensure time is valid
-      if (isNaN(timeInSeconds) || timeInSeconds <= 0) {
-        console.error("❌ [INVALID TIME]", {
-          original: c.time,
-          converted: timeInSeconds,
-        });
-      }
 
       return {
         time: timeInSeconds,
         position: isBuy ? "belowBar" : "aboveBar",
-        color: isBuy ? "#26a69a" : "#ef5350", // Green for BUY, Red for SELL
+        color: isBuy ? "#26a69a" : "#ef5350",
         shape: isBuy ? "arrowUp" : "arrowDown",
         text: isBuy ? "BUY" : "SELL",
       };
     });
 
-    // 5️⃣ Apply markers to candlestick series
+    // 5️⃣ Apply markers
     seriesRef.current.setMarkers(markers);
 
-    // 6️⃣ Final validation log
     if (markers.length > 0) {
-      console.log(
-        `✅ [MARKERS APPLIED] ${markers.length} markers successfully set`
-      );
-      console.log(
-        `📊 [REDUCTION] ${sortedSignals.length} signals → ${
-          markers.length
-        } markers (${((markers.length / sortedSignals.length) * 100).toFixed(
-          1
-        )}% after deduplication)`
-      );
-
-      // Log ALL markers for debugging
-      console.table(
-        markers.map((m) => ({
-          time: new Date(m.time * 1000).toISOString(),
-          signal: m.text,
-          position: m.position,
-        }))
-      );
+      console.log(`✅ [MARKERS APPLIED] ${markers.length} markers rendered`);
     } else {
-      console.log(
-        `⚠️ [NO MARKERS] No signal changes detected - chart will be clean`
-      );
-      console.log(
-        `   This is normal if all signals are neutral or consecutive duplicates`
-      );
+      console.log(`⚠️ [NO MARKERS] All signals filtered out`);
     }
 
     console.log("─────────────────────────────────────────────────────");

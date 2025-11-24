@@ -15,6 +15,7 @@ import {
   parseIndicators,
   parseIndicatorsDetailed,
   normalizeIndicatorName,
+  countSignalsFromDB, // ✅ NEW: Safe signal counting
 } from "../utils/indicatorParser";
 
 function Signals() {
@@ -36,13 +37,13 @@ function Signals() {
     parsedIndicators,
     parsedIndicatorsDetailed,
     categoryScores,
-    multiSignal,
-    signalStrength,
+    multiSignalData, // ✅ NEW: Full multiSignal object from backend
     latestPrice,
     latestTime,
     weights,
     performance,
     timeframe,
+    signalCounts,
   } = useMemo(() => {
     // 🔥 USE ONLY latestSignal from unified API
     const latestSignal = indicatorData?.latestSignal;
@@ -54,13 +55,19 @@ function Signals() {
         parsedIndicators: { trend: [], momentum: [], volatility: [] },
         parsedIndicatorsDetailed: { trend: [], momentum: [], volatility: [] },
         categoryScores: { trend: 0, momentum: 0, volatility: 0 },
-        multiSignal: "neutral",
-        signalStrength: 0,
+        multiSignalData: {
+          signal: "neutral",
+          strength: 0,
+          finalScore: 0,
+          signalLabel: "NEUTRAL",
+          signalEmoji: "⚪",
+        },
         latestPrice: null,
         latestTime: null,
         weights: {},
         performance: null,
         timeframe: "1h",
+        signalCounts: { buy: 0, sell: 0, neutral: 0 },
       };
     }
 
@@ -70,18 +77,17 @@ function Signals() {
       categoryScores: scores,
       weights: weightsData,
       performance: performanceData,
-      multiSignal: signal,
+      multiSignal: signalData, // ✅ Full object from backend
       price,
       time,
     } = latestSignal;
 
-    // 🎯 Safely extract signal and strength
-    const normalizedSignal = signal?.signal || "neutral";
-    const strength = signal?.normalized || signal?.strength || 0;
+    // ✅ Count signals from database ONLY
+    const counts = countSignalsFromDB(indicators);
 
-    console.log("🎯 Multi Signal:", normalizedSignal);
-    console.log("📊 Signal Strength:", strength);
+    console.log("✅ [SIGNALS PAGE] Multi Signal Data:", signalData);
     console.log("📈 Category Scores:", scores);
+    console.log("📊 Signal Counts:", counts);
 
     // Parse indicators for cards (simplified - 8 core indicators)
     const parsed = parseIndicators(indicators, price, weightsData || {});
@@ -97,13 +103,19 @@ function Signals() {
       parsedIndicators: parsed,
       parsedIndicatorsDetailed: detailedParsed,
       categoryScores: scores || { trend: 0, momentum: 0, volatility: 0 },
-      multiSignal: normalizedSignal,
-      signalStrength: strength,
+      multiSignalData: signalData || {
+        signal: "neutral",
+        strength: 0,
+        finalScore: 0,
+        signalLabel: "NEUTRAL",
+        signalEmoji: "⚪",
+      },
       latestPrice: price,
       latestTime: time,
       weights: weightsData || {},
       performance: performanceData,
       timeframe: indicatorData?.timeframe || "1h",
+      signalCounts: counts,
     };
   }, [indicatorData]);
 
@@ -251,11 +263,11 @@ function Signals() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <IndicatorTable allIndicators={allIndicators} isDarkMode={isDarkMode} />
         <MultiIndicatorPanel
-          multiSignal={multiSignal.toUpperCase()}
-          totalScore={signalStrength}
+          multiSignalData={multiSignalData} // ✅ Pass full object from backend
           categoryScores={categoryScores}
           activeCategories={activeCategories}
           parsedIndicators={parsedIndicators}
+          signalCounts={signalCounts}
           isDarkMode={isDarkMode}
         />
       </div>

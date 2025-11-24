@@ -4,121 +4,54 @@ import { getCoinLiveDetail } from "../services/market/index.js";
 import { calculateAndSaveIndicators } from "../services/indicators/indicator.service.js";
 
 /**
- * Helper: Normalize overallSignal dari database ke format chart
- * @param {string} overallSignal - "strong_buy" | "buy" | "neutral" | "sell" | "strong_sell"
- * @param {number} signalStrength - 0.0 to 1.0
- * @param {object} indicator - Full indicator object for recalculation if needed
- * @param {object} weights - Optional weights for recalculation
- * @returns {object|null} multiSignal object atau null jika tidak ada signal
+ * 🎯 Helper: Format multiSignal dari database (NO RECALCULATION)
+ * ✅ 100% menggunakan data dari tabel Indicator
+ * ✅ Sesuai metodologi penelitian: threshold = 0, no voting
+ * ✅ UPDATED: Gunakan finalScore yang sudah tersimpan di DB
  *
- * ✅ KONSISTENSI RULE:
- * - Jika signal = "neutral" → strength HARUS = 0, normalized HARUS = 0
- * - Jika signal = "buy"/"sell" → strength = Math.abs(signalStrength), normalized dari weighted calc
+ * @param {Object} ind - Indicator dari database
+ * @returns {Object|null} multiSignal object atau null
  */
-function normalizeSignal(
-  overallSignal,
-  signalStrength = 0,
-  indicator = null,
-  weights = null
-) {
-  if (!overallSignal) {
-    console.warn("⚠️ [normalizeSignal] overallSignal is null/undefined");
-    return null;
-  }
+function formatMultiSignalFromDB(ind) {
+  if (!ind) return null;
 
-  const signal = overallSignal.toLowerCase().trim();
+  // ✅ Ambil langsung dari database - NO CALCULATION
+  const dbFinalScore = ind.finalScore ?? 0;
+  const dbStrength = ind.signalStrength ?? 0;
 
-  // Mapping sesuai requirement:
-  // strong_buy → "buy"
-  // buy → "buy"
-  // strong_sell → "sell"
-  // sell → "sell"
-  // neutral → "neutral"
+  // ✅ Map signal dari finalScore (threshold = 0)
+  let signal = "neutral";
+  let finalScore = dbFinalScore;
+  let strength = dbStrength;
 
-  let normalizedSignal = "neutral"; // default
-  let normalizedStrength = 0;
-  let normalizedScore = 0; // ✅ NEW: normalized score
-
-  if (signal === "strong_buy" || signal === "buy") {
-    normalizedSignal = "buy";
-    normalizedStrength = Math.abs(signalStrength || 0);
-  } else if (signal === "strong_sell" || signal === "sell") {
-    normalizedSignal = "sell";
-    normalizedStrength = Math.abs(signalStrength || 0);
-  } else if (signal === "neutral") {
-    normalizedSignal = "neutral";
-    normalizedStrength = 0; // ✅ FORCE: neutral HARUS strength = 0
-    normalizedScore = 0; // ✅ FORCE: neutral HARUS normalized = 0
-
-    // ⚠️ Warning jika DB kirim neutral tapi strength > 0
-    if (signalStrength > 0) {
-      console.warn(
-        `⚠️ [normalizeSignal] MISMATCH DETECTED: neutral with strength ${signalStrength} → forced to 0`
-      );
-    }
+  if (finalScore > 0) {
+    signal = "buy";
+  } else if (finalScore < 0) {
+    signal = "sell";
   } else {
-    console.warn(`⚠️ [normalizeSignal] Unknown signal: ${signal}`);
-    normalizedSignal = "neutral";
-    normalizedStrength = 0;
-    normalizedScore = 0;
+    signal = "neutral";
+    strength = 0;
   }
 
-  // ✅ Hitung normalized score jika ada weights dan bukan neutral
-  if (normalizedSignal !== "neutral" && indicator && weights) {
-    try {
-      // Import calculateWeightedSignal untuk recalculation
-      const {
-        calculateIndividualSignals,
-        calculateWeightedSignal,
-      } = require("../utils/indicator.utils.js");
+  // ✅ Format label & emoji berdasarkan strength threshold (0.6)
+  let signalLabel = "NEUTRAL";
+  let signalEmoji = "⚪";
 
-      const signals = calculateIndividualSignals(indicator);
-      const weighted = calculateWeightedSignal(signals, weights.weights);
-
-      normalizedScore = weighted.normalized;
-
-      console.log(`🔍 [normalizeSignal] Recalculated normalized:`, {
-        signal: normalizedSignal,
-        strength: normalizedStrength.toFixed(3),
-        normalized: normalizedScore.toFixed(3),
-      });
-    } catch (err) {
-      console.warn(
-        `⚠️ [normalizeSignal] Failed to recalculate normalized: ${err.message}`
-      );
-      // Fallback: estimate dari strength
-      normalizedScore =
-        normalizedSignal === "buy"
-          ? normalizedStrength
-          : normalizedSignal === "sell"
-            ? -normalizedStrength
-            : 0;
-    }
-  } else if (normalizedSignal !== "neutral") {
-    // Fallback: estimate normalized dari strength
-    // Buy → positive, Sell → negative
-    normalizedScore =
-      normalizedSignal === "buy" ? normalizedStrength : -normalizedStrength;
-  }
-
-  // ✅ FINAL VALIDATION: Double-check konsistensi
-  if (
-    normalizedSignal === "neutral" &&
-    (normalizedStrength !== 0 || normalizedScore !== 0)
-  ) {
-    console.error(
-      `❌ [normalizeSignal] CRITICAL: neutral escaped with strength ${normalizedStrength} or normalized ${normalizedScore}! Forcing to 0.`
-    );
-    normalizedStrength = 0;
-    normalizedScore = 0;
+  if (signal === "buy") {
+    signalLabel = strength >= 0.6 ? "STRONG BUY" : "BUY";
+    signalEmoji = strength >= 0.6 ? "🟢🟢" : "🟢";
+  } else if (signal === "sell") {
+    signalLabel = strength >= 0.6 ? "STRONG SELL" : "SELL";
+    signalEmoji = strength >= 0.6 ? "🔴🔴" : "🔴";
   }
 
   return {
-    signal: normalizedSignal,
-    source: "db",
-    strength: normalizedStrength,
-    normalized: normalizedScore, // ✅ NEW: tambahkan normalized score
-    rawSignal: overallSignal, // ✅ Keep raw untuk debugging
+    signal,
+    strength: parseFloat(strength.toFixed(3)),
+    finalScore: parseFloat(finalScore.toFixed(3)),
+    signalLabel,
+    signalEmoji,
+    source: "db", // ✅ Mark as database source
   };
 }
 
@@ -135,16 +68,7 @@ export async function getChart(req, res) {
     // ✅ Ambil info coin (name + logo) dari tabel Coin
     const coinInfo = await prisma.coin.findUnique({
       where: { symbol },
-      select: {
-        name: true,
-        logo: true,
-      },
-    });
-
-    console.log(`🔍 [Chart] Coin info:`, {
-      symbol,
-      name: coinInfo?.name || null,
-      logo: coinInfo?.logo || null,
+      select: { name: true, logo: true },
     });
 
     // Ambil candle dari service
@@ -153,8 +77,8 @@ export async function getChart(req, res) {
       return res.json({
         success: true,
         symbol,
-        name: coinInfo?.name || null, // ✅ Include name
-        logo: coinInfo?.logo || null, // ✅ Include logo
+        name: coinInfo?.name || null,
+        logo: coinInfo?.logo || null,
         timeframe,
         total: 0,
         page,
@@ -171,18 +95,6 @@ export async function getChart(req, res) {
     const minTime = Math.min(...times);
     const maxTime = Math.max(...times);
 
-    // ✅ Ambil weights untuk recalculation normalized (opsional)
-    const weights = await prisma.indicatorWeight.findFirst({
-      where: { symbol, timeframe },
-      orderBy: { updatedAt: "desc" },
-    });
-
-    if (weights) {
-      console.log(
-        `🎯 [Chart] Found optimized weights for ${symbol}, will use for normalized calculation`
-      );
-    }
-
     // Cek apakah indikator sudah lengkap untuk rentang waktu ini
     let indicators = await prisma.indicator.findMany({
       where: {
@@ -195,19 +107,13 @@ export async function getChart(req, res) {
 
     const coverageBefore = indicators.length;
     const expected = chartData.candles.length;
-    const coveragePercentBefore = ((coverageBefore / expected) * 100).toFixed(
-      1
-    );
 
     if (coverageBefore < expected) {
       console.log(
-        `⚙️ [AUTO] Indicator coverage ${coverageBefore}/${expected} (${coveragePercentBefore}%) → recalculating...`
+        `⚙️ [AUTO] Indicator coverage ${coverageBefore}/${expected} → recalculating...`
       );
       try {
         await calculateAndSaveIndicators(symbol, timeframe, minTime, maxTime);
-        console.log(
-          `✅ [AUTO] Recalculated indicators for ${symbol} (${timeframe})`
-        );
         indicators = await prisma.indicator.findMany({
           where: {
             symbol,
@@ -217,35 +123,20 @@ export async function getChart(req, res) {
           orderBy: { time: "asc" },
         });
         console.log(
-          `📈 [AUTO] Found ${indicators.length}/${expected} indicators after recalc.`
+          `✅ [AUTO] Found ${indicators.length}/${expected} indicators after recalc.`
         );
       } catch (err) {
         console.error(`❌ [AUTO] Indicator calculation failed:`, err.message);
       }
     }
 
-    // Gabungkan candle + indikator
+    // ✅ Gabungkan candle + indikator (PURE DATABASE - NO CALCULATION)
     const indicatorMap = new Map(indicators.map((i) => [Number(i.time), i]));
     const merged = chartData.candles.map((c) => {
       const ind = indicatorMap.get(Number(c.time));
 
-      // ✅ Ambil multiSignal dari database menggunakan helper (dengan weights untuk recalculation)
-      const multiSignal = ind
-        ? normalizeSignal(ind.overallSignal, ind.signalStrength, ind, weights)
-        : null;
-
-      // ✅ Log debug untuk tracking
-      if (
-        multiSignal &&
-        (multiSignal.signal === "buy" || multiSignal.signal === "sell")
-      ) {
-        console.log(`[Chart] Signal mapping:`, {
-          time: new Date(Number(c.time)).toISOString(),
-          signal: multiSignal.signal,
-          strength: multiSignal.strength.toFixed(3),
-          normalized: multiSignal.normalized.toFixed(3),
-        });
-      }
+      // ✅ Format multiSignal dari database (NO RECALCULATION)
+      const multiSignal = formatMultiSignalFromDB(ind);
 
       return {
         time: c.time.toString(),
@@ -254,32 +145,48 @@ export async function getChart(req, res) {
         low: c.low,
         close: c.close,
         volume: c.volume,
-        multiSignal: multiSignal, // ✅ Dari DB dengan normalized score
+        multiSignal, // ✅ Pure database, no calculation
         indicators: ind
           ? {
-              sma: { 20: ind.sma20, 50: ind.sma50 },
-              ema: { 20: ind.ema20, 50: ind.ema50 },
-              rsi: { 14: ind.rsi },
+              sma: {
+                20: ind.sma20,
+                50: ind.sma50,
+                signal: ind.smaSignal || "neutral", // ✅ From DB
+              },
+              ema: {
+                20: ind.ema20,
+                50: ind.ema50,
+                signal: ind.emaSignal || "neutral", // ✅ From DB
+              },
+              rsi: {
+                14: ind.rsi,
+                signal: ind.rsiSignal || "neutral", // ✅ From DB
+              },
               macd: {
                 macd: ind.macd,
-                signalLine: ind.macdSignal,
+                signalLine: ind.macdSignalLine,
                 histogram: ind.macdHist,
+                signal: ind.macdSignal || "neutral", // ✅ From DB
               },
               bollingerBands: {
                 upper: ind.bbUpper,
                 middle: ind.bbMiddle,
                 lower: ind.bbLower,
+                signal: ind.bbSignal || "neutral", // ✅ From DB
               },
               stochastic: {
                 "%K": ind.stochK,
                 "%D": ind.stochD,
+                signal: ind.stochSignal || "neutral", // ✅ From DB
               },
               stochasticRsi: {
                 "%K": ind.stochRsiK,
                 "%D": ind.stochRsiD,
+                signal: ind.stochRsiSignal || "neutral", // ✅ From DB
               },
               parabolicSar: {
                 value: ind.psar,
+                signal: ind.psarSignal || "neutral", // ✅ From DB
               },
             }
           : null,
@@ -325,8 +232,8 @@ export async function getChart(req, res) {
     return res.json({
       success: true,
       symbol,
-      name: coinInfo?.name || null, // ✅ Include name
-      logo: coinInfo?.logo || null, // ✅ Include logo
+      name: coinInfo?.name || null,
+      logo: coinInfo?.logo || null,
       timeframe,
       total: chartData.total,
       page,
@@ -336,7 +243,8 @@ export async function getChart(req, res) {
       metadata: {
         coverage: `${withIndicators}/${merged.length}`,
         coveragePercent: `${coverage.toFixed(1)}%`,
-        signalDistribution: signalStats, // ✅ Tambahkan stats untuk debugging
+        signalDistribution: signalStats,
+        source: "database", // ✅ Mark as pure database
         range: {
           start: new Date(minTime).toLocaleString("id-ID", {
             day: "2-digit",

@@ -105,8 +105,12 @@ export async function calculateAndSaveIndicators(symbol, timeframe = "1h") {
       // Calculate individual signals
       const signals = calculateSignals(indicators, close);
 
-      // Calculate overall signal and strength
-      const overallAnalysis = calculateOverallSignal(signals);
+      // ✅ Calculate overall signal with weighted scoring (pass symbol and timeframe)
+      const overallAnalysis = await calculateOverallSignal(
+        signals,
+        symbol,
+        timeframe
+      );
 
       results.push({
         symbol,
@@ -123,6 +127,7 @@ export async function calculateAndSaveIndicators(symbol, timeframe = "1h") {
         psarSignal: signals.psarSignal,
         overallSignal: overallAnalysis.overallSignal,
         signalStrength: overallAnalysis.signalStrength,
+        finalScore: overallAnalysis.finalScore, // ✅ NEW: Save finalScore to database
       });
     }
   }

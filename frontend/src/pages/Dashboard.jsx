@@ -34,10 +34,10 @@ function Dashboard() {
     queryKey: ["candles", selectedSymbol, timeframe],
     queryFn: () =>
       fetchCandlesWithPagination(selectedSymbol, timeframe, 1, 1000),
-    staleTime: 0, // ✅ FORCE FRESH DATA - No cache tolerance
-    cacheTime: 0, // ✅ Don't keep old data in memory
-    refetchOnMount: true, // ✅ Always refetch when component mounts
-    refetchOnWindowFocus: false, // ❌ Don't refetch on window focus (annoying)
+    staleTime: 10000, // ✅ 10 seconds cache tolerance
+    cacheTime: 120000, // ✅ Keep in memory for 2 minutes
+    refetchOnMount: false, // ✅ Don't refetch if data is fresh
+    refetchOnWindowFocus: false, // ❌ Don't refetch on window focus
     enabled: !!selectedSymbol,
   });
 

@@ -1,8 +1,11 @@
 import { useDarkMode } from "../../contexts/DarkModeContext";
+import { safeSignal } from "../../utils/indicatorParser";
 
 /**
  * Indicator Value Cards Component
  * Displays real-time indicator values in a grid layout
+ * ✅ REFACTORED: Use backend signals only (no frontend calculation)
+ * ✅ SAFE: Validate all signals with safeSignal()
  */
 function IndicatorValueCards({ latestCandle, activeIndicators }) {
   const { isDarkMode } = useDarkMode();
@@ -39,33 +42,8 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
     return value;
   };
 
-  // Determine PSAR signal
-  const getPsarSignal = () => {
-    if (!indicators.parabolicSar?.value || !price) return "neutral";
-    return price > indicators.parabolicSar.value
-      ? "buy"
-      : price < indicators.parabolicSar.value
-      ? "sell"
-      : "neutral";
-  };
-
-  // Determine Bollinger signal
-  const getBollingerSignal = () => {
-    if (
-      !indicators.bollingerBands?.upper ||
-      !indicators.bollingerBands?.lower ||
-      !price
-    )
-      return "neutral";
-    return price > indicators.bollingerBands.upper
-      ? "sell"
-      : price < indicators.bollingerBands.lower
-      ? "buy"
-      : "neutral";
-  };
-
   const indicatorCards = [
-    // RSI
+    // RSI - ✅ Use safe backend signal
     {
       id: "rsi",
       icon: "🔴",
@@ -80,14 +58,9 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
           bg: true,
         },
       ],
-      signal:
-        indicators.rsi?.[14] > 70
-          ? "sell"
-          : indicators.rsi?.[14] < 30
-          ? "buy"
-          : "neutral",
+      signal: safeSignal(indicators.rsi?.signal), // ✅ Safe DB signal
     },
-    // PSAR
+    // PSAR - ✅ Use safe backend signal
     {
       id: "psar",
       icon: "🔴",
@@ -104,9 +77,9 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
           bg: true,
         },
       ],
-      signal: getPsarSignal(),
+      signal: safeSignal(indicators.parabolicSar?.signal), // ✅ Safe DB signal
     },
-    // EMA
+    // EMA - ✅ Use safe backend signal
     {
       id: "ema",
       icon: "🟣",
@@ -126,9 +99,9 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
           bg: true,
         },
       ],
-      signal: "neutral",
+      signal: safeSignal(indicators.ema?.signal), // ✅ Safe DB signal
     },
-    // SMA
+    // SMA - ✅ Use safe backend signal
     {
       id: "sma",
       icon: "🔵",
@@ -148,9 +121,9 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
           bg: true,
         },
       ],
-      signal: "neutral",
+      signal: safeSignal(indicators.sma?.signal), // ✅ Safe DB signal
     },
-    // MACD
+    // MACD - ✅ Use safe backend signal
     {
       id: "macd",
       icon: "🟢",
@@ -169,10 +142,9 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
           bg: true,
         },
       ],
-      signal:
-        indicators.macd?.macd > indicators.macd?.signalLine ? "buy" : "sell",
+      signal: safeSignal(indicators.macd?.signal), // ✅ Safe DB signal
     },
-    // Stochastic
+    // Stochastic - ✅ Use safe backend signal
     {
       id: "stochastic",
       icon: "🟢",
@@ -194,14 +166,9 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
           bg: true,
         },
       ],
-      signal:
-        indicators.stochastic?.["%K"] > 80
-          ? "sell"
-          : indicators.stochastic?.["%K"] < 20
-          ? "buy"
-          : "neutral",
+      signal: safeSignal(indicators.stochastic?.signal), // ✅ Safe DB signal
     },
-    // Stochastic RSI
+    // Stochastic RSI - ✅ Use safe backend signal
     {
       id: "stochasticRsi",
       icon: "🟡",
@@ -225,14 +192,9 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
           bg: true,
         },
       ],
-      signal:
-        indicators.stochasticRsi?.["%K"] > 80
-          ? "sell"
-          : indicators.stochasticRsi?.["%K"] < 20
-          ? "buy"
-          : "neutral",
+      signal: safeSignal(indicators.stochasticRsi?.signal), // ✅ Safe DB signal
     },
-    // Bollinger Bands
+    // Bollinger Bands - ✅ Use safe backend signal
     {
       id: "bollinger",
       icon: "🔵",
@@ -259,7 +221,7 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
           bg: true,
         },
       ],
-      signal: getBollingerSignal(),
+      signal: safeSignal(indicators.bollingerBands?.signal), // ✅ Safe DB signal
     },
   ];
 
@@ -357,7 +319,7 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
             ))}
           </div>
 
-          {/* Signal Badge */}
+          {/* Signal Badge - ✅ Now using backend signal */}
           <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
             <div
               className={`px-3 py-1.5 rounded-lg text-center text-xs font-semibold uppercase ${getSignalBg(

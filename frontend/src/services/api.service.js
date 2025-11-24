@@ -175,9 +175,10 @@ export const fetchCandlesWithPagination = async (
 };
 
 // Fetch candles by full URL (for pagination next/prev)
-export const fetchCandlesByUrl = async (url) => {
+export const fetchCandlesByUrl = async (url, signal = null) => {
   const { data } = await axios.get(url, {
     timeout: 10000,
+    signal, // ✅ Support AbortController signal
   });
   return data;
 };

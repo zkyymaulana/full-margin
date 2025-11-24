@@ -12,106 +12,33 @@ function formatReadableDate(date) {
 }
 
 /**
- * 🎯 Helper: Calculate Category Scores from Latest Indicators
- * Digunakan untuk menghitung skor per kategori (trend, momentum, volatility)
- * @param {Object} indicators - Latest indicators object
- * @param {Object} weights - Optimized weights from database
- * @returns {Object} { trend, momentum, volatility }
+ * 🎯 Helper: Format multiSignal dari database (NO RECALCULATION)
+ * ✅ 100% menggunakan data dari tabel Indicator
+ * ✅ Sesuai metodologi penelitian: threshold = 0, no voting
+ * ✅ UPDATED: Gunakan finalScore yang sudah tersimpan di DB
  */
-function calculateCategoryScores(indicators, weights) {
-  // Helper untuk convert signal string ke numeric value
-  const toSignalValue = (signal) => {
-    if (!signal) return 0;
-    const normalized = signal.toLowerCase();
-    if (normalized === "buy" || normalized === "strong_buy") return 1;
-    if (normalized === "sell" || normalized === "strong_sell") return -1;
-    return 0;
-  };
+function formatMultiSignalFromDB(ind) {
+  if (!ind) return null;
 
-  // Safe weight extraction dengan default 0
-  const w = {
-    SMA: weights?.SMA || 0,
-    EMA: weights?.EMA || 0,
-    PSAR: weights?.PSAR || 0,
-    RSI: weights?.RSI || 0,
-    MACD: weights?.MACD || 0,
-    Stochastic: weights?.Stochastic || 0,
-    StochasticRSI: weights?.StochasticRSI || 0,
-    BollingerBands: weights?.BollingerBands || 0,
-  };
+  // ✅ Ambil langsung dari database - NO CALCULATION
+  const dbFinalScore = ind.finalScore ?? 0;
+  const dbStrength = ind.signalStrength ?? 0;
 
-  // Extract signals dari indicators
-  const signals = {
-    sma: toSignalValue(indicators?.sma?.signal),
-    ema: toSignalValue(indicators?.ema?.signal),
-    psar: toSignalValue(indicators?.parabolicSar?.signal),
-    rsi: toSignalValue(indicators?.rsi?.signal),
-    macd: toSignalValue(indicators?.macd?.signal),
-    stochastic: toSignalValue(indicators?.stochastic?.signal),
-    stochasticRsi: toSignalValue(indicators?.stochasticRsi?.signal),
-    bb: toSignalValue(indicators?.bollingerBands?.signal),
-  };
+  // ✅ Map signal dari finalScore (threshold = 0)
+  let signal = "neutral";
+  let finalScore = dbFinalScore;
+  let strength = dbStrength;
 
-  // 1️⃣ TREND CATEGORY (SMA + EMA + PSAR)
-  const trendWeightSum = w.SMA + w.EMA + w.PSAR;
-  const trendScore =
-    trendWeightSum > 0
-      ? (signals.sma * w.SMA + signals.ema * w.EMA + signals.psar * w.PSAR) /
-        trendWeightSum
-      : 0;
+  if (finalScore > 0) {
+    signal = "buy";
+  } else if (finalScore < 0) {
+    signal = "sell";
+  } else {
+    signal = "neutral";
+    strength = 0;
+  }
 
-  // 2️⃣ MOMENTUM CATEGORY (RSI + MACD + Stochastic + StochasticRSI)
-  const momentumWeightSum = w.RSI + w.MACD + w.Stochastic + w.StochasticRSI;
-  const momentumScore =
-    momentumWeightSum > 0
-      ? (signals.rsi * w.RSI +
-          signals.macd * w.MACD +
-          signals.stochastic * w.Stochastic +
-          signals.stochasticRsi * w.StochasticRSI) /
-        momentumWeightSum
-      : 0;
-
-  // 3️⃣ VOLATILITY CATEGORY (BollingerBands only)
-  const volatilityWeightSum = w.BollingerBands;
-  const volatilityScore =
-    volatilityWeightSum > 0
-      ? (signals.bb * w.BollingerBands) / volatilityWeightSum
-      : 0;
-
-  return {
-    trend: parseFloat(trendScore.toFixed(2)),
-    momentum: parseFloat(momentumScore.toFixed(2)),
-    volatility: parseFloat(volatilityScore.toFixed(2)),
-  };
-}
-
-/**
- * 🎯 Helper: Map Final Signal from Score (NO THRESHOLD)
- * Arah sinyal HANYA dari score tanpa threshold tambahan
- *
- * @param {number} score - Weighted score (-1 to 1)
- * @returns {string} "buy" | "sell" | "neutral"
- *
- * Rules:
- * - score > 0   → BUY
- * - score < 0   → SELL
- * - score == 0  → NEUTRAL
- */
-function mapFinalSignal(score) {
-  if (score > 0) return "buy";
-  if (score < 0) return "sell";
-  return "neutral";
-}
-
-/**
- * 🎯 Helper: Map Signal Label (STRONG based on strength threshold)
- * Threshold 0.6 HANYA untuk label STRONG, bukan untuk arah sinyal
- *
- * @param {string} signal - "buy" | "sell" | "neutral"
- * @param {number} strength - Absolute value of score (0 to 1)
- * @returns {object} { signalLabel, signalEmoji }
- */
-function mapSignalLabel(signal, strength) {
+  // ✅ Format label & emoji berdasarkan strength threshold (0.6)
   let signalLabel = "NEUTRAL";
   let signalEmoji = "⚪";
 
@@ -123,124 +50,32 @@ function mapSignalLabel(signal, strength) {
     signalEmoji = strength >= 0.6 ? "🔴🔴" : "🔴";
   }
 
-  return { signalLabel, signalEmoji };
-}
-
-/**
- * 🆕 Calculate Final Multi-Signal using Weighted Category Scores
- * FULLY SCORE-BASED (No Voting, No Arbitrary Threshold)
- *
- * Sesuai jurnal: "Enhancing Trading Strategies: A Multi-Indicator Analysis
- * for Profitable Algorithmic Trading (2025)"
- *
- * @param {Object} categoryScores - { trend, momentum, volatility }
- * @param {Object} weights - Optimized weights { SMA, EMA, RSI, ... }
- * @returns {Object} { signal, strength, finalScore, signalLabel, signalEmoji }
- *
- * Formula:
- * FinalScore = (trend * Wtrend + momentum * Wmomentum + volatility * Wvolatility)
- *              / (Wtrend + Wmomentum + Wvolatility)
- *
- * Signal Determination:
- * - score > 0  → BUY
- * - score < 0  → SELL
- * - score == 0 → NEUTRAL
- *
- * Strength:
- * - strength = |score|  (0 to 1)
- * - strength >= 0.6 → STRONG label
- */
-function calculateFinalMultiSignal(categoryScores, weights) {
-  // Default values jika null/undefined
-  const scores = {
-    trend: categoryScores?.trend || 0,
-    momentum: categoryScores?.momentum || 0,
-    volatility: categoryScores?.volatility || 0,
-  };
-
-  // Calculate category weights dari individual indicator weights
-  const w = {
-    SMA: weights?.SMA || 0,
-    EMA: weights?.EMA || 0,
-    PSAR: weights?.PSAR || 0,
-    RSI: weights?.RSI || 0,
-    MACD: weights?.MACD || 0,
-    Stochastic: weights?.Stochastic || 0,
-    StochasticRSI: weights?.StochasticRSI || 0,
-    BollingerBands: weights?.BollingerBands || 0,
-  };
-
-  // Aggregate weights per category
-  const categoryWeights = {
-    trend: w.SMA + w.EMA + w.PSAR,
-    momentum: w.RSI + w.MACD + w.Stochastic + w.StochasticRSI,
-    volatility: w.BollingerBands,
-  };
-
-  // Calculate total weight
-  const totalWeight =
-    categoryWeights.trend +
-    categoryWeights.momentum +
-    categoryWeights.volatility;
-
-  // Calculate weighted final score
-  let finalScore = 0;
-
-  if (totalWeight > 0) {
-    finalScore =
-      (scores.trend * categoryWeights.trend +
-        scores.momentum * categoryWeights.momentum +
-        scores.volatility * categoryWeights.volatility) /
-      totalWeight;
-  }
-
-  // Round to 2 decimal places
-  finalScore = parseFloat(finalScore.toFixed(2));
-
-  // ✅ Determine signal HANYA dari score (NO THRESHOLD)
-  const signal = mapFinalSignal(finalScore);
-
-  // ✅ Calculate strength sebagai absolute value
-  const strength = Math.abs(finalScore);
-
-  // ✅ Get label dan emoji berdasarkan strength threshold (0.6)
-  const { signalLabel, signalEmoji } = mapSignalLabel(signal, strength);
-
-  // 🐛 Debug logging
-  console.log("🎯 Multi-Signal Calculation:", {
-    categoryScores: scores,
-    categoryWeights,
-    totalWeight,
-    finalScore,
-    signal,
-    strength: parseFloat(strength.toFixed(2)),
-    signalLabel,
-  });
-
   return {
-    signal, // "buy" | "sell" | "neutral"
-    strength: parseFloat(strength.toFixed(2)), // 0 to 1
-    finalScore, // -1 to 1
-    signalLabel, // "BUY" | "STRONG BUY" | etc
-    signalEmoji, // "🟢" | "🟢🟢" | etc
+    signal,
+    strength: parseFloat(strength.toFixed(3)),
+    finalScore: parseFloat(finalScore.toFixed(3)),
+    signalLabel,
+    signalEmoji,
+    source: "db",
   };
 }
 
 /* ===========================================================
    ✅ GET INDICATORS API — Support mode=latest & mode=paginated
-   🆕 REFACTORED: Dual mode untuk single indicator & chart
+   ✅ REFACTORED: 100% database signals (no calculation)
 =========================================================== */
 export async function getIndicators(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
     const timeframe = req.query.timeframe || "1h";
-    const mode = req.query.mode || "paginated"; // "latest" or "paginated"
+    const mode = req.query.mode || "paginated";
 
     console.log(`📊 Fetching indicators for ${symbol} (mode: ${mode})`);
     const startTime = Date.now();
 
     // ========================================
     // MODE 1: LATEST - Return only latest signal
+    // ✅ 100% DATABASE - NO CALCULATION
     // ========================================
     if (mode === "latest") {
       const [latestIndicator, latestWeight] = await Promise.all([
@@ -254,7 +89,6 @@ export async function getIndicators(req, res) {
         }),
       ]);
 
-      // Early return jika tidak ada data
       if (!latestIndicator) {
         return res.status(404).json({
           success: false,
@@ -270,61 +104,53 @@ export async function getIndicators(req, res) {
 
       const latestPrice = latestCandle?.close ?? null;
 
-      // Build indicators structure
+      // ✅ Format multiSignal dari database (NO CALCULATION)
+      const multiSignal = formatMultiSignalFromDB(latestIndicator);
+
+      // ✅ Build indicators structure dengan signal dari DB
       const indicators = {
         sma: {
           20: latestIndicator.sma20 ?? null,
           50: latestIndicator.sma50 ?? null,
-          signal: latestIndicator.smaSignal ?? "neutral",
+          signal: latestIndicator.smaSignal || "neutral",
         },
         ema: {
           20: latestIndicator.ema20 ?? null,
           50: latestIndicator.ema50 ?? null,
-          signal: latestIndicator.emaSignal ?? "neutral",
+          signal: latestIndicator.emaSignal || "neutral",
         },
         rsi: {
           14: latestIndicator.rsi ?? null,
-          signal: latestIndicator.rsiSignal ?? "neutral",
+          signal: latestIndicator.rsiSignal || "neutral",
         },
         macd: {
           macd: latestIndicator.macd ?? null,
           signalLine: latestIndicator.macdSignalLine ?? null,
           histogram: latestIndicator.macdHist ?? null,
-          signal: latestIndicator.macdSignal ?? "neutral",
+          signal: latestIndicator.macdSignal || "neutral",
         },
         bollingerBands: {
           upper: latestIndicator.bbUpper ?? null,
           middle: latestIndicator.bbMiddle ?? null,
           lower: latestIndicator.bbLower ?? null,
-          signal: latestIndicator.bbSignal ?? "neutral",
+          signal: latestIndicator.bbSignal || "neutral",
         },
         stochastic: {
           "%K": latestIndicator.stochK ?? null,
           "%D": latestIndicator.stochD ?? null,
-          signal: latestIndicator.stochSignal ?? "neutral",
+          signal: latestIndicator.stochSignal || "neutral",
         },
         stochasticRsi: {
           "%K": latestIndicator.stochRsiK ?? null,
           "%D": latestIndicator.stochRsiD ?? null,
-          signal: latestIndicator.stochRsiSignal ?? "neutral",
+          signal: latestIndicator.stochRsiSignal || "neutral",
         },
         parabolicSar: {
           value: latestIndicator.psar ?? null,
-          signal: latestIndicator.psarSignal ?? "neutral",
+          signal: latestIndicator.psarSignal || "neutral",
         },
       };
 
-      // Calculate category scores
-      const categoryScores = latestWeight
-        ? calculateCategoryScores(indicators, latestWeight.weights)
-        : { trend: 0, momentum: 0, volatility: 0 };
-
-      // Calculate final multi-signal
-      const finalMultiSignal = latestWeight
-        ? calculateFinalMultiSignal(categoryScores, latestWeight.weights)
-        : { signal: "neutral", finalScore: 0, normalizedScore: 0 };
-
-      // Build response
       const processingTime = Date.now() - startTime;
 
       return res.json({
@@ -336,8 +162,14 @@ export async function getIndicators(req, res) {
         latestSignal: {
           time: Number(latestIndicator.time),
           price: latestPrice,
-          multiSignal: finalMultiSignal,
-          categoryScores,
+          multiSignal: multiSignal || {
+            signal: "neutral",
+            strength: 0,
+            finalScore: 0,
+            signalLabel: "NEUTRAL",
+            signalEmoji: "⚪",
+            source: "db",
+          },
           weights: latestWeight?.weights ?? null,
           performance: latestWeight
             ? {
@@ -353,18 +185,14 @@ export async function getIndicators(req, res) {
     }
 
     // ========================================
-    // MODE 2: PAGINATED - Return paginated data for charts
+    // MODE 2: PAGINATED - Return paginated data
+    // ✅ 100% DATABASE - NO CALCULATION
     // ========================================
     const showAll = req.query.all === "true";
     const limit = 1000;
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const skip = (page - 1) * limit;
 
-    console.log(
-      `📊 Fetching indicators for ${symbol} ${showAll ? "(ALL DATA)" : `(page ${page}, limit ${limit})`}`
-    );
-
-    // Hitung total indikator
     const totalIndicators = await prisma.indicator.count({
       where: { symbol, timeframe },
     });
@@ -376,7 +204,6 @@ export async function getIndicators(req, res) {
       });
     }
 
-    // Query options
     const queryOptions = {
       where: { symbol, timeframe },
       orderBy: { time: "desc" },
@@ -408,6 +235,7 @@ export async function getIndicators(req, res) {
         psarSignal: true,
         overallSignal: true,
         signalStrength: true,
+        finalScore: true,
       },
     };
 
@@ -416,7 +244,6 @@ export async function getIndicators(req, res) {
       queryOptions.take = limit;
     }
 
-    // Fetch data dengan latestSignal
     const [data, candlePrices, latestIndicator, latestWeight] =
       await Promise.all([
         prisma.indicator.findMany(queryOptions),
@@ -436,7 +263,6 @@ export async function getIndicators(req, res) {
         }),
       ]);
 
-    // Gabungkan harga dan indikator
     const priceMap = new Map(
       candlePrices.map((c) => [Number(c.time), c.close])
     );
@@ -504,6 +330,8 @@ export async function getIndicators(req, res) {
     if (latestIndicator) {
       const latestPrice = priceMap.get(Number(latestIndicator.time)) ?? null;
 
+      const multiSignal = formatMultiSignalFromDB(latestIndicator);
+
       const latestIndicatorStructure = {
         sma: {
           20: latestIndicator.sma20 ?? null,
@@ -547,22 +375,10 @@ export async function getIndicators(req, res) {
         },
       };
 
-      const categoryScores = latestWeight
-        ? calculateCategoryScores(
-            latestIndicatorStructure,
-            latestWeight.weights
-          )
-        : { trend: 0, momentum: 0, volatility: 0 };
-
-      const finalMultiSignal = latestWeight
-        ? calculateFinalMultiSignal(categoryScores, latestWeight.weights)
-        : { signal: "neutral", finalScore: 0, normalizedScore: 0 };
-
       latestSignal = {
         time: Number(latestIndicator.time),
         price: latestPrice,
-        multiSignal: finalMultiSignal,
-        categoryScores,
+        multiSignal,
         weights: latestWeight?.weights ?? null,
         performance: latestWeight
           ? {
@@ -582,7 +398,6 @@ export async function getIndicators(req, res) {
     );
     const rangeEnd = formatReadableDate(Number(organized[0]?.time));
 
-    // Pagination info
     const totalPages = showAll ? 1 : Math.ceil(totalIndicators / limit);
     const hasNext = !showAll && page < totalPages;
     const hasPrev = !showAll && page > 1;
@@ -618,6 +433,7 @@ export async function getIndicators(req, res) {
         coverage: `${organized.length}/${totalIndicators}`,
         coveragePercent: showAll ? "100%" : `${coveragePercent}%`,
         range: { start: rangeStart, end: rangeEnd },
+        source: "database",
       },
       latestSignal,
       data: organized,

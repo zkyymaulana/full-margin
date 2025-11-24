@@ -105,6 +105,7 @@ model Indicator {
   // === Overall Signal Analysis ===
   overallSignal  String? // "strong_buy", "buy", "neutral", "sell", "strong_sell"
   signalStrength Float?  // 0.0 to 1.0 confidence level
+  finalScore     Float?  // ✅ NEW: Weighted score (can be negative for sell)
   
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt

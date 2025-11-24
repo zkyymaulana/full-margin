@@ -1,58 +1,147 @@
 /**
- * 📊 OVERALL SIGNAL ANALYZER (REFACTORED)
- * =========================================
- * Menggabungkan sinyal dari 8 indikator menjadi 1 sinyal final
+ * 📊 OVERALL SIGNAL ANALYZER - WEIGHTED SCORING
+ * ===============================================
+ * ✅ Sesuai metodologi penelitian: Weighted Multi-Indicator
+ * ✅ Threshold = 0 (tidak ada threshold selain 0)
+ * ✅ Tidak ada voting
  *
- * RULE KONSISTENSI (PENTING):
- * - Jika overallSignal = "neutral" → signalStrength HARUS = 0
- * - Jika overallSignal = "buy"/"sell" → signalStrength = ratio (0.6-1.0)
- * - Tidak boleh ada neutral dengan strength > 0
+ * Formula:
+ * finalScore = Σ (signalScore_i × weight_i)
+ * strength = |finalScore| / Σ(weight_i)
+ *
+ * Signal determination:
+ * - finalScore > 0  → BUY
+ * - finalScore < 0  → SELL
+ * - finalScore == 0 → NEUTRAL
+ *
+ * @param {Object} signals - Individual indicator signals from database
+ * @param {String} symbol - Coin symbol (e.g., "BTC-USD")
+ * @param {String} timeframe - Timeframe (e.g., "1h")
+ * @returns {Promise<Object>} { overallSignal, signalStrength, finalScore }
  */
+export async function calculateOverallSignal(signals, symbol, timeframe) {
+  // Import prisma di sini untuk menghindari circular dependency
+  const { prisma } = await import("../../lib/prisma.js");
 
-export function calculateOverallSignal(signals) {
-  const values = Object.values(signals).filter((v) => v !== undefined);
-  const total = values.length;
+  // ✅ Step 1: Get optimized weights from database
+  const weightRecord = await prisma.indicatorWeight.findFirst({
+    where: { symbol, timeframe },
+    orderBy: { updatedAt: "desc" },
+  });
 
-  if (total === 0) {
-    console.log("⚠️ [overallAnalyzer] No signals to analyze");
-    return { overallSignal: "neutral", signalStrength: 0 };
-  }
-
-  const buyCount = values.filter((v) => v === "buy").length;
-  const sellCount = values.filter((v) => v === "sell").length;
-
-  const buyRatio = buyCount / total;
-  const sellRatio = sellCount / total;
-
-  // Penentuan kategori sinyal berdasarkan mayoritas indikator
-  let overallSignal = "neutral";
-  let signalStrength = 0; // Default untuk neutral
-
-  if (buyRatio >= 0.7) {
-    overallSignal = "strong_buy";
-    signalStrength = buyRatio;
-  } else if (buyRatio >= 0.6) {
-    overallSignal = "buy";
-    signalStrength = buyRatio;
-  } else if (sellRatio >= 0.7) {
-    overallSignal = "strong_sell";
-    signalStrength = sellRatio;
-  } else if (sellRatio >= 0.6) {
-    overallSignal = "sell";
-    signalStrength = sellRatio;
-  } else {
-    // ✅ CRITICAL FIX: Jika neutral, strength HARUS 0
-    overallSignal = "neutral";
-    signalStrength = 0; // Tidak pakai Math.max(buyRatio, sellRatio)
-  }
-
-  // ✅ VALIDATION: Double-check konsistensi
-  if (overallSignal === "neutral" && signalStrength !== 0) {
-    console.error(
-      "❌ [overallAnalyzer] MISMATCH DETECTED: neutral with strength > 0!"
+  if (!weightRecord || !weightRecord.weights) {
+    console.warn(
+      `⚠️ [overallAnalyzer] No weights found for ${symbol}, using equal weights`
     );
-    signalStrength = 0; // Force fix
+
+    // Fallback: equal weights
+    const equalWeight = 1;
+    const weights = {
+      SMA: equalWeight,
+      EMA: equalWeight,
+      RSI: equalWeight,
+      MACD: equalWeight,
+      BollingerBands: equalWeight,
+      Stochastic: equalWeight,
+      StochasticRSI: equalWeight,
+      PSAR: equalWeight,
+    };
+
+    return calculateWeightedSignal(signals, weights);
   }
 
-  return { overallSignal, signalStrength };
+  // ✅ Use optimized weights from database
+  return calculateWeightedSignal(signals, weightRecord.weights);
 }
+
+/**
+ * 🎯 Calculate Weighted Signal
+ * Pure calculation function - no database access
+ *
+ * @param {Object} signals - Individual signals { smaSignal, emaSignal, ... }
+ * @param {Object} weights - Weights { SMA, EMA, RSI, ... }
+ * @returns {Object} { overallSignal, signalStrength, finalScore }
+ */
+function calculateWeightedSignal(signals, weights) {
+  // ✅ Map signal strings to numeric scores
+  const signalToScore = (signal) => {
+    if (!signal) return 0;
+    const normalized = signal.toLowerCase();
+    if (normalized === "buy" || normalized === "strong_buy") return 1;
+    if (normalized === "sell" || normalized === "strong_sell") return -1;
+    return 0;
+  };
+
+  // ✅ Extract signals and weights
+  const indicatorData = [
+    { name: "SMA", signal: signals.smaSignal, weight: weights.SMA || 0 },
+    { name: "EMA", signal: signals.emaSignal, weight: weights.EMA || 0 },
+    { name: "PSAR", signal: signals.psarSignal, weight: weights.PSAR || 0 },
+    { name: "RSI", signal: signals.rsiSignal, weight: weights.RSI || 0 },
+    { name: "MACD", signal: signals.macdSignal, weight: weights.MACD || 0 },
+    {
+      name: "Stochastic",
+      signal: signals.stochSignal,
+      weight: weights.Stochastic || 0,
+    },
+    {
+      name: "StochasticRSI",
+      signal: signals.stochRsiSignal,
+      weight: weights.StochasticRSI || 0,
+    },
+    {
+      name: "BollingerBands",
+      signal: signals.bbSignal,
+      weight: weights.BollingerBands || 0,
+    },
+  ];
+
+  // ✅ Calculate weighted sum
+  let weightedSum = 0;
+  let totalWeight = 0;
+
+  console.log("🔍 [WEIGHTED CALCULATION] Starting...");
+
+  indicatorData.forEach(({ name, signal, weight }) => {
+    const signalScore = signalToScore(signal);
+    const contribution = signalScore * weight;
+
+    weightedSum += contribution;
+    totalWeight += weight;
+
+    console.log(
+      `  ${name.padEnd(15)} | Signal: ${(signal || "null").padEnd(8)} | Score: ${signalScore.toString().padEnd(2)} | Weight: ${weight} | Contribution: ${contribution.toFixed(2)}`
+    );
+  });
+
+  // ✅ Calculate final score (no normalization, raw weighted sum)
+  const finalScore = weightedSum;
+
+  // ✅ Calculate strength (normalized by total weight)
+  const strength = totalWeight > 0 ? Math.abs(finalScore) / totalWeight : 0;
+
+  // ✅ Determine signal based on finalScore (threshold = 0)
+  let overallSignal = "neutral";
+  if (finalScore > 0) {
+    overallSignal = "buy";
+  } else if (finalScore < 0) {
+    overallSignal = "sell";
+  }
+
+  console.log("📊 [RESULT]");
+  console.log(`  Weighted Sum: ${weightedSum.toFixed(2)}`);
+  console.log(`  Total Weight: ${totalWeight}`);
+  console.log(`  Final Score: ${finalScore.toFixed(2)}`);
+  console.log(`  Strength: ${strength.toFixed(3)}`);
+  console.log(`  Signal: ${overallSignal.toUpperCase()}`);
+  console.log("─────────────────────────────────────────────────────");
+
+  return {
+    overallSignal,
+    signalStrength: parseFloat(strength.toFixed(3)),
+    finalScore: parseFloat(finalScore.toFixed(2)),
+  };
+}
+
+// Export helper untuk digunakan di controller
+export { calculateWeightedSignal };

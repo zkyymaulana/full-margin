@@ -1,4 +1,4 @@
-import { getIndicatorSignal } from "../../utils/indicatorParser";
+import { getIndicatorSignal, safeSignal } from "../../utils/indicatorParser";
 
 function IndicatorTable({ allIndicators, isDarkMode }) {
   if (allIndicators.length === 0) return null;
@@ -84,11 +84,16 @@ function IndicatorTable({ allIndicators, isDarkMode }) {
             </thead>
             <tbody>
               {allIndicators.map((indicator) => {
+                // ✅ FORCE database signal only - strict validation
+                const rawSignal = indicator.signal || "neutral";
+                const validatedSignal = safeSignal(rawSignal);
+
+                // ✅ Get formatted signal display
                 const {
                   signal: signalText,
                   color: signalColor,
                   icon,
-                } = getIndicatorSignal(indicator.signal, isDarkMode);
+                } = getIndicatorSignal(validatedSignal, isDarkMode);
 
                 return (
                   <tr
