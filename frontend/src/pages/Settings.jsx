@@ -5,12 +5,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getTelegramConfig,
   toggleTelegram,
-  updateSignalMode,
   testTelegramConnection,
   updateUserTelegramSettings,
   getUserProfile,
 } from "../services/api.service";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 function Settings() {
   const { user } = useAuth();
@@ -26,13 +25,18 @@ function Settings() {
   const { data: userProfile, isLoading: profileLoading } = useQuery({
     queryKey: ["userProfile"],
     queryFn: getUserProfile,
-    onSuccess: (data) => {
-      // Set initial value dari database
-      if (data?.data?.telegramChatId) {
-        setTelegramChatId(data.data.telegramChatId);
-      }
-    },
   });
+
+  // ✅ Update state when userProfile changes
+  useEffect(() => {
+    if (userProfile?.data?.telegramChatId) {
+      setTelegramChatId(userProfile.data.telegramChatId);
+    }
+  }, [userProfile]);
+
+  // ✅ Check if Chat ID has changed (for Save button)
+  const hasChatIdChanged =
+    telegramChatId !== (userProfile?.data?.telegramChatId || "");
 
   // Fetch Telegram config (global backend config)
   const { data: telegramConfig, isLoading: configLoading } = useQuery({
@@ -68,20 +72,6 @@ function Settings() {
     onError: (error) => {
       toast.error(
         error.response?.data?.message || "Failed to update Telegram settings"
-      );
-    },
-  });
-
-  // Update signal mode mutation
-  const updateModeMutation = useMutation({
-    mutationFn: updateSignalMode,
-    onSuccess: (data) => {
-      queryClient.invalidateQueries(["telegramConfig"]);
-      toast.success(data.message || "Signal mode updated");
-    },
-    onError: (error) => {
-      toast.error(
-        error.response?.data?.message || "Failed to update signal mode"
       );
     },
   });
@@ -139,15 +129,21 @@ function Settings() {
     });
   };
 
-  const handleSignalModeChange = (mode) => {
-    updateModeMutation.mutate(mode);
-  };
-
   const handleTestConnection = async () => {
     const userChatId = userProfile?.data?.telegramChatId;
+    const isEnabled = userProfile?.data?.telegramEnabled;
 
+    // ✅ Cek apakah Chat ID sudah ada
     if (!userChatId) {
-      toast.warning("Please save your Telegram Chat ID first!");
+      toast.warning("⚠️ Please save your Telegram Chat ID first!");
+      return;
+    }
+
+    // ✅ Cek apakah Telegram sudah diaktifkan
+    if (!isEnabled) {
+      toast.error(
+        "Telegram notifications is disabled! Please enable it first by turning on the toggle switch."
+      );
       return;
     }
 
@@ -155,9 +151,9 @@ function Settings() {
     try {
       const result = await testTelegramConnection();
       if (result.success) {
-        toast.success("✅ Test message sent! Check your Telegram");
+        toast.success("Test message sent! Check your Telegram");
       } else {
-        toast.error("❌ Failed to send test message");
+        toast.error("Failed to send test message");
       }
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to test connection");
@@ -200,7 +196,6 @@ function Settings() {
 
   const config = telegramConfig?.config || {};
   const isBackendConfigured = config.configured || false;
-  const signalMode = config.signalMode || "multi";
 
   // ✅ User-specific Telegram settings
   const userTelegramEnabled = userProfile?.data?.telegramEnabled || false;
@@ -385,7 +380,9 @@ function Settings() {
                     />
                     <button
                       onClick={handleSaveTelegramSettings}
-                      disabled={isSavingTelegram || !telegramChatId}
+                      disabled={
+                        isSavingTelegram || !telegramChatId || !hasChatIdChanged
+                      }
                       className={`px-6 py-2 rounded-lg font-medium transition-colors ${
                         isDarkMode
                           ? "bg-blue-600 hover:bg-blue-700 text-white"
@@ -402,6 +399,15 @@ function Settings() {
                       )}
                     </button>
                   </div>
+                  {!hasChatIdChanged && telegramChatId && (
+                    <p
+                      className={`text-xs ${
+                        isDarkMode ? "text-gray-500" : "text-gray-500"
+                      }`}
+                    >
+                      ℹ️ No changes detected. Modify Chat ID to enable save.
+                    </p>
+                  )}
                   <p
                     className={`text-xs ${
                       isDarkMode ? "text-gray-500" : "text-gray-500"
@@ -451,84 +457,6 @@ function Settings() {
                 )}
               </div>
             </div>
-
-            {/* Signal Mode Selection */}
-            {isUserConfigured && isBackendConfigured && (
-              <div
-                className={`p-4 rounded-lg ${
-                  isDarkMode ? "bg-gray-700/50" : "bg-gray-50"
-                }`}
-              >
-                <div
-                  className={`font-medium mb-3 ${
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  }`}
-                >
-                  Signal Mode
-                </div>
-                <div className="space-y-2">
-                  {[
-                    {
-                      value: "multi",
-                      label: "Multi-Indicator",
-                      emoji: "🎯",
-                      desc: "Optimized combined signals (Recommended)",
-                    },
-                    {
-                      value: "single",
-                      label: "Single Indicator",
-                      emoji: "📊",
-                      desc: "Individual indicator signals",
-                    },
-                    {
-                      value: "both",
-                      label: "Both",
-                      emoji: "📈",
-                      desc: "All signals (may cause spam)",
-                    },
-                  ].map((mode) => (
-                    <label
-                      key={mode.value}
-                      className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
-                        signalMode === mode.value
-                          ? isDarkMode
-                            ? "bg-blue-900/30 border border-blue-500"
-                            : "bg-blue-50 border border-blue-300"
-                          : isDarkMode
-                          ? "bg-gray-800 hover:bg-gray-750"
-                          : "bg-white hover:bg-gray-50"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="signalMode"
-                        value={mode.value}
-                        checked={signalMode === mode.value}
-                        onChange={(e) => handleSignalModeChange(e.target.value)}
-                        disabled={updateModeMutation.isPending}
-                        className="mt-1"
-                      />
-                      <div className="flex-1">
-                        <div
-                          className={`font-medium ${
-                            isDarkMode ? "text-white" : "text-gray-900"
-                          }`}
-                        >
-                          {mode.emoji} {mode.label}
-                        </div>
-                        <div
-                          className={`text-sm ${
-                            isDarkMode ? "text-gray-400" : "text-gray-600"
-                          }`}
-                        >
-                          {mode.desc}
-                        </div>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Test Connection Button */}
             {isUserConfigured && isBackendConfigured && (

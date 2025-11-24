@@ -125,9 +125,9 @@ async function runMainSyncJob(isBackup = false) {
     await syncLatestCandles(symbolsCache);
 
     // 2️⃣ Deteksi sinyal & kirim notifikasi Telegram (hanya untuk main job)
+    // Always use "multi" mode - single indicator removed
     if (!isBackup) {
-      const mode = process.env.SIGNAL_MODE || "multi";
-      await detectAndNotifyAllSymbols(symbolsCache, mode);
+      await detectAndNotifyAllSymbols(symbolsCache, "multi");
     }
 
     jobStats.successfulRuns++;

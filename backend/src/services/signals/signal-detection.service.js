@@ -1,8 +1,5 @@
 import { prisma } from "../../lib/prisma.js";
-import {
-  sendSingleIndicatorSignal,
-  sendMultiIndicatorSignal,
-} from "../telegram/telegram.service.js";
+import { sendMultiIndicatorSignal } from "../telegram/telegram.service.js";
 import {
   calculateIndividualSignals,
   calculateWeightedSignal,
@@ -10,73 +7,14 @@ import {
 import { fetchLatestIndicatorData } from "../../utils/db.utils.js";
 
 /**
- * 🎯 SIGNAL DETECTION SERVICE (CLEAN VERSION)
- * -------------------------------------------
- * Deteksi sinyal trading dari indikator dan kirim notifikasi
- * - Single Indicator Signals
- * - Multi-Indicator Signals (berdasarkan optimized weights)
+ * 🎯 SIGNAL DETECTION SERVICE (MULTI-INDICATOR ONLY)
+ * ---------------------------------------------------
+ * Deteksi sinyal trading dari multi-indicator dan kirim notifikasi
+ * - ONLY Multi-Indicator Signals (berdasarkan optimized weights)
+ * - Single Indicator signals REMOVED
  *
  * 📚 Threshold = 0 (sesuai jurnal, tanpa hold zone)
  */
-
-// ❌ HOLD_THRESHOLD dihapus - mengikuti jurnal dengan threshold = 0
-
-/* =========================================================
-   🔍 SINGLE INDICATOR SIGNAL DETECTION
-========================================================= */
-export async function detectAndNotifySingleIndicatorSignals(
-  symbol,
-  timeframe = "1h"
-) {
-  try {
-    console.log(`🔍 Detecting single indicator signals for ${symbol}...`);
-
-    const [indicator, candle] = await Promise.all([
-      prisma.indicator.findFirst({
-        where: { symbol, timeframe },
-        orderBy: { time: "desc" },
-      }),
-      prisma.candle.findFirst({
-        where: { symbol, timeframe },
-        orderBy: { time: "desc" },
-      }),
-    ]);
-
-    if (!indicator || !candle) return { success: false, reason: "no_data" };
-
-    const price = candle.close;
-    const signals = [];
-
-    const checkSignal = (key, value, signalValue) => {
-      if (signalValue === "buy" || signalValue === "sell") {
-        signals.push({ indicator: key, signal: signalValue, value });
-      }
-    };
-
-    // ✅ Standardized MACD naming for consistency
-    checkSignal("RSI", indicator.rsi, indicator.rsiSignal);
-    checkSignal("MACD", indicator.macd, indicator.macdSignal);
-    checkSignal("SMA", indicator.sma20, indicator.smaSignal);
-    checkSignal("EMA", indicator.ema20, indicator.emaSignal);
-
-    for (const sig of signals) {
-      await sendSingleIndicatorSignal({
-        symbol,
-        indicator: sig.indicator,
-        signal: sig.signal,
-        price,
-        indicatorValue: sig.value,
-        timeframe,
-      });
-      console.log(`✅ Sent ${sig.indicator} ${sig.signal} for ${symbol}`);
-    }
-
-    return { success: true, signalsDetected: signals.length };
-  } catch (err) {
-    console.error(`❌ Error detecting signals for ${symbol}:`, err.message);
-    return { success: false, error: err.message };
-  }
-}
 
 /* =========================================================
    🎯 MULTI INDICATOR SIGNAL DETECTION (REFACTORED)
@@ -172,34 +110,28 @@ export async function detectAndNotifyMultiIndicatorSignals(
 }
 
 /* =========================================================
-   🔄 DETECT SIGNALS FOR ALL SYMBOLS
+   🔄 DETECT SIGNALS FOR ALL SYMBOLS (MULTI-INDICATOR ONLY)
 ========================================================= */
-export async function detectAndNotifyAllSymbols(symbols, mode = "both") {
+export async function detectAndNotifyAllSymbols(symbols, mode = "multi") {
+  // Force mode to always be "multi"
+  mode = "multi";
+
   console.log(
-    `🔄 Detecting signals for ${symbols.length} symbols (mode: ${mode})...`
+    `🔄 Detecting multi-indicator signals for ${symbols.length} symbols...`
   );
 
   const results = {
-    single: { success: 0, failed: 0 },
     multi: { success: 0, failed: 0, neutral: 0, noWeights: 0 },
   };
 
   for (const symbol of symbols) {
     try {
-      if (mode === "single" || mode === "both") {
-        const r = await detectAndNotifySingleIndicatorSignals(symbol);
-        r.success ? results.single.success++ : results.single.failed++;
-        await new Promise((r) => setTimeout(r, 400));
-      }
-
-      if (mode === "multi" || mode === "both") {
-        const r = await detectAndNotifyMultiIndicatorSignals(symbol);
-        if (r.reason === "no_weights") results.multi.noWeights++;
-        else if (r.signal === "neutral") results.multi.neutral++;
-        else if (r.success) results.multi.success++;
-        else results.multi.failed++;
-        await new Promise((r) => setTimeout(r, 400));
-      }
+      const r = await detectAndNotifyMultiIndicatorSignals(symbol);
+      if (r.reason === "no_weights") results.multi.noWeights++;
+      else if (r.signal === "neutral") results.multi.neutral++;
+      else if (r.success) results.multi.success++;
+      else results.multi.failed++;
+      await new Promise((resolve) => setTimeout(resolve, 400));
     } catch (err) {
       console.error(`❌ Error processing ${symbol}:`, err.message);
       results.multi.failed++;
@@ -236,7 +168,6 @@ export async function autoOptimizeCoinsWithoutWeights(
 }
 
 export default {
-  detectAndNotifySingleIndicatorSignals,
   detectAndNotifyMultiIndicatorSignals,
   detectAndNotifyAllSymbols,
   autoOptimizeCoinsWithoutWeights,

@@ -5,7 +5,6 @@ import {
   broadcastTradingSignal,
 } from "../services/telegram/telegram.service.js";
 import {
-  detectAndNotifySingleIndicatorSignals,
   detectAndNotifyMultiIndicatorSignals,
   detectAndNotifyAllSymbols,
 } from "../services/signals/signal-detection.service.js";
@@ -24,28 +23,6 @@ export async function testTelegramController(req, res) {
       message: result.success
         ? "Telegram test message sent successfully"
         : "Failed to send Telegram message",
-      result,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-}
-
-/**
- * 🔍 Test single indicator signal detection
- */
-export async function testSingleSignalController(req, res) {
-  try {
-    const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
-
-    const result = await detectAndNotifySingleIndicatorSignals(symbol);
-
-    return res.json({
-      success: true,
-      symbol,
       result,
     });
   } catch (error) {
@@ -79,18 +56,18 @@ export async function testMultiSignalController(req, res) {
 }
 
 /**
- * 🔄 Test all symbols signal detection
+ * 🔄 Test all symbols signal detection (Multi Indicator Only)
  */
 export async function testAllSignalsController(req, res) {
   try {
-    const mode = req.query.mode || "multi"; // single, multi, both
     const symbols = req.body.symbols || ["BTC-USD", "ETH-USD"];
 
-    const result = await detectAndNotifyAllSymbols(symbols, mode);
+    // Always use multi mode
+    const result = await detectAndNotifyAllSymbols(symbols, "multi");
 
     return res.json({
       success: true,
-      mode,
+      mode: "multi",
       symbols,
       result,
     });
@@ -132,10 +109,8 @@ export async function getTelegramConfigController(req, res) {
   try {
     const config = {
       enabled: process.env.TELEGRAM_ENABLED === "true",
-      configured: !!(
-        process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID
-      ),
-      signalMode: process.env.SIGNAL_MODE || "multi",
+      configured: !!process.env.TELEGRAM_BOT_TOKEN,
+      signalMode: "multi", // Fixed to multi only
     };
 
     return res.json({
@@ -167,55 +142,13 @@ export async function toggleTelegramController(req, res) {
     // Update environment variable in memory
     process.env.TELEGRAM_ENABLED = enabled.toString();
 
-    // Note: Untuk permanent changes, harus update .env file
-    // Tapi untuk runtime toggle sudah cukup
-
     return res.json({
       success: true,
       message: `Telegram notifications ${enabled ? "enabled" : "disabled"}`,
       config: {
         enabled: process.env.TELEGRAM_ENABLED === "true",
-        configured: !!(
-          process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID
-        ),
-        signalMode: process.env.SIGNAL_MODE || "multi",
-      },
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-}
-
-/**
- * ⚙️ Update Telegram signal mode
- */
-export async function updateSignalModeController(req, res) {
-  try {
-    const { mode } = req.body;
-
-    const validModes = ["single", "multi", "both"];
-    if (!validModes.includes(mode)) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid mode. Must be one of: ${validModes.join(", ")}`,
-      });
-    }
-
-    // Update environment variable in memory
-    process.env.SIGNAL_MODE = mode;
-
-    return res.json({
-      success: true,
-      message: `Signal mode updated to: ${mode}`,
-      config: {
-        enabled: process.env.TELEGRAM_ENABLED === "true",
-        configured: !!(
-          process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID
-        ),
-        signalMode: mode,
+        configured: !!process.env.TELEGRAM_BOT_TOKEN,
+        signalMode: "multi",
       },
     });
   } catch (error) {
@@ -254,7 +187,6 @@ export async function telegramWebhookController(req, res) {
 
     // Handle /start command
     if (text === "/start") {
-      // Send welcome message
       const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
       const welcomeMessage = `
 👋 *Welcome to Crypto Trading Bot!*
@@ -266,7 +198,7 @@ To enable notifications:
 2. Go to your profile settings
 3. Paste the Chat ID and enable notifications
 
-You'll start receiving trading signals automatically! 📊
+You'll start receiving *Multi-Indicator* trading signals automatically! 📊
 `;
 
       await axios.post(
@@ -310,7 +242,7 @@ You'll start receiving trading signals automatically! 📊
           `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
           {
             chat_id: chatId,
-            text: `✅ *Telegram Connected!*\n\nAccount: ${user.email}\nNotifications: Enabled\n\nYou'll now receive trading signals! 📊`,
+            text: `✅ *Telegram Connected!*\n\nAccount: ${user.email}\nNotifications: Enabled\nSignal Mode: Multi-Indicator\n\nYou'll now receive trading signals! 📊`,
             parse_mode: "Markdown",
           }
         );
@@ -339,6 +271,7 @@ You'll start receiving trading signals automatically! 📊
 
 Email: ${user.email}
 Notifications: ${user.telegramEnabled ? "✅ Enabled" : "❌ Disabled"}
+Signal Mode: Multi-Indicator
 Chat ID: \`${chatId}\`
 `;
         await axios.post(
@@ -402,12 +335,12 @@ export async function broadcastController(req, res) {
 }
 
 /**
- * 📊 Test broadcast trading signal
+ * 📊 Test broadcast trading signal (Multi Indicator Only)
  * POST /api/telegram/broadcast-signal
  */
 export async function broadcastSignalController(req, res) {
   try {
-    const { symbol, signal, price, type, details } = req.body;
+    const { symbol, signal, price, details } = req.body;
 
     if (!symbol || !signal || !price) {
       return res.status(400).json({
@@ -420,13 +353,13 @@ export async function broadcastSignalController(req, res) {
       symbol,
       signal,
       price,
-      type: type || "multi",
+      type: "multi", // Always multi
       details: details || {},
     });
 
     return res.json({
       success: true,
-      message: "Trading signal broadcast completed",
+      message: "Multi-indicator trading signal broadcast completed",
       result,
     });
   } catch (error) {

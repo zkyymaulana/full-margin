@@ -276,12 +276,6 @@ export const toggleTelegram = async (enabled) => {
   return data;
 };
 
-// Update signal mode
-export const updateSignalMode = async (mode) => {
-  const { data } = await apiClient.post("/telegram/signal-mode", { mode });
-  return data;
-};
-
 // Test Telegram connection
 export const testTelegramConnection = async () => {
   const { data } = await apiClient.get("/telegram/test");

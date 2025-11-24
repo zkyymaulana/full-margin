@@ -18,6 +18,8 @@ export async function getUserProfile(userId) {
       avatarUrl: true,
       createdAt: true,
       lastLogin: true,
+      telegramChatId: true,
+      telegramEnabled: true,
     },
   });
   if (!user) throw new Error("User tidak ditemukan");

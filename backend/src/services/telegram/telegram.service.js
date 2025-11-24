@@ -2,17 +2,15 @@ import axios from "axios";
 import { prisma } from "../../lib/prisma.js";
 
 /**
- * 📱 TELEGRAM NOTIFICATION SERVICE
- * --------------------------------
+ * 📱 TELEGRAM NOTIFICATION SERVICE (MULTI-INDICATOR ONLY)
+ * --------------------------------------------------------
  * Mengirim notifikasi trading signals ke Telegram
+ * - Multi-user support: Broadcast ke semua user dengan telegramEnabled
  * - Anti-spam: Tidak mengirim notifikasi berulang untuk sinyal yang sama
- * - Support single & multi-indicator signals
- * - Format pesan yang informatif dan rapi
+ * - ONLY Multi-Indicator Signals (Single signals REMOVED)
  */
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
-// Fix: Parse boolean properly - check for string "true" or any truthy value
 const TELEGRAM_ENABLED =
   process.env.TELEGRAM_ENABLED === "true" ||
   process.env.TELEGRAM_ENABLED === true;
@@ -23,31 +21,31 @@ console.log(`   Enabled: ${TELEGRAM_ENABLED}`);
 console.log(
   `   Bot Token: ${TELEGRAM_BOT_TOKEN ? "✅ Configured" : "❌ Missing"}`
 );
-console.log(`   Chat ID: ${TELEGRAM_CHAT_ID ? "✅ Configured" : "❌ Missing"}`);
+console.log(`   Mode: Multi-Indicator Only`);
 
 // Cache untuk tracking sinyal terakhir (anti-spam)
 const lastSignalCache = new Map();
 
 /**
- * 📨 Kirim pesan ke Telegram (support dynamic chat ID)
+ * 📨 Kirim pesan ke Telegram (WAJIB dengan chatId)
  * @param {string} message - Pesan yang akan dikirim
- * @param {string} chatId - Telegram Chat ID tujuan
+ * @param {string} chatId - Telegram Chat ID tujuan (REQUIRED)
+ * @param {object} options - Opsi tambahan
  */
-async function sendTelegramMessage(message, chatId = null, options = {}) {
-  // Jika chatId tidak diberikan, gunakan default dari env (backward compatibility)
-  const targetChatId = chatId || TELEGRAM_CHAT_ID;
+async function sendTelegramMessage(message, chatId, options = {}) {
+  // WAJIB: chatId harus ada, tidak ada fallback
+  if (!chatId) {
+    console.error("❌ Chat ID is required");
+    return { success: false, reason: "no_chat_id" };
+  }
 
   if (!TELEGRAM_ENABLED) {
     console.log("⚠️ Telegram notifications disabled (TELEGRAM_ENABLED=false)");
     return { success: false, reason: "disabled" };
   }
 
-  if (!TELEGRAM_BOT_TOKEN || !targetChatId) {
-    console.error("❌ Telegram credentials not configured");
-    console.error(
-      `   Bot Token: ${TELEGRAM_BOT_TOKEN ? "Present" : "Missing"}`
-    );
-    console.error(`   Chat ID: ${targetChatId ? "Present" : "Missing"}`);
+  if (!TELEGRAM_BOT_TOKEN) {
+    console.error("❌ Telegram bot token not configured");
     return { success: false, reason: "not_configured" };
   }
 
@@ -55,14 +53,14 @@ async function sendTelegramMessage(message, chatId = null, options = {}) {
     const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
 
     const response = await axios.post(url, {
-      chat_id: targetChatId,
+      chat_id: chatId,
       text: message,
       parse_mode: options.parseMode || "Markdown",
       disable_web_page_preview: options.disablePreview !== false,
     });
 
     if (response.data.ok) {
-      console.log(`✅ Telegram message sent to ${targetChatId}`);
+      console.log(`✅ Telegram message sent to ${chatId}`);
       return { success: true, messageId: response.data.result.message_id };
     }
 
@@ -79,57 +77,10 @@ async function sendTelegramMessage(message, chatId = null, options = {}) {
 }
 
 /**
- * 🔔 Kirim notifikasi sinyal single indicator
- */
-export async function sendSingleIndicatorSignal({
-  symbol,
-  indicator,
-  signal,
-  price,
-  indicatorValue,
-  timeframe = "1h",
-}) {
-  // Check cache untuk anti-spam
-  const cacheKey = `${symbol}_${indicator}_single`;
-  const lastSignal = lastSignalCache.get(cacheKey);
-
-  if (lastSignal === signal) {
-    console.log(
-      `⏭️ Skipping duplicate signal: ${symbol} ${indicator} ${signal}`
-    );
-    return { success: false, reason: "duplicate" };
-  }
-
-  // Update cache
-  lastSignalCache.set(cacheKey, signal);
-
-  // Format sinyal emoji
-  const signalEmoji = signal === "buy" ? "🟢" : signal === "sell" ? "🔴" : "⚪";
-  const signalText = signal.toUpperCase();
-
-  // Build message
-  const message = `
-${signalEmoji} *${signalText} SIGNAL* ${signalEmoji}
-
-📊 *Symbol:* ${symbol}
-📈 *Indicator:* ${indicator}
-💰 *Price:* $${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-📉 *Value:* ${indicatorValue?.toFixed(2) || "N/A"}
-⏰ *Timeframe:* ${timeframe}
-🕐 *Time:* ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}
-
-_Single Indicator Strategy_
-`;
-
-  return await sendTelegramMessage(message.trim());
-}
-
-/**
- * 🔔 Kirim notifikasi sinyal multi-indicator (REFACTORED V3)
+ * 🔔 Kirim notifikasi sinyal multi-indicator ke semua user yang aktif
  * ✅ FULLY SCORE-BASED: No voting, no arbitrary threshold
  * ✅ Signal direction: score > 0 → BUY, score < 0 → SELL, score == 0 → NEUTRAL
  * ✅ STRONG label: strength >= 0.6
- * ✅ Format baru sesuai calculateFinalMultiSignal()
  */
 export async function sendMultiIndicatorSignal({
   symbol,
@@ -168,7 +119,6 @@ export async function sendMultiIndicatorSignal({
   let displayEmoji = signalEmoji;
 
   if (!displayLabel || !displayEmoji) {
-    // Fallback: calculate label & emoji jika tidak diberikan
     if (signal === "buy") {
       displayLabel = strength >= 0.6 ? "STRONG BUY" : "BUY";
       displayEmoji = strength >= 0.6 ? "🟢🟢" : "🟢";
@@ -181,7 +131,6 @@ export async function sendMultiIndicatorSignal({
     }
   }
 
-  // 🐛 Debug log untuk validasi
   console.log("📱 Telegram Signal:", {
     signal,
     finalScore,
@@ -213,7 +162,6 @@ export async function sendMultiIndicatorSignal({
     timeZone: "Asia/Jakarta",
   });
 
-  // ✅ Fix Max Drawdown: Jika undefined/null, set ke 0 atau ambil dari performance
   const maxDrawdown =
     performance.maxDrawdown !== undefined &&
     performance.maxDrawdown !== null &&
@@ -221,7 +169,7 @@ export async function sendMultiIndicatorSignal({
       ? performance.maxDrawdown.toFixed(2)
       : "0.00";
 
-  // ✅ Build message dengan format baru
+  // Build message
   const message = `
 ${displayEmoji} *${displayLabel}* ${displayEmoji}
 
@@ -242,11 +190,75 @@ ${displayEmoji} *${displayLabel}* ${displayEmoji}
 _Multi-Indicator Weighted Strategy (Score-Based)_
 `;
 
-  return await sendTelegramMessage(message.trim());
+  // Broadcast ke semua user yang aktif
+  try {
+    const enabledUsers = await prisma.user.findMany({
+      where: {
+        telegramEnabled: true,
+        telegramChatId: { not: null },
+      },
+      select: {
+        id: true,
+        email: true,
+        telegramChatId: true,
+      },
+    });
+
+    if (enabledUsers.length === 0) {
+      console.log("⚠️ No users with Telegram enabled");
+      return { success: false, reason: "no_users" };
+    }
+
+    console.log(`📤 Broadcasting to ${enabledUsers.length} users...`);
+
+    const results = {
+      sent: 0,
+      failed: 0,
+      errors: [],
+    };
+
+    for (const user of enabledUsers) {
+      const result = await sendTelegramMessage(
+        message.trim(),
+        user.telegramChatId
+      );
+
+      if (result.success) {
+        results.sent++;
+      } else {
+        results.failed++;
+        results.errors.push({
+          userId: user.id,
+          email: user.email,
+          reason: result.reason,
+        });
+      }
+
+      // Delay kecil untuk menghindari rate limiting
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    console.log(
+      `✅ Multi-indicator signal broadcast: ${results.sent} sent, ${results.failed} failed`
+    );
+
+    return {
+      success: true,
+      sent: results.sent,
+      failed: results.failed,
+      total: enabledUsers.length,
+    };
+  } catch (error) {
+    console.error(
+      "❌ Error broadcasting multi-indicator signal:",
+      error.message
+    );
+    return { success: false, reason: "broadcast_error", error: error.message };
+  }
 }
 
 /**
- * 📊 Kirim summary harian
+ * 📊 Kirim summary harian ke semua user
  */
 export async function sendDailySummary(symbols) {
   const summaryLines = symbols.map(
@@ -262,11 +274,11 @@ ${summaryLines.join("\n")}
 🕐 ${new Date().toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" })}
 `;
 
-  return await sendTelegramMessage(message.trim());
+  return await broadcastTelegram(message.trim());
 }
 
 /**
- * ⚠️ Kirim notifikasi error/warning
+ * ⚠️ Kirim notifikasi error/warning ke semua admin
  */
 export async function sendErrorNotification(error, context = "") {
   const message = `
@@ -279,7 +291,7 @@ Error: ${error.message}
 🕐 ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}
 `;
 
-  return await sendTelegramMessage(message.trim());
+  return await broadcastTelegram(message.trim());
 }
 
 /**
@@ -300,7 +312,7 @@ export function clearSignalCache(symbol = null) {
 }
 
 /**
- * ✅ Test koneksi Telegram
+ * ✅ Test koneksi Telegram - broadcast ke semua user
  */
 export async function testTelegramConnection() {
   const message = `
@@ -308,10 +320,11 @@ export async function testTelegramConnection() {
 
 System: Crypto Trading Bot
 Status: Connected
+Mode: Multi-Indicator Only
 Time: ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}
 `;
 
-  return await sendTelegramMessage(message.trim());
+  return await broadcastTelegram(message.trim());
 }
 
 /**
@@ -411,7 +424,7 @@ export async function broadcastTelegram(message, options = {}) {
 }
 
 /**
- * 📣 Broadcast sinyal trading ke semua user
+ * 📣 Broadcast sinyal trading ke semua user (Multi-Indicator Only)
  */
 export async function broadcastTradingSignal({
   symbol,
@@ -428,7 +441,7 @@ ${signalEmoji} *${signalText} SIGNAL* ${signalEmoji}
 
 📊 *Symbol:* ${symbol}
 💰 *Price:* $${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-⏰ *Type:* ${type === "multi" ? "Multi-Indicator" : "Single-Indicator"}
+⏰ *Type:* Multi-Indicator
 🕐 *Time:* ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}
 `;
 
