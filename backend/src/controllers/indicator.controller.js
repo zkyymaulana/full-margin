@@ -31,28 +31,24 @@ function formatMultiSignalFromDB(ind, weights = null) {
 
   // ✅ Map signal dari finalScore (threshold = 0)
   let signal = "neutral";
+  let signalLabel = "NEUTRAL";
+  let signalEmoji = "⚪";
   let finalScore = dbFinalScore;
   let strength = dbStrength;
 
   if (finalScore > 0) {
     signal = "buy";
+    signalLabel = strength >= 0.6 ? "STRONG BUY" : "BUY";
+    signalEmoji = strength >= 0.6 ? "🟢🟢" : "🟢";
   } else if (finalScore < 0) {
     signal = "sell";
+    signalLabel = strength >= 0.6 ? "STRONG SELL" : "SELL";
+    signalEmoji = strength >= 0.6 ? "🔴🔴" : "🔴";
   } else {
     signal = "neutral";
     strength = 0;
-  }
-
-  // ✅ Format label & emoji berdasarkan strength threshold (0.6)
-  let signalLabel = "NEUTRAL";
-  let signalEmoji = "⚪";
-
-  if (signal === "buy") {
-    signalLabel = strength >= 0.6 ? "STRONG BUY" : "BUY";
-    signalEmoji = strength >= 0.6 ? "🟢🟢" : "🟢";
-  } else if (signal === "sell") {
-    signalLabel = strength >= 0.6 ? "STRONG SELL" : "SELL";
-    signalEmoji = strength >= 0.6 ? "🔴🔴" : "🔴";
+    signalLabel = "NEUTRAL";
+    signalEmoji = "⚪";
   }
 
   // ✅ NEW: Calculate WEIGHTED categoryScores (contribution to final score)
@@ -222,6 +218,18 @@ export async function getIndicators(req, res) {
                 winRate: latestWeight.winRate,
                 maxDrawdown: latestWeight.maxDrawdown,
                 sharpeRatio: latestWeight.sharpeRatio,
+                trades: latestWeight.trades,
+                finalCapital: latestWeight.finalCapital,
+                trainingPeriod: {
+                  startDate: Number(latestWeight.startTrain),
+                  endDate: Number(latestWeight.endTrain),
+                  startDateReadable: formatReadableDate(
+                    Number(latestWeight.startTrain)
+                  ),
+                  endDateReadable: formatReadableDate(
+                    Number(latestWeight.endTrain)
+                  ),
+                },
               }
             : null,
           indicators,

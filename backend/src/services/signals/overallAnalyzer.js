@@ -30,10 +30,6 @@ export async function calculateOverallSignal(signals, symbol, timeframe) {
   });
 
   if (!weightRecord || !weightRecord.weights) {
-    console.warn(
-      `⚠️ [overallAnalyzer] No weights found for ${symbol}, using equal weights`
-    );
-
     // Fallback: equal weights
     const equalWeight = 1;
     const weights = {
@@ -100,18 +96,12 @@ function calculateWeightedSignal(signals, weights) {
   let weightedSum = 0;
   let totalWeight = 0;
 
-  console.log("🔍 [WEIGHTED CALCULATION] Starting...");
-
   indicatorData.forEach(({ name, signal, weight }) => {
     const signalScore = signalToScore(signal);
     const contribution = signalScore * weight;
 
     weightedSum += contribution;
     totalWeight += weight;
-
-    console.log(
-      `  ${name.padEnd(15)} | Signal: ${(signal || "null").padEnd(8)} | Score: ${signalScore.toString().padEnd(2)} | Weight: ${weight} | Contribution: ${contribution.toFixed(2)}`
-    );
   });
 
   // ✅ Calculate final score (no normalization, raw weighted sum)
@@ -127,14 +117,6 @@ function calculateWeightedSignal(signals, weights) {
   } else if (finalScore < 0) {
     overallSignal = "sell";
   }
-
-  console.log("📊 [RESULT]");
-  console.log(`  Weighted Sum: ${weightedSum.toFixed(2)}`);
-  console.log(`  Total Weight: ${totalWeight}`);
-  console.log(`  Final Score: ${finalScore.toFixed(2)}`);
-  console.log(`  Strength: ${strength.toFixed(3)}`);
-  console.log(`  Signal: ${overallSignal.toUpperCase()}`);
-  console.log("─────────────────────────────────────────────────────");
 
   return {
     overallSignal,

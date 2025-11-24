@@ -195,8 +195,7 @@ export async function optimizeIndicatorWeights(data, symbol = "BTC-USD") {
     // - Primary: ROI (maximize profit)
     // - Secondary: Sharpe Ratio (risk-adjusted return)
     // - Penalty: Max Drawdown (minimize risk)
-    if (result.roi > bestROI) {
-      bestROI = result.roi;
+    if (!best || result.roi > best.roi) {
       best = { weights, ...result };
     }
 

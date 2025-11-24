@@ -14,6 +14,25 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
     }).format(value);
   };
 
+  // Format date range for training period
+  const formatDateRange = () => {
+    if (!performance.trainingPeriod) return null;
+
+    const { startDateReadable, endDateReadable } = performance.trainingPeriod;
+    if (!startDateReadable || !endDateReadable) return null;
+
+    // Simplified format for display
+    const formatShortDate = (dateStr) => {
+      if (!dateStr) return "";
+      // Extract "14 November 2024" from "14 November 2024 pukul 00.00"
+      return dateStr.split(" pukul ")[0];
+    };
+
+    return `${formatShortDate(startDateReadable)} - ${formatShortDate(
+      endDateReadable
+    )}`;
+  };
+
   // Metrics data array for cleaner rendering
   const metrics = [
     {
@@ -89,21 +108,32 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
     <div
       className={`rounded-xl shadow-sm border p-6 ${
         isDarkMode
-          ? "bg-gradient-to-r from-blue-900 to-purple-900 border-blue-700"
-          : "bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200"
+          ? "bg-linear-to-r from-blue-900 to-purple-900 border-blue-700"
+          : "bg-linear-to-r from-blue-50 to-purple-50 border-blue-200"
       }`}
     >
       {/* Header */}
       <div className="flex items-center gap-2 mb-6">
         <span className="text-2xl">📈</span>
-        <h3
-          className={`text-lg font-semibold ${
-            isDarkMode ? "text-white" : "text-gray-900"
-          }`}
-        >
-          Backtest Performance ({bestCombo})
-        </h3>
-        <div className="group relative">
+        <div>
+          <h3
+            className={`text-lg font-semibold ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            }`}
+          >
+            Backtest Performance ({bestCombo})
+          </h3>
+          {formatDateRange() && (
+            <p
+              className={`text-xs ${
+                isDarkMode ? "text-gray-400" : "text-gray-600"
+              }`}
+            >
+              Period: {formatDateRange()}
+            </p>
+          )}
+        </div>
+        <div className="group relative mb-4">
           <span className="text-sm cursor-help">ℹ️</span>
           <div
             className={`invisible group-hover:visible absolute left-0 top-6 w-80 p-3 rounded-lg shadow-lg z-50 text-xs ${
