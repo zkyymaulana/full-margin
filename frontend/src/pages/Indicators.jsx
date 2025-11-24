@@ -86,7 +86,11 @@ function Signals() {
     const counts = countSignalsFromDB(indicators);
 
     console.log("✅ [SIGNALS PAGE] Multi Signal Data:", signalData);
-    console.log("📈 Category Scores:", scores);
+    console.log(
+      "🔍 [DEBUG] categoryScores from multiSignal:",
+      signalData?.categoryScores
+    );
+    console.log("📈 Category Scores from parent:", scores);
     console.log("📊 Signal Counts:", counts);
 
     // Parse indicators for cards (simplified - 8 core indicators)

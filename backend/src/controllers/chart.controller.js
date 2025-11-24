@@ -8,11 +8,13 @@ import { calculateAndSaveIndicators } from "../services/indicators/indicator.ser
  * ✅ 100% menggunakan data dari tabel Indicator
  * ✅ Sesuai metodologi penelitian: threshold = 0, no voting
  * ✅ UPDATED: Gunakan finalScore yang sudah tersimpan di DB
+ * ✅ NEW: categoryScores = WEIGHTED CONTRIBUTION (bukan average)
  *
  * @param {Object} ind - Indicator dari database
+ * @param {Object} weights - Weights dari database (untuk calculate categoryScores)
  * @returns {Object|null} multiSignal object atau null
  */
-function formatMultiSignalFromDB(ind) {
+function formatMultiSignalFromDB(ind, weights = null) {
   if (!ind) return null;
 
   // ✅ Ambil langsung dari database - NO CALCULATION
@@ -45,13 +47,50 @@ function formatMultiSignalFromDB(ind) {
     signalEmoji = strength >= 0.6 ? "🔴🔴" : "🔴";
   }
 
+  // ✅ NEW: Calculate WEIGHTED categoryScores (contribution to final score)
+  let categoryScores = { trend: 0, momentum: 0, volatility: 0 };
+
+  if (weights) {
+    const signalToScore = (sig) => {
+      if (!sig) return 0;
+      const normalized = sig.toLowerCase();
+      if (normalized === "buy" || normalized === "strong_buy") return 1;
+      if (normalized === "sell" || normalized === "strong_sell") return -1;
+      return 0;
+    };
+
+    // ✅ WEIGHTED Trend category: (signal × weight) for each indicator
+    const trendScore =
+      signalToScore(ind.smaSignal) * (weights.SMA || 0) +
+      signalToScore(ind.emaSignal) * (weights.EMA || 0) +
+      signalToScore(ind.psarSignal) * (weights.PSAR || 0);
+
+    // ✅ WEIGHTED Momentum category
+    const momentumScore =
+      signalToScore(ind.rsiSignal) * (weights.RSI || 0) +
+      signalToScore(ind.macdSignal) * (weights.MACD || 0) +
+      signalToScore(ind.stochSignal) * (weights.Stochastic || 0) +
+      signalToScore(ind.stochRsiSignal) * (weights.StochasticRSI || 0);
+
+    // ✅ WEIGHTED Volatility category
+    const volatilityScore =
+      signalToScore(ind.bbSignal) * (weights.BollingerBands || 0);
+
+    categoryScores = {
+      trend: parseFloat(trendScore.toFixed(2)),
+      momentum: parseFloat(momentumScore.toFixed(2)),
+      volatility: parseFloat(volatilityScore.toFixed(2)),
+    };
+  }
+
   return {
     signal,
     strength: parseFloat(strength.toFixed(3)),
-    finalScore: parseFloat(finalScore.toFixed(3)),
+    finalScore: parseFloat(finalScore.toFixed(2)),
     signalLabel,
     signalEmoji,
-    source: "db", // ✅ Mark as database source
+    categoryScores, // ✅ Now shows WEIGHTED contribution
+    source: "db",
   };
 }
 
@@ -95,6 +134,13 @@ export async function getChart(req, res) {
     const minTime = Math.min(...times);
     const maxTime = Math.max(...times);
 
+    // ✅ Get weights for categoryScores calculation
+    const weightRecord = await prisma.indicatorWeight.findFirst({
+      where: { symbol, timeframe },
+      orderBy: { updatedAt: "desc" },
+    });
+    const weights = weightRecord?.weights || null;
+
     // Cek apakah indikator sudah lengkap untuk rentang waktu ini
     let indicators = await prisma.indicator.findMany({
       where: {
@@ -136,7 +182,7 @@ export async function getChart(req, res) {
       const ind = indicatorMap.get(Number(c.time));
 
       // ✅ Format multiSignal dari database (NO RECALCULATION)
-      const multiSignal = formatMultiSignalFromDB(ind);
+      const multiSignal = formatMultiSignalFromDB(ind, weights);
 
       return {
         time: c.time.toString(),

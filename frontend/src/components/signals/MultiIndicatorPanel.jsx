@@ -1,15 +1,15 @@
 import { formatNumber } from "../../utils/indicatorParser";
 
 /**
- * 🎯 MULTI INDICATOR PANEL - REFACTORED
+ * 🎯 MULTI INDICATOR PANEL - REFACTORED v2.0
  * ✅ 100% Backend Data Renderer (No Calculation)
- * ✅ Slider menggunakan strength
- * ✅ Category Scores ditampilkan
+ * ✅ Slider menggunakan strength dari backend
+ * ✅ Category Scores dari backend (categoryScores)
  * ✅ Total Score (finalScore) di bawah
  */
 function MultiIndicatorPanel({
   multiSignalData, // ✅ Full object from backend
-  categoryScores,
+  categoryScores: categoryScoresFromParent, // ✅ Legacy support (deprecated)
   activeCategories,
   parsedIndicators,
   signalCounts,
@@ -22,15 +22,38 @@ function MultiIndicatorPanel({
     finalScore = 0,
     signalLabel = "NEUTRAL",
     signalEmoji = "⚪",
+    categoryScores: categoryScoresFromBackend, // ✅ NEW: From backend
   } = multiSignalData || {};
+
+  // ✅ Use categoryScores from backend (fallback to parent prop for backward compatibility)
+  const categoryScores = categoryScoresFromBackend ||
+    categoryScoresFromParent || {
+      trend: 0,
+      momentum: 0,
+      volatility: 0,
+    };
+
+  // 🔍 DEBUG: Log to console
+  console.log("🎯 [MULTI INDICATOR PANEL] multiSignalData:", multiSignalData);
+  console.log(
+    "📊 [MULTI INDICATOR PANEL] categoryScores from backend:",
+    categoryScoresFromBackend
+  );
+  console.log(
+    "📈 [MULTI INDICATOR PANEL] categoryScores from parent:",
+    categoryScoresFromParent
+  );
+  console.log(
+    "✅ [MULTI INDICATOR PANEL] Final categoryScores used:",
+    categoryScores
+  );
 
   // ✅ Normalize signal for display
   const displaySignal = signalLabel || signal.toUpperCase();
 
   // ✅ Calculate slider position from strength (range: -1 to +1)
-  // strength is already in range 0.0 to 1.0, we need to map it to slider position
-  // For buy: strength should be positive (0 to 1)
-  // For sell: strength should be negative (0 to -1)
+  // Backend sends strength as 0.0 to 1.0 (confidence level)
+  // For display: BUY = positive, SELL = negative
   const sliderValue =
     signal === "sell" ? -strength : signal === "buy" ? strength : 0;
   const sliderPosition = ((sliderValue + 1) / 2) * 100; // Convert -1..+1 to 0..100%
@@ -93,7 +116,6 @@ function MultiIndicatorPanel({
 
         {/* Signal Display */}
         <div className="text-center mb-6">
-          <div className="text-3xl mb-2">{signalEmoji}</div>
           <div
             className={`text-4xl font-black mb-2 ${
               signal === "buy"
@@ -120,7 +142,7 @@ function MultiIndicatorPanel({
             {formatNumber(strength, 2)}
           </div>
 
-          {/* ✅ NEW: Signal Counts from Database */}
+          {/* ✅ Signal Counts from Database */}
           {signalCounts && (
             <div className="flex justify-center gap-3 mb-4">
               <div
@@ -153,7 +175,7 @@ function MultiIndicatorPanel({
             </div>
           )}
 
-          {/* ✅ SLIDER - Using strength (range: -1 to +1) */}
+          {/* ✅ SLIDER - Using strength from backend (range: -1 to +1) */}
           <div className="mb-6">
             <div
               className={`flex justify-between text-xs mb-2 ${
@@ -186,7 +208,7 @@ function MultiIndicatorPanel({
           </div>
         </div>
 
-        {/* ✅ CATEGORY SCORES - From Backend */}
+        {/* ✅ CATEGORY SCORES - From Backend (NO CALCULATION) */}
         <div className="space-y-3 mb-6">
           <div
             className={`text-xs font-semibold mb-2 ${
@@ -196,109 +218,101 @@ function MultiIndicatorPanel({
             CATEGORY BREAKDOWN
           </div>
 
-          {/* Trend */}
-          {activeCategories.trend && parsedIndicators.trend.length > 0 && (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">📈</span>
-                <span
-                  className={`text-sm font-medium ${
-                    isDarkMode ? "text-gray-300" : "text-gray-700"
-                  }`}
-                >
-                  Trend
-                </span>
-              </div>
+          {/* Trend - Always show from backend */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">📈</span>
               <span
-                className={`text-sm font-bold ${
-                  categoryScores.trend > 0
-                    ? isDarkMode
-                      ? "text-green-400"
-                      : "text-green-600"
-                    : categoryScores.trend < 0
-                    ? isDarkMode
-                      ? "text-red-400"
-                      : "text-red-600"
-                    : isDarkMode
-                    ? "text-gray-500"
-                    : "text-gray-400"
+                className={`text-sm font-medium ${
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
                 }`}
               >
-                {categoryScores.trend > 0 ? "+" : ""}
-                {formatNumber(categoryScores.trend, 2)}
+                Trend
               </span>
             </div>
-          )}
+            <span
+              className={`text-sm font-bold ${
+                categoryScores.trend > 0
+                  ? isDarkMode
+                    ? "text-green-400"
+                    : "text-green-600"
+                  : categoryScores.trend < 0
+                  ? isDarkMode
+                    ? "text-red-400"
+                    : "text-red-600"
+                  : isDarkMode
+                  ? "text-gray-500"
+                  : "text-gray-400"
+              }`}
+            >
+              {categoryScores.trend > 0 ? "+" : ""}
+              {formatNumber(categoryScores.trend, 2)}
+            </span>
+          </div>
 
-          {/* Momentum */}
-          {activeCategories.momentum &&
-            parsedIndicators.momentum.length > 0 && (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">⚡</span>
-                  <span
-                    className={`text-sm font-medium ${
-                      isDarkMode ? "text-gray-300" : "text-gray-700"
-                    }`}
-                  >
-                    Momentum
-                  </span>
-                </div>
-                <span
-                  className={`text-sm font-bold ${
-                    categoryScores.momentum > 0
-                      ? isDarkMode
-                        ? "text-green-400"
-                        : "text-green-600"
-                      : categoryScores.momentum < 0
-                      ? isDarkMode
-                        ? "text-red-400"
-                        : "text-red-600"
-                      : isDarkMode
-                      ? "text-gray-500"
-                      : "text-gray-400"
-                  }`}
-                >
-                  {categoryScores.momentum > 0 ? "+" : ""}
-                  {formatNumber(categoryScores.momentum, 2)}
-                </span>
-              </div>
-            )}
+          {/* Momentum - Always show from backend */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">⚡</span>
+              <span
+                className={`text-sm font-medium ${
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                }`}
+              >
+                Momentum
+              </span>
+            </div>
+            <span
+              className={`text-sm font-bold ${
+                categoryScores.momentum > 0
+                  ? isDarkMode
+                    ? "text-green-400"
+                    : "text-green-600"
+                  : categoryScores.momentum < 0
+                  ? isDarkMode
+                    ? "text-red-400"
+                    : "text-red-600"
+                  : isDarkMode
+                  ? "text-gray-500"
+                  : "text-gray-400"
+              }`}
+            >
+              {categoryScores.momentum > 0 ? "+" : ""}
+              {formatNumber(categoryScores.momentum, 2)}
+            </span>
+          </div>
 
-          {/* Volatility */}
-          {activeCategories.volatility &&
-            parsedIndicators.volatility.length > 0 && (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">💥</span>
-                  <span
-                    className={`text-sm font-medium ${
-                      isDarkMode ? "text-gray-300" : "text-gray-700"
-                    }`}
-                  >
-                    Volatility
-                  </span>
-                </div>
-                <span
-                  className={`text-sm font-bold ${
-                    categoryScores.volatility > 0
-                      ? isDarkMode
-                        ? "text-green-400"
-                        : "text-green-600"
-                      : categoryScores.volatility < 0
-                      ? isDarkMode
-                        ? "text-red-400"
-                        : "text-red-600"
-                      : isDarkMode
-                      ? "text-gray-500"
-                      : "text-gray-400"
-                  }`}
-                >
-                  {categoryScores.volatility > 0 ? "+" : ""}
-                  {formatNumber(categoryScores.volatility, 2)}
-                </span>
-              </div>
-            )}
+          {/* Volatility - Always show from backend */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">💥</span>
+              <span
+                className={`text-sm font-medium ${
+                  isDarkMode ? "text-gray-300" : "text-gray-700"
+                }`}
+              >
+                Volatility
+              </span>
+            </div>
+            <span
+              className={`text-sm font-bold ${
+                categoryScores.volatility > 0
+                  ? isDarkMode
+                    ? "text-green-400"
+                    : "text-green-600"
+                  : categoryScores.volatility < 0
+                  ? isDarkMode
+                    ? "text-red-400"
+                    : "text-red-600"
+                  : isDarkMode
+                  ? "text-gray-500"
+                  : "text-gray-400"
+              }`}
+            >
+              {categoryScores.volatility > 0 ? "+" : ""}
+              {formatNumber(categoryScores.volatility, 2)}
+            </span>
+          </div>
         </div>
 
         {/* ✅ TOTAL SCORE - Moved to Bottom */}
