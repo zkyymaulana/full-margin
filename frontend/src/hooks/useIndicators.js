@@ -1,25 +1,35 @@
 /**
  * Hooks for Indicators data using TanStack Query
+ * 🆕 UNIFIED: Single endpoint with mode support
  */
 import { useQuery } from "@tanstack/react-query";
-import { fetchIndicator, fetchMultiIndicator } from "../services/api.service";
+import { fetchIndicator } from "../services/api.service";
 
-// Get single indicator
-export const useIndicator = (symbol = "BTC-USD") => {
+/**
+ * Get indicator data with mode support
+ * @param {string} symbol - Trading symbol (e.g., "BTC-USD")
+ * @param {string} mode - "latest" for single data, "paginated" for chart data
+ * @param {string} timeframe - Timeframe (e.g., "1h", "4h", "1d")
+ * @returns {QueryResult} React Query result with latestSignal data
+ */
+export const useIndicator = (
+  symbol = "BTC-USD",
+  mode = "latest",
+  timeframe = "1h"
+) => {
   return useQuery({
-    queryKey: ["indicator", symbol],
-    queryFn: () => fetchIndicator(symbol),
-    staleTime: 4000,
+    queryKey: ["indicator", symbol, mode, timeframe],
+    queryFn: () => fetchIndicator(symbol, mode, timeframe),
+    staleTime: 5000, // Cache for 5 seconds
     enabled: !!symbol,
+    retry: 2,
   });
 };
 
-// Get multi indicators
+// ❌ DEPRECATED: Use useIndicator with mode="latest" instead
 export const useMultiIndicator = (symbol = "BTC-USD") => {
-  return useQuery({
-    queryKey: ["multi-indicator", symbol],
-    queryFn: () => fetchMultiIndicator(symbol),
-    staleTime: 4000,
-    enabled: !!symbol,
-  });
+  console.warn(
+    "⚠️ useMultiIndicator is deprecated. Use useIndicator(symbol, 'latest') instead."
+  );
+  return useIndicator(symbol, "latest", "1h");
 };

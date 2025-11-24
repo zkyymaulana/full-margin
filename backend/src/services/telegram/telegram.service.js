@@ -125,16 +125,20 @@ _Single Indicator Strategy_
 }
 
 /**
- * 🔔 Kirim notifikasi sinyal multi-indicator (REFACTORED V2)
- * ✅ Hapus Active Indicators & Weights
- * ✅ Perbaiki Max Drawdown
- * ✅ Tambahkan STRONG BUY/STRONG SELL berdasarkan strength threshold
+ * 🔔 Kirim notifikasi sinyal multi-indicator (REFACTORED V3)
+ * ✅ FULLY SCORE-BASED: No voting, no arbitrary threshold
+ * ✅ Signal direction: score > 0 → BUY, score < 0 → SELL, score == 0 → NEUTRAL
+ * ✅ STRONG label: strength >= 0.6
+ * ✅ Format baru sesuai calculateFinalMultiSignal()
  */
 export async function sendMultiIndicatorSignal({
   symbol,
   signal,
   price,
-  strength = 0, // ✅ Terima strength dari caller
+  strength = 0,
+  finalScore = 0,
+  signalLabel = null,
+  signalEmoji = null,
   activeIndicators,
   performance,
   timeframe = "1h",
@@ -159,19 +163,32 @@ export async function sendMultiIndicatorSignal({
     strength = 0;
   }
 
-  // ✅ Determine signal label dengan threshold
-  // strength < 0.5 → "BUY" / "SELL"
-  // strength >= 0.5 → "STRONG BUY" / "STRONG SELL"
-  let signalLabel = signal.toUpperCase();
-  let signalEmoji = "⚪";
+  // ✅ Use provided label & emoji OR calculate them
+  let displayLabel = signalLabel;
+  let displayEmoji = signalEmoji;
 
-  if (signal === "buy") {
-    signalLabel = strength >= 0.5 ? "STRONG BUY" : "BUY";
-    signalEmoji = strength >= 0.5 ? "🟢🟢" : "🟢";
-  } else if (signal === "sell") {
-    signalLabel = strength >= 0.5 ? "STRONG SELL" : "SELL";
-    signalEmoji = strength >= 0.5 ? "🔴🔴" : "🔴";
+  if (!displayLabel || !displayEmoji) {
+    // Fallback: calculate label & emoji jika tidak diberikan
+    if (signal === "buy") {
+      displayLabel = strength >= 0.6 ? "STRONG BUY" : "BUY";
+      displayEmoji = strength >= 0.6 ? "🟢🟢" : "🟢";
+    } else if (signal === "sell") {
+      displayLabel = strength >= 0.6 ? "STRONG SELL" : "SELL";
+      displayEmoji = strength >= 0.6 ? "🔴🔴" : "🔴";
+    } else {
+      displayLabel = "NEUTRAL";
+      displayEmoji = "⚪";
+    }
   }
+
+  // 🐛 Debug log untuk validasi
+  console.log("📱 Telegram Signal:", {
+    signal,
+    finalScore,
+    strength,
+    displayLabel,
+    displayEmoji,
+  });
 
   // Format price dengan USD currency
   const formatCurrency = (value) => {
@@ -204,13 +221,14 @@ export async function sendMultiIndicatorSignal({
       ? performance.maxDrawdown.toFixed(2)
       : "0.00";
 
-  // ✅ Build message TANPA Active Indicators & Weights
+  // ✅ Build message dengan format baru
   const message = `
-${signalEmoji} *${signalLabel} SIGNAL* ${signalEmoji}
+${displayEmoji} *${displayLabel}* ${displayEmoji}
 
 📊 *Symbol:* ${symbol}
 💰 *Price:* ${formatCurrency(price)}
-💪 *Signal Strength:* ${(strength * 100).toFixed(1)}%
+📈 *Score:* ${finalScore >= 0 ? "+" : ""}${finalScore.toFixed(2)}
+💪 *Strength:* ${(strength * 100).toFixed(1)}%
 ⏱ *Timeframe:* ${timeframe}
 🕒 *Time:* ${dateStr}, ${timeStr}
 
@@ -221,7 +239,7 @@ ${signalEmoji} *${signalLabel} SIGNAL* ${signalEmoji}
 • Sharpe Ratio : ${performance.sharpe}
 • Trades : ${performance.trades}
 
-_Multi-Indicator Optimized Strategy (Backtested)_
+_Multi-Indicator Weighted Strategy (Score-Based)_
 `;
 
   return await sendTelegramMessage(message.trim());

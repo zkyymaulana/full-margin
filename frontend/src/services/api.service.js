@@ -129,22 +129,26 @@ export const getMarketcapSymbols = async () => {
   return data?.symbols || [];
 };
 
-// Indicator (single)
-export const fetchIndicator = async (symbol = "BTC-USD") => {
-  const { data } = await apiClient.get(`/indicator/${symbol}`);
+// Indicator (single) - Unified endpoint with mode support
+export const fetchIndicator = async (
+  symbol = "BTC-USD",
+  mode = "latest",
+  timeframe = "1h"
+) => {
+  const { data } = await apiClient.get(`/indicator/${symbol}`, {
+    params: { mode, timeframe },
+  });
   return data;
 };
 
-// Multi-indicator
+// ❌ DEPRECATED: Multi-indicator (replaced by fetchIndicator with mode=latest)
+// Keep for backward compatibility but not used anymore
 export const fetchMultiIndicator = async (symbol = "BTC-USD") => {
-  const { data } = await apiClient.post(
-    `/multiIndicator/${symbol}/optimize-weights`,
-    {},
-    {
-      timeout: 15000,
-    }
+  console.warn(
+    "⚠️ fetchMultiIndicator is deprecated. Use fetchIndicator with mode=latest instead."
   );
-  return data;
+  // Redirect to new endpoint
+  return fetchIndicator(symbol, "latest", "1h");
 };
 
 // Candlestick data
