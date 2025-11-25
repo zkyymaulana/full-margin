@@ -8,7 +8,6 @@ import {
 
 const router = express.Router();
 
-// Get scheduler status (public for monitoring)
 router.get("/status", getStatus);
 
 // Protected routes (require authentication)

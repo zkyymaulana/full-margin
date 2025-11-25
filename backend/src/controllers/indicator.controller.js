@@ -1,7 +1,5 @@
 import { prisma } from "../lib/prisma.js";
-import { calculateAndSaveIndicators } from "../services/indicators/indicator.service.js";
 
-/* 🕒 Formatter tanggal lokal Indonesia (Asia/Jakarta) */
 function formatReadableDate(date) {
   if (!date) return null;
   return new Intl.DateTimeFormat("id-ID", {
@@ -11,25 +9,14 @@ function formatReadableDate(date) {
   }).format(new Date(date));
 }
 
-/**
- * 🎯 Helper: Format multiSignal dari database (NO RECALCULATION)
- * ✅ 100% menggunakan data dari tabel Indicator
- * ✅ Sesuai metodologi penelitian: threshold = 0, no voting
- * ✅ UPDATED: Gunakan finalScore yang sudah tersimpan di DB
- * ✅ NEW: categoryScores = WEIGHTED CONTRIBUTION (bukan average)
- *
- * @param {Object} ind - Indicator dari database
- * @param {Object} weights - Weights dari database (untuk calculate categoryScores)
- * @returns {Object|null} multiSignal object atau null
- */
 function formatMultiSignalFromDB(ind, weights = null) {
   if (!ind) return null;
 
-  // ✅ Ambil langsung dari database - NO CALCULATION
+  // Ambil langsung dari database - NO CALCULATION
   const dbFinalScore = ind.finalScore ?? 0;
   const dbStrength = ind.signalStrength ?? 0;
 
-  // ✅ Map signal dari finalScore (threshold = 0)
+  // Map signal dari finalScore (threshold = 0)
   let signal = "neutral";
   let signalLabel = "NEUTRAL";
   let signalEmoji = "⚪";
@@ -51,7 +38,7 @@ function formatMultiSignalFromDB(ind, weights = null) {
     signalEmoji = "⚪";
   }
 
-  // ✅ NEW: Calculate WEIGHTED categoryScores (contribution to final score)
+  // NEW: Calculate WEIGHTED categoryScores (contribution to final score)
   let categoryScores = { trend: 0, momentum: 0, volatility: 0 };
 
   if (weights) {
@@ -63,20 +50,20 @@ function formatMultiSignalFromDB(ind, weights = null) {
       return 0;
     };
 
-    // ✅ WEIGHTED Trend category: (signal × weight) for each indicator
+    // WEIGHTED Trend category: (signal × weight) for each indicator
     const trendScore =
       signalToScore(ind.smaSignal) * (weights.SMA || 0) +
       signalToScore(ind.emaSignal) * (weights.EMA || 0) +
       signalToScore(ind.psarSignal) * (weights.PSAR || 0);
 
-    // ✅ WEIGHTED Momentum category
+    // WEIGHTED Momentum category
     const momentumScore =
       signalToScore(ind.rsiSignal) * (weights.RSI || 0) +
       signalToScore(ind.macdSignal) * (weights.MACD || 0) +
       signalToScore(ind.stochSignal) * (weights.Stochastic || 0) +
       signalToScore(ind.stochRsiSignal) * (weights.StochasticRSI || 0);
 
-    // ✅ WEIGHTED Volatility category
+    // WEIGHTED Volatility category
     const volatilityScore =
       signalToScore(ind.bbSignal) * (weights.BollingerBands || 0);
 
@@ -93,14 +80,13 @@ function formatMultiSignalFromDB(ind, weights = null) {
     finalScore: parseFloat(finalScore.toFixed(2)),
     signalLabel,
     signalEmoji,
-    categoryScores, // ✅ Now shows WEIGHTED contribution
+    categoryScores,
     source: "db",
   };
 }
 
 /* ===========================================================
-   ✅ GET INDICATORS API — Support mode=latest & mode=paginated
-   ✅ REFACTORED: 100% database signals (no calculation)
+  GET INDICATORS API — Support mode=latest & mode=paginated
 =========================================================== */
 export async function getIndicators(req, res) {
   try {
@@ -111,10 +97,7 @@ export async function getIndicators(req, res) {
     console.log(`📊 Fetching indicators for ${symbol} (mode: ${mode})`);
     const startTime = Date.now();
 
-    // ========================================
-    // MODE 1: LATEST - Return only latest signal
-    // ✅ 100% DATABASE - NO CALCULATION
-    // ========================================
+    // LATEST - Return only latest signal
     if (mode === "latest") {
       const [latestIndicator, latestWeight] = await Promise.all([
         prisma.indicator.findFirst({
@@ -142,13 +125,13 @@ export async function getIndicators(req, res) {
 
       const latestPrice = latestCandle?.close ?? null;
 
-      // ✅ Format multiSignal dari database (NO CALCULATION)
+      // Format multiSignal dari database (NO CALCULATION)
       const multiSignal = formatMultiSignalFromDB(
         latestIndicator,
         latestWeight?.weights
       );
 
-      // ✅ Build indicators structure dengan signal dari DB
+      // Build indicators structure dengan signal dari DB
       const indicators = {
         sma: {
           20: latestIndicator.sma20 ?? null,
@@ -237,10 +220,7 @@ export async function getIndicators(req, res) {
       });
     }
 
-    // ========================================
-    // MODE 2: PAGINATED - Return paginated data
-    // ✅ 100% DATABASE - NO CALCULATION
-    // ========================================
+    // PAGINATED - Return paginated data
     const showAll = req.query.all === "true";
     const limit = 1000;
     const page = Math.max(1, parseInt(req.query.page) || 1);
@@ -499,50 +479,6 @@ export async function getIndicators(req, res) {
     res.status(500).json({
       success: false,
       message: "Internal server error",
-      error: process.env.NODE_ENV === "development" ? err.message : undefined,
-    });
-  }
-}
-
-/* ===========================================================
-   ✅ CALCULATE INDICATORS API (Force Recalculation)
-=========================================================== */
-export async function calculateIndicators(req, res) {
-  try {
-    const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
-    const timeframe = req.query.timeframe || "1h";
-    const force = req.query.force === "true";
-
-    console.log(
-      `🔄 ${force ? "Force " : ""}Calculating indicators for ${symbol}...`
-    );
-    const startTime = Date.now();
-
-    if (force) {
-      await prisma.indicator.deleteMany({ where: { symbol, timeframe } });
-      console.log(`🗑️ Deleted existing indicators for ${symbol}`);
-    }
-
-    await calculateAndSaveIndicators(symbol, timeframe);
-
-    const count = await prisma.indicator.count({
-      where: { symbol, timeframe },
-    });
-    const processingTime = Date.now() - startTime;
-
-    res.json({
-      success: true,
-      symbol,
-      timeframe,
-      indicatorsCalculated: count,
-      processingTime: `${processingTime}ms`,
-      message: `Successfully calculated ${count} indicators for ${symbol}`,
-    });
-  } catch (err) {
-    console.error("❌ calculateIndicators error:", err);
-    res.status(500).json({
-      success: false,
-      message: "Failed to calculate indicators",
       error: process.env.NODE_ENV === "development" ? err.message : undefined,
     });
   }

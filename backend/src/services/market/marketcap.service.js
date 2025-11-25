@@ -88,30 +88,27 @@ export async function getMarketcapRealtime() {
  * ⚡ Ambil harga live + candle terakhir untuk coin teratas + history + summary
  * 🎯 Return ONLY Top 20 paired coins (guaranteed count)
  * 🔗 Filter hanya symbol dengan format BASE-QUOTE (mengandung "-")
+ * ✅ Summary statistics berdasarkan 20 coin teratas, data coin berdasarkan limit
  */
 export async function getMarketcapLive(limit = 20) {
   try {
     // 🎯 Enforce maximum limit of 20
     const requestedLimit = Math.max(1, Math.min(Number(limit) || 20, 20));
 
-    // 🎯 Ambil kandidat 3× limit untuk antisipasi coin yang gagal fetch
-    const candidateLimit = requestedLimit * 3;
-
     console.log(
-      `⚡ Fetching ${candidateLimit} candidate coins (target: ${requestedLimit})...`
+      `⚡ Fetching top 20 coins for summary + ${requestedLimit} for display...`
     );
 
-    // Ambil kandidat coin berdasarkan rank dari TopCoin table
-    // 🔗 Filter hanya symbol yang mengandung "-" (format BASE-QUOTE)
-    const candidateCoins = await prisma.topCoin.findMany({
+    // 🎯 STEP 1: Ambil 20 coin teratas untuk summary statistics
+    const top20Coins = await prisma.topCoin.findMany({
       where: {
         symbol: { contains: "-" }, // ✅ Hanya pair valid seperti BTC-USD, ETH-USD
       },
       orderBy: { rank: "asc" },
-      take: candidateLimit, // Ambil 3× limit sebagai cadangan
+      take: 20, // ✅ Hanya ambil 20 coin teratas
     });
 
-    if (!candidateCoins.length) {
+    if (!top20Coins.length) {
       return {
         success: false,
         message: "⚠️ Belum ada coin pair di DB. Jalankan /api/marketcap dulu.",
@@ -119,128 +116,47 @@ export async function getMarketcapLive(limit = 20) {
     }
 
     console.log(
-      `📋 Got ${candidateCoins.length} candidates (valid pairs only), processing until ${requestedLimit} valid...`
+      `📋 Processing ${top20Coins.length} coins for summary statistics...`
     );
 
-    // 🎯 Loop kandidat dan kumpulkan coin valid sampai mencapai limit
-    const data = [];
-    let successCount = 0;
-    let failedCount = 0;
-
-    for (const coin of candidateCoins) {
-      // 🛑 Stop jika sudah mencapai limit yang diminta
-      if (data.length >= requestedLimit) {
-        console.log(
-          `✅ Reached target of ${requestedLimit} coins, stopping...`
-        );
-        break;
-      }
-
-      // 🔍 Debug log sebelum fetch ticker
-      console.log(`🔍 Fetching ticker for ${coin.symbol} rank ${coin.rank}`);
-
-      // Fetch live data dari Coinbase
+    // 🎯 STEP 2: Fetch live data untuk 20 coin teratas untuk summary
+    const top20LiveData = [];
+    for (const coin of top20Coins) {
       const liveData = await fetchTicker(coin.symbol);
 
-      // Skip jika data tidak lengkap
-      if (
-        !liveData ||
-        liveData.price == null ||
-        liveData.volume == null ||
-        liveData.open == null
-      ) {
-        console.warn(
-          `⚠️ Data tidak lengkap untuk ${coin.symbol} (price: ${liveData?.price}, volume: ${liveData?.volume}, open: ${liveData?.open}), skip...`
-        );
-        failedCount++;
-        continue;
-      }
+      if (liveData && liveData.price != null && liveData.volume != null) {
+        const rawPrice = Number(liveData.price);
+        const rawVolume = Number(liveData.volume);
+        const rawOpen = Number(liveData.open || rawPrice);
+        const rawMarketCap = rawVolume * rawPrice;
+        const change24h =
+          rawOpen > 0
+            ? Number((((rawPrice - rawOpen) / rawOpen) * 100).toFixed(2))
+            : 0;
 
-      // Get last 10 candles for history chart (oldest to newest)
-      const historyCandles = await prisma.candle.findMany({
-        where: { symbol: coin.symbol },
-        orderBy: { time: "desc" },
-        take: 10,
-      });
-
-      // 💰 Gunakan raw values (tanpa pembulatan) untuk perhitungan akurat
-      const rawPrice = Number(liveData.price);
-      const rawVolume = Number(liveData.volume);
-      const rawOpen = Number(liveData.open);
-      const rawHigh = Number(liveData.high);
-      const rawLow = Number(liveData.low);
-
-      // 🧮 Hitung marketCap menggunakan nilai RAW, baru dibulatkan di akhir
-      const rawMarketCap = rawVolume * rawPrice;
-
-      // 🧮 Hitung change24h menggunakan nilai RAW untuk akurasi
-      const change24h =
-        rawOpen > 0
-          ? Number((((rawPrice - rawOpen) / rawOpen) * 100).toFixed(2))
-          : 0;
-
-      const chartColor = rawPrice >= rawOpen ? "green" : "red";
-
-      // 💰 Format history dengan desimal dinamis
-      const history = historyCandles
-        .reverse()
-        .map((c) => formatPrice(Number(c.close)));
-
-      // Tambahkan coin valid ke array
-      data.push({
-        rank: coin.rank,
-        name: coin.name || coin.symbol.split("-")[0],
-        symbol: coin.symbol,
-        logo: null, // ✅ Will be filled from Coin table
-        price: formatPrice(rawPrice), // 💰 Format dengan desimal dinamis
-        volume: Number(rawVolume.toFixed(2)), // Volume tetap 2 desimal
-        marketCap: Number(rawMarketCap.toFixed(2)), // 🧮 MarketCap dari nilai RAW
-        open: formatPrice(rawOpen), // 💰 Format dengan desimal dinamis
-        high: formatPrice(rawHigh), // 💰 Format dengan desimal dinamis
-        low: formatPrice(rawLow), // 💰 Format dengan desimal dinamis
-        change24h,
-        chartColor,
-        history,
-      });
-
-      successCount++;
-      console.log(`✓ ${coin.symbol} added (${data.length}/${requestedLimit})`);
-    }
-
-    // Validasi: pastikan ada data valid
-    if (data.length === 0) {
-      return {
-        success: false,
-        message: "Tidak ada data valid dari Coinbase",
-      };
-    }
-
-    // ✅ Ambil logo dari tabel Coin untuk setiap symbol
-    const dataWithLogo = await Promise.all(
-      data.map(async (item) => {
-        const coinData = await prisma.coin.findUnique({
-          where: { symbol: item.symbol },
-          select: { logo: true },
+        top20LiveData.push({
+          rank: coin.rank,
+          name: coin.name || coin.symbol.split("-")[0],
+          symbol: coin.symbol,
+          price: rawPrice,
+          volume: rawVolume,
+          marketCap: rawMarketCap,
+          change24h,
         });
+      }
+    }
 
-        return {
-          ...item,
-          logo: coinData?.logo || null, // ✅ Tambahkan logo dari Coin table
-        };
-      })
-    );
-
-    // 🎯 Calculate summary metrics dari coin yang berhasil
-    const totalMarketCap = dataWithLogo.reduce(
+    // 🎯 STEP 3: Calculate summary dari 20 coin teratas
+    const totalMarketCap = top20LiveData.reduce(
       (sum, coin) => sum + coin.marketCap,
       0
     );
-    const totalVolume24h = dataWithLogo.reduce(
-      (sum, coin) => sum + coin.volume,
+    const totalVolume24h = top20LiveData.reduce(
+      (sum, coin) => sum + coin.volume * coin.price,
       0
     );
 
-    const btcCoin = dataWithLogo.find(
+    const btcCoin = top20LiveData.find(
       (coin) => coin.symbol.startsWith("BTC-") || coin.symbol === "BTC"
     );
     const btcDominance =
@@ -248,22 +164,92 @@ export async function getMarketcapLive(limit = 20) {
         ? Number(((btcCoin.marketCap / totalMarketCap) * 100).toFixed(2))
         : 0;
 
-    const activeCoins = dataWithLogo.length;
-    const gainers = dataWithLogo.filter((coin) => coin.change24h > 0).length;
-    const losers = dataWithLogo.filter((coin) => coin.change24h < 0).length;
+    const activeCoins = top20LiveData.length;
+    const gainers = top20LiveData.filter((coin) => coin.change24h > 0).length;
+    const losers = top20LiveData.filter((coin) => coin.change24h < 0).length;
 
+    // 🎯 STEP 4: Ambil hanya coin sesuai limit untuk display dengan detail lengkap
     console.log(
-      `✅ Successfully fetched ${successCount} coins (${failedCount} failed)`
+      `📋 Processing top ${requestedLimit} coins for detailed display...`
     );
+
+    const displayCoins = top20LiveData.slice(0, requestedLimit);
+    const detailedData = [];
+
+    for (const coinSummary of displayCoins) {
+      // Fetch ticker lagi untuk data detail (bisa di-cache di masa depan)
+      const liveData = await fetchTicker(coinSummary.symbol);
+
+      if (!liveData || liveData.price == null) {
+        continue;
+      }
+
+      // Get last 10 candles for history chart
+      const historyCandles = await prisma.candle.findMany({
+        where: { symbol: coinSummary.symbol },
+        orderBy: { time: "desc" },
+        take: 10,
+      });
+
+      const rawPrice = Number(liveData.price);
+      const rawVolume = Number(liveData.volume);
+      const rawOpen = Number(liveData.open || rawPrice);
+      const rawHigh = Number(liveData.high || rawPrice);
+      const rawLow = Number(liveData.low || rawPrice);
+      const rawMarketCap = rawVolume * rawPrice;
+      const change24h =
+        rawOpen > 0
+          ? Number((((rawPrice - rawOpen) / rawOpen) * 100).toFixed(2))
+          : 0;
+      const chartColor = rawPrice >= rawOpen ? "green" : "red";
+
+      // Format history dengan desimal dinamis
+      const history = historyCandles
+        .reverse()
+        .map((c) => formatPrice(Number(c.close)));
+
+      detailedData.push({
+        rank: coinSummary.rank,
+        name: coinSummary.name,
+        symbol: coinSummary.symbol,
+        logo: null, // Will be filled from Coin table
+        price: formatPrice(rawPrice),
+        volume: Number(rawVolume.toFixed(2)),
+        marketCap: Number(rawMarketCap.toFixed(2)),
+        open: formatPrice(rawOpen),
+        high: formatPrice(rawHigh),
+        low: formatPrice(rawLow),
+        change24h,
+        chartColor,
+        history,
+      });
+    }
+
+    // ✅ Ambil logo dari tabel Coin untuk setiap symbol
+    const dataWithLogo = await Promise.all(
+      detailedData.map(async (item) => {
+        const coinData = await prisma.coin.findUnique({
+          where: { symbol: item.symbol },
+          select: { logo: true },
+        });
+
+        return {
+          ...item,
+          logo: coinData?.logo || null,
+        };
+      })
+    );
+
+    console.log(`✅ Summary calculated from ${top20LiveData.length} coins`);
     console.log(
-      `📊 Returning ${dataWithLogo.length} coins (requested: ${requestedLimit})`
+      `📊 Returning ${dataWithLogo.length} detailed coins (requested: ${requestedLimit})`
     );
 
     return {
       success: true,
-      requestedLimit, // 🎯 Limit yang diminta
-      total: dataWithLogo.length, // 🎯 Jumlah coin yang berhasil dikembalikan
-      count: dataWithLogo.length, // 🎯 Alias untuk total
+      requestedLimit,
+      total: dataWithLogo.length,
+      count: dataWithLogo.length,
       summary: {
         totalMarketCap: Number(totalMarketCap.toFixed(2)),
         totalVolume24h: Number(totalVolume24h.toFixed(2)),
@@ -272,7 +258,7 @@ export async function getMarketcapLive(limit = 20) {
         gainers,
         losers,
       },
-      data: dataWithLogo, // ✅ Array coin valid dengan logo
+      data: dataWithLogo,
     };
   } catch (e) {
     console.error("❌ Live error:", e.message);

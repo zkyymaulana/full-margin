@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useComparison } from "../hooks/useComparison";
 import { useSymbol } from "../contexts/SymbolContext";
 import { useDarkMode } from "../contexts/DarkModeContext";
+import { useQueryClient } from "@tanstack/react-query";
 
 function Comparison() {
   const { selectedSymbol } = useSymbol();
   const { isDarkMode } = useDarkMode();
+  const queryClient = useQueryClient();
+
   const [startDate, setStartDate] = useState("2020-01-01");
   const [endDate, setEndDate] = useState("2025-10-18");
 
@@ -15,6 +18,22 @@ function Comparison() {
     isLoading,
     error,
   } = useComparison();
+
+  // ✅ Load cached comparison result for current symbol
+  const cachedData = queryClient.getQueryData(["comparison", selectedSymbol]);
+
+  // ✅ Save to cache when comparison completes
+  useEffect(() => {
+    if (comparisonData?.success) {
+      queryClient.setQueryData(["comparison", selectedSymbol], comparisonData, {
+        // Cache for 30 minutes
+        cacheTime: 30 * 60 * 1000,
+      });
+    }
+  }, [comparisonData, selectedSymbol, queryClient]);
+
+  // ✅ Use cached data if available, otherwise use fresh data
+  const displayData = comparisonData || cachedData;
 
   const handleCompare = () => {
     if (!startDate || !endDate) {
@@ -290,7 +309,7 @@ function Comparison() {
       )}
 
       {/* Comparison Results */}
-      {comparisonData?.success && (
+      {displayData?.success && (
         <>
           {/* Overview Stats */}
           <div
@@ -314,11 +333,9 @@ function Comparison() {
                     isDarkMode ? "text-gray-400" : "text-gray-600"
                   }`}
                 >
-                  {comparisonData.symbol} • {comparisonData.timeframe} •{" "}
-                  {comparisonData.period?.days ||
-                    comparisonData.analysis?.periodDays}{" "}
-                  days • {comparisonData.analysis?.candles?.toLocaleString()}{" "}
-                  candles
+                  {displayData.symbol} • {displayData.timeframe} •{" "}
+                  {displayData.period?.days || displayData.analysis?.periodDays}{" "}
+                  days
                 </p>
               </div>
               <div className="text-right">
@@ -331,14 +348,14 @@ function Comparison() {
                 </div>
                 <div
                   className={`text-xl font-bold ${
-                    comparisonData.comparison?.bestStrategy === "multi"
+                    displayData.comparison?.bestStrategy === "multi"
                       ? "text-purple-600"
                       : "text-blue-600"
                   }`}
                 >
-                  {comparisonData.comparison?.bestStrategy === "multi"
+                  {displayData.comparison?.bestStrategy === "multi"
                     ? "Multi-Indicator"
-                    : comparisonData.analysis?.bestSingle?.indicator || "N/A"}
+                    : displayData.analysis?.bestSingle?.indicator || "N/A"}
                 </div>
               </div>
             </div>
@@ -354,14 +371,14 @@ function Comparison() {
                     isDarkMode ? "text-gray-400" : "text-gray-600"
                   }`}
                 >
-                  Data Points
+                  Total Candles
                 </div>
                 <div
                   className={`text-2xl font-bold ${
                     isDarkMode ? "text-white" : "text-gray-900"
                   }`}
                 >
-                  {comparisonData.analysis?.dataPoints?.toLocaleString() || 0}
+                  {displayData.analysis?.dataPoints?.toLocaleString() || 0}
                 </div>
               </div>
               <div
@@ -378,10 +395,10 @@ function Comparison() {
                 </div>
                 <div
                   className={`text-2xl font-bold ${getROIColor(
-                    comparisonData.analysis?.bestSingle?.roi
+                    displayData.analysis?.bestSingle?.roi
                   )}`}
                 >
-                  {formatPercent(comparisonData.analysis?.bestSingle?.roi)}
+                  {formatPercent(displayData.analysis?.bestSingle?.roi)}
                 </div>
               </div>
               <div
@@ -398,10 +415,10 @@ function Comparison() {
                 </div>
                 <div
                   className={`text-2xl font-bold ${getROIColor(
-                    comparisonData.comparison?.multi?.roi
+                    displayData.comparison?.multi?.roi
                   )}`}
                 >
-                  {formatPercent(comparisonData.comparison?.multi?.roi)}
+                  {formatPercent(displayData.comparison?.multi?.roi)}
                 </div>
               </div>
               <div
@@ -418,29 +435,29 @@ function Comparison() {
                 </div>
                 <div
                   className={`text-2xl font-bold ${
-                    comparisonData.analysis?.roiDifference > 0
+                    displayData.analysis?.roiDifference > 0
                       ? "text-green-600"
                       : "text-red-600"
                   }`}
                 >
-                  {comparisonData.analysis?.roiDifference > 0 ? "+" : ""}
-                  {formatPercent(comparisonData.analysis?.roiDifference)}
+                  {displayData.analysis?.roiDifference > 0 ? "+" : ""}
+                  {formatPercent(displayData.analysis?.roiDifference)}
                 </div>
               </div>
             </div>
 
             {/* Analysis Info */}
-            {comparisonData.analysis && (
+            {displayData.analysis && (
               <div
                 className={`mt-4 rounded-lg p-4 border-l-4 ${
-                  comparisonData.analysis.multiBeatsBestSingle
+                  displayData.analysis.multiBeatsBestSingle
                     ? "border-green-500"
                     : "border-yellow-500"
                 } ${isDarkMode ? "bg-gray-800" : "bg-white"}`}
               >
                 <div className="flex items-start gap-3">
                   <span className="text-2xl">
-                    {comparisonData.analysis.multiBeatsBestSingle ? "🏆" : "⚠️"}
+                    {displayData.analysis.multiBeatsBestSingle ? "🏆" : "⚠️"}
                   </span>
                   <div className="flex-1">
                     <div
@@ -448,7 +465,7 @@ function Comparison() {
                         isDarkMode ? "text-white" : "text-gray-900"
                       }`}
                     >
-                      {comparisonData.analysis.multiBeatsBestSingle
+                      {displayData.analysis.multiBeatsBestSingle
                         ? "Multi-Indicator Strategy Wins!"
                         : "Single Indicator Strategy Performs Better"}
                     </div>
@@ -458,16 +475,16 @@ function Comparison() {
                       }`}
                     >
                       Multi-indicator achieved{" "}
-                      {formatPercent(comparisonData.comparison?.multi?.roi)} ROI
-                      vs {comparisonData.analysis.bestSingle?.indicator} at{" "}
-                      {formatPercent(comparisonData.analysis.bestSingle?.roi)}{" "}
-                      ROI (Win Rate:{" "}
+                      {formatPercent(displayData.comparison?.multi?.roi)} ROI vs{" "}
+                      {displayData.analysis.bestSingle?.indicator} at{" "}
+                      {formatPercent(displayData.analysis.bestSingle?.roi)} ROI
+                      (Win Rate:{" "}
                       {formatPercent(
-                        comparisonData.analysis.winRateComparison?.multi
+                        displayData.analysis.winRateComparison?.multi
                       )}{" "}
                       vs{" "}
                       {formatPercent(
-                        comparisonData.analysis.winRateComparison?.bestSingle
+                        displayData.analysis.winRateComparison?.bestSingle
                       )}
                       )
                     </div>
@@ -478,7 +495,7 @@ function Comparison() {
           </div>
 
           {/* Best Weights Section */}
-          {comparisonData.bestWeights && (
+          {displayData.bestWeights && (
             <div
               className={`rounded-xl shadow-sm border ${
                 isDarkMode
@@ -498,7 +515,7 @@ function Comparison() {
                   </h3>
                   <span
                     className={`px-3 py-1 text-xs font-medium rounded-full ${
-                      comparisonData.weightSource === "database"
+                      displayData.weightSource === "database"
                         ? isDarkMode
                           ? "bg-green-900 text-green-300"
                           : "bg-green-100 text-green-700"
@@ -507,7 +524,7 @@ function Comparison() {
                         : "bg-blue-100 text-blue-700"
                     }`}
                   >
-                    Source: {comparisonData.weightSource || "calculated"}
+                    Source: {displayData.weightSource || "calculated"}
                   </span>
                 </div>
                 <p
@@ -519,7 +536,7 @@ function Comparison() {
                   multi-strategy
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {Object.entries(comparisonData.bestWeights).map(
+                  {Object.entries(displayData.bestWeights).map(
                     ([indicator, weight]) => (
                       <div
                         key={indicator}
@@ -568,7 +585,7 @@ function Comparison() {
                                       (weight /
                                         Math.max(
                                           ...Object.values(
-                                            comparisonData.bestWeights
+                                            displayData.bestWeights
                                           )
                                         )) *
                                       100
@@ -670,91 +687,91 @@ function Comparison() {
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(
-                      comparisonData.comparison?.single || {}
-                    ).map(([strategy, data]) => (
-                      <tr
-                        key={strategy}
-                        className={`border-b transition-colors ${
-                          isDarkMode
-                            ? "border-gray-700 hover:bg-gray-700"
-                            : "border-gray-100 hover:bg-gray-50"
-                        }`}
-                      >
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-2">
+                    {Object.entries(displayData.comparison?.single || {}).map(
+                      ([strategy, data]) => (
+                        <tr
+                          key={strategy}
+                          className={`border-b transition-colors ${
+                            isDarkMode
+                              ? "border-gray-700 hover:bg-gray-700"
+                              : "border-gray-100 hover:bg-gray-50"
+                          }`}
+                        >
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`font-medium ${
+                                  isDarkMode ? "text-white" : "text-gray-900"
+                                }`}
+                              >
+                                {strategy}
+                              </span>
+                              {displayData.analysis?.bestSingle?.indicator ===
+                                strategy && (
+                                <span
+                                  className={`px-2 py-0.5 text-xs rounded-full font-medium ${
+                                    isDarkMode
+                                      ? "bg-yellow-900 text-yellow-300"
+                                      : "bg-yellow-100 text-yellow-700"
+                                  }`}
+                                >
+                                  Best Single
+                                </span>
+                              )}
+                              {displayData.comparison?.bestStrategy ===
+                                strategy.toLowerCase() && (
+                                <span
+                                  className={`px-2 py-0.5 text-xs rounded-full font-medium ${
+                                    isDarkMode
+                                      ? "bg-green-900 text-green-300"
+                                      : "bg-green-100 text-green-700"
+                                  }`}
+                                >
+                                  Winner
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-right">
                             <span
-                              className={`font-medium ${
-                                isDarkMode ? "text-white" : "text-gray-900"
-                              }`}
+                              className={`font-bold ${getROIColor(data.roi)}`}
                             >
-                              {strategy}
+                              {formatPercent(data.roi)}
                             </span>
-                            {comparisonData.analysis?.bestSingle?.indicator ===
-                              strategy && (
-                              <span
-                                className={`px-2 py-0.5 text-xs rounded-full font-medium ${
-                                  isDarkMode
-                                    ? "bg-yellow-900 text-yellow-300"
-                                    : "bg-yellow-100 text-yellow-700"
-                                }`}
-                              >
-                                Best Single
-                              </span>
-                            )}
-                            {comparisonData.comparison?.bestStrategy ===
-                              strategy.toLowerCase() && (
-                              <span
-                                className={`px-2 py-0.5 text-xs rounded-full font-medium ${
-                                  isDarkMode
-                                    ? "bg-green-900 text-green-300"
-                                    : "bg-green-100 text-green-700"
-                                }`}
-                              >
-                                Winner
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <span
-                            className={`font-bold ${getROIColor(data.roi)}`}
-                          >
-                            {formatPercent(data.roi)}
-                          </span>
-                        </td>
-                        <td
-                          className={`py-3 px-4 text-right font-mono text-sm ${
-                            isDarkMode ? "text-gray-300" : ""
-                          }`}
-                        >
-                          {formatPercent(data.winRate)}
-                        </td>
-                        <td
-                          className={`py-3 px-4 text-right font-mono text-sm ${
-                            isDarkMode ? "text-gray-300" : ""
-                          }`}
-                        >
-                          {data.trades}
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <span
-                            className={`font-mono text-sm ${
-                              data.finalCapital >= 10000
-                                ? "text-green-600"
-                                : "text-red-600"
+                          </td>
+                          <td
+                            className={`py-3 px-4 text-right font-mono text-sm ${
+                              isDarkMode ? "text-gray-300" : ""
                             }`}
                           >
-                            {formatCurrency(data.finalCapital)}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-right font-mono text-sm text-red-600">
-                          {formatPercent(data.maxDrawdown)}
-                        </td>
-                      </tr>
-                    ))}
+                            {formatPercent(data.winRate)}
+                          </td>
+                          <td
+                            className={`py-3 px-4 text-right font-mono text-sm ${
+                              isDarkMode ? "text-gray-300" : ""
+                            }`}
+                          >
+                            {data.trades}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <span
+                              className={`font-mono text-sm ${
+                                data.finalCapital >= 10000
+                                  ? "text-green-600"
+                                  : "text-red-600"
+                              }`}
+                            >
+                              {formatCurrency(data.finalCapital)}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono text-sm text-red-600">
+                            {formatPercent(data.maxDrawdown)}
+                          </td>
+                        </tr>
+                      )
+                    )}
                     {/* Multi Strategy Row */}
-                    {comparisonData.comparison?.multi && (
+                    {displayData.comparison?.multi && (
                       <tr
                         className={`border-b font-medium ${
                           isDarkMode
@@ -782,7 +799,7 @@ function Comparison() {
                             >
                               Combined
                             </span>
-                            {comparisonData.comparison?.bestStrategy ===
+                            {displayData.comparison?.bestStrategy ===
                               "multi" && (
                               <span
                                 className={`px-2 py-0.5 text-xs rounded-full font-medium ${
@@ -799,10 +816,10 @@ function Comparison() {
                         <td className="py-3 px-4 text-right">
                           <span
                             className={`font-bold ${getROIColor(
-                              comparisonData.comparison.multi.roi
+                              displayData.comparison.multi.roi
                             )}`}
                           >
-                            {formatPercent(comparisonData.comparison.multi.roi)}
+                            {formatPercent(displayData.comparison.multi.roi)}
                           </span>
                         </td>
                         <td
@@ -810,34 +827,31 @@ function Comparison() {
                             isDarkMode ? "text-gray-300" : ""
                           }`}
                         >
-                          {formatPercent(
-                            comparisonData.comparison.multi.winRate
-                          )}
+                          {formatPercent(displayData.comparison.multi.winRate)}
                         </td>
                         <td
                           className={`py-3 px-4 text-right font-mono text-sm ${
                             isDarkMode ? "text-gray-300" : ""
                           }`}
                         >
-                          {comparisonData.comparison.multi.trades}
+                          {displayData.comparison.multi.trades}
                         </td>
                         <td className="py-3 px-4 text-right">
                           <span
                             className={`font-mono text-sm ${
-                              comparisonData.comparison.multi.finalCapital >=
-                              10000
+                              displayData.comparison.multi.finalCapital >= 10000
                                 ? "text-green-600"
                                 : "text-red-600"
                             }`}
                           >
                             {formatCurrency(
-                              comparisonData.comparison.multi.finalCapital
+                              displayData.comparison.multi.finalCapital
                             )}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right font-mono text-sm text-red-600">
                           {formatPercent(
-                            comparisonData.comparison.multi.maxDrawdown
+                            displayData.comparison.multi.maxDrawdown
                           )}
                         </td>
                       </tr>
@@ -849,7 +863,7 @@ function Comparison() {
           </div>
 
           {/* Optimized High ROI Configuration */}
-          {comparisonData.comparisonHighROI && (
+          {displayData.comparisonHighROI && (
             <div
               className={`rounded-xl shadow-sm border ${
                 isDarkMode
@@ -878,12 +892,12 @@ function Comparison() {
                   }`}
                 >
                   Performance with optimized parameters (
-                  {comparisonData.comparisonHighROI.configName})
+                  {displayData.comparisonHighROI.configName})
                 </p>
                 {/* Optimized Config Details */}
                 <div className="mt-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
                   {Object.entries(
-                    comparisonData.comparisonHighROI.config || {}
+                    displayData.comparisonHighROI.config || {}
                   ).map(([key, value]) => (
                     <div
                       key={key}
@@ -970,7 +984,7 @@ function Comparison() {
                     </thead>
                     <tbody>
                       {Object.entries(
-                        comparisonData.comparisonHighROI?.single || {}
+                        displayData.comparisonHighROI?.single || {}
                       ).map(([strategy, data]) => (
                         <tr
                           key={strategy}
@@ -989,7 +1003,7 @@ function Comparison() {
                               >
                                 {strategy}
                               </span>
-                              {comparisonData.comparisonHighROI
+                              {displayData.comparisonHighROI
                                 ?.bestSingleIndicator === strategy && (
                                 <span
                                   className={`px-2 py-0.5 text-xs rounded-full font-medium ${
@@ -1047,7 +1061,7 @@ function Comparison() {
                         </tr>
                       ))}
                       {/* Multi Strategy Row */}
-                      {comparisonData.comparisonHighROI?.multi && (
+                      {displayData.comparisonHighROI?.multi && (
                         <tr
                           className={`border-b font-medium ${
                             isDarkMode
@@ -1075,7 +1089,7 @@ function Comparison() {
                               >
                                 Combined
                               </span>
-                              {comparisonData.comparison?.bestStrategy ===
+                              {displayData.comparison?.bestStrategy ===
                                 "multi" && (
                                 <span
                                   className={`px-2 py-0.5 text-xs rounded-full font-medium ${
@@ -1092,11 +1106,11 @@ function Comparison() {
                           <td className="py-3 px-4 text-right">
                             <span
                               className={`font-bold ${getROIColor(
-                                comparisonData.comparisonHighROI.multi.roi
+                                displayData.comparisonHighROI.multi.roi
                               )}`}
                             >
                               {formatPercent(
-                                comparisonData.comparisonHighROI.multi.roi
+                                displayData.comparisonHighROI.multi.roi
                               )}
                             </span>
                           </td>
@@ -1106,7 +1120,7 @@ function Comparison() {
                             }`}
                           >
                             {formatPercent(
-                              comparisonData.comparisonHighROI.multi.winRate
+                              displayData.comparisonHighROI.multi.winRate
                             )}
                           </td>
                           <td
@@ -1114,20 +1128,19 @@ function Comparison() {
                               isDarkMode ? "text-gray-300" : ""
                             }`}
                           >
-                            {comparisonData.comparisonHighROI.multi.trades}
+                            {displayData.comparisonHighROI.multi.trades}
                           </td>
                           <td className="py-3 px-4 text-right">
                             <span
                               className={`font-mono text-sm ${
-                                comparisonData.comparisonHighROI.multi
+                                displayData.comparisonHighROI.multi
                                   .finalCapital >= 10000
                                   ? "text-green-600"
                                   : "text-red-600"
                               }`}
                             >
                               {formatCurrency(
-                                comparisonData.comparisonHighROI.multi
-                                  .finalCapital
+                                displayData.comparisonHighROI.multi.finalCapital
                               )}
                             </span>
                           </td>
@@ -1136,10 +1149,10 @@ function Comparison() {
                               isDarkMode ? "text-gray-300" : ""
                             }`}
                           >
-                            {comparisonData.comparisonHighROI.multi
+                            {displayData.comparisonHighROI.multi
                               .annualizedReturn
                               ? formatPercent(
-                                  comparisonData.comparisonHighROI.multi
+                                  displayData.comparisonHighROI.multi
                                     .annualizedReturn
                                 )
                               : "N/A"}

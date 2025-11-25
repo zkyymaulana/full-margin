@@ -30,7 +30,7 @@ export async function updateProfile(req, res) {
 }
 
 /**
- * 📱 Update Telegram Settings untuk User
+ * Update Telegram Settings untuk User
  * PATCH /api/users/:id/telegram
  */
 export async function updateTelegramSettings(req, res) {
@@ -88,7 +88,7 @@ export async function updateTelegramSettings(req, res) {
       },
     });
 
-    console.log(`✅ Updated Telegram settings for user ${userId}`);
+    console.log(`Updated Telegram settings for user ${userId}`);
 
     return res.json({
       success: true,

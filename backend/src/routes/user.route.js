@@ -11,7 +11,6 @@ const router = express.Router();
 router.get("/profile", verifyToken, getProfile);
 router.put("/profile", verifyToken, updateProfile);
 
-// 📱 Telegram Settings
 router.patch("/:id/telegram", verifyToken, updateTelegramSettings);
 
 export default router;

@@ -4,20 +4,71 @@ import { confirmLogout } from "../utils/notifications";
 import { useState, useEffect } from "react";
 import { useDarkMode } from "../contexts/DarkModeContext";
 import { useSidebar } from "../contexts/SidebarContext";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getUserProfile } from "../services/api.service";
 
 function Sidebar() {
   const { mutate: logout } = useLogout();
-  const [currentTime, setCurrentTime] = useState(new Date());
   const { isDarkMode } = useDarkMode();
   const { isSidebarOpen, closeSidebar } = useSidebar();
+  const queryClient = useQueryClient();
 
-  // Update time every second
+  // Fetch user profile to get Telegram status
+  const { data: userProfile } = useQuery({
+    queryKey: ["userProfile"],
+    queryFn: getUserProfile,
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  // Get last data update time from React Query cache
+  const [lastDataUpdate, setLastDataUpdate] = useState(new Date());
+
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    // Function to get the most recent data update time
+    const updateLastDataTime = () => {
+      const queryCache = queryClient.getQueryCache();
+      const queries = queryCache.getAll();
+
+      // Filter for data queries (market data, indicators, etc.)
+      const dataQueries = queries.filter((query) => {
+        const queryKey = query.queryKey;
+        return (
+          queryKey &&
+          queryKey.some(
+            (key) =>
+              typeof key === "string" &&
+              (key.includes("indicator") ||
+                key.includes("candles") ||
+                key.includes("marketcap") ||
+                key.includes("comparison") ||
+                key === "symbols")
+          ) &&
+          query.state.dataUpdatedAt
+        );
+      });
+
+      if (dataQueries.length > 0) {
+        const mostRecentUpdate = Math.max(
+          ...dataQueries.map((q) => q.state.dataUpdatedAt)
+        );
+        if (mostRecentUpdate > lastDataUpdate.getTime()) {
+          setLastDataUpdate(new Date(mostRecentUpdate));
+        }
+      }
+    };
+
+    // Initial check
+    updateLastDataTime();
+
+    // Subscribe to query cache changes
+    const unsubscribe = queryClient.getQueryCache().subscribe(() => {
+      updateLastDataTime();
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [queryClient, lastDataUpdate]);
 
   const handleLogout = async () => {
     const confirmed = await confirmLogout();
@@ -61,6 +112,10 @@ function Sidebar() {
       hour12: true,
     });
   };
+
+  // Check Telegram connection status
+  const isTelegramConnected =
+    userProfile?.data?.telegramEnabled && userProfile?.data?.telegramChatId;
 
   return (
     <>
@@ -129,15 +184,27 @@ function Sidebar() {
             <div className="space-y-2 text-xs">
               <div className="flex items-center justify-between">
                 <span className="text-white/70">Last Updated:</span>
-                <span className="font-semibold">{formatTime(currentTime)}</span>
+                <span className="font-semibold">
+                  {formatTime(lastDataUpdate)}
+                </span>
               </div>
 
               <div className="flex items-center justify-between">
                 <span className="text-white/70">Status:</span>
                 <div className="flex items-center gap-1">
-                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                  <span className="font-semibold text-green-300">
-                    Connected
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      isTelegramConnected
+                        ? "bg-green-400 animate-pulse"
+                        : "bg-red-400"
+                    }`}
+                  ></span>
+                  <span
+                    className={`font-semibold ${
+                      isTelegramConnected ? "text-green-300" : "text-red-300"
+                    }`}
+                  >
+                    {isTelegramConnected ? "Connected" : "Disconnected"}
                   </span>
                 </div>
               </div>

@@ -117,37 +117,41 @@ function mergeIndicatorsWithCandles(indicators, candles) {
     .filter((i) => i.close != null);
 }
 
-/** Get best optimized weights from database */
+/** Get best optimized weights from database - ✅ Always use latest optimization */
 async function getBestWeights(symbol, timeframe) {
-  const all = await prisma.indicatorWeight.findMany({
+  // ✅ UPDATED: Always get the latest optimization by updatedAt DESC
+  const latest = await prisma.indicatorWeight.findFirst({
     where: { symbol, timeframe },
-    orderBy: [{ updatedAt: "desc" }],
+    orderBy: { updatedAt: "desc" }, // ✅ Always use the most recent optimization
   });
 
-  if (!all.length)
+  if (!latest) {
+    console.log(
+      `⚠️ No optimized weights found for ${symbol}, using default equal weights`
+    );
     return {
       weights: defaultWeights(),
       source: "default",
     };
+  }
 
-  // Prefer Rule-Based optimized weights
-  const ruleBased = all.find((r) =>
-    (r.methodology || "").includes("Rule-Based")
+  console.log(
+    `✅ Using latest optimization for ${symbol} (updated: ${latest.updatedAt.toISOString()})`
+  );
+  console.log(
+    `   ROI: ${latest.roi.toFixed(2)}%, WinRate: ${latest.winRate.toFixed(2)}%`
   );
 
-  if (ruleBased)
-    return {
-      weights: ruleBased.weights,
-      source: "rule-based",
-      optimizedAt: ruleBased.updatedAt,
-    };
-
-  // Fallback: get best ROI
-  const best = all.sort((a, b) => b.roi - a.roi)[0];
   return {
-    weights: best.weights || defaultWeights(),
-    source: "database",
-    optimizedAt: best.updatedAt,
+    weights: latest.weights,
+    source: "latest_optimization",
+    optimizedAt: latest.updatedAt,
+    performance: {
+      roi: latest.roi,
+      winRate: latest.winRate,
+      maxDrawdown: latest.maxDrawdown,
+      sharpeRatio: latest.sharpeRatio,
+    },
   };
 }
 

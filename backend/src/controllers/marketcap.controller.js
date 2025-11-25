@@ -64,18 +64,17 @@ export async function getMarketcapLiveController(req, res) {
 }
 
 /**
- * 📋 Mengambil daftar symbol coin dari database (hanya Top 20)
- * Data diambil langsung dari TopCoin table, bukan dari live API
- * ✅ Include logo dari tabel Coin
+ * Mengambil daftar symbol coin dari database (hanya Top 20)
+ * Data diambil langsung dari TopCoin table
  */
 export async function getCoinSymbols(req, res) {
   try {
-    console.log("📋 Mengambil daftar symbol coin dari database...");
+    console.log("Mengambil daftar symbol coin dari database...");
 
-    // 🎯 Ambil Top 20 dari TopCoin dengan JOIN ke Coin untuk ambil logo
+    // Ambil Top 20 dari TopCoin dengan JOIN ke Coin untuk ambil logo
     const symbols = await prisma.topCoin.findMany({
       where: {
-        symbol: { contains: "-" }, // ✅ Hanya pair valid seperti BTC-USD, ETH-USD
+        symbol: { contains: "-" }, //  Hanya pair valid seperti BTC-USD, ETH-USD
       },
       select: {
         symbol: true,
@@ -85,10 +84,10 @@ export async function getCoinSymbols(req, res) {
       orderBy: {
         rank: "asc", // Urutkan berdasarkan rank dari kecil ke besar
       },
-      take: 20, // 🎯 Ambil maksimal 20 symbols
+      take: 20, // Ambil maksimal 20 symbols
     });
 
-    // ✅ Ambil logo dari tabel Coin untuk setiap symbol
+    //  Ambil logo dari tabel Coin untuk setiap symbol
     const symbolsWithLogo = await Promise.all(
       symbols.map(async (item) => {
         const coin = await prisma.coin.findUnique({
@@ -98,12 +97,12 @@ export async function getCoinSymbols(req, res) {
 
         return {
           ...item,
-          logo: coin?.logo || null, // ✅ Tambahkan logo, default null jika tidak ada
+          logo: coin?.logo || null, //  Tambahkan logo, default null jika tidak ada
         };
       })
     );
 
-    console.log(`✅ Found ${symbolsWithLogo.length} symbols in database`);
+    console.log(` Found ${symbolsWithLogo.length} symbols in database`);
 
     res.json({
       success: true,

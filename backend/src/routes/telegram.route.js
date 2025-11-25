@@ -13,17 +13,10 @@ import {
 
 const router = express.Router();
 
-/**
- * 📱 TELEGRAM NOTIFICATION ROUTES (MULTI-INDICATOR ONLY)
- * -------------------------------------------------------
- * Testing dan management notifikasi Telegram
- * Single indicator endpoints REMOVED
- */
-
-// 🤖 Webhook untuk Telegram Bot (NO AUTH - webhook dari Telegram)
+// Webhook untuk Telegram Bot (NO AUTH - webhook dari Telegram)
 router.post("/webhook", telegramWebhookController);
 
-// 📣 Broadcast endpoints
+// Broadcast endpoints
 router.post("/broadcast", broadcastController);
 router.post("/broadcast-signal", broadcastSignalController);
 

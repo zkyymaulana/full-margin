@@ -651,7 +651,7 @@ function MarketCap() {
             Showing {filteredCoins.length} of {coins.length} coins (Limit:{" "}
             {limit})
           </div>
-          <div className="flex gap-2">
+          {/* <div className="flex gap-2">
             <button
               className={`px-4 py-2 border rounded-lg transition-colors text-sm font-medium ${
                 isDarkMode
@@ -664,7 +664,7 @@ function MarketCap() {
             <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
               Next
             </button>
-          </div>
+          </div> */}
         </div>
       </div>
     </div>

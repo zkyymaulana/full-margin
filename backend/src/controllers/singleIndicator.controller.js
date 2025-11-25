@@ -75,7 +75,7 @@ async function getIndicatorsWithPrices(symbol, timeframe) {
 }
 
 /* ==========================================================
-   📊 BACKTEST SINGLE INDICATOR
+   BACKTEST SINGLE INDICATOR
 ========================================================== */
 export async function backtestSingleIndicatorController(req, res) {
   try {
@@ -134,7 +134,7 @@ export async function backtestSingleIndicatorController(req, res) {
 }
 
 /* ==========================================================
-   📊 BACKTEST SEMUA INDIKATOR (COMPARISON)
+  BACKTEST SEMUA INDIKATOR (COMPARISON)
 ========================================================== */
 export async function backtestAllIndicatorsController(req, res) {
   try {

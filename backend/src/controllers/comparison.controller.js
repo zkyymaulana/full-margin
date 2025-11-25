@@ -1,46 +1,8 @@
-/**
- * 📊 COMPARISON CONTROLLER (Clean Architecture)
- * ---------------------------------------------------------------
- * HTTP Layer - handles only request/response
- * All business logic delegated to comparison.service.js
- *
- * Responsibilities:
- * - Validate request parameters
- * - Call service layer
- * - Format HTTP responses
- * - Handle HTTP status codes
- */
-
 import { compareStrategies } from "../services/comparison/comparison.service.js";
 
-/**
- * 🎯 Compare Trading Strategies Endpoint
- *
- * POST /api/comparison/compare
- * Body: { symbol, startDate, endDate }
- *
- * Returns unified comparison structure:
- * {
- *   success: boolean,
- *   symbol: string,
- *   timeframe: string,
- *   period: { start, end, days },
- *   comparison: { single, multi, bestStrategy },
- *   bestWeights: object,
- *   weightSource: string,
- *   analysis: {
- *     periodDays, candles, dataPoints,
- *     bestSingle: { indicator, roi, winRate, maxDrawdown, trades },
- *     multiBeatsBestSingle: boolean,
- *     roiDifference: number,
- *     winRateComparison: { multi, bestSingle, difference }
- *   },
- *   timestamp: string
- * }
- */
 export const compareIndicators = async (req, res) => {
   try {
-    // 1️⃣ Validate request parameters
+    // Validate request parameters
     const { symbol, startDate, endDate } = req.body;
 
     if (!symbol || !startDate || !endDate) {
@@ -56,7 +18,7 @@ export const compareIndicators = async (req, res) => {
       });
     }
 
-    // 2️⃣ Validate date formats
+    // Validate date formats
     const startDateObj = new Date(startDate);
     const endDateObj = new Date(endDate);
 
@@ -78,15 +40,15 @@ export const compareIndicators = async (req, res) => {
       `📊 Comparison request received: ${symbol} (${startDate} → ${endDate})`
     );
 
-    // 3️⃣ Call service layer (pure business logic)
+    // Call service layer (pure business logic)
     const result = await compareStrategies(symbol, startDate, endDate);
 
-    // 4️⃣ Handle service response
+    // Handle service response
     if (!result.success) {
       return res.status(404).json(result);
     }
 
-    // 5️⃣ Return successful response
+    // Return successful response
     return res.status(200).json(result);
   } catch (error) {
     console.error("❌ Comparison Controller Error:", error);

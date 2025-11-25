@@ -12,7 +12,7 @@ import { prisma } from "../lib/prisma.js";
 import axios from "axios";
 
 /**
- * 🧪 Test Telegram connection
+ * Test Telegram connection
  */
 export async function testTelegramController(req, res) {
   try {
@@ -34,7 +34,7 @@ export async function testTelegramController(req, res) {
 }
 
 /**
- * 🎯 Test multi-indicator signal detection
+ * Test multi-indicator signal detection
  */
 export async function testMultiSignalController(req, res) {
   try {
@@ -56,7 +56,7 @@ export async function testMultiSignalController(req, res) {
 }
 
 /**
- * 🔄 Test all symbols signal detection (Multi Indicator Only)
+ * Test all symbols signal detection (Multi Indicator Only)
  */
 export async function testAllSignalsController(req, res) {
   try {
@@ -80,7 +80,7 @@ export async function testAllSignalsController(req, res) {
 }
 
 /**
- * 🧹 Clear signal cache
+ * Clear signal cache
  */
 export async function clearCacheController(req, res) {
   try {
@@ -103,7 +103,7 @@ export async function clearCacheController(req, res) {
 }
 
 /**
- * ⚙️ Get Telegram configuration status
+ * Get Telegram configuration status
  */
 export async function getTelegramConfigController(req, res) {
   try {
@@ -126,7 +126,7 @@ export async function getTelegramConfigController(req, res) {
 }
 
 /**
- * 🔄 Toggle Telegram notifications (enable/disable)
+ * Toggle Telegram notifications (enable/disable)
  */
 export async function toggleTelegramController(req, res) {
   try {
@@ -160,8 +160,7 @@ export async function toggleTelegramController(req, res) {
 }
 
 /**
- * 🤖 Telegram Webhook untuk auto-register chat ID
- * POST /api/telegram/webhook
+ * Telegram Webhook untuk auto-register chat ID
  */
 export async function telegramWebhookController(req, res) {
   try {
@@ -304,8 +303,7 @@ Chat ID: \`${chatId}\`
 }
 
 /**
- * 📣 Test broadcast ke semua user
- * POST /api/telegram/broadcast
+ * Test broadcast ke semua user
  */
 export async function broadcastController(req, res) {
   try {
@@ -335,7 +333,7 @@ export async function broadcastController(req, res) {
 }
 
 /**
- * 📊 Test broadcast trading signal (Multi Indicator Only)
+ * Test broadcast trading signal (Multi Indicator Only)
  * POST /api/telegram/broadcast-signal
  */
 export async function broadcastSignalController(req, res) {

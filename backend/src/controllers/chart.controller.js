@@ -4,24 +4,18 @@ import { getCoinLiveDetail } from "../services/market/index.js";
 import { calculateAndSaveIndicators } from "../services/indicators/indicator.service.js";
 
 /**
- * 🎯 Helper: Format multiSignal dari database (NO RECALCULATION)
- * ✅ 100% menggunakan data dari tabel Indicator
- * ✅ Sesuai metodologi penelitian: threshold = 0, no voting
- * ✅ UPDATED: Gunakan finalScore yang sudah tersimpan di DB
- * ✅ NEW: categoryScores = WEIGHTED CONTRIBUTION (bukan average)
- *
- * @param {Object} ind - Indicator dari database
- * @param {Object} weights - Weights dari database (untuk calculate categoryScores)
- * @returns {Object|null} multiSignal object atau null
+ * Format sinyal multi-indikator dari database.
+ * TIDAK menghitung ulang indikator, hanya mapping data yang sudah tersimpan.
+ * Digunakan untuk keperluan chart & monitoring real-time.
  */
 function formatMultiSignalFromDB(ind, weights = null) {
-  if (!ind) return null;
+  if (!ind) return null; // Jika tidak ada data indikator, return null
 
-  // ✅ Ambil langsung dari database - NO CALCULATION
+  // Ambil nilai finalScore & strength langsung dari DB
   const dbFinalScore = ind.finalScore ?? 0;
   const dbStrength = ind.signalStrength ?? 0;
 
-  // ✅ Map signal dari finalScore (threshold = 0)
+  // Mapping sinyal berdasarkan finalScore (threshold = 0)
   let signal = "neutral";
   let finalScore = dbFinalScore;
   let strength = dbStrength;
@@ -35,21 +29,19 @@ function formatMultiSignalFromDB(ind, weights = null) {
     strength = 0;
   }
 
-  // ✅ Format label & emoji berdasarkan strength threshold (0.6)
+  // label & emoji berdasarkan strength threshold (0.6)
   let signalLabel = "NEUTRAL";
-  let signalEmoji = "⚪";
 
   if (signal === "buy") {
     signalLabel = strength >= 0.6 ? "STRONG BUY" : "BUY";
-    signalEmoji = strength >= 0.6 ? "🟢🟢" : "🟢";
   } else if (signal === "sell") {
     signalLabel = strength >= 0.6 ? "STRONG SELL" : "SELL";
-    signalEmoji = strength >= 0.6 ? "🔴🔴" : "🔴";
   }
 
-  // ✅ NEW: Calculate WEIGHTED categoryScores (contribution to final score)
+  // Default category score
   let categoryScores = { trend: 0, momentum: 0, volatility: 0 };
 
+  // Jika bobot tersedia, hitung kontribusi per kategori
   if (weights) {
     const signalToScore = (sig) => {
       if (!sig) return 0;
@@ -59,20 +51,20 @@ function formatMultiSignalFromDB(ind, weights = null) {
       return 0;
     };
 
-    // ✅ WEIGHTED Trend category: (signal × weight) for each indicator
+    // Kontribusi tren (SMA + EMA + PSAR)
     const trendScore =
       signalToScore(ind.smaSignal) * (weights.SMA || 0) +
       signalToScore(ind.emaSignal) * (weights.EMA || 0) +
       signalToScore(ind.psarSignal) * (weights.PSAR || 0);
 
-    // ✅ WEIGHTED Momentum category
+    // Kontribusi momentum (RSI + MACD + Stochastic + StochRSI)
     const momentumScore =
       signalToScore(ind.rsiSignal) * (weights.RSI || 0) +
       signalToScore(ind.macdSignal) * (weights.MACD || 0) +
       signalToScore(ind.stochSignal) * (weights.Stochastic || 0) +
       signalToScore(ind.stochRsiSignal) * (weights.StochasticRSI || 0);
 
-    // ✅ WEIGHTED Volatility category
+    // Kontribusi volatilitas (Bollinger Bands)
     const volatilityScore =
       signalToScore(ind.bbSignal) * (weights.BollingerBands || 0);
 
@@ -89,11 +81,13 @@ function formatMultiSignalFromDB(ind, weights = null) {
     finalScore: parseFloat(finalScore.toFixed(2)),
     signalLabel,
     signalEmoji,
-    categoryScores, // ✅ Now shows WEIGHTED contribution
-    source: "db",
+    categoryScores,
+    source: "db", // Source ditandai dari database
   };
 }
 
+// Controller utama untuk endpoint chart
+// Mengembalikan data candlestick + indikator + multi-signal dari database
 export async function getChart(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
@@ -104,7 +98,7 @@ export async function getChart(req, res) {
 
     console.log(`📊 [Chart] ${symbol} | Page ${page} | Limit ${limit}`);
 
-    // ✅ Ambil info coin (name + logo) dari tabel Coin
+    // Ambil info coin (name + logo) dari tabel Coin
     const coinInfo = await prisma.coin.findUnique({
       where: { symbol },
       select: { name: true, logo: true },
@@ -134,7 +128,7 @@ export async function getChart(req, res) {
     const minTime = Math.min(...times);
     const maxTime = Math.max(...times);
 
-    // ✅ Get weights for categoryScores calculation
+    //  Get weights for categoryScores calculation
     const weightRecord = await prisma.indicatorWeight.findFirst({
       where: { symbol, timeframe },
       orderBy: { updatedAt: "desc" },
@@ -169,19 +163,19 @@ export async function getChart(req, res) {
           orderBy: { time: "asc" },
         });
         console.log(
-          `✅ [AUTO] Found ${indicators.length}/${expected} indicators after recalc.`
+          ` [AUTO] Found ${indicators.length}/${expected} indicators after recalc.`
         );
       } catch (err) {
         console.error(`❌ [AUTO] Indicator calculation failed:`, err.message);
       }
     }
 
-    // ✅ Gabungkan candle + indikator (PURE DATABASE - NO CALCULATION)
+    //  Gabungkan candle + indikator (PURE DATABASE - NO CALCULATION)
     const indicatorMap = new Map(indicators.map((i) => [Number(i.time), i]));
     const merged = chartData.candles.map((c) => {
       const ind = indicatorMap.get(Number(c.time));
 
-      // ✅ Format multiSignal dari database (NO RECALCULATION)
+      //  Format multiSignal dari database (NO RECALCULATION)
       const multiSignal = formatMultiSignalFromDB(ind, weights);
 
       return {
@@ -191,48 +185,48 @@ export async function getChart(req, res) {
         low: c.low,
         close: c.close,
         volume: c.volume,
-        multiSignal, // ✅ Pure database, no calculation
+        multiSignal, //  database
         indicators: ind
           ? {
               sma: {
                 20: ind.sma20,
                 50: ind.sma50,
-                signal: ind.smaSignal || "neutral", // ✅ From DB
+                signal: ind.smaSignal || "neutral", //  From DB
               },
               ema: {
                 20: ind.ema20,
                 50: ind.ema50,
-                signal: ind.emaSignal || "neutral", // ✅ From DB
+                signal: ind.emaSignal || "neutral", //  From DB
               },
               rsi: {
                 14: ind.rsi,
-                signal: ind.rsiSignal || "neutral", // ✅ From DB
+                signal: ind.rsiSignal || "neutral", //  From DB
               },
               macd: {
                 macd: ind.macd,
                 signalLine: ind.macdSignalLine,
                 histogram: ind.macdHist,
-                signal: ind.macdSignal || "neutral", // ✅ From DB
+                signal: ind.macdSignal || "neutral", //  From DB
               },
               bollingerBands: {
                 upper: ind.bbUpper,
                 middle: ind.bbMiddle,
                 lower: ind.bbLower,
-                signal: ind.bbSignal || "neutral", // ✅ From DB
+                signal: ind.bbSignal || "neutral", //  From DB
               },
               stochastic: {
                 "%K": ind.stochK,
                 "%D": ind.stochD,
-                signal: ind.stochSignal || "neutral", // ✅ From DB
+                signal: ind.stochSignal || "neutral", //  From DB
               },
               stochasticRsi: {
                 "%K": ind.stochRsiK,
                 "%D": ind.stochRsiD,
-                signal: ind.stochRsiSignal || "neutral", // ✅ From DB
+                signal: ind.stochRsiSignal || "neutral", //  From DB
               },
               parabolicSar: {
                 value: ind.psar,
-                signal: ind.psarSignal || "neutral", // ✅ From DB
+                signal: ind.psarSignal || "neutral", //  From DB
               },
             }
           : null,
@@ -243,7 +237,7 @@ export async function getChart(req, res) {
     const withIndicators = merged.filter((m) => m.indicators).length;
     const coverage = (withIndicators / merged.length) * 100;
 
-    // 📊 Log multiSignal stats untuk debugging
+    // Log multiSignal stats untuk debugging
     const signalStats = {
       buy: merged.filter((m) => m.multiSignal?.signal === "buy").length,
       sell: merged.filter((m) => m.multiSignal?.signal === "sell").length,
@@ -290,7 +284,7 @@ export async function getChart(req, res) {
         coverage: `${withIndicators}/${merged.length}`,
         coveragePercent: `${coverage.toFixed(1)}%`,
         signalDistribution: signalStats,
-        source: "database", // ✅ Mark as pure database
+        source: "database", //  Mark as pure database
         range: {
           start: new Date(minTime).toLocaleString("id-ID", {
             day: "2-digit",
@@ -312,7 +306,7 @@ export async function getChart(req, res) {
       data: merged,
     });
   } catch (err) {
-    console.error("❌ Chart Error:", err.message);
+    console.error("Chart Error:", err.message);
     return res.status(500).json({ success: false, message: err.message });
   }
 }
