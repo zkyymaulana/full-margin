@@ -18,6 +18,30 @@ export const formatPrice = (price) => {
 };
 
 /**
+ * Format ROI/Win Rate/Max Drawdown - display with % suffix
+ * Used for: ROI, Win Rate, Max Drawdown (all are percentage values from backend)
+ */
+export const formatPercent = (num) => {
+  if (num === null || num === undefined || isNaN(num)) return "N/A";
+  return `${Number(num).toFixed(2)}%`;
+};
+
+/**
+ * Format ratio values (Sharpe, Sortino) - no % suffix
+ * Used for: Sharpe Ratio, Sortino Ratio (these are ratios, not percentages)
+ */
+export const formatRatio = (num) => {
+  if (num === null || num === undefined || isNaN(num)) return "N/A";
+  return Number(num).toFixed(2);
+};
+
+// Format ROI - just display the number as is from backend
+export const formatROI = (num) => {
+  if (!num && num !== 0) return "N/A";
+  return Number(num).toFixed(2);
+};
+
+/**
  * Get signal with color and icon based on signal type
  */
 export const getIndicatorSignal = (signal, isDarkMode) => {

@@ -16,8 +16,14 @@ function Comparison() {
     mutate: compare,
     data: comparisonData,
     isLoading,
+    isPending,
     error,
   } = useComparison();
+
+  // 🔍 DEBUG: Log loading state
+  useEffect(() => {
+    console.log("🔄 Loading State:", { isLoading, isPending });
+  }, [isLoading, isPending]);
 
   // ✅ Load cached comparison result for current symbol
   const cachedData = queryClient.getQueryData(["comparison", selectedSymbol]);
@@ -34,6 +40,18 @@ function Comparison() {
 
   // ✅ Use cached data if available, otherwise use fresh data
   const displayData = comparisonData || cachedData;
+
+  // 🔍 DEBUG: Log bestStrategy untuk debugging
+  useEffect(() => {
+    if (displayData?.comparison?.bestStrategy) {
+      console.log("🏆 Best Strategy:", displayData.comparison.bestStrategy);
+      console.log("📊 Comparison Data:", {
+        single: displayData.analysis?.bestSingle,
+        multi: displayData.comparison?.multi?.roi,
+        voting: displayData.comparison?.voting?.roi,
+      });
+    }
+  }, [displayData]);
 
   const handleCompare = () => {
     if (!startDate || !endDate) {
@@ -54,9 +72,16 @@ function Comparison() {
     return typeof num === "number" ? num.toFixed(2) : num;
   };
 
+  // Format for ROI, Win Rate, Max Drawdown - add % suffix
   const formatPercent = (num) => {
     if (!num && num !== 0) return "N/A";
     return `${num.toFixed(2)}%`;
+  };
+
+  // Format for Sharpe/Sortino Ratio - no % suffix
+  const formatRatio = (num) => {
+    if (!num && num !== 0) return "N/A";
+    return num.toFixed(2);
   };
 
   const formatCurrency = (num) => {
@@ -74,26 +99,6 @@ function Comparison() {
     if (roi >= 0) return "text-green-500";
     if (roi >= -50) return "text-red-500";
     return "text-red-600";
-  };
-
-  const getROIBadge = (roi) => {
-    if (!roi && roi !== 0)
-      return isDarkMode
-        ? "bg-gray-700 text-gray-300"
-        : "bg-gray-100 text-gray-700";
-    if (roi >= 50)
-      return isDarkMode
-        ? "bg-green-900 text-green-300"
-        : "bg-green-100 text-green-700";
-    if (roi >= 0)
-      return isDarkMode
-        ? "bg-green-900/50 text-green-400"
-        : "bg-green-50 text-green-600";
-    if (roi >= -50)
-      return isDarkMode
-        ? "bg-red-900/50 text-red-400"
-        : "bg-red-50 text-red-600";
-    return isDarkMode ? "bg-red-900 text-red-300" : "bg-red-100 text-red-700";
   };
 
   return (
@@ -212,7 +217,7 @@ function Comparison() {
                   setEndDate(end.toISOString().split("T")[0]);
                   setStartDate(start.toISOString().split("T")[0]);
                 }}
-                className={`px-3 py-1 text-xs rounded-lg transition-colors ${
+                className={`px-3 py-1 text-xs rounded-lg transition-colors hover:cursor-pointer ${
                   isDarkMode
                     ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
                     : "bg-gray-100 hover:bg-gray-200"
@@ -228,7 +233,7 @@ function Comparison() {
                   setEndDate(end.toISOString().split("T")[0]);
                   setStartDate(start.toISOString().split("T")[0]);
                 }}
-                className={`px-3 py-1 text-xs rounded-lg transition-colors ${
+                className={`px-3 py-1 text-xs rounded-lg transition-colors hover:cursor-pointer ${
                   isDarkMode
                     ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
                     : "bg-gray-100 hover:bg-gray-200"
@@ -244,7 +249,7 @@ function Comparison() {
                   setEndDate(end.toISOString().split("T")[0]);
                   setStartDate(start.toISOString().split("T")[0]);
                 }}
-                className={`px-3 py-1 text-xs rounded-lg transition-colors ${
+                className={`px-3 py-1 text-xs rounded-lg transition-colors hover:cursor-pointer ${
                   isDarkMode
                     ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
                     : "bg-gray-100 hover:bg-gray-200"
@@ -257,7 +262,7 @@ function Comparison() {
                   setEndDate("2025-10-18");
                   setStartDate("2020-01-01");
                 }}
-                className={`px-3 py-1 text-xs rounded-lg transition-colors ${
+                className={`px-3 py-1 text-xs rounded-lg transition-colors hover:cursor-pointer ${
                   isDarkMode
                     ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
                     : "bg-gray-100 hover:bg-gray-200"
@@ -269,10 +274,10 @@ function Comparison() {
 
             <button
               onClick={handleCompare}
-              disabled={isLoading}
-              className="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 font-medium flex items-center justify-center gap-2"
+              disabled={isLoading || isPending}
+              className="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2 hover:cursor-pointer"
             >
-              {isLoading ? (
+              {isLoading || isPending ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   Analyzing...
@@ -289,7 +294,7 @@ function Comparison() {
       </div>
 
       {/* Error Display */}
-      {error && (
+      {error && !(isLoading || isPending) && (
         <div
           className={`border rounded-xl p-4 ${
             isDarkMode
@@ -308,8 +313,111 @@ function Comparison() {
         </div>
       )}
 
+      {/* Loading State Overlay */}
+      {(isLoading || isPending) && (
+        <div
+          className={`rounded-xl shadow-sm border p-12 ${
+            isDarkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-200"
+          }`}
+        >
+          <div className="flex flex-col items-center justify-center space-y-6">
+            {/* Animated Spinner */}
+            <div className="relative">
+              <div className="w-20 h-20 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-3xl">🔍</span>
+              </div>
+            </div>
+
+            {/* Loading Text */}
+            <div className="text-center">
+              <h3
+                className={`text-2xl font-bold mb-2 ${
+                  isDarkMode ? "text-white" : "text-gray-900"
+                }`}
+              >
+                Analyzing Strategies...
+              </h3>
+              <p
+                className={`text-sm ${
+                  isDarkMode ? "text-gray-400" : "text-gray-600"
+                }`}
+              >
+                Running backtests for {selectedSymbol} ({startDate} to {endDate}
+                )
+              </p>
+            </div>
+
+            {/* Progress Indicators */}
+            <div className="w-full max-w-md space-y-3">
+              <div
+                className={`flex items-center justify-between p-3 rounded-lg ${
+                  isDarkMode ? "bg-gray-700" : "bg-gray-50"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                  <span
+                    className={`text-sm ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
+                    Testing 8 single indicators
+                  </span>
+                </div>
+                <span className="text-xs text-gray-500">Step 1/3</span>
+              </div>
+
+              <div
+                className={`flex items-center justify-between p-3 rounded-lg ${
+                  isDarkMode ? "bg-gray-700" : "bg-gray-50"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"
+                    style={{ animationDelay: "0.2s" }}
+                  ></div>
+                  <span
+                    className={`text-sm ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
+                    Running multi-indicator backtest
+                  </span>
+                </div>
+                <span className="text-xs text-gray-500">Step 2/3</span>
+              </div>
+
+              <div
+                className={`flex items-center justify-between p-3 rounded-lg ${
+                  isDarkMode ? "bg-gray-700" : "bg-gray-50"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"
+                    style={{ animationDelay: "0.4s" }}
+                  ></div>
+                  <span
+                    className={`text-sm ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
+                    Calculating voting strategy
+                  </span>
+                </div>
+                <span className="text-xs text-gray-500">Step 3/3</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Comparison Results */}
-      {displayData?.success && (
+      {displayData?.success && !(isLoading || isPending) && (
         <>
           {/* Overview Stats */}
           <div
@@ -350,17 +458,24 @@ function Comparison() {
                   className={`text-xl font-bold ${
                     displayData.comparison?.bestStrategy === "multi"
                       ? "text-purple-600"
+                      : displayData.comparison?.bestStrategy === "voting"
+                      ? isDarkMode
+                        ? "text-indigo-400"
+                        : "text-indigo-600"
                       : "text-blue-600"
                   }`}
                 >
                   {displayData.comparison?.bestStrategy === "multi"
                     ? "Multi-Indicator"
+                    : displayData.comparison?.bestStrategy === "voting"
+                    ? "Voting Strategy"
                     : displayData.analysis?.bestSingle?.indicator || "N/A"}
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              {/* Card 1: Total Candles */}
               <div
                 className={`rounded-lg p-4 ${
                   isDarkMode ? "bg-gray-800" : "bg-white"
@@ -381,6 +496,8 @@ function Comparison() {
                   {displayData.analysis?.dataPoints?.toLocaleString() || 0}
                 </div>
               </div>
+
+              {/* Card 2: Best Single ROI */}
               <div
                 className={`rounded-lg p-4 ${
                   isDarkMode ? "bg-gray-800" : "bg-white"
@@ -400,7 +517,16 @@ function Comparison() {
                 >
                   {formatPercent(displayData.analysis?.bestSingle?.roi)}
                 </div>
+                <div
+                  className={`text-xs mt-1 ${
+                    isDarkMode ? "text-gray-500" : "text-gray-500"
+                  }`}
+                >
+                  {displayData.analysis?.bestSingle?.indicator || "N/A"}
+                </div>
               </div>
+
+              {/* Card 3: Multi ROI */}
               <div
                 className={`rounded-lg p-4 ${
                   isDarkMode ? "bg-gray-800" : "bg-white"
@@ -420,7 +546,45 @@ function Comparison() {
                 >
                   {formatPercent(displayData.comparison?.multi?.roi)}
                 </div>
+                <div
+                  className={`text-xs mt-1 ${
+                    isDarkMode ? "text-gray-500" : "text-gray-500"
+                  }`}
+                >
+                  Weighted Strategy
+                </div>
               </div>
+
+              {/* Card 4: Voting ROI */}
+              <div
+                className={`rounded-lg p-4 ${
+                  isDarkMode ? "bg-gray-800" : "bg-white"
+                }`}
+              >
+                <div
+                  className={`text-xs mb-1 ${
+                    isDarkMode ? "text-gray-400" : "text-gray-600"
+                  }`}
+                >
+                  Voting ROI
+                </div>
+                <div
+                  className={`text-2xl font-bold ${getROIColor(
+                    displayData.comparison?.voting?.roi
+                  )}`}
+                >
+                  {formatPercent(displayData.comparison?.voting?.roi)}
+                </div>
+                <div
+                  className={`text-xs mt-1 ${
+                    isDarkMode ? "text-gray-500" : "text-gray-500"
+                  }`}
+                >
+                  Majority Vote
+                </div>
+              </div>
+
+              {/* Card 5: ROI Difference (Multi vs Best Single) */}
               <div
                 className={`rounded-lg p-4 ${
                   isDarkMode ? "bg-gray-800" : "bg-white"
@@ -437,11 +601,22 @@ function Comparison() {
                   className={`text-2xl font-bold ${
                     displayData.analysis?.roiDifference > 0
                       ? "text-green-600"
-                      : "text-red-600"
+                      : displayData.analysis?.roiDifference < 0
+                      ? "text-red-600"
+                      : isDarkMode
+                      ? "text-gray-400"
+                      : "text-gray-500"
                   }`}
                 >
                   {displayData.analysis?.roiDifference > 0 ? "+" : ""}
                   {formatPercent(displayData.analysis?.roiDifference)}
+                </div>
+                <div
+                  className={`text-xs mt-1 ${
+                    isDarkMode ? "text-gray-500" : "text-gray-500"
+                  }`}
+                >
+                  Multi vs Single
                 </div>
               </div>
             </div>
@@ -488,6 +663,44 @@ function Comparison() {
                       )}
                       )
                     </div>
+                    {/* Voting Strategy Comparison */}
+                    {displayData.comparison?.voting &&
+                      displayData.analysis.votingComparison && (
+                        <div
+                          className={`text-sm mt-2 pt-2 border-t ${
+                            isDarkMode
+                              ? "border-gray-700 text-gray-400"
+                              : "border-gray-200 text-gray-600"
+                          }`}
+                        >
+                          Voting strategy achieved{" "}
+                          {formatPercent(displayData.comparison.voting.roi)} ROI
+                          compared to Multi-Indicator{" "}
+                          {formatPercent(displayData.comparison.multi?.roi)} ROI
+                          {displayData.analysis.votingComparison.difference >
+                            0 && (
+                            <span className="text-green-600 font-medium">
+                              {" "}
+                              (+
+                              {formatPercent(
+                                displayData.analysis.votingComparison.difference
+                              )}
+                              )
+                            </span>
+                          )}
+                          {displayData.analysis.votingComparison.difference <
+                            0 && (
+                            <span className="text-red-600 font-medium">
+                              {" "}
+                              (
+                              {formatPercent(
+                                displayData.analysis.votingComparison.difference
+                              )}
+                              )
+                            </span>
+                          )}
+                        </div>
+                      )}
                   </div>
                 </div>
               </div>
@@ -684,91 +897,119 @@ function Comparison() {
                       >
                         Max Drawdown
                       </th>
+                      <th
+                        className={`text-right py-3 px-4 text-sm font-semibold whitespace-nowrap ${
+                          isDarkMode ? "text-gray-300" : "text-gray-700"
+                        }`}
+                      >
+                        Sharpe Ratio
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {Object.entries(displayData.comparison?.single || {}).map(
-                      ([strategy, data]) => (
-                        <tr
-                          key={strategy}
-                          className={`border-b transition-colors ${
-                            isDarkMode
-                              ? "border-gray-700 hover:bg-gray-700"
-                              : "border-gray-100 hover:bg-gray-50"
-                          }`}
-                        >
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
+                      ([strategy, data]) => {
+                        // Check if this single indicator is the best strategy
+                        const isBestSingle =
+                          displayData.analysis?.bestSingle?.indicator ===
+                          strategy;
+                        const isOverallWinner =
+                          displayData.comparison?.bestStrategy === "single" &&
+                          isBestSingle;
+
+                        return (
+                          <tr
+                            key={strategy}
+                            className={`border-b transition-colors ${
+                              isDarkMode
+                                ? "border-gray-700 hover:bg-gray-700"
+                                : "border-gray-100 hover:bg-gray-50"
+                            }`}
+                          >
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`font-medium ${
+                                    isDarkMode ? "text-white" : "text-gray-900"
+                                  }`}
+                                >
+                                  {strategy}
+                                </span>
+                                {isBestSingle && (
+                                  <span
+                                    className={`px-2 py-0.5 text-xs rounded-full font-medium ${
+                                      isDarkMode
+                                        ? "bg-yellow-900 text-yellow-300"
+                                        : "bg-yellow-100 text-yellow-700"
+                                    }`}
+                                  >
+                                    Best Single
+                                  </span>
+                                )}
+                                {isOverallWinner && (
+                                  <span
+                                    className={`px-2 py-0.5 text-xs rounded-full font-medium ${
+                                      isDarkMode
+                                        ? "bg-green-900 text-green-300"
+                                        : "bg-green-100 text-green-700"
+                                    }`}
+                                  >
+                                    Winner
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-right">
                               <span
-                                className={`font-medium ${
-                                  isDarkMode ? "text-white" : "text-gray-900"
+                                className={`font-bold ${getROIColor(data.roi)}`}
+                              >
+                                {formatPercent(data.roi)}
+                              </span>
+                            </td>
+                            <td
+                              className={`py-3 px-4 text-right font-mono text-sm ${
+                                isDarkMode ? "text-gray-300" : ""
+                              }`}
+                            >
+                              {formatPercent(data.winRate)}
+                            </td>
+                            <td
+                              className={`py-3 px-4 text-right font-mono text-sm ${
+                                isDarkMode ? "text-gray-300" : ""
+                              }`}
+                            >
+                              {data.trades}
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <span
+                                className={`font-mono text-sm ${
+                                  data.finalCapital >= 10000
+                                    ? "text-green-600"
+                                    : "text-red-600"
                                 }`}
                               >
-                                {strategy}
+                                {formatCurrency(data.finalCapital)}
                               </span>
-                              {displayData.analysis?.bestSingle?.indicator ===
-                                strategy && (
-                                <span
-                                  className={`px-2 py-0.5 text-xs rounded-full font-medium ${
-                                    isDarkMode
-                                      ? "bg-yellow-900 text-yellow-300"
-                                      : "bg-yellow-100 text-yellow-700"
-                                  }`}
-                                >
-                                  Best Single
-                                </span>
-                              )}
-                              {displayData.comparison?.bestStrategy ===
-                                strategy.toLowerCase() && (
-                                <span
-                                  className={`px-2 py-0.5 text-xs rounded-full font-medium ${
-                                    isDarkMode
-                                      ? "bg-green-900 text-green-300"
-                                      : "bg-green-100 text-green-700"
-                                  }`}
-                                >
-                                  Winner
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            <span
-                              className={`font-bold ${getROIColor(data.roi)}`}
-                            >
-                              {formatPercent(data.roi)}
-                            </span>
-                          </td>
-                          <td
-                            className={`py-3 px-4 text-right font-mono text-sm ${
-                              isDarkMode ? "text-gray-300" : ""
-                            }`}
-                          >
-                            {formatPercent(data.winRate)}
-                          </td>
-                          <td
-                            className={`py-3 px-4 text-right font-mono text-sm ${
-                              isDarkMode ? "text-gray-300" : ""
-                            }`}
-                          >
-                            {data.trades}
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            <span
-                              className={`font-mono text-sm ${
-                                data.finalCapital >= 10000
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono text-sm text-red-600">
+                              {formatPercent(data.maxDrawdown)}
+                            </td>
+                            <td
+                              className={`py-3 px-4 text-right font-mono text-sm ${
+                                data.sharpeRatio > 1
                                   ? "text-green-600"
+                                  : data.sharpeRatio > 0
+                                  ? isDarkMode
+                                    ? "text-gray-300"
+                                    : "text-gray-700"
                                   : "text-red-600"
                               }`}
                             >
-                              {formatCurrency(data.finalCapital)}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-right font-mono text-sm text-red-600">
-                            {formatPercent(data.maxDrawdown)}
-                          </td>
-                        </tr>
-                      )
+                              {formatRatio(data.sharpeRatio)}
+                            </td>
+                          </tr>
+                        );
+                      }
                     )}
                     {/* Multi Strategy Row */}
                     {displayData.comparison?.multi && (
@@ -797,7 +1038,7 @@ function Comparison() {
                                   : "bg-purple-100 text-purple-700"
                               }`}
                             >
-                              Combined
+                              Optimized
                             </span>
                             {displayData.comparison?.bestStrategy ===
                               "multi" && (
@@ -852,6 +1093,114 @@ function Comparison() {
                         <td className="py-3 px-4 text-right font-mono text-sm text-red-600">
                           {formatPercent(
                             displayData.comparison.multi.maxDrawdown
+                          )}
+                        </td>
+                        <td
+                          className={`py-3 px-4 text-right font-mono text-sm ${
+                            displayData.comparison.multi.sharpeRatio > 1
+                              ? "text-green-600"
+                              : displayData.comparison.multi.sharpeRatio > 0
+                              ? isDarkMode
+                                ? "text-gray-300"
+                                : "text-gray-700"
+                              : "text-red-600"
+                          }`}
+                        >
+                          {formatRatio(
+                            displayData.comparison.multi.sharpeRatio
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                    {/* Voting Strategy Row */}
+                    {displayData.comparison?.voting && (
+                      <tr
+                        className={`border-b font-medium ${
+                          isDarkMode
+                            ? "bg-indigo-900/30 border-indigo-800"
+                            : "bg-indigo-50 border-indigo-200"
+                        }`}
+                      >
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`font-bold ${
+                                isDarkMode
+                                  ? "text-indigo-400"
+                                  : "text-indigo-900"
+                              }`}
+                            >
+                              Voting Strategy
+                            </span>
+                            {displayData.comparison?.bestStrategy ===
+                              "voting" && (
+                              <span
+                                className={`px-2 py-0.5 text-xs rounded-full font-medium ${
+                                  isDarkMode
+                                    ? "bg-green-900 text-green-300"
+                                    : "bg-green-100 text-green-700"
+                                }`}
+                              >
+                                Winner
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <span
+                            className={`font-bold ${getROIColor(
+                              displayData.comparison.voting.roi
+                            )}`}
+                          >
+                            {formatPercent(displayData.comparison.voting.roi)}
+                          </span>
+                        </td>
+                        <td
+                          className={`py-3 px-4 text-right font-mono text-sm ${
+                            isDarkMode ? "text-gray-300" : ""
+                          }`}
+                        >
+                          {formatPercent(displayData.comparison.voting.winRate)}
+                        </td>
+                        <td
+                          className={`py-3 px-4 text-right font-mono text-sm ${
+                            isDarkMode ? "text-gray-300" : ""
+                          }`}
+                        >
+                          {displayData.comparison.voting.trades}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <span
+                            className={`font-mono text-sm ${
+                              displayData.comparison.voting.finalCapital >=
+                              10000
+                                ? "text-green-600"
+                                : "text-red-600"
+                            }`}
+                          >
+                            {formatCurrency(
+                              displayData.comparison.voting.finalCapital
+                            )}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono text-sm text-red-600">
+                          {formatPercent(
+                            displayData.comparison.voting.maxDrawdown
+                          )}
+                        </td>
+                        <td
+                          className={`py-3 px-4 text-right font-mono text-sm ${
+                            displayData.comparison.voting.sharpeRatio > 1
+                              ? "text-green-600"
+                              : displayData.comparison.voting.sharpeRatio > 0
+                              ? isDarkMode
+                                ? "text-gray-300"
+                                : "text-gray-700"
+                              : "text-red-600"
+                          }`}
+                        >
+                          {formatRatio(
+                            displayData.comparison.voting.sharpeRatio
                           )}
                         </td>
                       </tr>
@@ -1087,7 +1436,7 @@ function Comparison() {
                                     : "bg-purple-100 text-purple-700"
                                 }`}
                               >
-                                Combined
+                                Optimized
                               </span>
                               {displayData.comparison?.bestStrategy ===
                                 "multi" && (

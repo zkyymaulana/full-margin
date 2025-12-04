@@ -1,17 +1,8 @@
 import { formatNumber } from "../../utils/indicatorParser";
 
-/**
- * 🎯 MULTI INDICATOR PANEL - REFACTORED v2.0
- * ✅ 100% Backend Data Renderer (No Calculation)
- * ✅ Slider menggunakan strength dari backend
- * ✅ Category Scores dari backend (categoryScores)
- * ✅ Total Score (finalScore) di bawah
- */
 function MultiIndicatorPanel({
   multiSignalData, // ✅ Full object from backend
   categoryScores: categoryScoresFromParent, // ✅ Legacy support (deprecated)
-  activeCategories,
-  parsedIndicators,
   signalCounts,
   isDarkMode,
 }) {
@@ -21,7 +12,6 @@ function MultiIndicatorPanel({
     strength = 0,
     finalScore = 0,
     signalLabel = "NEUTRAL",
-    signalEmoji = "⚪",
     categoryScores: categoryScoresFromBackend, // ✅ NEW: From backend
   } = multiSignalData || {};
 
@@ -32,21 +22,6 @@ function MultiIndicatorPanel({
       momentum: 0,
       volatility: 0,
     };
-
-  // 🔍 DEBUG: Log to console
-  console.log("🎯 [MULTI INDICATOR PANEL] multiSignalData:", multiSignalData);
-  console.log(
-    "📊 [MULTI INDICATOR PANEL] categoryScores from backend:",
-    categoryScoresFromBackend
-  );
-  console.log(
-    "📈 [MULTI INDICATOR PANEL] categoryScores from parent:",
-    categoryScoresFromParent
-  );
-  console.log(
-    "✅ [MULTI INDICATOR PANEL] Final categoryScores used:",
-    categoryScores
-  );
 
   // ✅ Normalize signal for display
   const displaySignal = signalLabel || signal.toUpperCase();

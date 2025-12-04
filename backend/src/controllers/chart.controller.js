@@ -80,7 +80,6 @@ function formatMultiSignalFromDB(ind, weights = null) {
     strength: parseFloat(strength.toFixed(3)),
     finalScore: parseFloat(finalScore.toFixed(2)),
     signalLabel,
-    signalEmoji,
     categoryScores,
     source: "db", // Source ditandai dari database
   };

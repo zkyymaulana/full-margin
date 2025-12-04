@@ -1,4 +1,8 @@
-import { formatNumber } from "../../utils/indicatorParser";
+import {
+  formatNumber,
+  formatPercent,
+  formatRatio,
+} from "../../utils/indicatorParser";
 
 function BacktestPanel({ performance, bestCombo, isDarkMode }) {
   if (!performance || Object.keys(performance).length === 0) return null;
@@ -39,7 +43,7 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
       label: "ROI",
       value:
         performance.roi !== null && performance.roi !== undefined
-          ? `${formatNumber(performance.roi)}%`
+          ? formatPercent(performance.roi)
           : "N/A",
       colorClass: isDarkMode ? "text-green-400" : "text-green-600",
     },
@@ -47,7 +51,7 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
       label: "Win Rate",
       value:
         performance.winRate !== null && performance.winRate !== undefined
-          ? `${formatNumber(performance.winRate)}%`
+          ? formatPercent(performance.winRate)
           : "N/A",
       colorClass: isDarkMode ? "text-blue-400" : "text-blue-600",
     },
@@ -56,7 +60,7 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
       value:
         performance.sharpeRatio !== null &&
         performance.sharpeRatio !== undefined
-          ? formatNumber(performance.sharpeRatio)
+          ? formatRatio(performance.sharpeRatio)
           : "N/A",
       colorClass:
         performance.sharpeRatio > 2
@@ -76,7 +80,7 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
       value:
         performance.maxDrawdown !== null &&
         performance.maxDrawdown !== undefined
-          ? `${formatNumber(performance.maxDrawdown)}%`
+          ? formatPercent(performance.maxDrawdown)
           : "N/A",
       colorClass: isDarkMode ? "text-red-400" : "text-red-600",
     },
