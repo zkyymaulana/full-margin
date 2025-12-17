@@ -18,7 +18,7 @@ import {
   countSignalsFromDB, // ✅ NEW: Safe signal counting
 } from "../utils/indicatorParser";
 
-function Signals() {
+function SignalsPage() {
   const { selectedSymbol } = useSymbol();
   const { isDarkMode } = useDarkMode();
 
@@ -279,4 +279,4 @@ function Signals() {
   );
 }
 
-export default Signals;
+export default SignalsPage;

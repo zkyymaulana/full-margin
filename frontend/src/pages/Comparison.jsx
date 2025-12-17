@@ -4,7 +4,7 @@ import { useSymbol } from "../contexts/SymbolContext";
 import { useDarkMode } from "../contexts/DarkModeContext";
 import { useQueryClient } from "@tanstack/react-query";
 
-function Comparison() {
+function ComparisonPage() {
   const { selectedSymbol } = useSymbol();
   const { isDarkMode } = useDarkMode();
   const queryClient = useQueryClient();
@@ -1520,4 +1520,4 @@ function Comparison() {
   );
 }
 
-export default Comparison;
+export default ComparisonPage;

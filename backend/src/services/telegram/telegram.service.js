@@ -77,6 +77,152 @@ async function sendTelegramMessage(message, chatId, options = {}) {
 }
 
 /**
+ * 📊 HELPER: Interpret category scores to human-readable text
+ */
+function interpretTrendScore(score) {
+  if (score >= 3) return "Very Strong Uptrend";
+  if (score >= 1) return "Strong Uptrend";
+  if (score >= 0.5) return "Moderate Uptrend";
+  if (score > -0.5) return "Sideways";
+  if (score > -1) return "Moderate Downtrend";
+  if (score > -3) return "Strong Downtrend";
+  return "Very Strong Downtrend";
+}
+
+function interpretMomentumScore(score) {
+  if (score >= 4) return "Extreme Bullish Momentum";
+  if (score >= 2) return "Strong Bullish Momentum";
+  if (score >= 0.5) return "Moderate Bullish Momentum";
+  if (score > -0.5) return "Neutral Momentum";
+  if (score > -2) return "Moderate Bearish Momentum";
+  if (score > -4) return "Strong Bearish Momentum";
+  return "Extreme Bearish Momentum";
+}
+
+function interpretVolatilityScore(score) {
+  if (score >= 2) return "High Volatility (Bullish)";
+  if (score >= 0.5) return "Elevated Volatility (Bullish)";
+  if (score > -0.5) return "Normal Volatility";
+  if (score > -2) return "Elevated Volatility (Bearish)";
+  return "High Volatility (Bearish)";
+}
+
+/**
+ * 🎯 HELPER: Generate insight text based on category scores
+ */
+function generateInsight(categoryScores, signal) {
+  const { trend, momentum, volatility } = categoryScores;
+
+  // Determine dominant factors (absolute value > 1)
+  const dominantFactors = [];
+
+  if (Math.abs(trend) >= 1) {
+    dominantFactors.push(trend > 0 ? "positive trend" : "negative trend");
+  }
+
+  if (Math.abs(momentum) >= 1) {
+    dominantFactors.push(momentum > 0 ? "strong momentum" : "weak momentum");
+  }
+
+  if (Math.abs(volatility) >= 0.5) {
+    dominantFactors.push(volatility > 0 ? "high volatility" : "low volatility");
+  }
+
+  // Build insight text
+  const bias =
+    signal === "buy" ? "Bullish" : signal === "sell" ? "Bearish" : "Neutral";
+
+  if (dominantFactors.length === 0) {
+    return `${bias} bias with mixed signals across indicators.`;
+  }
+
+  const factorsText = dominantFactors.join(" and ");
+  return `${bias} bias supported mainly by ${factorsText}.`;
+}
+
+/**
+ * 📨 FORMAT TELEGRAM SIGNAL MESSAGE
+ * Formats trading signal data into structured, human-readable message
+ */
+function formatTelegramSignalMessage({
+  symbol,
+  signal,
+  signalLabel,
+  price,
+  finalScore,
+  strength,
+  categoryScores = { trend: 0, momentum: 0, volatility: 0 },
+  timeframe = "1h",
+  performance,
+}) {
+  // Format price with currency
+  const formatCurrency = (value) => {
+    return `$${value.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
+  // Format date and time (MM/DD/YYYY, HH:MM)
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+    timeZone: "Asia/Jakarta",
+  });
+  const timeStr = now.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Asia/Jakarta",
+  });
+
+  // Format max drawdown safely
+  const maxDrawdown =
+    performance.maxDrawdown !== undefined &&
+    performance.maxDrawdown !== null &&
+    !isNaN(performance.maxDrawdown)
+      ? performance.maxDrawdown.toFixed(2)
+      : "0.00";
+
+  // Generate insight
+  const insight = generateInsight(categoryScores, signal);
+
+  // Determine signal emoji (big circles like in the image)
+  const signalEmoji = signal === "buy" ? "🟢" : signal === "sell" ? "🔴" : "⚪";
+
+  // Build structured message with icons
+  const message = `${signalEmoji} *${signalLabel.toUpperCase()}* ${signalEmoji}
+
+📊 *Symbol:* ${symbol}
+💰 *Price:* ${formatCurrency(price)}
+📈 *Score:* ${finalScore >= 0 ? "+" : ""}${finalScore.toFixed(2)}
+💪 *Strength:* ${(strength * 100).toFixed(1)}%
+⏱️ *Timeframe:* ${timeframe}
+🕐 *Time:* ${dateStr}, ${timeStr}
+
+📊 *Market Interpretation:*
+• Trend: ${categoryScores.trend >= 0 ? "+" : ""}${categoryScores.trend.toFixed(2)} (${interpretTrendScore(categoryScores.trend)})
+• Momentum: ${categoryScores.momentum >= 0 ? "+" : ""}${categoryScores.momentum.toFixed(2)} (${interpretMomentumScore(categoryScores.momentum)})
+• Volatility: ${categoryScores.volatility >= 0 ? "+" : ""}${categoryScores.volatility.toFixed(2)} (${interpretVolatilityScore(categoryScores.volatility)})
+
+📈 *Performance Metrics:*
+• ROI: ${performance.roi.toFixed(2)}%
+• Win Rate: ${performance.winRate.toFixed(2)}%
+• Max Drawdown: ${maxDrawdown}%
+• Sharpe Ratio: ${performance.sharpeRatio.toFixed(2)}
+• Trades: ${performance.trades}
+
+💡 *Insight:*
+${insight}
+
+⚠️ _Decision Support Only — Not Financial Advice_`;
+
+  return message;
+}
+
+/**
  * 🔔 Kirim notifikasi sinyal multi-indicator ke semua user yang aktif
  * ✅ FULLY SCORE-BASED: No voting, no arbitrary threshold
  * ✅ Signal direction: score > 0 → BUY, score < 0 → SELL, score == 0 → NEUTRAL
@@ -90,6 +236,7 @@ export async function sendMultiIndicatorSignal({
   finalScore = 0,
   signalLabel = null,
   signalEmoji = null,
+  categoryScores = { trend: 0, momentum: 0, volatility: 0 },
   activeIndicators,
   performance,
   timeframe = "1h",
@@ -114,81 +261,40 @@ export async function sendMultiIndicatorSignal({
     strength = 0;
   }
 
-  // ✅ Use provided label & emoji OR calculate them
+  // ✅ Use provided label OR calculate them
   let displayLabel = signalLabel;
-  let displayEmoji = signalEmoji;
 
-  if (!displayLabel || !displayEmoji) {
+  if (!displayLabel) {
     if (signal === "buy") {
-      displayLabel = strength >= 0.6 ? "STRONG BUY" : "BUY";
-      displayEmoji = strength >= 0.6 ? "🟢🟢" : "🟢";
+      displayLabel = strength >= 0.6 ? "Strong Buy" : "Buy";
     } else if (signal === "sell") {
-      displayLabel = strength >= 0.6 ? "STRONG SELL" : "SELL";
-      displayEmoji = strength >= 0.6 ? "🔴🔴" : "🔴";
+      displayLabel = strength >= 0.6 ? "Strong Sell" : "Sell";
     } else {
-      displayLabel = "NEUTRAL";
-      displayEmoji = "⚪";
+      displayLabel = "Neutral";
     }
   }
 
   console.log("📱 Telegram Signal:", {
+    symbol,
     signal,
     finalScore,
     strength,
     displayLabel,
-    displayEmoji,
+    categoryScores,
   });
 
-  // Format price dengan USD currency
-  const formatCurrency = (value) => {
-    return `$${value.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
-  };
-
-  // Format tanggal dan waktu (dd/mm/yyyy, HH:MM)
-  const now = new Date();
-  const dateStr = now.toLocaleDateString("id-ID", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    timeZone: "Asia/Jakarta",
+  // ✅ Format message using new structured layout
+  const message = formatTelegramSignalMessage({
+    symbol,
+    signal,
+    signalLabel: displayLabel,
+    price,
+    finalScore,
+    strength,
+    categoryScores,
+    timeframe,
+    performance,
   });
-  const timeStr = now.toLocaleTimeString("id-ID", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "Asia/Jakarta",
-  });
-
-  const maxDrawdown =
-    performance.maxDrawdown !== undefined &&
-    performance.maxDrawdown !== null &&
-    !isNaN(performance.maxDrawdown)
-      ? performance.maxDrawdown.toFixed(2)
-      : "0.00";
-
-  // Build message
-  const message = `
-${displayEmoji} *${displayLabel}* ${displayEmoji}
-
-📊 *Symbol:* ${symbol}
-💰 *Price:* ${formatCurrency(price)}
-📈 *Score:* ${finalScore >= 0 ? "+" : ""}${finalScore.toFixed(2)}
-💪 *Strength:* ${(strength * 100).toFixed(1)}%
-⏱ *Timeframe:* ${timeframe}
-🕒 *Time:* ${dateStr}, ${timeStr}
-
-📈 *Performance Metrics:*
-• ROI : ${performance.roi.toFixed(2)}%
-• Win Rate : ${performance.winRate.toFixed(2)}%
-• Max Drawdown : ${maxDrawdown}%
-• Sharpe Ratio : ${performance.sharpe}
-• Trades : ${performance.trades}
-
-_Multi-Indicator Weighted Strategy (Score-Based)_
-`;
 
   // Broadcast ke semua user yang aktif
   try {

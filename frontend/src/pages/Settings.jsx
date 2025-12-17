@@ -11,7 +11,7 @@ import {
 } from "../services/api.service";
 import { useState, useEffect } from "react";
 
-function Settings() {
+function SettingsPage() {
   const { user } = useAuth();
   const { isDarkMode, toggleDarkMode } = useDarkMode();
   const queryClient = useQueryClient();
@@ -692,4 +692,4 @@ function Settings() {
   );
 }
 
-export default Settings;
+export default SettingsPage;

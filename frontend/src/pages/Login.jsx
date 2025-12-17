@@ -6,7 +6,7 @@ import { useDarkMode } from "../contexts/DarkModeContext";
 import { HiMoon, HiSun } from "react-icons/hi";
 import { showErrorToast, showSuccessToast } from "../utils/notifications";
 
-function Login() {
+function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -334,4 +334,4 @@ function Login() {
   );
 }
 
-export default Login;
+export default LoginPage;

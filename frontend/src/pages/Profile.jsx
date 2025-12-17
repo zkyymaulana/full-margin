@@ -5,7 +5,7 @@ import { confirmLogout } from "../utils/notifications";
 import { showSuccessToast, showErrorToast } from "../utils/notifications";
 import { useDarkMode } from "../contexts/DarkModeContext";
 
-function Profile() {
+function ProfilePage() {
   const { data: profileData, isLoading } = useUserProfile();
   const { mutate: updateProfile, isLoading: isUpdating } = useUpdateProfile();
   const { logout } = useAuth();
@@ -540,4 +540,4 @@ function Profile() {
   );
 }
 
-export default Profile;
+export default ProfilePage;

@@ -88,7 +88,7 @@ function formatMultiSignalFromDB(ind, weights = null) {
 /* ===========================================================
   GET INDICATORS API — Support mode=latest & mode=paginated
 =========================================================== */
-export async function getIndicators(req, res) {
+export async function getSignals(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
     const timeframe = req.query.timeframe || "1h";
@@ -475,7 +475,7 @@ export async function getIndicators(req, res) {
       data: organized,
     });
   } catch (err) {
-    console.error("❌ getIndicators error:", err);
+    console.error("❌ getSignals error:", err);
     res.status(500).json({
       success: false,
       message: "Internal server error",

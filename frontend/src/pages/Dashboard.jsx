@@ -13,7 +13,7 @@ import IndicatorValueCards from "../components/dashboard/IndicatorValueCards";
 import OHLCVCard from "../components/dashboard/OHLCVCard";
 import TopCoinsSection from "../components/dashboard/TopCoinsSection";
 
-function Dashboard() {
+function DashboardPage() {
   const { selectedSymbol } = useSymbol();
   const { isDarkMode } = useDarkMode();
   const [timeframe, setTimeframe] = useState("1h");
@@ -291,4 +291,4 @@ function Dashboard() {
   );
 }
 
-export default Dashboard;
+export default DashboardPage;

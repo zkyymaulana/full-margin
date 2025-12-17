@@ -4,16 +4,15 @@ import { SymbolProvider } from "./contexts/SymbolContext";
 import { SidebarProvider } from "./contexts/SidebarContext";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
-import AdminRoute from "./components/AdminRoute";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
-import Signals from "./pages/Signals";
-import Comparison from "./pages/Comparison";
-import MarketCap from "./pages/MarketCap";
 import Profile from "./pages/Profile";
-import Settings from "./pages/Settings";
 import Unauthorized from "./pages/Unauthorized";
+import SignalsPage from "./pages/Signals";
+import ComparisonPage from "./pages/Comparison";
+import MarketCapPage from "./pages/MarketCap";
+import SettingsPage from "./pages/Settings";
 
 // Public Route (redirect if authenticated)
 const PublicRoute = ({ children }) => {
@@ -64,11 +63,11 @@ function App() {
           >
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="signals" element={<Signals />} />
-            <Route path="comparison" element={<Comparison />} />
-            <Route path="marketcap" element={<MarketCap />} />
+            <Route path="signals" element={<SignalsPage />} />
+            <Route path="comparison" element={<ComparisonPage />} />
+            <Route path="marketcap" element={<MarketCapPage />} />
             <Route path="profile" element={<Profile />} />
-            <Route path="settings" element={<Settings />} />
+            <Route path="settings" element={<SettingsPage />} />
 
             {/* Example: Admin-only route (uncomment when needed) */}
             {/* <Route

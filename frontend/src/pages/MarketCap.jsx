@@ -5,7 +5,7 @@ import { useSymbol } from "../contexts/SymbolContext";
 import { useNavigate } from "react-router-dom";
 import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip } from "recharts";
 
-function MarketCap() {
+function MarketCapPage() {
   const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [limit, setLimit] = useState(5);
@@ -671,4 +671,4 @@ function MarketCap() {
   );
 }
 
-export default MarketCap;
+export default MarketCapPage;

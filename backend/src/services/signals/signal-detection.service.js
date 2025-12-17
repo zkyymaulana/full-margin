@@ -50,11 +50,44 @@ export async function detectAndNotifyMultiIndicatorSignals(
       latestWeights.weights
     );
 
+    // ✅ Calculate categoryScores (sama seperti di indicator.controller.js)
+    const signalToScore = (sig) => {
+      if (!sig) return 0;
+      const s = sig.toLowerCase();
+      if (s === "buy" || s === "strong_buy") return 1;
+      if (s === "sell" || s === "strong_sell") return -1;
+      return 0;
+    };
+
+    const trendScore =
+      signalToScore(signals.SMA) * (latestWeights.weights.SMA || 0) +
+      signalToScore(signals.EMA) * (latestWeights.weights.EMA || 0) +
+      signalToScore(signals.PSAR) * (latestWeights.weights.PSAR || 0);
+
+    const momentumScore =
+      signalToScore(signals.RSI) * (latestWeights.weights.RSI || 0) +
+      signalToScore(signals.MACD) * (latestWeights.weights.MACD || 0) +
+      signalToScore(signals.Stochastic) *
+        (latestWeights.weights.Stochastic || 0) +
+      signalToScore(signals.StochasticRSI) *
+        (latestWeights.weights.StochasticRSI || 0);
+
+    const volatilityScore =
+      signalToScore(signals.BollingerBands) *
+      (latestWeights.weights.BollingerBands || 0);
+
+    const categoryScores = {
+      trend: parseFloat(trendScore.toFixed(2)),
+      momentum: parseFloat(momentumScore.toFixed(2)),
+      volatility: parseFloat(volatilityScore.toFixed(2)),
+    };
+
     // ✅ Log rinci untuk debugging
     console.log(`📊 [MultiIndicator] ${symbol} weighted result:`, {
       signal: signal.toUpperCase(),
       strength: strength.toFixed(3),
-      normalized: normalized.toFixed(3),
+      finalScore: normalized.toFixed(2),
+      categoryScores,
       price: candle.close.toFixed(2),
     });
 
@@ -65,17 +98,20 @@ export async function detectAndNotifyMultiIndicatorSignals(
       return {
         success: true,
         signal: "neutral",
-        score: normalized,
+        finalScore: normalized,
         strength: 0,
+        categoryScores,
       }; // ✅ Force strength = 0 untuk neutral
     }
 
-    // ✅ Kirim ke Telegram dengan strength yang konsisten
+    // ✅ Kirim ke Telegram dengan categoryScores dan finalScore
     const result = await sendMultiIndicatorSignal({
       symbol,
       signal,
       price: candle.close,
-      strength, // ✅ Kirim strength ke Telegram
+      strength,
+      finalScore: normalized, // ✅ Kirim finalScore
+      categoryScores, // ✅ Kirim categoryScores untuk Market Interpretation
       activeIndicators: Object.entries(latestWeights.weights).map(([k, w]) => ({
         name: k,
         weight: w,
@@ -83,11 +119,8 @@ export async function detectAndNotifyMultiIndicatorSignals(
       performance: {
         roi: latestWeights.testROI || latestWeights.roi,
         winRate: latestWeights.testWinRate || latestWeights.winRate,
-        sharpe: (
-          latestWeights.testSharpe ||
-          latestWeights.sharpeRatio ||
-          0
-        ).toFixed(3),
+        maxDrawdown: latestWeights.testMaxDrawdown || latestWeights.maxDrawdown,
+        sharpeRatio: latestWeights.testSharpe || latestWeights.sharpeRatio || 0,
         trades: latestWeights.testTrades || latestWeights.trades,
       },
       timeframe,
@@ -99,7 +132,13 @@ export async function detectAndNotifyMultiIndicatorSignals(
       );
     }
 
-    return { success: true, signal, score: normalized, strength };
+    return {
+      success: true,
+      signal,
+      finalScore: normalized,
+      strength,
+      categoryScores,
+    };
   } catch (err) {
     console.error(
       `❌ Error detecting multi-indicator signals for ${symbol}:`,
