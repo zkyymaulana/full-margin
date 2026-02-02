@@ -168,8 +168,8 @@ function Sidebar() {
             className={`bg-gradient-to-br from-blue-500 via-purple-500 to-purple-600 rounded-2xl p-6 text-white shadow-xl`}
           >
             <div className="flex justify-center mb-3">
-              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-                <span className="text-2xl">🚀</span>
+              <div className="w-12 h-12 bg-white/60 rounded-full flex items-center justify-center backdrop-blur-sm">
+                <img src="/images/logo.svg" alt="Logo" className="w-8 h-8" />
               </div>
             </div>
 
@@ -190,7 +190,7 @@ function Sidebar() {
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-white/70">Status:</span>
+                <span className="text-white/70">Telegram:</span>
                 <div className="flex items-center gap-1">
                   <span
                     className={`w-2 h-2 rounded-full ${

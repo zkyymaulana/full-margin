@@ -77,7 +77,7 @@ function LoginPage() {
       {/* Dark Mode Toggle - Top Right */}
       <button
         onClick={toggleDarkMode}
-        className={`fixed top-4 right-4 p-3 rounded-full shadow-lg transition-all duration-300 ${
+        className={`fixed top-4 right-4 p-3 rounded-full shadow-lg transition-all duration-300 hover:cursor-pointer ${
           isDarkMode
             ? "bg-gray-800 text-yellow-400 hover:bg-gray-700"
             : "bg-white text-gray-800 hover:bg-gray-100"
@@ -96,26 +96,24 @@ function LoginPage() {
           isDarkMode ? "bg-gray-800" : "bg-white"
         } rounded-lg shadow-xl p-8 w-full max-w-md transition-colors duration-300`}
       >
-        <div className="text-center mb-8">
+        <div className="flex justify-center items-center mb-8 space-x-1">
           <div
-            className={`inline-flex items-center justify-center w-16 h-16 ${
-              isDarkMode
-                ? "bg-gradient-to-br from-blue-600 to-purple-700"
-                : "bg-gradient-to-br from-blue-500 to-purple-600"
-            } rounded-full mb-4`}
+            className={`inline-flex w-16 h-16 bg-#D7BCFF rounded-full items-center`}
           >
-            <span className="text-3xl">📊</span>
+            <img src="/images/logo.svg" alt="Logo" className="w-14 h-14" />
           </div>
-          <h1
-            className={`text-3xl font-bold mb-2 ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
-          >
-            Crypto Analyze
-          </h1>
-          <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
-            Sign in to your account
-          </p>
+          <div>
+            <h1
+              className={`text-3xl font-bold ${
+                isDarkMode ? "text-white" : "text-gray-900"
+              }`}
+            >
+              Crypto Analyze
+            </h1>
+            <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
+              Sign in to your account
+            </p>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -324,8 +322,8 @@ function LoginPage() {
                 isDarkMode ? "text-blue-400" : "text-blue-700"
               }`}
             >
-              <p>📧 Email: admin@crypto.com</p>
-              <p>🔑 Password: admin123</p>
+              <p>Email: admin@crypto.com</p>
+              <p>Password: admin123</p>
             </div>
           </div>
         </div>
