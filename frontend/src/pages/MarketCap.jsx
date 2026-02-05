@@ -4,6 +4,16 @@ import { useDarkMode } from "../contexts/DarkModeContext";
 import { useSymbol } from "../contexts/SymbolContext";
 import { useNavigate } from "react-router-dom";
 import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip } from "recharts";
+import {
+  FiDollarSign,
+  FiBarChart2,
+  FiTarget,
+  FiRefreshCw,
+  FiSearch,
+  FiTrendingUp,
+  FiTrendingDown,
+} from "react-icons/fi";
+import { SiBitcoin } from "react-icons/si";
 
 function MarketCapPage() {
   const [filter, setFilter] = useState("all");
@@ -123,7 +133,7 @@ function MarketCapPage() {
               isDarkMode ? "text-white" : "text-gray-900"
             }`}
           >
-            <span>🪙</span>
+            <FiDollarSign />
             Market Cap Overview
           </h1>
           <p
@@ -134,9 +144,9 @@ function MarketCapPage() {
         </div>
         <button
           onClick={() => refetch()}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors hover:cursor-pointer"
         >
-          <span>🔄</span>
+          <FiRefreshCw />
           Refresh Data
         </button>
       </div>
@@ -146,7 +156,7 @@ function MarketCapPage() {
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
           <div className="flex items-center justify-between mb-2">
             <div className="text-sm opacity-90">Total Market Cap</div>
-            <div className="text-2xl">💰</div>
+            <FiDollarSign className="text-2xl" />
           </div>
           <div className="text-3xl font-bold">
             {formatMarketCap(summary.totalMarketCap)}
@@ -159,7 +169,7 @@ function MarketCapPage() {
         <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
           <div className="flex items-center justify-between mb-2">
             <div className="text-sm opacity-90">24h Volume</div>
-            <div className="text-2xl">📊</div>
+            <FiBarChart2 className="text-2xl" />
           </div>
           <div className="text-3xl font-bold">
             {formatMarketCap(summary.totalVolume24h)}
@@ -170,7 +180,7 @@ function MarketCapPage() {
         <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
           <div className="flex items-center justify-between mb-2">
             <div className="text-sm opacity-90">BTC Dominance</div>
-            <div className="text-2xl">₿</div>
+            <SiBitcoin className="text-2xl" />
           </div>
           <div className="text-3xl font-bold">{summary.btcDominance}%</div>
           <div className="text-xs opacity-75 mt-1">
@@ -181,7 +191,7 @@ function MarketCapPage() {
         <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white">
           <div className="flex items-center justify-between mb-2">
             <div className="text-sm opacity-90">Active Coins</div>
-            <div className="text-2xl">🎯</div>
+            <FiTarget className="text-2xl" />
           </div>
           <div className="text-3xl font-bold">{summary.activeCoins}</div>
           <div className="text-xs opacity-75 mt-1">
@@ -248,7 +258,7 @@ function MarketCapPage() {
                   : "border-gray-300 bg-white text-gray-900 placeholder-gray-400"
               }`}
             />
-            <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
+            <FiSearch className="absolute left-3 top-2.5 text-gray-400" />
           </div>
         </div>
       </div>
@@ -267,7 +277,7 @@ function MarketCapPage() {
           }`}
         >
           <div className="flex items-center gap-3">
-            <div className="text-2xl">🌟</div>
+            <FiTrendingUp className="text-2xl" />
             <h3
               className={`text-xl font-semibold ${
                 isDarkMode ? "text-white" : "text-gray-900"
@@ -365,7 +375,7 @@ function MarketCapPage() {
                     }`}
                   >
                     <div className="flex flex-col items-center gap-2">
-                      <span className="text-4xl">🔍</span>
+                      <FiSearch className="text-4xl" />
                       <span>No coins found matching your criteria</span>
                     </div>
                   </td>
@@ -478,7 +488,7 @@ function MarketCapPage() {
                                 : "bg-red-100 text-red-700"
                             }`}
                           >
-                            <span>{isPositive ? "↗" : "↘"}</span>
+                            {isPositive ? <FiTrendingUp /> : <FiTrendingDown />}
                             {isPositive ? "+" : ""}
                             {coin.change24h.toFixed(2)}%
                           </span>

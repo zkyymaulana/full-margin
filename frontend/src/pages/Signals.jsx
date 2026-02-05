@@ -17,6 +17,7 @@ import {
   normalizeIndicatorName,
   countSignalsFromDB, // ✅ NEW: Safe signal counting
 } from "../utils/indicatorParser";
+import { FiActivity, FiTrendingUp, FiZap } from "react-icons/fi";
 
 function SignalsPage() {
   const { selectedSymbol } = useSymbol();
@@ -230,7 +231,13 @@ function SignalsPage() {
               : "bg-blue-100 text-blue-700"
           }
           isDarkMode={isDarkMode}
-          icon="📈"
+          icon={
+            <FiTrendingUp
+              className={`text-xl ${
+                isDarkMode ? "text-blue-300" : "text-blue-700"
+              }`}
+            />
+          }
         />
         <CategorySummaryCard
           title="Momentum Indicators"
@@ -241,7 +248,13 @@ function SignalsPage() {
               : "bg-purple-100 text-purple-700"
           }
           isDarkMode={isDarkMode}
-          icon="⚡"
+          icon={
+            <FiActivity
+              className={`text-xl ${
+                isDarkMode ? "text-purple-300" : "text-purple-700"
+              }`}
+            />
+          }
         />
         <CategorySummaryCard
           title="Volatility Indicators"
@@ -252,7 +265,13 @@ function SignalsPage() {
               : "bg-green-100 text-green-700"
           }
           isDarkMode={isDarkMode}
-          icon="💥"
+          icon={
+            <FiZap
+              className={`text-xl ${
+                isDarkMode ? "text-green-300" : "text-green-700"
+              }`}
+            />
+          }
         />
       </div>
 

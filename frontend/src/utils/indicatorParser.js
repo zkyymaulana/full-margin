@@ -42,7 +42,8 @@ export const formatROI = (num) => {
 };
 
 /**
- * Get signal with color and icon based on signal type
+ * Get signal with color and icon type based on signal type
+ * Returns icon as string enum, NOT JSX (to avoid "Unexpected token '<'" error)
  */
 export const getIndicatorSignal = (signal, isDarkMode) => {
   const normalizedSignal = signal?.toLowerCase();
@@ -53,23 +54,25 @@ export const getIndicatorSignal = (signal, isDarkMode) => {
       color: isDarkMode
         ? "bg-green-900 text-green-300"
         : "bg-green-100 text-green-700",
-      icon: "📈",
+      iconType: "buy", // ✅ String enum instead of JSX
     };
-  } else if (normalizedSignal === "sell") {
+  }
+
+  if (normalizedSignal === "sell") {
     return {
       signal: "SELL",
       color: isDarkMode ? "bg-red-900 text-red-300" : "bg-red-100 text-red-700",
-      icon: "📉",
-    };
-  } else {
-    return {
-      signal: "NEUTRAL",
-      color: isDarkMode
-        ? "bg-gray-700 text-gray-300"
-        : "bg-gray-100 text-gray-700",
-      icon: "⚖️",
+      iconType: "sell", // ✅ String enum instead of JSX
     };
   }
+
+  return {
+    signal: "NEUTRAL",
+    color: isDarkMode
+      ? "bg-gray-700 text-gray-300"
+      : "bg-gray-100 text-gray-700",
+    iconType: "neutral", // ✅ String enum instead of JSX
+  };
 };
 
 /**

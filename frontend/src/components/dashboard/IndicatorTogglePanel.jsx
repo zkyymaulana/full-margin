@@ -3,6 +3,7 @@ import {
   overlayIndicators,
   oscillatorIndicators,
 } from "../../utils/chartConfig";
+import { FiBarChart2 } from "react-icons/fi";
 
 /**
  * Indicator Toggle Panel Component
@@ -17,7 +18,7 @@ function IndicatorTogglePanel({ activeIndicators, onToggle }) {
       <div className={`card-body ${isDarkMode ? "bg-gray-800" : "bg-white"}`}>
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center">
-            <span className="text-lg">📊</span>
+            <FiBarChart2 className="text-lg text-white" />
           </div>
           <div>
             <h4

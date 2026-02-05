@@ -6,6 +6,8 @@ import { useDarkMode } from "../contexts/DarkModeContext";
 import { useSidebar } from "../contexts/SidebarContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getUserProfile } from "../services/api.service";
+import { FiBarChart2, FiTrendingUp, FiSliders } from "react-icons/fi";
+import { FaCoins } from "react-icons/fa6";
 
 function Sidebar() {
   const { mutate: logout } = useLogout();
@@ -80,25 +82,25 @@ function Sidebar() {
   const menuItems = [
     {
       path: "/dashboard",
-      icon: "📊",
+      icon: <FiBarChart2 />,
       label: "Dashboard",
       show: true,
     },
     {
       path: "/signals",
-      icon: "📈",
+      icon: <FiTrendingUp />,
       label: "Signals",
       show: true,
     },
     {
       path: "/comparison",
-      icon: "⚖️",
+      icon: <FiSliders />,
       label: "Comparison",
       show: true,
     },
     {
       path: "/marketcap",
-      icon: "🪙",
+      icon: <FaCoins />,
       label: "Market Cap",
       show: true,
     },

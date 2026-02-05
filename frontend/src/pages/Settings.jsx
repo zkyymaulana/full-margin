@@ -10,6 +10,19 @@ import {
   getUserProfile,
 } from "../services/api.service";
 import { useState, useEffect } from "react";
+import {
+  FiActivity,
+  FiAlertTriangle,
+  FiCheckCircle,
+  FiInfo,
+  FiMessageCircle,
+  FiMoon,
+  FiRefreshCcw,
+  FiSun,
+  FiTool,
+  FiTrash2,
+  FiZap,
+} from "react-icons/fi";
 
 function SettingsPage() {
   const { user } = useAuth();
@@ -290,31 +303,34 @@ function SettingsPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div
-                      className={`font-medium text-lg ${
+                      className={`font-medium text-lg flex items-center gap-2 ${
                         isDarkMode ? "text-white" : "text-gray-900"
                       }`}
                     >
-                      📱 Telegram Notifications
+                      Telegram Notifications
                     </div>
+
                     {isUserConfigured ? (
                       <span
-                        className={`text-xs px-2 py-1 rounded ${
+                        className={`flex items-center gap-1 text-xs px-2 py-1 rounded ${
                           isDarkMode
                             ? "bg-green-900/30 text-green-400"
                             : "bg-green-100 text-green-800"
                         }`}
                       >
-                        ✅ Connected
+                        <FiCheckCircle className="text-sm" />
+                        Connected
                       </span>
                     ) : (
                       <span
-                        className={`text-xs px-2 py-1 rounded ${
+                        className={`flex items-center gap-1 text-xs px-2 py-1 rounded ${
                           isDarkMode
                             ? "bg-yellow-900/30 text-yellow-400"
                             : "bg-yellow-100 text-yellow-800"
                         }`}
                       >
-                        ⚠️ Not Connected
+                        <FiAlertTriangle className="text-sm" />
+                        Not Connected
                       </span>
                     )}
                     {profileLoading && (
@@ -400,29 +416,26 @@ function SettingsPage() {
                     </button>
                   </div>
                   {!hasChatIdChanged && telegramChatId && (
-                    <p
-                      className={`text-xs ${
-                        isDarkMode ? "text-gray-500" : "text-gray-500"
-                      }`}
-                    >
-                      ℹ️ No changes detected. Modify Chat ID to enable save.
+                    <p className="flex items-center gap-1 text-xs text-gray-500">
+                      <FiInfo className="text-sm" />
+                      No changes detected. Modify Chat ID to enable save.
                     </p>
                   )}
-                  <p
-                    className={`text-xs ${
-                      isDarkMode ? "text-gray-500" : "text-gray-500"
-                    }`}
-                  >
-                    💡 To get your Chat ID: Open Telegram, search for your bot,
-                    send{" "}
-                    <code
-                      className={`px-1 py-0.5 rounded ${
-                        isDarkMode ? "bg-gray-700" : "bg-gray-200"
-                      }`}
-                    >
-                      /start
-                    </code>
-                    , and copy the Chat ID from the bot's reply.
+
+                  <p className="flex items-start gap-1 text-xs text-gray-500">
+                    <FiZap className="text-sm mt-0.5 flex-shrink-0" />
+                    <span>
+                      To get your Chat ID: Open Telegram, search for your bot,
+                      send{" "}
+                      <code
+                        className={`px-1 py-0.5 rounded ${
+                          isDarkMode ? "bg-gray-700" : "bg-gray-200"
+                        }`}
+                      >
+                        /start
+                      </code>
+                      , and copy the Chat ID from the bot's reply.
+                    </span>
                   </p>
                 </div>
 
@@ -477,7 +490,7 @@ function SettingsPage() {
                     </>
                   ) : (
                     <>
-                      <span>🧪</span>
+                      <FiActivity className="text-lg" />
                       <span className="font-medium">
                         Test Telegram Connection
                       </span>
@@ -532,7 +545,8 @@ function SettingsPage() {
               isDarkMode ? "text-white" : "text-gray-900"
             }`}
           >
-            <span>🔧</span> Troubleshooting
+            <FiTool className="text-lg" />
+            <span>Troubleshooting</span>
           </h2>
           <p
             className={`text-sm mb-4 ${
@@ -557,31 +571,21 @@ function SettingsPage() {
                     isDarkMode ? "text-yellow-300" : "text-yellow-800"
                   }`}
                 >
-                  🔄 Force Light Mode
+                  Force Light Mode
                 </div>
                 <div
                   className={`text-sm ${
-                    isDarkMode ? "text-yellow-400" : "text-yellow-600"
+                    isDarkMode ? "text-yellow-200" : "text-yellow-600"
                   }`}
                 >
                   Reset to light mode and reload
                 </div>
               </div>
-              <svg
+              <FiRefreshCcw
                 className={`w-5 h-5 ${
                   isDarkMode ? "text-yellow-400" : "text-yellow-600"
                 }`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
+              />
             </button>
 
             <button
@@ -598,7 +602,7 @@ function SettingsPage() {
                     isDarkMode ? "text-blue-300" : "text-blue-800"
                   }`}
                 >
-                  🗑️ Clear Cache
+                  Clear Cache
                 </div>
                 <div
                   className={`text-sm ${
@@ -608,55 +612,87 @@ function SettingsPage() {
                   Clear browser cache and reload
                 </div>
               </div>
-              <svg
+              <FiTrash2
                 className={`w-5 h-5 ${
                   isDarkMode ? "text-blue-400" : "text-blue-600"
                 }`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                />
-              </svg>
+              />
             </button>
 
             <div
-              className={`p-4 rounded-lg ${
-                isDarkMode ? "bg-gray-700/50" : "bg-gray-50"
+              className={`text-sm space-y-2 ${
+                isDarkMode ? "text-gray-300" : "text-gray-600"
               }`}
             >
-              <div
-                className={`text-sm space-y-2 ${
-                  isDarkMode ? "text-gray-300" : "text-gray-600"
-                }`}
-              >
-                <p className="font-semibold">Current Status:</p>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`w-3 h-3 rounded-full ${
-                      isDarkMode ? "bg-purple-500" : "bg-yellow-500"
-                    }`}
-                  ></span>
-                  <span>Mode: {isDarkMode ? "Dark 🌙" : "Light ☀️"}</span>
-                </div>
-                <p className="text-xs mt-2">
-                  💡 Tip: Press{" "}
-                  <kbd
-                    className={`px-2 py-1 rounded ${
-                      isDarkMode
-                        ? "bg-gray-600 text-gray-200"
-                        : "bg-gray-200 text-gray-700"
-                    }`}
-                  >
-                    Ctrl + Shift + R
-                  </kbd>{" "}
-                  for hard refresh
-                </p>
+              <p className="font-semibold">Current Theme:</p>
+
+              <div className="flex items-center gap-2">
+                <span
+                  className={`w-3 h-3 rounded-full ${
+                    isDarkMode ? "bg-purple-500" : "bg-yellow-500"
+                  }`}
+                />
+
+                <span className="flex items-center gap-1">
+                  Mode:
+                  {isDarkMode ? (
+                    <>
+                      Dark <FiMoon className="ml-1 text-lg text-purple-400" />
+                    </>
+                  ) : (
+                    <>
+                      Light <FiSun className="ml-1 text-lg text-yellow-500" />
+                    </>
+                  )}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tech Stack Card */}
+      <div
+        className={`rounded-xl shadow-sm ${
+          isDarkMode ? "bg-gray-800 shadow-lg" : "bg-white"
+        }`}
+      >
+        <div className="p-6">
+          <h2
+            className={`text-xl font-semibold mb-4 ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            }`}
+          >
+            Technology Stack
+          </h2>
+          <div
+            className={`space-y-3 text-sm ${
+              isDarkMode ? "text-gray-400" : "text-gray-600"
+            }`}
+          >
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="font-semibold mb-2">Frontend</p>
+                <ul className="space-y-1">
+                  <li>• React 18</li>
+                  <li>• React Router DOM</li>
+                  <li>• TanStack Query (React Query)</li>
+                  <li>• Tailwind CSS</li>
+                  <li>• React Icons</li>
+                  <li>• React Toastify</li>
+                  <li>• Axios</li>
+                </ul>
+              </div>
+              <div>
+                <p className="font-semibold mb-2">Backend</p>
+                <ul className="space-y-1">
+                  <li>• Node.js + Express</li>
+                  <li>• PostgreSQL</li>
+                  <li>• Sequelize ORM</li>
+                  <li>• JWT Authentication</li>
+                  <li>• Telegram Bot API</li>
+                  <li>• bcrypt</li>
+                </ul>
               </div>
             </div>
           </div>
@@ -682,9 +718,13 @@ function SettingsPage() {
               isDarkMode ? "text-gray-400" : "text-gray-600"
             }`}
           >
-            <p className="font-medium">Crypto Analyze Admin - React Version</p>
+            <p className="font-medium">
+              Crypto Analyze - Full Stack Application
+            </p>
             <p>Version 2.0.0</p>
-            <p>Built with React, TanStack Query, and Tailwind CSS</p>
+            <p>
+              Built with React, Node.js, PostgreSQL, and modern web technologies
+            </p>
           </div>
         </div>
       </div>

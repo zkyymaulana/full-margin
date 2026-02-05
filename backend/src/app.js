@@ -6,7 +6,7 @@ import { prisma } from "./lib/prisma.js";
 
 // Services
 import { seedAdmin } from "../prisma/seed.js";
-import { syncTopCoins } from "./services/market/cmcTopCoins.service.js";
+import { syncTopCoins } from "./services/market/syncTopCoins.service.js";
 import { getMarketcapRealtime } from "./services/market/marketcap.service.js";
 import { startAllSchedulers } from "./services/scheduler/scheduler.service.js";
 
@@ -51,12 +51,7 @@ async function initializeSystem() {
     }
   }
 
-  console.log("🎯 Semua background service aktif!");
-  console.log(
-    "📈 Auto sync candle & indicators setiap jam (pukul 00:00 tiap jam, setelah candle close)"
-  );
-  console.log("🔄 Backup sync setiap jam pada menit ke-2");
-  console.log("💖 Health monitoring setiap 5 menit");
+  console.log("Background service aktif!");
 }
 
 // Jalankan server
@@ -78,8 +73,8 @@ app.listen(PORT, async () => {
 
 // Graceful shutdown (Ctrl + C)
 process.on("SIGINT", async () => {
-  console.log("\n🧹 Shutting down gracefully...");
+  console.log("\n Shutting down gracefully...");
   await prisma.$disconnect();
-  console.log("🧩 Database disconnected. Bye!");
+  console.log("Database disconnected. See you!");
   process.exit(0);
 });

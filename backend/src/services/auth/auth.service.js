@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 export async function registerService(email, password, name) {
   // Validasi input
   if (!email || !password || !name) {
-    throw new Error("Email, password, dan name wajib diisi");
+    throw new Error("Email, password, dan nama wajib diisi");
   }
 
   const emailTrimmed = String(email).trim().toLowerCase();
@@ -53,7 +53,7 @@ export async function registerService(email, password, name) {
   return { token: generateToken(user), user };
 }
 
-export async function loginService(email, password, ipAddress, userAgent) {
+export async function loginService(email, password) {
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) throw new Error("User tidak ditemukan");
 
@@ -66,16 +66,16 @@ export async function loginService(email, password, ipAddress, userAgent) {
       data: { lastLogin: new Date() },
     }),
     prisma.authLog.create({
-      data: { userId: user.id, action: "login", ipAddress, userAgent },
+      data: { userId: user.id, action: "login" },
     }),
   ]);
 
   return { token: generateToken(user), user };
 }
 
-export async function logoutService(userId, ipAddress, userAgent) {
+export async function logoutService(userId) {
   await prisma.authLog.create({
-    data: { userId, action: "logout", ipAddress, userAgent },
+    data: { userId, action: "logout" },
   });
   return { message: "Logout berhasil" };
 }

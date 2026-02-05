@@ -5,10 +5,9 @@ import {
 } from "../services/market/marketcap.service.js";
 import { prisma } from "../lib/prisma.js";
 
-// Sinkronisasi Top Coin dari CoinMarketCap + pairing dengan Coinbase.
+// Sinkronisasi 20 Top Coin dari CoinMarketCap + pairing dengan Coinbase.
 export async function getCoinMarketcap(req, res) {
   try {
-    console.log("🔄 Memulai proses sinkronisasi marketcap...");
     const result = await getMarketcapRealtime();
 
     if (!result.success) {
@@ -25,7 +24,7 @@ export async function getCoinMarketcap(req, res) {
       coins: result.coins,
     });
   } catch (err) {
-    console.error("❌ Marketcap sync error:", err.message);
+    console.error("Marketcap sync error:", err.message);
     res.status(500).json({
       success: false,
       message: err.message,
@@ -55,7 +54,7 @@ export async function getMarketcapLiveController(req, res) {
       data: result.data,
     });
   } catch (err) {
-    console.error("❌ Live ticker error:", err.message);
+    console.error("Live ticker error:", err.message);
     res.status(500).json({
       success: false,
       message: err.message,
@@ -69,8 +68,6 @@ export async function getMarketcapLiveController(req, res) {
  */
 export async function getCoinSymbols(req, res) {
   try {
-    console.log("Mengambil daftar symbol coin dari database...");
-
     // Ambil Top 20 dari TopCoin dengan JOIN ke Coin untuk ambil logo
     const symbols = await prisma.topCoin.findMany({
       where: {

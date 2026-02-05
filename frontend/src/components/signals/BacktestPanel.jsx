@@ -1,3 +1,4 @@
+import { FiBarChart2, FiInfo, FiTrendingUp } from "react-icons/fi";
 import {
   formatNumber,
   formatPercent,
@@ -118,7 +119,11 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
     >
       {/* Header */}
       <div className="flex items-center gap-2 mb-6">
-        <span className="text-2xl">📈</span>
+        <FiTrendingUp
+          className={`text-2xl ${
+            isDarkMode ? "text-blue-300" : "text-blue-700"
+          }`}
+        />
         <div>
           <h3
             className={`text-lg font-semibold ${
@@ -138,7 +143,11 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
           )}
         </div>
         <div className="group relative mb-4">
-          <span className="text-sm cursor-help">ℹ️</span>
+          <FiInfo
+            className={`text-sm cursor-help ${
+              isDarkMode ? "text-white" : "text-gray-700"
+            }`}
+          />
           <div
             className={`invisible group-hover:visible absolute left-0 top-6 w-80 p-3 rounded-lg shadow-lg z-50 text-xs ${
               isDarkMode
@@ -146,7 +155,10 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
                 : "bg-white border border-gray-200 text-gray-700"
             }`}
           >
-            <p className="font-semibold mb-1">📊 Hasil Backtest</p>
+            <p className="font-semibold mb-1 flex items-center gap-1">
+              <FiBarChart2 className="text-lg" />
+              Hasil Backtest
+            </p>
             <p>
               Hasil uji coba strategi trading menggunakan data historis.
               Strategi terbaik dipilih berdasarkan ROI tertinggi dari kombinasi

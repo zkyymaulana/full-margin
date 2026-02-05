@@ -26,6 +26,3 @@ export function authMiddleware(req, res, next) {
     });
   }
 }
-
-// Export alias for backward compatibility
-export const verifyToken = authMiddleware;

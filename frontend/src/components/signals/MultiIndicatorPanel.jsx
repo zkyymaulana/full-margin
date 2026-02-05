@@ -1,3 +1,11 @@
+import {
+  FiActivity,
+  FiCircle,
+  FiInfo,
+  FiTarget,
+  FiTrendingUp,
+  FiZap,
+} from "react-icons/fi";
 import { formatNumber } from "../../utils/indicatorParser";
 
 function MultiIndicatorPanel({
@@ -42,7 +50,11 @@ function MultiIndicatorPanel({
       <div className="p-6">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="text-2xl">🎯</div>
+          <FiTarget
+            className={`text-2xl ${
+              isDarkMode ? "text-blue-300" : "text-gray-700"
+            }`}
+          />
           <div>
             <h3
               className={`text-lg font-semibold ${
@@ -53,7 +65,12 @@ function MultiIndicatorPanel({
             </h3>
           </div>
           <div className="group relative">
-            <span className="text-sm cursor-help">ℹ️</span>
+            <FiInfo
+              className={`text-sm cursor-help ${
+                isDarkMode ? "text-gray-400" : "text-gray-500"
+              }`}
+            />
+
             <div
               className={`invisible group-hover:visible absolute right-0 top-6 w-80 p-3 rounded-lg shadow-lg z-50 text-xs ${
                 isDarkMode
@@ -61,8 +78,9 @@ function MultiIndicatorPanel({
                   : "bg-white border border-gray-200 text-gray-700"
               }`}
             >
-              <p className="font-semibold mb-1">
-                🎯 Weighted Multi-Indicator Signal
+              <p className="font-semibold mb-1 flex items-center gap-1">
+                <FiTarget className="text-sm" />
+                Weighted Multi-Indicator Signal
               </p>
               <p>
                 Menggabungkan 8 indikator teknikal dengan bobot optimal dari
@@ -121,31 +139,33 @@ function MultiIndicatorPanel({
           {signalCounts && (
             <div className="flex justify-center gap-3 mb-4">
               <div
-                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  isDarkMode
-                    ? "bg-green-900/30 text-green-400"
-                    : "bg-green-100 text-green-700"
-                }`}
-              >
-                🟢 {signalCounts.buy}
-              </div>
-              <div
-                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
                   isDarkMode
                     ? "bg-red-900/30 text-red-400"
                     : "bg-red-100 text-red-700"
                 }`}
               >
-                🔴 {signalCounts.sell}
+                <FiTrendingUp className="rotate-180" /> {signalCounts.sell}
               </div>
+
               <div
-                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
                   isDarkMode
                     ? "bg-gray-700 text-gray-400"
                     : "bg-gray-100 text-gray-600"
                 }`}
               >
-                ⚪ {signalCounts.neutral}
+                <FiCircle /> {signalCounts.neutral}
+              </div>
+
+              <div
+                className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
+                  isDarkMode
+                    ? "bg-green-900/30 text-green-400"
+                    : "bg-green-100 text-green-700"
+                }`}
+              >
+                <FiTrendingUp /> {signalCounts.buy}
               </div>
             </div>
           )}
@@ -196,7 +216,10 @@ function MultiIndicatorPanel({
           {/* Trend - Always show from backend */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-lg">📈</span>
+              <FiTrendingUp
+                className={`${isDarkMode ? "text-blue-400" : "text-blue-600"}`}
+              />
+
               <span
                 className={`text-sm font-medium ${
                   isDarkMode ? "text-gray-300" : "text-gray-700"
@@ -228,7 +251,12 @@ function MultiIndicatorPanel({
           {/* Momentum - Always show from backend */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-lg">⚡</span>
+              <FiZap
+                className={`${
+                  isDarkMode ? "text-purple-400" : "text-purple-600"
+                }`}
+              />
+
               <span
                 className={`text-sm font-medium ${
                   isDarkMode ? "text-gray-300" : "text-gray-700"
@@ -260,7 +288,12 @@ function MultiIndicatorPanel({
           {/* Volatility - Always show from backend */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-lg">💥</span>
+              <FiActivity
+                className={`${
+                  isDarkMode ? "text-green-400" : "text-green-600"
+                }`}
+              />
+
               <span
                 className={`text-sm font-medium ${
                   isDarkMode ? "text-gray-300" : "text-gray-700"

@@ -1,7 +1,7 @@
 // src/services/market/index.js
 
 // CMC Service
-export * from "./cmcTopCoins.service.js";
+export * from "./syncTopCoins.service.js";
 
 // Coinbase Service
 export * from "./coinbase.service.js";

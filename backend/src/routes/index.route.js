@@ -24,17 +24,17 @@ router.use("/marketcap", authMiddleware, marketcapRoute);
 router.use("/user", authMiddleware, userRoute);
 
 // Analysis & Visualization
-router.use("/chart", chartRoute);
-router.use("/indicator", indicatorRoute);
-router.use("/multiIndicator", multiIndicatorRoute);
-router.use("/singleIndicator", singleIndicatorRoute);
-router.use("/comparison", comparisonRoute);
+router.use("/chart", authMiddleware, chartRoute);
+router.use("/indicator", authMiddleware, indicatorRoute);
+router.use("/multiIndicator", authMiddleware, multiIndicatorRoute);
+router.use("/singleIndicator", authMiddleware, singleIndicatorRoute);
+router.use("/comparison", authMiddleware, comparisonRoute);
 
 // Scheduler management
-router.use("/scheduler", schedulerRoute);
+router.use("/scheduler", authMiddleware, schedulerRoute);
 
 // Telegram notifications
-router.use("/telegram", telegramRoute);
+router.use("/telegram", authMiddleware, telegramRoute);
 
 // Default 404 handler
 router.use("*", (_, res) =>

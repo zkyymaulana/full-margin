@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useDarkMode } from "../../contexts/DarkModeContext";
 import { formatPrice } from "../../utils/chartConfig";
+import { FaCoins } from "react-icons/fa6";
 
 /**
  * Top Coins Section Component
@@ -17,7 +18,7 @@ function TopCoinsSection({ topCoins }) {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-linear-to-r from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center">
-              <span className="text-lg">🪙</span>
+              <FaCoins className="text-lg text-white" />
             </div>
             <div>
               <h4

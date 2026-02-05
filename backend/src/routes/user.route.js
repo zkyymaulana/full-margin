@@ -4,13 +4,12 @@ import {
   updateProfile,
   updateTelegramSettings,
 } from "../controllers/user.controller.js";
-import { verifyToken } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-router.get("/profile", verifyToken, getProfile);
-router.put("/profile", verifyToken, updateProfile);
+router.get("/profile", getProfile);
+router.put("/profile", updateProfile);
 
-router.patch("/:id/telegram", verifyToken, updateTelegramSettings);
+router.patch("/:id/telegram", updateTelegramSettings);
 
 export default router;

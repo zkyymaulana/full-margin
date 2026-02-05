@@ -1,4 +1,28 @@
+import {
+  FiBarChart2,
+  FiInfo,
+  FiList,
+  FiTrendingUp,
+  FiTrendingDown,
+  FiMinus,
+} from "react-icons/fi";
 import { getIndicatorSignal, safeSignal } from "../../utils/indicatorParser";
+
+// ✅ Helper function to render signal icon based on iconType string
+const renderSignalIcon = (iconType, isDarkMode) => {
+  const iconClass = "w-4 h-4";
+
+  switch (iconType) {
+    case "buy":
+      return <FiTrendingUp className={iconClass} />;
+    case "sell":
+      return <FiTrendingDown className={iconClass} />;
+    case "neutral":
+      return;
+    default:
+      return;
+  }
+};
 
 function IndicatorTable({ allIndicators, isDarkMode }) {
   if (allIndicators.length === 0) return null;
@@ -12,7 +36,14 @@ function IndicatorTable({ allIndicators, isDarkMode }) {
       <div className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="text-2xl">📊</div>
+            <div
+              className={`text-2xl ${
+                isDarkMode ? "text-blue-300" : "text-gray-700"
+              }`}
+            >
+              <FiBarChart2 />
+            </div>
+
             <div>
               <h3
                 className={`text-lg font-semibold ${
@@ -23,7 +54,15 @@ function IndicatorTable({ allIndicators, isDarkMode }) {
               </h3>
             </div>
             <div className="group relative">
-              <span className="text-sm cursor-help">ℹ️</span>
+              <div className="group relative">
+                <FiInfo
+                  className={`w-4 h-4 cursor-help transition-colors ${
+                    isDarkMode
+                      ? "text-gray-400 hover:text-gray-200"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                />
+              </div>
               <div
                 className={`invisible group-hover:visible absolute left-0 top-6 w-80 p-3 rounded-lg shadow-lg z-50 text-xs ${
                   isDarkMode
@@ -31,7 +70,14 @@ function IndicatorTable({ allIndicators, isDarkMode }) {
                     : "bg-white border border-gray-200 text-gray-700"
                 }`}
               >
-                <p className="font-semibold mb-1">📋 Tabel Indikator Lengkap</p>
+                <p className="flex items-center gap-1 font-semibold mb-1">
+                  <FiList
+                    className={`w-4 h-4 ${
+                      isDarkMode ? "text-gray-300" : "text-gray-600"
+                    }`}
+                  />
+                  Tabel Indikator Lengkap
+                </p>
                 <p>
                   Menampilkan semua indikator teknikal dengan detail parameter
                   (SMA 20, SMA 50, RSI 14, dll) dan nilai real-time dari setiap
@@ -88,11 +134,11 @@ function IndicatorTable({ allIndicators, isDarkMode }) {
                 const rawSignal = indicator.signal || "neutral";
                 const validatedSignal = safeSignal(rawSignal);
 
-                // ✅ Get formatted signal display
+                // ✅ Get formatted signal display (now returns iconType as string)
                 const {
                   signal: signalText,
                   color: signalColor,
-                  icon,
+                  iconType,
                 } = getIndicatorSignal(validatedSignal, isDarkMode);
 
                 return (
@@ -115,7 +161,7 @@ function IndicatorTable({ allIndicators, isDarkMode }) {
                       <span
                         className={`inline-flex items-center justify-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${signalColor}`}
                       >
-                        {icon} {signalText}
+                        {renderSignalIcon(iconType, isDarkMode)} {signalText}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-center">

@@ -1,3 +1,4 @@
+import { FiInfo } from "react-icons/fi";
 import { formatPrice } from "../../utils/indicatorParser";
 
 function SignalsHeader({
@@ -20,7 +21,10 @@ function SignalsHeader({
           Technical Indicator Analysis
         </h1>
         <div className="group relative">
-          <span className="text-2xl cursor-help">ℹ️</span>
+          <div className="text-gray-700 dark:text-gray-300">
+            <FiInfo className="text-2xl cursor-help text-current" />
+          </div>
+
           <div
             className={`invisible group-hover:visible absolute left-0 top-8 w-80 p-4 rounded-lg shadow-lg z-50 ${
               isDarkMode

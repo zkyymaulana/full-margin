@@ -3,6 +3,12 @@ import { useComparison } from "../hooks/useComparison";
 import { useSymbol } from "../contexts/SymbolContext";
 import { useDarkMode } from "../contexts/DarkModeContext";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  FiAlertTriangle,
+  FiAward,
+  FiBarChart2,
+  FiSearch,
+} from "react-icons/fi";
 
 function ComparisonPage() {
   const { selectedSymbol } = useSymbol();
@@ -275,7 +281,11 @@ function ComparisonPage() {
             <button
               onClick={handleCompare}
               disabled={isLoading || isPending}
-              className="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2 hover:cursor-pointer"
+              className={`py-2 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2 hover:cursor-pointer ${
+                isDarkMode
+                  ? "bg-blue-500 hover:bg-blue-600 text-white"
+                  : "bg-blue-600 hover:bg-blue-700 text-white"
+              }`}
             >
               {isLoading || isPending ? (
                 <>
@@ -284,7 +294,7 @@ function ComparisonPage() {
                 </>
               ) : (
                 <>
-                  <span>🔍</span>
+                  <FiSearch className="text-lg text-white" />
                   Compare Strategies
                 </>
               )}
@@ -327,7 +337,11 @@ function ComparisonPage() {
             <div className="relative">
               <div className="w-20 h-20 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-3xl">🔍</span>
+                <FiSearch
+                  className={`text-3xl ${
+                    isDarkMode ? "text-gray-400" : "text-gray-600"
+                  }`}
+                />
               </div>
             </div>
 
@@ -632,8 +646,21 @@ function ComparisonPage() {
               >
                 <div className="flex items-start gap-3">
                   <span className="text-2xl">
-                    {displayData.analysis.multiBeatsBestSingle ? "🏆" : "⚠️"}
+                    {displayData.analysis.multiBeatsBestSingle ? (
+                      <FiAward
+                        className={`${
+                          isDarkMode ? "text-yellow-400" : "text-yellow-500"
+                        }`}
+                      />
+                    ) : (
+                      <FiAlertTriangle
+                        className={`${
+                          isDarkMode ? "text-orange-400" : "text-orange-500"
+                        }`}
+                      />
+                    )}
                   </span>
+
                   <div className="flex-1">
                     <div
                       className={`font-semibold mb-1 ${
@@ -723,7 +750,6 @@ function ComparisonPage() {
                       isDarkMode ? "text-white" : "text-gray-900"
                     }`}
                   >
-                    <span>⚖️</span>
                     Optimized Indicator Weights
                   </h3>
                   <span
@@ -835,7 +861,11 @@ function ComparisonPage() {
                   isDarkMode ? "text-white" : "text-gray-900"
                 }`}
               >
-                <span>📊</span>
+                <FiBarChart2
+                  className={`text-2xl ${
+                    isDarkMode ? "text-gray-300" : "text-gray-700"
+                  }`}
+                />
                 Standard Configuration Results
               </h3>
               <p

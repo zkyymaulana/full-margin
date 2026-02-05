@@ -1,15 +1,40 @@
 // src/utils/dataCleaner.js
+/** Membersihkan data top coin dari CoinMarketCap */
+export function cleanTopCoinData(coins = []) {
+  if (!Array.isArray(coins) || coins.length === 0) return [];
+
+  return coins
+    .filter(
+      (c) =>
+        c &&
+        typeof c.symbol === "string" &&
+        Number.isInteger(c.rank) &&
+        c.rank > 0 &&
+        isFinite(c.price) &&
+        isFinite(c.marketCap) &&
+        c.price > 0 &&
+        c.marketCap > 0
+    )
+    .map((c) => ({
+      rank: c.rank,
+      name: c.name || "",
+      symbol: c.symbol.toUpperCase(),
+      price: Number(c.price.toFixed(2)),
+      marketCap: Number(c.marketCap.toFixed(2)),
+      volume24h: c.volume24h ? Number(c.volume24h.toFixed(2)) : 0,
+    }))
+    .sort((a, b) => a.rank - b.rank);
+}
 
 /**
  * Membersihkan data ticker dari Coinbase
- * 🐛 Fixed: Tidak membulatkan harga kecil (seperti SHIB) menjadi 0
  */
 export function cleanTickerData(data) {
   if (!data) return null;
 
   const { symbol, price, volume, high, low, open, time } = data;
 
-  // ✅ Validasi: Tolak hanya jika null, NaN, atau negatif
+  // Validasi: Tolak hanya jika null, NaN, atau negatif
   // TIDAK menolak angka kecil seperti 0.00000862
   if (
     price == null ||
@@ -31,14 +56,14 @@ export function cleanTickerData(data) {
     return null;
   }
 
-  // ✅ Validasi logika harga (low tidak boleh lebih besar dari high)
+  // Validasi logika harga (low tidak boleh lebih besar dari high)
   if (low > high) return null;
 
-  // 🎯 Kembalikan nilai asli TANPA pembulatan toFixed(2)
+  // Kembalikan nilai asli TANPA pembulatan toFixed(2)
   // Biarkan precision penuh untuk aset mikro seperti SHIB
   return {
     symbol,
-    price: Number(price), // ✅ TIDAK pakai toFixed(2)
+    price: Number(price), // TIDAK pakai toFixed(2)
     volume: Number(volume),
     high: Number(high),
     low: Number(low),
@@ -74,33 +99,6 @@ export function cleanCandleData(candles = []) {
       volume: Number(c.volume.toFixed(8)),
     }))
     .sort((a, b) => a.time - b.time);
-}
-
-/** Membersihkan data top coin dari CoinMarketCap */
-export function cleanTopCoinData(coins = []) {
-  if (!Array.isArray(coins) || coins.length === 0) return [];
-
-  return coins
-    .filter(
-      (c) =>
-        c &&
-        typeof c.symbol === "string" &&
-        Number.isInteger(c.rank) &&
-        c.rank > 0 &&
-        isFinite(c.price) &&
-        isFinite(c.marketCap) &&
-        c.price > 0 &&
-        c.marketCap > 0
-    )
-    .map((c) => ({
-      rank: c.rank,
-      name: c.name || "",
-      symbol: c.symbol.toUpperCase(),
-      price: Number(c.price.toFixed(2)),
-      marketCap: Number(c.marketCap.toFixed(2)),
-      volume24h: c.volume24h ? Number(c.volume24h.toFixed(2)) : 0,
-    }))
-    .sort((a, b) => a.rank - b.rank);
 }
 
 /** Menghapus duplikat candle berdasarkan timestamp */
