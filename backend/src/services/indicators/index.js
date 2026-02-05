@@ -4,6 +4,6 @@ export * from "./rsi.service.js";
 export * from "./macd.service.js";
 export * from "./bollinger.service.js";
 export * from "./stochastic.service.js";
-export * from "./stochRSI.service.js";
+export * from "./stochRsi.service.js";
 export * from "./psar.service.js";
 export * from "./indicator.service.js";
