@@ -24,7 +24,7 @@ yarn-error.log*
 data/
 cache/
 *.csv
-*.json
+package-lock.json
 *.db
 *.sqlite
 *.pkl
