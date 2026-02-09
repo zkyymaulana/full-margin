@@ -219,6 +219,22 @@ function ComparisonPage() {
                 onClick={() => {
                   const end = new Date();
                   const start = new Date();
+                  start.setMonth(start.getMonth() - 1);
+                  setEndDate(end.toISOString().split("T")[0]);
+                  setStartDate(start.toISOString().split("T")[0]);
+                }}
+                className={`px-3 py-1 text-xs rounded-lg transition-colors hover:cursor-pointer ${
+                  isDarkMode
+                    ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
+                    : "bg-gray-100 hover:bg-gray-200"
+                }`}
+              >
+                1 Month
+              </button>
+              <button
+                onClick={() => {
+                  const end = new Date();
+                  const start = new Date();
                   start.setMonth(start.getMonth() - 3);
                   setEndDate(end.toISOString().split("T")[0]);
                   setStartDate(start.toISOString().split("T")[0]);
@@ -262,19 +278,6 @@ function ComparisonPage() {
                 }`}
               >
                 1 Year
-              </button>
-              <button
-                onClick={() => {
-                  setEndDate("2025-10-18");
-                  setStartDate("2020-01-01");
-                }}
-                className={`px-3 py-1 text-xs rounded-lg transition-colors hover:cursor-pointer ${
-                  isDarkMode
-                    ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
-                    : "bg-gray-100 hover:bg-gray-200"
-                }`}
-              >
-                Max Range
               </button>
             </div>
 
