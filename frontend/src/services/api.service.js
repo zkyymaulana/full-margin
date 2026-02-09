@@ -6,10 +6,22 @@ import axios from "axios";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-// Create axios instance
+// =====================================================
+// 🔧 AXIOS CONFIGURATION
+// =====================================================
+
+/**
+ * Global Axios Instance with Extended Timeout
+ *
+ * Default timeout: 120000ms (2 minutes)
+ * Suitable for heavy backend processes like backtesting and analysis
+ *
+ * Per-request timeout override example:
+ * apiClient.get('/endpoint', { timeout: 60000 })
+ */
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000,
+  timeout: 120000,
   headers: {
     "Content-Type": "application/json",
     Accept: "application/json",
@@ -212,15 +224,15 @@ export const fetchMarketCapLive = async (limit = 100) => {
   return data;
 };
 
-// Comparison (custom body)
+// Comparison (custom body) - Heavy process requiring extended timeout
 export const fetchComparison = async (requestBody) => {
   const { data } = await apiClient.post("/comparison/compare", requestBody, {
-    timeout: 30000,
+    timeout: 120000, // ✅ 2 minutes for backtesting analysis
   });
   return data;
 };
 
-// Quick comparison (preset)
+// Quick comparison (preset) - Heavy process requiring extended timeout
 export const fetchQuickComparison = async (
   symbol,
   preset = "balanced",
@@ -234,7 +246,7 @@ export const fetchQuickComparison = async (
       days,
     },
     {
-      timeout: 20000,
+      timeout: 120000, // ✅ 2 minutes for backtesting analysis
     }
   );
   return data;
