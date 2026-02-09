@@ -25,6 +25,9 @@ function DashboardPage() {
   const seriesRef = useRef(null);
   const oscillatorChartsRef = useRef({});
 
+  // 🆕 Track sync cleanup function
+  const syncCleanupRef = useRef(null);
+
   // Custom hooks
   const chartSync = useChartSync();
   const pagination = useChartPagination(allCandlesData, setAllCandlesData);
@@ -122,36 +125,109 @@ function DashboardPage() {
     }
   }, [allCandlesData, candlesData?.data?.length]);
 
-  // Sync all charts when data changes
+  // 🎯 CENTRALIZED CHART SYNC SETUP (FIXED VERSION - BIDIRECTIONAL)
+  // Setup sync AFTER all charts are ready and re-setup when indicators change
   useEffect(() => {
-    const timer = setTimeout(() => {
+    // ✅ CLEANUP OLD SYNC FIRST
+    if (syncCleanupRef.current) {
+      console.log("[ChartSync] Cleaning up previous sync setup");
+      syncCleanupRef.current();
+      syncCleanupRef.current = null;
+    }
+
+    // Wait for all charts to be ready
+    const setupTimeout = setTimeout(() => {
       const allCharts = [
         chartRef.current,
         ...Object.values(oscillatorChartsRef.current),
       ].filter(Boolean);
 
-      if (allCharts.length > 0 && chartRef.current) {
-        const mainTimeScale = chartRef.current.timeScale();
-        const visibleRange =
-          chartSync.currentVisibleRangeRef.current ||
-          mainTimeScale.getVisibleRange();
-
-        if (visibleRange) {
-          allCharts.forEach((chart) => {
-            if (chart !== chartRef.current) {
-              try {
-                chart.timeScale().setVisibleRange(visibleRange);
-              } catch (e) {
-                console.warn("Initial sync error:", e);
-              }
-            }
-          });
-        }
+      if (allCharts.length <= 1) {
+        console.log(
+          "[ChartSync] Only main chart available, skipping sync setup"
+        );
+        return;
       }
-    }, 100);
 
-    return () => clearTimeout(timer);
-  }, [candlesData, activeIndicators]);
+      console.log(
+        `[ChartSync] Setting up BIDIRECTIONAL sync for ${
+          allCharts.length
+        } charts (${Object.keys(oscillatorChartsRef.current).join(", ")})`
+      );
+
+      // 🆕 Setup sync for ALL charts (bidirectional)
+      const cleanupFunctions = [];
+
+      allCharts.forEach((chart, index) => {
+        if (chart) {
+          const chartName =
+            index === 0
+              ? "main"
+              : Object.keys(oscillatorChartsRef.current)[index - 1] ||
+                `chart-${index}`;
+          const cleanup = chartSync.setupChartSync(chart, allCharts, chartName);
+          if (cleanup) {
+            cleanupFunctions.push(cleanup);
+          }
+        }
+      });
+
+      // ✅ Store all cleanup functions
+      syncCleanupRef.current = () => {
+        console.log(
+          `[ChartSync] Cleaning up all ${cleanupFunctions.length} chart sync setups`
+        );
+        cleanupFunctions.forEach((cleanup) => {
+          if (cleanup) cleanup();
+        });
+      };
+
+      console.log("[ChartSync] ✅ Bidirectional sync setup complete!");
+    }, 250); // Increased delay to ensure all charts are fully rendered
+
+    return () => {
+      clearTimeout(setupTimeout);
+      // Cleanup when component unmounts
+      if (syncCleanupRef.current) {
+        syncCleanupRef.current();
+        syncCleanupRef.current = null;
+      }
+    };
+  }, [activeIndicators, chartSync]); // Re-run when activeIndicators change
+
+  // 🎯 INITIAL RANGE SYNC (when data or indicators change)
+  // Ensure all charts start with the same visible range
+  useEffect(() => {
+    const syncTimeout = setTimeout(() => {
+      if (!chartRef.current) return;
+
+      const indicatorCharts = Object.values(oscillatorChartsRef.current).filter(
+        Boolean
+      );
+      if (indicatorCharts.length === 0) return;
+
+      const mainTimeScale = chartRef.current.timeScale();
+      const visibleRange = mainTimeScale.getVisibleRange();
+
+      if (visibleRange) {
+        console.log(
+          "[ChartSync] Applying initial range sync to",
+          indicatorCharts.length,
+          "indicator charts"
+        );
+
+        indicatorCharts.forEach((chart) => {
+          try {
+            chart.timeScale().setVisibleRange(visibleRange);
+          } catch (e) {
+            console.warn("[ChartSync] Initial sync error:", e.message);
+          }
+        });
+      }
+    }, 400); // Increased delay to run after sync setup
+
+    return () => clearTimeout(syncTimeout);
+  }, [allCandlesData, activeIndicators]);
 
   // Toggle indicator
   const toggleIndicator = (indicatorId) => {

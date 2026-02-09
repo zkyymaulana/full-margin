@@ -1,190 +1,299 @@
 import { useRef, useCallback } from "react";
 
 /**
- * Custom hook for synchronizing multiple Lightweight Charts
- * Handles zoom, pan, and scroll synchronization across all charts
+ * 🎯 TradingView Lightweight Charts Synchronization Hook
+ * Synchronizes time range (pan/zoom) and crosshair across multiple charts
+ *
+ * Features:
+ * ✅ Pan/Zoom sync (main chart → indicator charts)
+ * ✅ Crosshair sync (bidirectional)
+ * ✅ Timestamp tooltip on hover
+ * ✅ Prevents circular sync loops
  */
 export const useChartSync = () => {
   const isSyncingRef = useRef(false);
-  const syncTimeoutRef = useRef(null);
-  const syncDebounceRef = useRef(null);
-  const currentVisibleRangeRef = useRef(null);
+  const crosshairSyncRef = useRef(false);
+  const crosshairUnsubscribersRef = useRef({});
   const dataRangeRef = useRef(null);
+  const allCandlesDataRef = useRef([]);
+  // 🆕 Add missing ref for backward compatibility
+  const currentVisibleRangeRef = useRef(null);
 
-  // Limit visible range to prevent empty space
-  const limitVisibleRange = useCallback((range) => {
-    if (!dataRangeRef.current || !range) return range;
+  // 🔧 Format timestamp for tooltip
+  const formatTimestamp = useCallback((time) => {
+    if (!time) return "";
 
-    const { from, to } = range;
-    const { minTime, maxTime } = dataRangeRef.current;
-    const visibleDuration = to - from;
-    const maxAllowedTo = maxTime + visibleDuration * 0.05;
-
-    if (to > maxAllowedTo) {
-      const adjustedTo = maxAllowedTo;
-      const adjustedFrom = adjustedTo - visibleDuration;
-
-      if (adjustedFrom < minTime) {
-        return { from: minTime, to: minTime + visibleDuration };
-      }
-
-      return { from: adjustedFrom, to: adjustedTo };
-    }
-
-    if (from < minTime) {
-      return { from: minTime, to: minTime + visibleDuration };
-    }
-
-    return range;
+    const date = new Date(time * 1000);
+    return date.toLocaleString("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
   }, []);
 
-  // Main sync function
-  const syncAllCharts = useCallback(
-    (allCharts, sourceChart = null, immediate = false) => {
-      if (isSyncingRef.current || allCharts.length <= 1) return;
+  // 🎯 Main sync function: synchronize visible time range
+  const syncVisibleRange = useCallback((sourceChart, targetCharts) => {
+    if (isSyncingRef.current) return;
 
-      const masterChart = sourceChart || allCharts[0];
-      if (!masterChart) return;
+    isSyncingRef.current = true;
 
-      const masterTimeScale = masterChart.timeScale();
-      let visibleRange = masterTimeScale.getVisibleRange();
-
-      if (!visibleRange) return;
-
-      visibleRange = limitVisibleRange(visibleRange);
-      currentVisibleRangeRef.current = visibleRange;
-      isSyncingRef.current = true;
-
-      try {
-        allCharts.forEach((chart) => {
-          if (chart !== masterChart) {
-            try {
-              const targetTimeScale = chart.timeScale();
-              targetTimeScale.applyOptions({
-                lockVisibleTimeRangeOnResize: true,
-                rightBarStaysOnScroll: true,
-                fixLeftEdge: false,
-                fixRightEdge: false,
-              });
-              targetTimeScale.setVisibleRange(visibleRange);
-            } catch (e) {
-              console.warn("Sync error for individual chart:", e);
-            }
-          }
-        });
-      } catch (error) {
-        console.warn("General sync error:", error);
-      }
-
-      if (immediate) {
+    try {
+      // ✅ Check if source chart is still valid
+      if (!sourceChart) {
         isSyncingRef.current = false;
-      } else {
-        if (syncTimeoutRef.current) {
-          clearTimeout(syncTimeoutRef.current);
-        }
-        syncTimeoutRef.current = setTimeout(() => {
-          isSyncingRef.current = false;
-        }, 50);
+        return;
       }
-    },
-    [limitVisibleRange]
-  );
 
-  // Setup sync for a single chart
-  const setupChartSync = useCallback(
-    (chart, allCharts, chartType = "unknown") => {
-      if (!chart) return;
+      const sourceTimeScale = sourceChart.timeScale();
+      const visibleLogicalRange = sourceTimeScale.getVisibleLogicalRange();
 
-      console.log(`Setting up sync for ${chartType} chart`);
+      if (!visibleLogicalRange) {
+        isSyncingRef.current = false;
+        return;
+      }
 
-      const timeScale = chart.timeScale();
+      // 🆕 Store current visible range for backward compatibility
+      const visibleRange = sourceTimeScale.getVisibleRange();
+      if (visibleRange) {
+        currentVisibleRangeRef.current = visibleRange;
+      }
 
-      timeScale.applyOptions({
-        lockVisibleTimeRangeOnResize: true,
-        rightBarStaysOnScroll: true,
-        fixLeftEdge: false,
-        fixRightEdge: false,
-      });
-
-      const handleVisibleTimeRangeChange = () => {
-        if (syncDebounceRef.current) {
-          clearTimeout(syncDebounceRef.current);
-        }
-
-        syncDebounceRef.current = setTimeout(() => {
-          requestAnimationFrame(() => {
-            syncAllCharts(allCharts, chart, false);
-          });
-        }, 10);
-      };
-
-      const unsubscribeTimeRange = timeScale.subscribeVisibleTimeRangeChange(
-        handleVisibleTimeRangeChange
+      // 🔧 Debug log
+      console.log(
+        `[ChartSync] Syncing range to ${targetCharts.length} target charts`,
+        visibleLogicalRange
       );
 
-      const handleWheel = () => {
-        requestAnimationFrame(() => {
-          syncAllCharts(allCharts, chart, true);
-        });
-      };
+      // Apply to all target charts (already filtered, no need to check again)
+      targetCharts.forEach((chart, index) => {
+        // ✅ Validate chart exists and has timeScale method
+        if (chart && typeof chart.timeScale === "function") {
+          try {
+            const targetTimeScale = chart.timeScale();
+            // ✅ Check if setVisibleLogicalRange method exists
+            if (typeof targetTimeScale.setVisibleLogicalRange === "function") {
+              targetTimeScale.setVisibleLogicalRange(visibleLogicalRange);
+              console.log(`[ChartSync] ✅ Synced chart ${index + 1}`);
+            }
+          } catch (error) {
+            // ⚠️ Chart might be disposed, just warn and continue
+            if (error.message.includes("disposed")) {
+              console.warn(
+                `[ChartSync] Chart ${index + 1} is disposed, skipping`
+              );
+            } else {
+              console.warn(
+                `[ChartSync] ❌ Failed to sync chart ${index + 1}:`,
+                error.message
+              );
+            }
+          }
+        }
+      });
+    } catch (error) {
+      // ⚠️ Source chart might be disposed
+      if (error.message.includes("disposed")) {
+        console.warn("[ChartSync] Source chart is disposed, stopping sync");
+      } else {
+        console.error("[ChartSync] Sync error:", error);
+      }
+    } finally {
+      // Reset flag after a short delay to prevent rapid re-sync
+      setTimeout(() => {
+        isSyncingRef.current = false;
+      }, 50);
+    }
+  }, []);
 
-      const handleMouseDown = () => {
-        requestAnimationFrame(() => {
-          syncAllCharts(allCharts, chart, true);
-        });
-      };
+  // 🎯 Crosshair sync function
+  const syncCrosshair = useCallback((sourceChart, targetCharts, param) => {
+    if (crosshairSyncRef.current) return;
 
-      const handleMouseMove = (event) => {
-        if (event.buttons === 1) {
-          requestAnimationFrame(() => {
-            syncAllCharts(allCharts, chart, false);
-          });
+    crosshairSyncRef.current = true;
+
+    try {
+      targetCharts.forEach((chart) => {
+        if (chart && chart !== sourceChart) {
+          if (param && param.time !== undefined) {
+            // Get price value from the first series
+            const series = chart.series();
+            if (series.length > 0) {
+              const price =
+                param.seriesData.size > 0
+                  ? Array.from(param.seriesData.values())[0]?.value
+                  : undefined;
+
+              if (price !== undefined) {
+                chart.setCrosshairPosition(price, param.time, series[0]);
+              }
+            }
+          } else {
+            // Clear crosshair
+            chart.clearCrosshairPosition();
+          }
+        }
+      });
+    } catch (error) {
+      console.warn("[ChartSync] Crosshair sync error:", error);
+    } finally {
+      crosshairSyncRef.current = false;
+    }
+  }, []);
+
+  // 🎯 Setup crosshair sync with timestamp tooltip
+  const setupCrosshairSync = useCallback(
+    (chart, allCharts, chartType) => {
+      if (!chart) return null;
+
+      const handleCrosshairMove = (param) => {
+        // Sync crosshair to other charts
+        syncCrosshair(chart, allCharts, param);
+
+        // Add/update timestamp tooltip
+        const chartElement = chart.chartElement();
+        if (!chartElement) return;
+
+        let tooltip = chartElement.querySelector(".chart-timestamp-tooltip");
+
+        if (param && param.time !== undefined) {
+          const timestamp = formatTimestamp(param.time);
+
+          // Create tooltip if doesn't exist
+          if (!tooltip) {
+            tooltip = document.createElement("div");
+            tooltip.className = "chart-timestamp-tooltip";
+            tooltip.style.cssText = `
+              position: absolute;
+              top: 10px;
+              left: 10px;
+              background: rgba(0, 0, 0, 0.85);
+              color: white;
+              padding: 6px 12px;
+              border-radius: 4px;
+              font-size: 11px;
+              font-family: 'Inter', -apple-system, sans-serif;
+              font-weight: 500;
+              pointer-events: none;
+              z-index: 1000;
+              white-space: nowrap;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            `;
+            chartElement.style.position = "relative";
+            chartElement.appendChild(tooltip);
+          }
+
+          tooltip.textContent = timestamp;
+          tooltip.style.display = "block";
+          tooltip.style.opacity = "1";
+        } else {
+          // Hide tooltip when crosshair leaves
+          if (tooltip) {
+            tooltip.style.opacity = "0";
+            setTimeout(() => {
+              if (tooltip) tooltip.style.display = "none";
+            }, 150);
+          }
         }
       };
 
-      const handleMouseUp = () => {
-        requestAnimationFrame(() => {
-          syncAllCharts(allCharts, chart, true);
-        });
-      };
-
-      const chartElement = chart.chartElement();
-      if (chartElement) {
-        chartElement.addEventListener("wheel", handleWheel, { passive: true });
-        chartElement.addEventListener("mousedown", handleMouseDown);
-        chartElement.addEventListener("mousemove", handleMouseMove);
-        chartElement.addEventListener("mouseup", handleMouseUp);
-      }
+      const unsubscribe = chart.subscribeCrosshairMove(handleCrosshairMove);
+      crosshairUnsubscribersRef.current[chartType] = unsubscribe;
 
       return () => {
-        console.log(`Cleaning up sync for ${chartType} chart`);
-
-        if (unsubscribeTimeRange) {
-          unsubscribeTimeRange();
+        if (unsubscribe) {
+          unsubscribe();
         }
+        delete crosshairUnsubscribersRef.current[chartType];
 
+        // Remove tooltip
+        const chartElement = chart.chartElement();
         if (chartElement) {
-          chartElement.removeEventListener("wheel", handleWheel);
-          chartElement.removeEventListener("mousedown", handleMouseDown);
-          chartElement.removeEventListener("mousemove", handleMouseMove);
-          chartElement.removeEventListener("mouseup", handleMouseUp);
-        }
-
-        if (syncTimeoutRef.current) {
-          clearTimeout(syncTimeoutRef.current);
-        }
-        if (syncDebounceRef.current) {
-          clearTimeout(syncDebounceRef.current);
+          const tooltip = chartElement.querySelector(
+            ".chart-timestamp-tooltip"
+          );
+          if (tooltip) tooltip.remove();
         }
       };
     },
-    [syncAllCharts]
+    [syncCrosshair, formatTimestamp]
+  );
+
+  // 🎯 Setup chart synchronization (main function)
+  const setupChartSync = useCallback(
+    (chart, allCharts, chartType = "unknown") => {
+      if (!chart) return null;
+
+      console.log(`[ChartSync] Setting up sync for "${chartType}" chart`);
+
+      const timeScale = chart.timeScale();
+      const otherCharts = allCharts.filter((c) => c !== chart);
+
+      // 🆕 Track if chart is disposed
+      let isDisposed = false;
+
+      // Subscribe to logical range changes (better than visible range for sync)
+      const unsubscribeLogicalRange =
+        timeScale.subscribeVisibleLogicalRangeChange(() => {
+          if (!isSyncingRef.current && !isDisposed) {
+            requestAnimationFrame(() => {
+              // ✅ Check again before syncing (chart might be disposed during RAF)
+              if (!isDisposed) {
+                syncVisibleRange(chart, otherCharts);
+              }
+            });
+          }
+        });
+
+      // Setup crosshair sync
+      const unsubscribeCrosshair = setupCrosshairSync(
+        chart,
+        allCharts,
+        chartType
+      );
+
+      // Cleanup function
+      return () => {
+        console.log(`[ChartSync] Cleaning up sync for "${chartType}" chart`);
+
+        // ✅ Set disposed flag FIRST to stop any pending RAF callbacks
+        isDisposed = true;
+
+        // ✅ Unsubscribe from events BEFORE chart is removed
+        if (unsubscribeLogicalRange) {
+          try {
+            unsubscribeLogicalRange();
+          } catch (error) {
+            console.warn(
+              `[ChartSync] Error unsubscribing logical range:`,
+              error.message
+            );
+          }
+        }
+
+        if (unsubscribeCrosshair) {
+          try {
+            unsubscribeCrosshair();
+          } catch (error) {
+            console.warn(
+              `[ChartSync] Error unsubscribing crosshair:`,
+              error.message
+            );
+          }
+        }
+      };
+    },
+    [syncVisibleRange, setupCrosshairSync]
   );
 
   return {
-    syncAllCharts,
     setupChartSync,
-    currentVisibleRangeRef,
+    setupCrosshairSync,
+    syncVisibleRange,
     dataRangeRef,
+    allCandlesDataRef,
+    currentVisibleRangeRef, // 🆕 Add to return for backward compatibility
   };
 };

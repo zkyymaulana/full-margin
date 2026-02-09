@@ -209,16 +209,10 @@ function MainChart({
 
     window.addEventListener("resize", handleResize);
 
-    // Setup sync
-    const allCharts = [
-      chart,
-      ...Object.values(oscillatorChartsRef.current),
-    ].filter(Boolean);
-    const cleanup = chartSync.setupChartSync(chart, allCharts, "main");
+    // ⚠️ REMOVED: Don't setup sync here - will be done in Dashboard after all charts are ready
 
     return () => {
       window.removeEventListener("resize", handleResize);
-      if (cleanup) cleanup();
       chart.remove();
     };
   }, [isDarkMode]);

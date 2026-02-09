@@ -204,15 +204,9 @@ function OscillatorCharts({
 
     seriesRefs.current.rsi = series;
 
-    // Setup sync
-    const allCharts = [
-      mainChartRef.current,
-      ...Object.values(oscillatorChartsRef.current),
-    ].filter(Boolean);
-    const cleanup = chartSync.setupChartSync(chart, allCharts, "rsi");
+    // ⚠️ REMOVED: Don't setup sync here - will be done centrally in Dashboard
 
     return () => {
-      if (cleanup) cleanup();
       chart.remove();
       delete oscillatorChartsRef.current.rsi;
     };
@@ -261,14 +255,9 @@ function OscillatorCharts({
     seriesRefs.current.stochasticK = kSeries;
     seriesRefs.current.stochasticD = dSeries;
 
-    const allCharts = [
-      mainChartRef.current,
-      ...Object.values(oscillatorChartsRef.current),
-    ].filter(Boolean);
-    const cleanup = chartSync.setupChartSync(chart, allCharts, "stochastic");
+    // ⚠️ REMOVED: Don't setup sync here - will be done centrally in Dashboard
 
     return () => {
-      if (cleanup) cleanup();
       chart.remove();
       delete oscillatorChartsRef.current.stochastic;
     };
@@ -312,14 +301,9 @@ function OscillatorCharts({
     seriesRefs.current.stochRsiK = kSeries;
     seriesRefs.current.stochRsiD = dSeries;
 
-    const allCharts = [
-      mainChartRef.current,
-      ...Object.values(oscillatorChartsRef.current),
-    ].filter(Boolean);
-    const cleanup = chartSync.setupChartSync(chart, allCharts, "stochRsi");
+    // ⚠️ REMOVED: Don't setup sync here - will be done centrally in Dashboard
 
     return () => {
-      if (cleanup) cleanup();
       chart.remove();
       delete oscillatorChartsRef.current.stochRsi;
     };
@@ -360,14 +344,9 @@ function OscillatorCharts({
     seriesRefs.current.macdSignal = signalLine;
     seriesRefs.current.macdHistogram = histogram;
 
-    const allCharts = [
-      mainChartRef.current,
-      ...Object.values(oscillatorChartsRef.current),
-    ].filter(Boolean);
-    const cleanup = chartSync.setupChartSync(chart, allCharts, "macd");
+    // ⚠️ REMOVED: Don't setup sync here - will be done centrally in Dashboard
 
     return () => {
-      if (cleanup) cleanup();
       chart.remove();
       delete oscillatorChartsRef.current.macd;
     };

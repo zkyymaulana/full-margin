@@ -381,6 +381,40 @@ th {
       margin-right: -20px;
     }
   }
+
+  /* 🆕 Chart Timestamp Tooltip Styling */
+  .chart-timestamp-tooltip {
+    position: absolute !important;
+    top: 10px !important;
+    left: 10px !important;
+    background: rgba(0, 0, 0, 0.85) !important;
+    color: white !important;
+    padding: 6px 10px !important;
+    border-radius: 6px !important;
+    font-size: 11px !important;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif !important;
+    font-weight: 500 !important;
+    pointer-events: none !important;
+    z-index: 1000 !important;
+    white-space: nowrap !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+    transition: opacity 0.15s ease-in-out !important;
+  }
+
+  .dark-mode .chart-timestamp-tooltip {
+    background: rgba(31, 41, 55, 0.95) !important;
+    border: 1px solid rgba(75, 85, 99, 0.5) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  /* Chart timestamp tooltip visibility animation */
+  .chart-timestamp-tooltip[style*="display: none"] {
+    opacity: 0 !important;
+  }
+
+  .chart-timestamp-tooltip[style*="display: block"] {
+    opacity: 1 !important;
+  }
 }
 
 /* =========================
