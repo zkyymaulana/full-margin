@@ -189,8 +189,11 @@ async function checkAndSyncHistoricalData() {
   const now = Date.now();
 
   const outdated = [];
+  const missingIndicators = [];
+
   for (const s of symbolsCache) {
     try {
+      // Check candle data
       const last = await prisma.candle.findFirst({
         where: { symbol: s, timeframe: "1h" },
         orderBy: { time: "desc" },
@@ -198,7 +201,25 @@ async function checkAndSyncHistoricalData() {
       });
       const time = last ? Number(last.time) : 0;
       if (time < now - 3 * 3600 * 1000) outdated.push(s);
-    } catch {
+
+      // ✅ NEW: Check if indicators are missing for existing candles
+      if (last) {
+        const candleCount = await prisma.candle.count({
+          where: { symbol: s, timeframe: "1h" },
+        });
+        const indicatorCount = await prisma.indicator.count({
+          where: { symbol: s, timeframe: "1h" },
+        });
+
+        // If we have more candles than indicators (accounting for 50-period warmup)
+        if (candleCount > 50 && indicatorCount < candleCount - 50) {
+          const missing = candleCount - indicatorCount - 50;
+          console.log(`⚠️ ${s}: Found ${missing} candles without indicators`);
+          missingIndicators.push({ symbol: s, missing });
+        }
+      }
+    } catch (err) {
+      console.error(`❌ ${s}: Check failed -`, err.message);
       outdated.push(s);
     }
   }
@@ -207,6 +228,38 @@ async function checkAndSyncHistoricalData() {
     console.log(`⚠️ Syncing ${outdated.length} outdated symbols...`);
     await syncHistoricalData(outdated, targetStart.split("T")[0]);
   } else console.log("✅ All symbols up-to-date!");
+
+  // ✅ NEW: Calculate missing indicators ONE BY ONE (tidak sekaligus)
+  if (missingIndicators.length) {
+    console.log(
+      `📊 Calculating indicators for ${missingIndicators.length} symbols...`
+    );
+    console.log(`⏱️ This may take a while for large datasets...`);
+
+    for (let i = 0; i < missingIndicators.length; i++) {
+      const { symbol, missing } = missingIndicators[i];
+      try {
+        console.log(
+          `\n[${i + 1}/${missingIndicators.length}] Processing ${symbol} (${missing.toLocaleString()} missing)...`
+        );
+        await calculateAndSaveIndicators(symbol, "1h");
+
+        // ✅ Small delay between symbols to prevent overload
+        if (i < missingIndicators.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      } catch (err) {
+        console.error(
+          `❌ ${symbol}: Failed to calculate indicators -`,
+          err.message
+        );
+        // Continue with next symbol instead of crashing
+        continue;
+      }
+    }
+
+    console.log(`\n✅ Finished processing ${missingIndicators.length} symbols`);
+  }
 }
 
 /* ============================================================

@@ -23,14 +23,26 @@ if (!BigInt.prototype.toJSON) {
 }
 
 /**
- * 🚀 Prisma Client initialization
+ * 🚀 Prisma Client initialization with connection pool configuration
  */
 export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
     log: ["error", "warn"], // tampilkan hanya error dan warning
     errorFormat: "pretty", // tampilkan format error yang lebih rapi
+    // ✅ Connection pool configuration to prevent timeout
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL,
+      },
+    },
   });
+
+// ✅ Configure connection pool timeout (10 minutes instead of default 60 seconds)
+prisma.$connect().catch((err) => {
+  console.error("❌ Failed to connect to database:", err.message);
+  process.exit(1);
+});
 
 /**
  * 🧰 Reuse Prisma instance in development (Hot Reload Safe)

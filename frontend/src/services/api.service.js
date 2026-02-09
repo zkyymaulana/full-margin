@@ -176,10 +176,30 @@ export const fetchCandlesWithPagination = async (
 
 // Fetch candles by full URL (for pagination next/prev)
 export const fetchCandlesByUrl = async (url, signal = null) => {
-  const { data } = await axios.get(url, {
+  // ✅ FIX: Remove base URL to work with apiClient
+  // Full URL example: http://localhost:8000/api/chart/BTC-USD?page=2&limit=1000
+  // We need: /chart/BTC-USD?page=2&limit=1000
+
+  // Parse the URL
+  const parsedUrl = new URL(url);
+
+  // Get the path without '/api' prefix
+  // Example: /api/chart/BTC-USD → /chart/BTC-USD
+  const pathWithoutApi = parsedUrl.pathname.replace("/api", "");
+
+  // Get query parameters
+  // Example: ?page=2&limit=1000
+  const queryString = parsedUrl.search;
+
+  // Combine path + query
+  const finalPath = pathWithoutApi + queryString;
+
+  // Make request with auth token (automatically added by apiClient)
+  const { data } = await apiClient.get(finalPath, {
     timeout: 10000,
     signal, // ✅ Support AbortController signal
   });
+
   return data;
 };
 

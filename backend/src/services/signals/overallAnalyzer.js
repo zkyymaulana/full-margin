@@ -17,9 +17,20 @@
  * @param {Object} signals - Individual indicator signals from database
  * @param {String} symbol - Coin symbol (e.g., "BTC-USD")
  * @param {String} timeframe - Timeframe (e.g., "1h")
+ * @param {Object} cachedWeights - Optional pre-loaded weights to avoid DB query
  * @returns {Promise<Object>} { overallSignal, signalStrength, finalScore }
  */
-export async function calculateOverallSignal(signals, symbol, timeframe) {
+export async function calculateOverallSignal(
+  signals,
+  symbol,
+  timeframe,
+  cachedWeights = null
+) {
+  // ✅ Use cached weights if provided (for batch processing)
+  if (cachedWeights) {
+    return calculateWeightedSignal(signals, cachedWeights);
+  }
+
   // Import prisma di sini untuk menghindari circular dependency
   const { prisma } = await import("../../lib/prisma.js");
 
