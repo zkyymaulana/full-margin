@@ -29,7 +29,7 @@ function IndicatorTable({ allIndicators, isDarkMode }) {
 
   return (
     <div
-      className={`lg:col-span-2 rounded-xl shadow-sm border ${
+      className={`lg:col-span-2 rounded-xl shadow-sm border hidden md:block ${
         isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
       }`}
     >

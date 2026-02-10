@@ -85,10 +85,10 @@ function Header() {
       }`}
     >
       <div className="flex items-center justify-between px-4 py-3">
-        {/* Mobile Menu Button */}
+        {/*   Mobile Menu Button  */}
         <button
           onClick={toggleSidebar}
-          className={`xl:hidden p-2 rounded-lg  cursor-pointer ${
+          className={`xl:hidden p-2 rounded-lg cursor-pointer ${
             isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
           }`}
           aria-label="Toggle sidebar"
@@ -107,9 +107,8 @@ function Header() {
             />
           </svg>
         </button>
-
         {/* Logo */}
-        <Link to="/dashboard" className="flex items-center gap-2">
+        <Link to="/dashboard" className="hidden md:flex items-center gap-2">
           <span
             className={`text-xl font-bold ${
               isDarkMode ? "text-blue-400" : "text-blue-600"
@@ -118,7 +117,6 @@ function Header() {
             Crypto Analyze
           </span>
         </Link>
-
         {/* Symbol Selector Dropdown */}
         <div className="flex-1 max-w-md mx-4 relative" ref={dropdownRef}>
           <button
@@ -332,7 +330,6 @@ function Header() {
             </div>
           )}
         </div>
-
         {/* User Info with Dropdown */}
         <div className="relative" ref={userDropdownRef}>
           <button

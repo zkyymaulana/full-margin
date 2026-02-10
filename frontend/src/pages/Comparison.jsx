@@ -132,16 +132,16 @@ function ComparisonPage() {
             : "bg-white border-gray-200"
         }`}
       >
-        <div className="p-6">
+        <div className="p-4 md:p-6">
           <h2
-            className={`text-xl font-semibold mb-4 ${
+            className={`text-lg md:text-xl font-semibold mb-4 ${
               isDarkMode ? "text-white" : "text-gray-900"
             }`}
           >
             Configure Backtest Parameters
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mb-4">
             <div>
               <label
                 className={`block text-sm font-medium mb-2 ${
@@ -151,7 +151,7 @@ function ComparisonPage() {
                 Symbol
               </label>
               <div
-                className={`w-full px-4 py-2 border rounded-lg font-medium ${
+                className={`w-full px-3 md:px-4 py-2 border rounded-lg font-medium text-sm md:text-base ${
                   isDarkMode
                     ? "bg-gray-700 border-gray-600 text-gray-300"
                     : "bg-gray-100 border-gray-300 text-gray-700"
@@ -176,7 +176,7 @@ function ComparisonPage() {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                className={`w-full px-3 md:px-4 py-2 border rounded-lg text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                   isDarkMode
                     ? "bg-gray-700 border-gray-600 text-white"
                     : "border-gray-300"
@@ -196,7 +196,7 @@ function ComparisonPage() {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                className={`w-full px-3 md:px-4 py-2 border rounded-lg text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                   isDarkMode
                     ? "bg-gray-700 border-gray-600 text-white"
                     : "border-gray-300"
@@ -205,11 +205,11 @@ function ComparisonPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             {/* Quick Date Presets */}
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex flex-wrap gap-2">
               <span
-                className={`text-sm self-center mr-2 ${
+                className={`text-sm self-center mr-1 md:mr-2 ${
                   isDarkMode ? "text-gray-400" : "text-gray-600"
                 }`}
               >
@@ -223,7 +223,7 @@ function ComparisonPage() {
                   setEndDate(end.toISOString().split("T")[0]);
                   setStartDate(start.toISOString().split("T")[0]);
                 }}
-                className={`px-3 py-1 text-xs rounded-lg transition-colors hover:cursor-pointer ${
+                className={`px-3 py-1.5 text-xs rounded-lg transition-colors hover:cursor-pointer ${
                   isDarkMode
                     ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
                     : "bg-gray-100 hover:bg-gray-200"
@@ -239,7 +239,7 @@ function ComparisonPage() {
                   setEndDate(end.toISOString().split("T")[0]);
                   setStartDate(start.toISOString().split("T")[0]);
                 }}
-                className={`px-3 py-1 text-xs rounded-lg transition-colors hover:cursor-pointer ${
+                className={`px-3 py-1.5 text-xs rounded-lg transition-colors hover:cursor-pointer ${
                   isDarkMode
                     ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
                     : "bg-gray-100 hover:bg-gray-200"
@@ -255,7 +255,7 @@ function ComparisonPage() {
                   setEndDate(end.toISOString().split("T")[0]);
                   setStartDate(start.toISOString().split("T")[0]);
                 }}
-                className={`px-3 py-1 text-xs rounded-lg transition-colors hover:cursor-pointer ${
+                className={`px-3 py-1.5 text-xs rounded-lg transition-colors hover:cursor-pointer ${
                   isDarkMode
                     ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
                     : "bg-gray-100 hover:bg-gray-200"
@@ -271,7 +271,7 @@ function ComparisonPage() {
                   setEndDate(end.toISOString().split("T")[0]);
                   setStartDate(start.toISOString().split("T")[0]);
                 }}
-                className={`px-3 py-1 text-xs rounded-lg transition-colors hover:cursor-pointer ${
+                className={`px-3 py-1.5 text-xs rounded-lg transition-colors hover:cursor-pointer ${
                   isDarkMode
                     ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
                     : "bg-gray-100 hover:bg-gray-200"
@@ -284,7 +284,7 @@ function ComparisonPage() {
             <button
               onClick={handleCompare}
               disabled={isLoading || isPending}
-              className={`py-2 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2 hover:cursor-pointer ${
+              className={`w-full md:w-auto py-2 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2 hover:cursor-pointer ${
                 isDarkMode
                   ? "bg-blue-500 hover:bg-blue-600 text-white"
                   : "bg-blue-600 hover:bg-blue-700 text-white"
@@ -293,12 +293,14 @@ function ComparisonPage() {
               {isLoading || isPending ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Analyzing...
+                  <span className="text-sm md:text-base">Analyzing...</span>
                 </>
               ) : (
                 <>
                   <FiSearch className="text-lg text-white" />
-                  Compare Strategies
+                  <span className="text-sm md:text-base">
+                    Compare Strategies
+                  </span>
                 </>
               )}
             </button>

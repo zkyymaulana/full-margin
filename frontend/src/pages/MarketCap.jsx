@@ -18,14 +18,13 @@ import { SiBitcoin } from "react-icons/si";
 function MarketCapPage() {
   const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [visibleCount, setVisibleCount] = useState(10); // 🎯 Initial: 10 koin
+  const [visibleCount, setVisibleCount] = useState(10);
 
   const { data, isLoading, error, refetch } = useMarketCapLive();
   const { isDarkMode } = useDarkMode();
   const { setSelectedSymbol } = useSymbol();
   const navigate = useNavigate();
 
-  // Handler untuk navigasi ke dashboard dengan symbol yang dipilih
   const handleCoinClick = (symbol) => {
     console.log("🎯 Coin selected:", symbol);
     setSelectedSymbol(symbol);
@@ -43,12 +42,10 @@ function MarketCapPage() {
     }, 800);
   };
 
-  // 🎯 Handler untuk Load More - langsung tampilkan semua
   const handleLoadMore = () => {
     setVisibleCount(allCoins.length);
   };
 
-  // 🎯 Reset visibleCount saat filter atau search berubah
   const resetVisibleCount = () => {
     setVisibleCount(10);
   };
@@ -80,7 +77,6 @@ function MarketCapPage() {
     );
   }
 
-  // 🎯 Simpan semua coins dari backend
   const allCoins = data?.data || [];
   const summary = data?.summary || {
     totalMarketCap: 0,
@@ -92,7 +88,6 @@ function MarketCapPage() {
   };
   const timestamp = data?.timestamp || new Date().toISOString();
 
-  // Filter coins
   const filteredCoins = allCoins.filter((coin) => {
     const matchesSearch =
       coin.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -107,10 +102,7 @@ function MarketCapPage() {
     return true;
   });
 
-  // 🎯 Coins yang ditampilkan berdasarkan visibleCount
   const displayedCoins = filteredCoins.slice(0, visibleCount);
-
-  // 🎯 Cek apakah tombol Load More perlu ditampilkan
   const showLoadMore = visibleCount < filteredCoins.length;
 
   const formatPrice = (price) => {
@@ -141,77 +133,85 @@ function MarketCapPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 px-2 md:px-0">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <h1
-            className={`text-3xl font-bold flex items-center gap-3 ${
+            className={`text-2xl md:text-3xl font-bold flex items-center gap-2 md:gap-3 ${
               isDarkMode ? "text-white" : "text-gray-900"
             }`}
           >
-            <FiDollarSign />
+            <FiDollarSign className="text-xl md:text-2xl" />
             Market Cap Overview
           </h1>
           <p
-            className={`mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
+            className={`mt-1 text-sm md:text-base ${
+              isDarkMode ? "text-gray-400" : "text-gray-600"
+            }`}
           >
             Top cryptocurrencies ranked by market capitalization
           </p>
         </div>
-        {/* <button
-          onClick={() => refetch()}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors hover:cursor-pointer"
-        >
-          <FiRefreshCw />
-          Refresh Data
-        </button> */}
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg md:rounded-xl shadow-lg p-4 md:p-6 text-white">
           <div className="flex items-center justify-between mb-2">
-            <div className="text-sm opacity-90">Total Market Cap</div>
-            <FiDollarSign className="text-2xl" />
+            <div className="text-xs md:text-sm opacity-90">
+              Total Market Cap
+            </div>
+            <FiDollarSign className="text-lg md:text-2xl" />
           </div>
-          <div className="text-3xl font-bold">
+          <div className="text-xl md:text-3xl font-bold">
             {formatMarketCap(summary.totalMarketCap)}
           </div>
-          <div className="text-xs opacity-75 mt-1">
+          <div className="text-[10px] md:text-xs opacity-75 mt-1 hidden md:block">
             Updated: {new Date(timestamp).toLocaleTimeString()}
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg md:rounded-xl shadow-lg p-4 md:p-6 text-white">
           <div className="flex items-center justify-between mb-2">
-            <div className="text-sm opacity-90">24h Volume</div>
-            <FiBarChart2 className="text-2xl" />
+            <div className="text-xs md:text-sm opacity-90">24h Volume</div>
+            <FiBarChart2 className="text-lg md:text-2xl" />
           </div>
-          <div className="text-3xl font-bold">
+          <div className="text-xl md:text-3xl font-bold">
             {formatMarketCap(summary.totalVolume24h)}
           </div>
-          <div className="text-xs opacity-75 mt-1">Live from Coinbase</div>
-        </div>
-
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-sm opacity-90">BTC Dominance</div>
-            <SiBitcoin className="text-2xl" />
-          </div>
-          <div className="text-3xl font-bold">{summary.btcDominance}%</div>
-          <div className="text-xs opacity-75 mt-1">
-            Gainers: {summary.gainers} • Losers: {summary.losers}
+          <div className="text-[10px] md:text-xs opacity-75 mt-1 hidden md:block">
+            Live from Coinbase
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white">
+        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg md:rounded-xl shadow-lg p-4 md:p-6 text-white">
           <div className="flex items-center justify-between mb-2">
-            <div className="text-sm opacity-90">Active Coins</div>
-            <FiTarget className="text-2xl" />
+            <div className="text-xs md:text-sm opacity-90">BTC Dominance</div>
+            <SiBitcoin className="text-lg md:text-2xl" />
           </div>
-          <div className="text-3xl font-bold">{summary.activeCoins}</div>
-          <div className="text-xs opacity-75 mt-1">
+          <div className="text-xl md:text-3xl font-bold">
+            {summary.btcDominance}%
+          </div>
+          <div className="text-[10px] md:text-xs opacity-75 mt-1">
+            <span className="hidden md:inline">
+              Gainers: {summary.gainers} • Losers: {summary.losers}
+            </span>
+            <span className="md:hidden">
+              {summary.gainers}↑ • {summary.losers}↓
+            </span>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg md:rounded-xl shadow-lg p-4 md:p-6 text-white">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs md:text-sm opacity-90">Active Coins</div>
+            <FiTarget className="text-lg md:text-2xl" />
+          </div>
+          <div className="text-xl md:text-3xl font-bold">
+            {summary.activeCoins}
+          </div>
+          <div className="text-[10px] md:text-xs opacity-75 mt-1">
             <div className="w-2 h-2 bg-white rounded-full inline-block animate-pulse mr-1"></div>
             Live Data
           </div>
@@ -220,16 +220,16 @@ function MarketCapPage() {
 
       {/* Filters and Search */}
       <div
-        className={`rounded-xl shadow-sm border p-4 ${
+        className={`rounded-lg md:rounded-xl shadow-sm border p-3 md:p-4 ${
           isDarkMode
             ? "bg-gray-800 border-gray-700"
             : "bg-white border-gray-200"
         }`}
       >
-        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-          <div className="flex gap-2">
+        <div className="flex flex-col gap-3 md:gap-4">
+          <div className="flex flex-col sm:flex-row gap-2 md:gap-4 items-stretch sm:items-center">
             <span
-              className={`text-sm self-center font-medium ${
+              className={`text-xs md:text-sm font-medium ${
                 isDarkMode ? "text-gray-400" : "text-gray-600"
               }`}
             >
@@ -239,9 +239,9 @@ function MarketCapPage() {
               value={filter}
               onChange={(e) => {
                 setFilter(e.target.value);
-                resetVisibleCount(); // 🎯 Reset saat filter berubah
+                resetVisibleCount();
               }}
-              className={`px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm ${
+              className={`px-3 md:px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs md:text-sm ${
                 isDarkMode
                   ? "border-gray-600 bg-gray-700 text-white"
                   : "border-gray-300 bg-white text-gray-900"
@@ -253,43 +253,43 @@ function MarketCapPage() {
             </select>
           </div>
 
-          <div className="relative w-full md:w-auto">
+          <div className="relative w-full">
             <input
               type="text"
               placeholder="Search coins..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
-                resetVisibleCount(); // 🎯 Reset saat search berubah
+                resetVisibleCount();
               }}
-              className={`w-full md:w-64 px-4 py-2 pl-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm ${
+              className={`w-full px-3 md:px-4 py-2 pl-9 md:pl-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs md:text-sm ${
                 isDarkMode
                   ? "border-gray-600 bg-gray-700 text-white placeholder-gray-500"
                   : "border-gray-300 bg-white text-gray-900 placeholder-gray-400"
               }`}
             />
-            <FiSearch className="absolute left-3 top-2.5 text-gray-400" />
+            <FiSearch className="absolute left-3 top-2.5 text-gray-400 text-sm md:text-base" />
           </div>
         </div>
       </div>
 
-      {/* Market Cap Table */}
+      {/* Market Cap Cards for Mobile, Table for Desktop */}
       <div
-        className={`rounded-xl shadow-sm border ${
+        className={`rounded-lg md:rounded-xl shadow-sm border ${
           isDarkMode
             ? "bg-gray-800 border-gray-700"
             : "bg-white border-gray-200"
         }`}
       >
         <div
-          className={`p-6 border-b flex items-center justify-between ${
+          className={`p-4 md:p-6 border-b flex items-center justify-between ${
             isDarkMode ? "border-gray-700" : "border-gray-200"
           }`}
         >
-          <div className="flex items-center gap-3">
-            <FiTrendingUp className="text-2xl" />
+          <div className="flex items-center gap-2 md:gap-3">
+            <FiTrendingUp className="text-lg md:text-2xl" />
             <h3
-              className={`text-xl font-semibold ${
+              className={`text-base md:text-xl font-semibold ${
                 isDarkMode ? "text-white" : "text-gray-900"
               }`}
             >
@@ -297,7 +297,7 @@ function MarketCapPage() {
             </h3>
           </div>
           <span
-            className={`px-3 py-1 text-xs font-medium rounded-full ${
+            className={`px-2 md:px-3 py-1 text-[10px] md:text-xs font-medium rounded-full ${
               isDarkMode
                 ? "bg-blue-900 text-blue-300"
                 : "bg-blue-100 text-blue-700"
@@ -307,7 +307,142 @@ function MarketCapPage() {
           </span>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Mobile Card View */}
+        <div className="md:hidden">
+          {displayedCoins.length === 0 ? (
+            <div
+              className={`py-12 text-center ${
+                isDarkMode ? "text-gray-400" : "text-gray-500"
+              }`}
+            >
+              <div className="flex flex-col items-center gap-2">
+                <FiSearch className="text-4xl" />
+                <span className="text-sm">
+                  No coins found matching your criteria
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-700">
+              {displayedCoins.map((coin) => {
+                const isPositive = coin.change24h >= 0;
+                const chartData = (coin.history || []).map((price, index) => ({
+                  index,
+                  price,
+                }));
+
+                return (
+                  <div
+                    key={coin.symbol}
+                    onClick={() => handleCoinClick(coin.symbol)}
+                    className={`p-4 ${
+                      isDarkMode ? "hover:bg-gray-700" : "hover:bg-blue-50"
+                    } transition-colors cursor-pointer`}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`text-xs font-bold ${
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          }`}
+                        >
+                          #{filteredCoins.indexOf(coin) + 1}
+                        </span>
+                        {coin.logo ? (
+                          <img
+                            src={coin.logo}
+                            alt={coin.name}
+                            className="w-8 h-8 rounded-full object-cover shadow-md"
+                            onError={(e) => {
+                              e.target.style.display = "none";
+                              e.target.nextElementSibling.style.display =
+                                "flex";
+                            }}
+                          />
+                        ) : null}
+                        <div
+                          className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold shadow-md text-xs"
+                          style={{ display: coin.logo ? "none" : "flex" }}
+                        >
+                          {coin.name.charAt(0)}
+                        </div>
+                        <div>
+                          <div
+                            className={`font-semibold text-sm ${
+                              isDarkMode ? "text-white" : "text-gray-900"
+                            }`}
+                          >
+                            {coin.name}
+                          </div>
+                          <div
+                            className={`text-xs ${
+                              isDarkMode ? "text-gray-400" : "text-gray-500"
+                            }`}
+                          >
+                            {coin.symbol}
+                          </div>
+                        </div>
+                      </div>
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold ${
+                          isPositive
+                            ? isDarkMode
+                              ? "bg-green-900 text-green-300"
+                              : "bg-green-100 text-green-700"
+                            : isDarkMode
+                            ? "bg-red-900 text-red-300"
+                            : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {isPositive ? <FiTrendingUp /> : <FiTrendingDown />}
+                        {isPositive ? "+" : ""}
+                        {coin.change24h.toFixed(2)}%
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <div
+                          className={`text-xs ${
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          }`}
+                        >
+                          Price
+                        </div>
+                        <div
+                          className={`font-mono font-bold text-sm ${
+                            isDarkMode ? "text-white" : "text-gray-900"
+                          }`}
+                        >
+                          {formatPrice(coin.price)}
+                        </div>
+                      </div>
+                      <div>
+                        <div
+                          className={`text-xs ${
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          }`}
+                        >
+                          Market Cap
+                        </div>
+                        <div
+                          className={`font-mono font-semibold text-sm ${
+                            isDarkMode ? "text-white" : "text-gray-900"
+                          }`}
+                        >
+                          {formatMarketCap(coin.marketCap)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr
@@ -393,8 +528,6 @@ function MarketCapPage() {
               ) : (
                 displayedCoins.map((coin) => {
                   const isPositive = coin.change24h >= 0;
-
-                  // Transform history array to chart data format
                   const chartData = (coin.history || []).map(
                     (price, index) => ({
                       index,
@@ -425,14 +558,12 @@ function MarketCapPage() {
                       </td>
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-3">
-                          {/* ✅ Use logo from API instead of gradient initial */}
                           {coin.logo ? (
                             <img
                               src={coin.logo}
                               alt={coin.name}
                               className="w-10 h-10 rounded-full object-cover shadow-md"
                               onError={(e) => {
-                                // Fallback to gradient initial if image fails to load
                                 e.target.style.display = "none";
                                 e.target.nextElementSibling.style.display =
                                   "flex";
@@ -534,29 +665,20 @@ function MarketCapPage() {
                         <div className="flex items-center justify-center">
                           {chartData.length > 0 ? (
                             (() => {
-                              // Calculate min, max, and delta for adaptive domain
                               const prices = coin.history || [];
                               const min = Math.min(...prices);
                               const max = Math.max(...prices);
                               const delta = max - min;
-
-                              // Determine if the chart is flat (stablecoin or no movement)
                               const isFlat =
                                 delta === 0 || coin.change24h === 0;
-
-                              // Adaptive domain calculation
                               const domainMin =
                                 delta === 0 ? min - 0.5 : min - delta * 0.1;
                               const domainMax =
                                 delta === 0 ? max + 0.5 : max + delta * 0.1;
-
-                              // Clean gradient ID (remove special characters)
                               const gradientId = `grad-${coin.symbol.replace(
                                 /[^a-zA-Z0-9]/g,
                                 ""
                               )}`;
-
-                              // Determine stroke color
                               const strokeColor = isFlat
                                 ? isDarkMode
                                   ? "#6b7280"
@@ -657,37 +779,31 @@ function MarketCapPage() {
           </table>
         </div>
 
-        {/* 🎯 Load More Button Section */}
         {showLoadMore && (
-          <div className="p-4 flex justify-center text-sm">
+          <div className="p-3 md:p-4 flex justify-center text-sm">
             <button
               onClick={handleLoadMore}
-              className={`hover:cursor-pointer px-6 py-3 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
+              className={`hover:cursor-pointer px-4 md:px-6 py-2 md:py-3 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 text-sm md:text-base ${
                 isDarkMode
                   ? "bg-blue-600 hover:bg-blue-700 text-white"
                   : "bg-blue-400 hover:bg-blue-500 text-white"
               } shadow-lg hover:shadow-xl transform hover:scale-105`}
             >
-              <FiTrendingDown className="text-lg" />
+              <FiTrendingDown className="text-base md:text-lg" />
               Load More Coins
             </button>
           </div>
         )}
 
-        {/* Pagination Info */}
         <div
-          className={`p-4 border-t flex items-center justify-between ${
+          className={`p-3 md:p-4 border-t flex items-center justify-between text-xs md:text-sm ${
             isDarkMode ? "border-gray-700" : "border-gray-200"
           }`}
         >
-          <div
-            className={`text-sm ${
-              isDarkMode ? "text-gray-400" : "text-gray-600"
-            }`}
-          >
+          <div className={`${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
             Showing {displayedCoins.length} of {filteredCoins.length} coins
             {filteredCoins.length !== allCoins.length && (
-              <span className="ml-1">
+              <span className="ml-1 hidden sm:inline">
                 (filtered from {allCoins.length} total)
               </span>
             )}
