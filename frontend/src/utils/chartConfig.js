@@ -85,8 +85,31 @@ export const getBaseChartOptions = (
   },
   overlayPriceScales: {},
   timeScale: getTimeScaleOptions(isMainChart ? false : true),
+  localization: {
+    // ✅ Format untuk crosshair label bawah (HANYA saat crosshair aktif)
+    timeFormatter: (businessDayOrTimestamp) => {
+      if (
+        typeof businessDayOrTimestamp === "object" &&
+        businessDayOrTimestamp.year
+      ) {
+        const { year, month, day } = businessDayOrTimestamp;
+        const date = new Date(year, month - 1, day);
+        const monthName = date.toLocaleString("en-US", { month: "short" });
+        return `${String(day).padStart(2, "0")} ${monthName} ${year}, 00:00`;
+      } else if (typeof businessDayOrTimestamp === "number") {
+        const date = new Date(businessDayOrTimestamp * 1000);
+        const day = String(date.getDate()).padStart(2, "0");
+        const month = date.toLocaleString("en-US", { month: "short" });
+        const year = date.getFullYear();
+        const hours = String(date.getHours()).padStart(2, "0");
+        const minutes = String(date.getMinutes()).padStart(2, "0");
+        return `${day} ${month} ${year}, ${hours}:${minutes}`;
+      }
+      return String(businessDayOrTimestamp);
+    },
+  },
   watermark: {
-    visible: false, // Remove TradingView watermark
+    visible: false,
   },
 });
 
@@ -209,3 +232,10 @@ export const formatVolume = (volume) => {
   if (volume >= 1000) return `${(volume / 1000).toFixed(2)}K`;
   return volume.toFixed(2);
 };
+
+// ✅ Series options to hide corner tooltip (black box)
+export const getCleanSeriesOptions = () => ({
+  priceLineVisible: false,
+  lastValueVisible: false,
+  crosshairMarkerVisible: true,
+});

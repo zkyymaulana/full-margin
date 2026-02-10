@@ -1,7 +1,10 @@
 import { useEffect, useRef } from "react";
 import { createChart } from "lightweight-charts";
 import { useDarkMode } from "../../contexts/DarkModeContext";
-import { getBaseChartOptions } from "../../utils/chartConfig";
+import {
+  getBaseChartOptions,
+  getCleanSeriesOptions,
+} from "../../utils/chartConfig";
 
 /**
  * 🛡️ AGGRESSIVE TradingView Logo Removal Hook
@@ -200,6 +203,7 @@ function OscillatorCharts({
       color: "#FF6D00",
       lineWidth: 2,
       title: "RSI",
+      ...getCleanSeriesOptions(),
     });
 
     seriesRefs.current.rsi = series;
@@ -244,12 +248,14 @@ function OscillatorCharts({
       color: "#4CAF50",
       lineWidth: 2,
       title: "Stochastic %K",
+      ...getCleanSeriesOptions(),
     });
 
     const dSeries = chart.addLineSeries({
       color: "#2196F3",
       lineWidth: 2,
       title: "Stochastic %D",
+      ...getCleanSeriesOptions(),
     });
 
     seriesRefs.current.stochasticK = kSeries;
@@ -290,12 +296,14 @@ function OscillatorCharts({
       color: "#FFC107",
       lineWidth: 2,
       title: "Stoch RSI %K",
+      ...getCleanSeriesOptions(),
     });
 
     const dSeries = chart.addLineSeries({
       color: "#FF9800",
       lineWidth: 2,
       title: "Stoch RSI %D",
+      ...getCleanSeriesOptions(),
     });
 
     seriesRefs.current.stochRsiK = kSeries;
@@ -328,16 +336,19 @@ function OscillatorCharts({
       color: "#00C853",
       lineWidth: 2,
       title: "MACD",
+      ...getCleanSeriesOptions(),
     });
 
     const signalLine = chart.addLineSeries({
       color: "#FF5252",
       lineWidth: 2,
       title: "Signal",
+      ...getCleanSeriesOptions(),
     });
 
     const histogram = chart.addHistogramSeries({
       title: "Histogram",
+      ...getCleanSeriesOptions(),
     });
 
     seriesRefs.current.macdLine = macdLine;

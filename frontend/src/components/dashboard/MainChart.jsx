@@ -6,6 +6,7 @@ import {
   overlayIndicators,
   getIndicatorValueByPeriod,
   getIndicatorValue,
+  getCleanSeriesOptions,
 } from "../../utils/chartConfig";
 
 /**
@@ -164,21 +165,6 @@ function MainChart({
       watermark: {
         visible: false,
       },
-      localization: {
-        // 🕐 Format untuk crosshair tooltip SAJA (saat hover)
-        // Output: "30 Okt 2025 14:00"
-        timeFormatter: (time) => {
-          const date = new Date(time * 1000);
-          return date.toLocaleString("id-ID", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: false,
-          });
-        },
-      },
       timeScale: {
         timeVisible: false, // ❌ Sembunyikan jam di time scale bawah
         secondsVisible: false,
@@ -191,6 +177,7 @@ function MainChart({
       borderVisible: false,
       wickUpColor: "#26a69a",
       wickDownColor: "#ef5350",
+      ...getCleanSeriesOptions(), // ✅ Hide corner tooltip
     });
 
     chartRef.current = chart;
@@ -253,6 +240,7 @@ function MainChart({
               color: indicator.colors[index],
               lineWidth: 2,
               title: `${indicator.type.toUpperCase()} ${period}`,
+              ...getCleanSeriesOptions(),
             });
             lineSeries.setData(chartData);
             seriesArray.push(lineSeries);
@@ -280,6 +268,7 @@ function MainChart({
               color: indicator.colors[index],
               lineWidth: 2,
               title: `BB ${labels[index]}`,
+              ...getCleanSeriesOptions(),
             });
             lineSeries.setData(chartData);
             seriesArray.push(lineSeries);
@@ -303,11 +292,10 @@ function MainChart({
             color: indicator.color,
             lineWidth: 0, // No connecting line
             title: indicator.label,
-            lastValueVisible: false,
-            priceLineVisible: false,
             crosshairMarkerVisible: true,
             crosshairMarkerRadius: 6,
             pointMarkersVisible: true,
+            ...getCleanSeriesOptions(),
           });
 
           // Apply additional options to ensure dots are visible
@@ -315,8 +303,6 @@ function MainChart({
             lineStyle: 0,
             lineWidth: 0,
             crosshairMarkerRadius: 6,
-            lastValueVisible: false,
-            priceLineVisible: false,
           });
 
           dotSeries.setData(chartData);
@@ -337,6 +323,7 @@ function MainChart({
             color: indicator.color,
             lineWidth: 2,
             title: indicator.label,
+            ...getCleanSeriesOptions(),
           });
           lineSeries.setData(chartData);
           indicatorSeriesRef.current[indicator.id] = lineSeries;

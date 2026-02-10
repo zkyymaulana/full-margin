@@ -136,6 +136,17 @@ th {
   pointer-events: auto !important;
 }
 
+/* ✅ Hide duplicate time scale tooltip (native LWC tooltip) */
+.tv-lightweight-charts
+  div[style*="position: absolute"][style*="pointer-events: none"] {
+  display: none !important;
+}
+
+/* ✅ Keep only crosshair label (vertical line label at bottom) */
+.tv-lightweight-charts div[class*="label"] {
+  display: block !important;
+}
+
 /* =========================
    Components Layer
    ========================= */
