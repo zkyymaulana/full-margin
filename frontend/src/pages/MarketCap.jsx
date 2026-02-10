@@ -18,9 +18,9 @@ import { SiBitcoin } from "react-icons/si";
 function MarketCapPage() {
   const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [limit, setLimit] = useState(5);
+  const [visibleCount, setVisibleCount] = useState(10); // 🎯 Initial: 10 koin
 
-  const { data, isLoading, error, refetch } = useMarketCapLive(limit);
+  const { data, isLoading, error, refetch } = useMarketCapLive();
   const { isDarkMode } = useDarkMode();
   const { setSelectedSymbol } = useSymbol();
   const navigate = useNavigate();
@@ -41,6 +41,16 @@ function MarketCapPage() {
       toast.remove();
       navigate("/dashboard");
     }, 800);
+  };
+
+  // 🎯 Handler untuk Load More - langsung tampilkan semua
+  const handleLoadMore = () => {
+    setVisibleCount(allCoins.length);
+  };
+
+  // 🎯 Reset visibleCount saat filter atau search berubah
+  const resetVisibleCount = () => {
+    setVisibleCount(10);
   };
 
   if (isLoading) {
@@ -70,7 +80,8 @@ function MarketCapPage() {
     );
   }
 
-  const coins = data?.data || [];
+  // 🎯 Simpan semua coins dari backend
+  const allCoins = data?.data || [];
   const summary = data?.summary || {
     totalMarketCap: 0,
     totalVolume24h: 0,
@@ -82,7 +93,7 @@ function MarketCapPage() {
   const timestamp = data?.timestamp || new Date().toISOString();
 
   // Filter coins
-  const filteredCoins = coins.filter((coin) => {
+  const filteredCoins = allCoins.filter((coin) => {
     const matchesSearch =
       coin.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       coin.symbol.toLowerCase().includes(searchQuery.toLowerCase());
@@ -95,6 +106,12 @@ function MarketCapPage() {
 
     return true;
   });
+
+  // 🎯 Coins yang ditampilkan berdasarkan visibleCount
+  const displayedCoins = filteredCoins.slice(0, visibleCount);
+
+  // 🎯 Cek apakah tombol Load More perlu ditampilkan
+  const showLoadMore = visibleCount < filteredCoins.length;
 
   const formatPrice = (price) => {
     if (price >= 1000)
@@ -142,13 +159,13 @@ function MarketCapPage() {
             Top cryptocurrencies ranked by market capitalization
           </p>
         </div>
-        <button
+        {/* <button
           onClick={() => refetch()}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors hover:cursor-pointer"
         >
           <FiRefreshCw />
           Refresh Data
-        </button>
+        </button> */}
       </div>
 
       {/* Stats Cards */}
@@ -220,7 +237,10 @@ function MarketCapPage() {
             </span>
             <select
               value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              onChange={(e) => {
+                setFilter(e.target.value);
+                resetVisibleCount(); // 🎯 Reset saat filter berubah
+              }}
               className={`px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm ${
                 isDarkMode
                   ? "border-gray-600 bg-gray-700 text-white"
@@ -231,19 +251,6 @@ function MarketCapPage() {
               <option value="gainers">Gainers Only</option>
               <option value="losers">Losers Only</option>
             </select>
-            <select
-              value={limit}
-              onChange={(e) => setLimit(Number(e.target.value))}
-              className={`px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm ${
-                isDarkMode
-                  ? "border-gray-600 bg-gray-700 text-white"
-                  : "border-gray-300 bg-white text-gray-900"
-              }`}
-            >
-              <option value="5">Show 5</option>
-              <option value="10">Show 10</option>
-              <option value="20">Show 20</option>
-            </select>
           </div>
 
           <div className="relative w-full md:w-auto">
@@ -251,7 +258,10 @@ function MarketCapPage() {
               type="text"
               placeholder="Search coins..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                resetVisibleCount(); // 🎯 Reset saat search berubah
+              }}
               className={`w-full md:w-64 px-4 py-2 pl-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm ${
                 isDarkMode
                   ? "border-gray-600 bg-gray-700 text-white placeholder-gray-500"
@@ -366,7 +376,7 @@ function MarketCapPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredCoins.length === 0 ? (
+              {displayedCoins.length === 0 ? (
                 <tr>
                   <td
                     colSpan="8"
@@ -381,7 +391,7 @@ function MarketCapPage() {
                   </td>
                 </tr>
               ) : (
-                filteredCoins.map((coin) => {
+                displayedCoins.map((coin) => {
                   const isPositive = coin.change24h >= 0;
 
                   // Transform history array to chart data format
@@ -647,7 +657,24 @@ function MarketCapPage() {
           </table>
         </div>
 
-        {/* Pagination */}
+        {/* 🎯 Load More Button Section */}
+        {showLoadMore && (
+          <div className="p-4 flex justify-center text-sm">
+            <button
+              onClick={handleLoadMore}
+              className={`hover:cursor-pointer px-6 py-3 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
+                isDarkMode
+                  ? "bg-blue-600 hover:bg-blue-700 text-white"
+                  : "bg-blue-400 hover:bg-blue-500 text-white"
+              } shadow-lg hover:shadow-xl transform hover:scale-105`}
+            >
+              <FiTrendingDown className="text-lg" />
+              Load More Coins
+            </button>
+          </div>
+        )}
+
+        {/* Pagination Info */}
         <div
           className={`p-4 border-t flex items-center justify-between ${
             isDarkMode ? "border-gray-700" : "border-gray-200"
@@ -658,23 +685,13 @@ function MarketCapPage() {
               isDarkMode ? "text-gray-400" : "text-gray-600"
             }`}
           >
-            Showing {filteredCoins.length} of {coins.length} coins (Limit:{" "}
-            {limit})
+            Showing {displayedCoins.length} of {filteredCoins.length} coins
+            {filteredCoins.length !== allCoins.length && (
+              <span className="ml-1">
+                (filtered from {allCoins.length} total)
+              </span>
+            )}
           </div>
-          {/* <div className="flex gap-2">
-            <button
-              className={`px-4 py-2 border rounded-lg transition-colors text-sm font-medium ${
-                isDarkMode
-                  ? "border-gray-600 hover:bg-gray-700 text-gray-300"
-                  : "border-gray-300 hover:bg-gray-50 text-gray-700"
-              }`}
-            >
-              Previous
-            </button>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
-              Next
-            </button>
-          </div> */}
         </div>
       </div>
     </div>

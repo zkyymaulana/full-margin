@@ -35,8 +35,7 @@ export async function getCoinMarketcap(req, res) {
 // Ambil data harga & candle live dari Coinbase untuk top coin.
 export async function getMarketcapLiveController(req, res) {
   try {
-    const limit = Number(req.query.limit) || 20;
-    const result = await getMarketcapLive(limit);
+    const result = await getMarketcapLive();
 
     if (!result.success) {
       return res.status(500).json({

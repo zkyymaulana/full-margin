@@ -215,10 +215,9 @@ export const fetchCandlesByUrl = async (url, signal = null) => {
   return data;
 };
 
-// Marketcap live
-export const fetchMarketCapLive = async (limit = 100) => {
+// Marketcap live - always fetch 20 coins
+export const fetchMarketCapLive = async () => {
   const { data } = await apiClient.get("/marketcap/live", {
-    params: { limit },
     timeout: 60000,
   });
   return data;

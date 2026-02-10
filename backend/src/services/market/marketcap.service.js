@@ -77,20 +77,17 @@ export async function getMarketcapRealtime() {
  * Ambil harga live + candle terakhir untuk coin teratas + history + summary
  * Return ONLY Top 20 paired coins (guaranteed count)
  * Filter hanya symbol dengan format BASE-QUOTE (mengandung "-")
- * Summary statistics berdasarkan 20 coin teratas, data coin berdasarkan limit
+ * ✅ Summary dan data SELALU menampilkan 20 coin teratas
  */
-export async function getMarketcapLive(limit = 20) {
+export async function getMarketcapLive() {
   try {
-    // Memastikan (memaksa) batas maksimum adalah 20
-    const requestedLimit = Math.max(1, Math.min(Number(limit) || 20, 20));
-
-    // 1. Ambil 20 coin teratas untuk summary statistics
+    // ✅ STEP 1: Ambil SELALU 20 coin teratas
     const top20Coins = await prisma.topCoin.findMany({
       where: {
         symbol: { contains: "-" }, // Hanya pair valid seperti BTC-USD, ETH-USD
       },
       orderBy: { rank: "asc" },
-      take: 20, // Hanya ambil 20 coin teratas
+      take: 20, // ✅ SELALU ambil 20 coin
     });
 
     if (!top20Coins.length) {
@@ -100,7 +97,7 @@ export async function getMarketcapLive(limit = 20) {
       };
     }
 
-    // STEP 2: Fetch live data untuk 20 coin teratas untuk summary
+    // ✅ STEP 2: Fetch live data untuk SEMUA 20 coin teratas
     const top20LiveData = [];
     for (const coin of top20Coins) {
       const liveData = await fetchTicker(coin.symbol);
@@ -123,11 +120,12 @@ export async function getMarketcapLive(limit = 20) {
           volume: rawVolume,
           marketCap: rawMarketCap,
           change24h,
+          open: rawOpen,
         });
       }
     }
 
-    // STEP 3: Calculate summary dari 20 coin teratas
+    // ✅ STEP 3: Calculate summary dari SEMUA 20 coin teratas
     const totalMarketCap = top20LiveData.reduce(
       (sum, coin) => sum + coin.marketCap,
       0
@@ -145,22 +143,15 @@ export async function getMarketcapLive(limit = 20) {
         ? Number(((btcCoin.marketCap / totalMarketCap) * 100).toFixed(2))
         : 0;
 
+    // ✅ Summary statistics berdasarkan SEMUA 20 coin
     const activeCoins = top20LiveData.length;
     const gainers = top20LiveData.filter((coin) => coin.change24h > 0).length;
     const losers = top20LiveData.filter((coin) => coin.change24h < 0).length;
 
-    // 🎯 STEP 4: Ambil hanya coin sesuai limit untuk display dengan detail lengkap
-    const displayCoins = top20LiveData.slice(0, requestedLimit);
+    // 🎯 STEP 4: Build detail data untuk SEMUA 20 coin
     const detailedData = [];
 
-    for (const coinSummary of displayCoins) {
-      // Fetch ticker lagi untuk data detail (bisa di-cache di masa depan)
-      const liveData = await fetchTicker(coinSummary.symbol);
-
-      if (!liveData || liveData.price == null) {
-        continue;
-      }
-
+    for (const coinSummary of top20LiveData) {
       // Get last 10 candles for history chart
       const historyCandles = await prisma.candle.findMany({
         where: { symbol: coinSummary.symbol },
@@ -168,16 +159,23 @@ export async function getMarketcapLive(limit = 20) {
         take: 10,
       });
 
-      const rawPrice = Number(liveData.price);
-      const rawVolume = Number(liveData.volume);
-      const rawOpen = Number(liveData.open || rawPrice);
-      const rawHigh = Number(liveData.high || rawPrice);
-      const rawLow = Number(liveData.low || rawPrice);
-      const rawMarketCap = rawVolume * rawPrice;
-      const change24h =
-        rawOpen > 0
-          ? Number((((rawPrice - rawOpen) / rawOpen) * 100).toFixed(2))
-          : 0;
+      // Fetch ticker untuk data high/low yang up-to-date
+      const liveDetailData = await fetchTicker(coinSummary.symbol);
+
+      const rawPrice = coinSummary.price;
+      const rawVolume = coinSummary.volume;
+      const rawOpen = coinSummary.open;
+      const rawMarketCap = coinSummary.marketCap;
+      const change24h = coinSummary.change24h;
+
+      // Ambil high/low dari live data jika tersedia
+      const rawHigh = liveDetailData
+        ? Number(liveDetailData.high || rawPrice)
+        : rawPrice;
+      const rawLow = liveDetailData
+        ? Number(liveDetailData.low || rawPrice)
+        : rawPrice;
+
       const chartColor = rawPrice >= rawOpen ? "green" : "red";
 
       // Format history dengan desimal dinamis
@@ -217,9 +215,9 @@ export async function getMarketcapLive(limit = 20) {
       })
     );
 
+    // ✅ Return 20 coin dengan summary yang konsisten
     return {
       success: true,
-      requestedLimit,
       total: dataWithLogo.length,
       count: dataWithLogo.length,
       summary: {
