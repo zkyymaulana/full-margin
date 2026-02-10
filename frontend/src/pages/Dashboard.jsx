@@ -341,9 +341,6 @@ function DashboardPage() {
             oscillatorChartsRef={oscillatorChartsRef}
             mainChartRef={chartRef}
           />
-
-          {/* Indicator Value Cards */}
-          <IndicatorValueCards activeIndicators={activeIndicators} />
         </div>
       </div>
 
@@ -353,7 +350,7 @@ function DashboardPage() {
         onToggle={toggleIndicator}
       />
 
-      {/* Indicator Value Cards */}
+      {/* Indicator Value Cards - ✅ ONLY ONE INSTANCE */}
       {latestCandle && (
         <IndicatorValueCards
           latestCandle={latestCandle}
