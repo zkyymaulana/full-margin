@@ -157,16 +157,16 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
           >
             <p className="font-semibold mb-1 flex items-center gap-1">
               <FiBarChart2 className="text-lg" />
-              Hasil Backtest
+              Backtest Results
             </p>
             <p>
-              Hasil uji coba strategi trading menggunakan data historis.
-              Strategi terbaik dipilih berdasarkan ROI tertinggi dari kombinasi
-              indikator.
+              The results of testing the trading strategy using historical data.
+              The best strategy is selected based on the highest ROI from
+              indicator combinations.
             </p>
             <p className="mt-2">
-              <strong>Sharpe Ratio:</strong> Mengukur return yang disesuaikan
-              dengan risiko. Nilai &gt; 1 baik, &gt; 2 sangat baik.
+              <strong>Sharpe Ratio:</strong> Measures risk-adjusted returns. A
+              value &gt; 1 is considered good, &gt; 2 is considered very good.
             </p>
           </div>
         </div>

@@ -76,12 +76,12 @@ function IndicatorTable({ allIndicators, isDarkMode }) {
                       isDarkMode ? "text-gray-300" : "text-gray-600"
                     }`}
                   />
-                  Tabel Indikator Lengkap
+                  Complete Indicator Table
                 </p>
                 <p>
-                  Menampilkan semua indikator teknikal dengan detail parameter
-                  (SMA 20, SMA 50, RSI 14, dll) dan nilai real-time dari setiap
-                  indikator.
+                  Displays all technical indicators with detailed parameters
+                  (SMA 20, SMA 50, RSI 14, etc.) and real-time values for each
+                  indicator.
                 </p>
               </div>
             </div>

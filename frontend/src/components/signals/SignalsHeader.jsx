@@ -32,12 +32,12 @@ function SignalsHeader({
                 : "bg-white border border-gray-200 text-gray-700"
             }`}
           >
-            <h4 className="font-semibold mb-2">Tentang Halaman Ini</h4>
+            <h4 className="font-semibold mb-2">About This Page</h4>
             <p className="text-sm">
-              Halaman ini menampilkan analisis teknikal lengkap menggunakan
-              berbagai indikator yang dikelompokkan dalam 3 kategori: Trend,
-              Momentum, dan Volatility. Sistem akan memberikan rekomendasi
-              BUY/SELL/HOLD berdasarkan kombinasi semua indikator.
+              This page displays a comprehensive technical analysis using
+              various indicators grouped into three categories: Trend, Momentum,
+              and Volatility. The system provides BUY/SELL/HOLD recommendations
+              based on the combined results of all indicators.
             </p>
           </div>
         </div>

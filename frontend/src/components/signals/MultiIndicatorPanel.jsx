@@ -83,8 +83,8 @@ function MultiIndicatorPanel({
                 Weighted Multi-Indicator Signal
               </p>
               <p>
-                Menggabungkan 8 indikator teknikal dengan bobot optimal dari
-                backtest.
+                Combines 8 technical indicators with optimal weights derived
+                from backtesting.
                 <br />
                 <strong>Threshold = 0:</strong>
                 <br />
@@ -94,7 +94,7 @@ function MultiIndicatorPanel({
                 <br />• finalScore = 0 → NEUTRAL
               </p>
               <p className="mt-2">
-                <strong>Strength:</strong> Confidence level (0.0 - 1.0)
+                <strong>Strength:</strong> Confidence level (0.0 – 1.0)
                 <br />
                 <strong>Category Scores:</strong>
                 <br />

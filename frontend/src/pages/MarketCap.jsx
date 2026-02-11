@@ -323,7 +323,7 @@ function MarketCapPage() {
               </div>
             </div>
           ) : (
-            <div className="divide-y divide-gray-700">
+            <div className="divide-y divide-gray-300">
               {displayedCoins.map((coin) => {
                 const isPositive = coin.change24h >= 0;
                 const chartData = (coin.history || []).map((price, index) => ({

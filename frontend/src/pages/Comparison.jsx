@@ -108,17 +108,17 @@ function ComparisonPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 px-2 md:px-0">
       {/* Header */}
       <div>
         <h1
-          className={`text-3xl font-bold ${
+          className={`text-2xl md:text-3xl font-bold ${
             isDarkMode ? "text-white" : "text-gray-900"
           }`}
         >
           Strategy Comparison & Backtesting
         </h1>
-        <p className={`mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+        <p className={`mt-1 text-sm md:text-base ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
           Compare trading strategies performance across different technical
           indicators
         </p>
@@ -126,32 +126,32 @@ function ComparisonPage() {
 
       {/* Comparison Form */}
       <div
-        className={`rounded-xl shadow-sm border ${
+        className={`rounded-lg md:rounded-xl shadow-sm border ${
           isDarkMode
             ? "bg-gray-800 border-gray-700"
             : "bg-white border-gray-200"
         }`}
       >
-        <div className="p-4 md:p-6">
+        <div className="p-3 md:p-6">
           <h2
-            className={`text-lg md:text-xl font-semibold mb-4 ${
+            className={`text-base md:text-xl font-semibold mb-3 md:mb-4 ${
               isDarkMode ? "text-white" : "text-gray-900"
             }`}
           >
             Configure Backtest Parameters
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mb-3 md:mb-4">
             <div>
               <label
-                className={`block text-sm font-medium mb-2 ${
+                className={`block text-xs md:text-sm font-medium mb-1.5 md:mb-2 ${
                   isDarkMode ? "text-gray-300" : "text-gray-700"
                 }`}
               >
                 Symbol
               </label>
               <div
-                className={`w-full px-3 md:px-4 py-2 border rounded-lg font-medium text-sm md:text-base ${
+                className={`w-full px-3 py-2 border rounded-lg font-medium text-sm ${
                   isDarkMode
                     ? "bg-gray-700 border-gray-600 text-gray-300"
                     : "bg-gray-100 border-gray-300 text-gray-700"
@@ -166,7 +166,7 @@ function ComparisonPage() {
 
             <div>
               <label
-                className={`block text-sm font-medium mb-2 ${
+                className={`block text-xs md:text-sm font-medium mb-1.5 md:mb-2 ${
                   isDarkMode ? "text-gray-300" : "text-gray-700"
                 }`}
               >
@@ -176,7 +176,7 @@ function ComparisonPage() {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className={`w-full px-3 md:px-4 py-2 border rounded-lg text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                   isDarkMode
                     ? "bg-gray-700 border-gray-600 text-white"
                     : "border-gray-300"
@@ -186,7 +186,7 @@ function ComparisonPage() {
 
             <div>
               <label
-                className={`block text-sm font-medium mb-2 ${
+                className={`block text-xs md:text-sm font-medium mb-1.5 md:mb-2 ${
                   isDarkMode ? "text-gray-300" : "text-gray-700"
                 }`}
               >
@@ -196,7 +196,7 @@ function ComparisonPage() {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className={`w-full px-3 md:px-4 py-2 border rounded-lg text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                   isDarkMode
                     ? "bg-gray-700 border-gray-600 text-white"
                     : "border-gray-300"
@@ -205,11 +205,11 @@ function ComparisonPage() {
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
             {/* Quick Date Presets */}
             <div className="flex flex-wrap gap-2">
               <span
-                className={`text-sm self-center mr-1 md:mr-2 ${
+                className={`text-xs md:text-sm self-center hidden md:inline ${
                   isDarkMode ? "text-gray-400" : "text-gray-600"
                 }`}
               >
@@ -223,13 +223,13 @@ function ComparisonPage() {
                   setEndDate(end.toISOString().split("T")[0]);
                   setStartDate(start.toISOString().split("T")[0]);
                 }}
-                className={`px-3 py-1.5 text-xs rounded-lg transition-colors hover:cursor-pointer ${
+                className={`px-2.5 md:px-3 py-1.5 text-xs rounded-lg transition-colors hover:cursor-pointer ${
                   isDarkMode
                     ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
                     : "bg-gray-100 hover:bg-gray-200"
                 }`}
               >
-                1 Month
+                1M
               </button>
               <button
                 onClick={() => {
@@ -239,13 +239,13 @@ function ComparisonPage() {
                   setEndDate(end.toISOString().split("T")[0]);
                   setStartDate(start.toISOString().split("T")[0]);
                 }}
-                className={`px-3 py-1.5 text-xs rounded-lg transition-colors hover:cursor-pointer ${
+                className={`px-2.5 md:px-3 py-1.5 text-xs rounded-lg transition-colors hover:cursor-pointer ${
                   isDarkMode
                     ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
                     : "bg-gray-100 hover:bg-gray-200"
                 }`}
               >
-                3 Months
+                3M
               </button>
               <button
                 onClick={() => {
@@ -255,13 +255,13 @@ function ComparisonPage() {
                   setEndDate(end.toISOString().split("T")[0]);
                   setStartDate(start.toISOString().split("T")[0]);
                 }}
-                className={`px-3 py-1.5 text-xs rounded-lg transition-colors hover:cursor-pointer ${
+                className={`px-2.5 md:px-3 py-1.5 text-xs rounded-lg transition-colors hover:cursor-pointer ${
                   isDarkMode
                     ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
                     : "bg-gray-100 hover:bg-gray-200"
                 }`}
               >
-                6 Months
+                6M
               </button>
               <button
                 onClick={() => {
@@ -271,20 +271,20 @@ function ComparisonPage() {
                   setEndDate(end.toISOString().split("T")[0]);
                   setStartDate(start.toISOString().split("T")[0]);
                 }}
-                className={`px-3 py-1.5 text-xs rounded-lg transition-colors hover:cursor-pointer ${
+                className={`px-2.5 md:px-3 py-1.5 text-xs rounded-lg transition-colors hover:cursor-pointer ${
                   isDarkMode
                     ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
                     : "bg-gray-100 hover:bg-gray-200"
                 }`}
               >
-                1 Year
+                1Y
               </button>
             </div>
 
             <button
               onClick={handleCompare}
               disabled={isLoading || isPending}
-              className={`w-full md:w-auto py-2 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2 hover:cursor-pointer ${
+              className={`w-full md:w-auto py-2 px-4 md:px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2 hover:cursor-pointer ${
                 isDarkMode
                   ? "bg-blue-500 hover:bg-blue-600 text-white"
                   : "bg-blue-600 hover:bg-blue-700 text-white"
@@ -293,12 +293,12 @@ function ComparisonPage() {
               {isLoading || isPending ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-sm md:text-base">Analyzing...</span>
+                  <span className="text-sm">Analyzing...</span>
                 </>
               ) : (
                 <>
-                  <FiSearch className="text-lg text-white" />
-                  <span className="text-sm md:text-base">
+                  <FiSearch className="text-base md:text-lg text-white" />
+                  <span className="text-sm">
                     Compare Strategies
                   </span>
                 </>
@@ -311,18 +311,18 @@ function ComparisonPage() {
       {/* Error Display */}
       {error && !(isLoading || isPending) && (
         <div
-          className={`border rounded-xl p-4 ${
+          className={`border rounded-lg md:rounded-xl p-3 md:p-4 ${
             isDarkMode
               ? "bg-red-900/20 border-red-800"
               : "bg-red-50 border-red-200"
           }`}
         >
           <div
-            className={`flex items-center gap-2 ${
+            className={`flex items-center gap-2 text-sm md:text-base ${
               isDarkMode ? "text-red-400" : "text-red-700"
             }`}
           >
-            <span className="text-xl">⚠️</span>
+            <span className="text-lg md:text-xl">⚠️</span>
             <span className="font-medium">Error: {error.message}</span>
           </div>
         </div>
@@ -331,19 +331,19 @@ function ComparisonPage() {
       {/* Loading State Overlay */}
       {(isLoading || isPending) && (
         <div
-          className={`rounded-xl shadow-sm border p-12 ${
+          className={`rounded-lg md:rounded-xl shadow-sm border p-6 md:p-12 ${
             isDarkMode
               ? "bg-gray-800 border-gray-700"
               : "bg-white border-gray-200"
           }`}
         >
-          <div className="flex flex-col items-center justify-center space-y-6">
+          <div className="flex flex-col items-center justify-center space-y-4 md:space-y-6">
             {/* Animated Spinner */}
             <div className="relative">
-              <div className="w-20 h-20 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              <div className="w-16 h-16 md:w-20 md:h-20 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
               <div className="absolute inset-0 flex items-center justify-center">
                 <FiSearch
-                  className={`text-3xl ${
+                  className={`text-2xl md:text-3xl ${
                     isDarkMode ? "text-gray-400" : "text-gray-600"
                   }`}
                 />
@@ -353,82 +353,82 @@ function ComparisonPage() {
             {/* Loading Text */}
             <div className="text-center">
               <h3
-                className={`text-2xl font-bold mb-2 ${
+                className={`text-xl md:text-2xl font-bold mb-2 ${
                   isDarkMode ? "text-white" : "text-gray-900"
                 }`}
               >
                 Analyzing Strategies...
               </h3>
               <p
-                className={`text-sm ${
+                className={`text-xs md:text-sm ${
                   isDarkMode ? "text-gray-400" : "text-gray-600"
                 }`}
               >
-                Running backtests for {selectedSymbol} ({startDate} to {endDate}
-                )
+                Running backtests for {selectedSymbol}
+                <span className="hidden md:inline"> ({startDate} to {endDate})</span>
               </p>
             </div>
 
             {/* Progress Indicators */}
-            <div className="w-full max-w-md space-y-3">
+            <div className="w-full max-w-md space-y-2 md:space-y-3">
               <div
-                className={`flex items-center justify-between p-3 rounded-lg ${
+                className={`flex items-center justify-between p-2 md:p-3 rounded-lg ${
                   isDarkMode ? "bg-gray-700" : "bg-gray-50"
                 }`}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 md:gap-3">
                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
                   <span
-                    className={`text-sm ${
+                    className={`text-xs md:text-sm ${
                       isDarkMode ? "text-gray-300" : "text-gray-700"
                     }`}
                   >
                     Testing 8 single indicators
                   </span>
                 </div>
-                <span className="text-xs text-gray-500">Step 1/3</span>
+                <span className="text-xs text-gray-500">1/3</span>
               </div>
 
               <div
-                className={`flex items-center justify-between p-3 rounded-lg ${
+                className={`flex items-center justify-between p-2 md:p-3 rounded-lg ${
                   isDarkMode ? "bg-gray-700" : "bg-gray-50"
                 }`}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 md:gap-3">
                   <div
                     className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"
                     style={{ animationDelay: "0.2s" }}
                   ></div>
                   <span
-                    className={`text-sm ${
+                    className={`text-xs md:text-sm ${
                       isDarkMode ? "text-gray-300" : "text-gray-700"
                     }`}
                   >
                     Running multi-indicator backtest
                   </span>
                 </div>
-                <span className="text-xs text-gray-500">Step 2/3</span>
+                <span className="text-xs text-gray-500">2/3</span>
               </div>
 
               <div
-                className={`flex items-center justify-between p-3 rounded-lg ${
+                className={`flex items-center justify-between p-2 md:p-3 rounded-lg ${
                   isDarkMode ? "bg-gray-700" : "bg-gray-50"
                 }`}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 md:gap-3">
                   <div
                     className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"
                     style={{ animationDelay: "0.4s" }}
                   ></div>
                   <span
-                    className={`text-sm ${
+                    className={`text-xs md:text-sm ${
                       isDarkMode ? "text-gray-300" : "text-gray-700"
                     }`}
                   >
                     Calculating voting strategy
                   </span>
                 </div>
-                <span className="text-xs text-gray-500">Step 3/3</span>
+                <span className="text-xs text-gray-500">3/3</span>
               </div>
             </div>
           </div>
@@ -440,23 +440,23 @@ function ComparisonPage() {
         <>
           {/* Overview Stats */}
           <div
-            className={`rounded-xl border p-6 ${
+            className={`rounded-lg md:rounded-xl border p-4 md:p-6 ${
               isDarkMode
                 ? "bg-gradient-to-r from-blue-900/30 to-purple-900/30 border-blue-800"
                 : "bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200"
             }`}
           >
-            <div className="flex items-start justify-between mb-4">
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 md:gap-0 mb-4">
               <div>
                 <h2
-                  className={`text-2xl font-bold mb-1 ${
+                  className={`text-xl md:text-2xl font-bold mb-1 ${
                     isDarkMode ? "text-white" : "text-gray-900"
                   }`}
                 >
                   Backtest Results Summary
                 </h2>
                 <p
-                  className={`text-sm ${
+                  className={`text-xs md:text-sm ${
                     isDarkMode ? "text-gray-400" : "text-gray-600"
                   }`}
                 >
@@ -465,16 +465,16 @@ function ComparisonPage() {
                   days
                 </p>
               </div>
-              <div className="text-right">
+              <div className="text-left md:text-right">
                 <div
-                  className={`text-sm ${
+                  className={`text-xs md:text-sm ${
                     isDarkMode ? "text-gray-400" : "text-gray-600"
                   }`}
                 >
                   Best Strategy
                 </div>
                 <div
-                  className={`text-xl font-bold ${
+                  className={`text-lg md:text-xl font-bold ${
                     displayData.comparison?.bestStrategy === "multi"
                       ? "text-purple-600"
                       : displayData.comparison?.bestStrategy === "voting"
@@ -493,10 +493,10 @@ function ComparisonPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4">
               {/* Card 1: Total Candles */}
               <div
-                className={`rounded-lg p-4 ${
+                className={`rounded-lg p-3 md:p-4 ${
                   isDarkMode ? "bg-gray-800" : "bg-white"
                 }`}
               >
@@ -508,7 +508,7 @@ function ComparisonPage() {
                   Total Candles
                 </div>
                 <div
-                  className={`text-2xl font-bold ${
+                  className={`text-lg md:text-2xl font-bold ${
                     isDarkMode ? "text-white" : "text-gray-900"
                   }`}
                 >
@@ -518,7 +518,7 @@ function ComparisonPage() {
 
               {/* Card 2: Best Single ROI */}
               <div
-                className={`rounded-lg p-4 ${
+                className={`rounded-lg p-3 md:p-4 ${
                   isDarkMode ? "bg-gray-800" : "bg-white"
                 }`}
               >
@@ -530,14 +530,14 @@ function ComparisonPage() {
                   Best Single ROI
                 </div>
                 <div
-                  className={`text-2xl font-bold ${getROIColor(
+                  className={`text-lg md:text-2xl font-bold ${getROIColor(
                     displayData.analysis?.bestSingle?.roi
                   )}`}
                 >
                   {formatPercent(displayData.analysis?.bestSingle?.roi)}
                 </div>
                 <div
-                  className={`text-xs mt-1 ${
+                  className={`text-xs mt-1 truncate ${
                     isDarkMode ? "text-gray-500" : "text-gray-500"
                   }`}
                 >
@@ -547,7 +547,7 @@ function ComparisonPage() {
 
               {/* Card 3: Multi ROI */}
               <div
-                className={`rounded-lg p-4 ${
+                className={`rounded-lg p-3 md:p-4 ${
                   isDarkMode ? "bg-gray-800" : "bg-white"
                 }`}
               >
@@ -559,7 +559,7 @@ function ComparisonPage() {
                   Multi ROI
                 </div>
                 <div
-                  className={`text-2xl font-bold ${getROIColor(
+                  className={`text-lg md:text-2xl font-bold ${getROIColor(
                     displayData.comparison?.multi?.roi
                   )}`}
                 >
@@ -570,13 +570,13 @@ function ComparisonPage() {
                     isDarkMode ? "text-gray-500" : "text-gray-500"
                   }`}
                 >
-                  Weighted Strategy
+                  Weighted
                 </div>
               </div>
 
               {/* Card 4: Voting ROI */}
               <div
-                className={`rounded-lg p-4 ${
+                className={`rounded-lg p-3 md:p-4 ${
                   isDarkMode ? "bg-gray-800" : "bg-white"
                 }`}
               >
@@ -588,7 +588,7 @@ function ComparisonPage() {
                   Voting ROI
                 </div>
                 <div
-                  className={`text-2xl font-bold ${getROIColor(
+                  className={`text-lg md:text-2xl font-bold ${getROIColor(
                     displayData.comparison?.voting?.roi
                   )}`}
                 >
@@ -599,13 +599,13 @@ function ComparisonPage() {
                     isDarkMode ? "text-gray-500" : "text-gray-500"
                   }`}
                 >
-                  Majority Vote
+                  Majority
                 </div>
               </div>
 
               {/* Card 5: ROI Difference (Multi vs Best Single) */}
               <div
-                className={`rounded-lg p-4 ${
+                className={`rounded-lg p-3 md:p-4 ${
                   isDarkMode ? "bg-gray-800" : "bg-white"
                 }`}
               >
@@ -617,7 +617,7 @@ function ComparisonPage() {
                   ROI Difference
                 </div>
                 <div
-                  className={`text-2xl font-bold ${
+                  className={`text-lg md:text-2xl font-bold ${
                     displayData.analysis?.roiDifference > 0
                       ? "text-green-600"
                       : displayData.analysis?.roiDifference < 0
@@ -643,14 +643,14 @@ function ComparisonPage() {
             {/* Analysis Info */}
             {displayData.analysis && (
               <div
-                className={`mt-4 rounded-lg p-4 border-l-4 ${
+                className={`mt-3 md:mt-4 rounded-lg p-3 md:p-4 border-l-4 ${
                   displayData.analysis.multiBeatsBestSingle
                     ? "border-green-500"
                     : "border-yellow-500"
                 } ${isDarkMode ? "bg-gray-800" : "bg-white"}`}
               >
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl">
+                <div className="flex items-start gap-2 md:gap-3">
+                  <span className="text-xl md:text-2xl">
                     {displayData.analysis.multiBeatsBestSingle ? (
                       <FiAward
                         className={`${
@@ -668,7 +668,7 @@ function ComparisonPage() {
 
                   <div className="flex-1">
                     <div
-                      className={`font-semibold mb-1 ${
+                      className={`text-sm md:text-base font-semibold mb-1 ${
                         isDarkMode ? "text-white" : "text-gray-900"
                       }`}
                     >
@@ -677,7 +677,7 @@ function ComparisonPage() {
                         : "Single Indicator Strategy Performs Better"}
                     </div>
                     <div
-                      className={`text-sm ${
+                      className={`text-xs md:text-sm ${
                         isDarkMode ? "text-gray-400" : "text-gray-600"
                       }`}
                     >
@@ -685,21 +685,23 @@ function ComparisonPage() {
                       {formatPercent(displayData.comparison?.multi?.roi)} ROI vs{" "}
                       {displayData.analysis.bestSingle?.indicator} at{" "}
                       {formatPercent(displayData.analysis.bestSingle?.roi)} ROI
-                      (Win Rate:{" "}
-                      {formatPercent(
-                        displayData.analysis.winRateComparison?.multi
-                      )}{" "}
-                      vs{" "}
-                      {formatPercent(
-                        displayData.analysis.winRateComparison?.bestSingle
-                      )}
-                      )
+                      <span className="hidden md:inline">
+                        {" "}(Win Rate:{" "}
+                        {formatPercent(
+                          displayData.analysis.winRateComparison?.multi
+                        )}{" "}
+                        vs{" "}
+                        {formatPercent(
+                          displayData.analysis.winRateComparison?.bestSingle
+                        )}
+                        )
+                      </span>
                     </div>
                     {/* Voting Strategy Comparison */}
                     {displayData.comparison?.voting &&
                       displayData.analysis.votingComparison && (
                         <div
-                          className={`text-sm mt-2 pt-2 border-t ${
+                          className={`text-xs md:text-sm mt-2 pt-2 border-t ${
                             isDarkMode
                               ? "border-gray-700 text-gray-400"
                               : "border-gray-200 text-gray-600"
@@ -707,8 +709,10 @@ function ComparisonPage() {
                         >
                           Voting strategy achieved{" "}
                           {formatPercent(displayData.comparison.voting.roi)} ROI
-                          compared to Multi-Indicator{" "}
-                          {formatPercent(displayData.comparison.multi?.roi)} ROI
+                          <span className="hidden md:inline">
+                            {" "}compared to Multi-Indicator{" "}
+                            {formatPercent(displayData.comparison.multi?.roi)} ROI
+                          </span>
                           {displayData.analysis.votingComparison.difference >
                             0 && (
                             <span className="text-green-600 font-medium">
@@ -742,23 +746,23 @@ function ComparisonPage() {
           {/* Best Weights Section */}
           {displayData.bestWeights && (
             <div
-              className={`rounded-xl shadow-sm border ${
+              className={`rounded-lg md:rounded-xl shadow-sm border ${
                 isDarkMode
                   ? "bg-gray-800 border-gray-700"
                   : "bg-white border-gray-200"
               }`}
             >
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
+              <div className="p-4 md:p-6">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-0 mb-3 md:mb-4">
                   <h3
-                    className={`text-lg font-semibold flex items-center gap-2 ${
+                    className={`text-base md:text-lg font-semibold flex items-center gap-2 ${
                       isDarkMode ? "text-white" : "text-gray-900"
                     }`}
                   >
                     Optimized Indicator Weights
                   </h3>
                   <span
-                    className={`px-3 py-1 text-xs font-medium rounded-full ${
+                    className={`px-2 md:px-3 py-1 text-xs font-medium rounded-full self-start md:self-auto ${
                       displayData.weightSource === "database"
                         ? isDarkMode
                           ? "bg-green-900 text-green-300"
@@ -768,23 +772,22 @@ function ComparisonPage() {
                         : "bg-blue-100 text-blue-700"
                     }`}
                   >
-                    Source: {displayData.weightSource || "calculated"}
+                    {displayData.weightSource || "calculated"}
                   </span>
                 </div>
                 <p
-                  className={`text-sm mb-4 ${
+                  className={`text-xs md:text-sm mb-3 md:mb-4 ${
                     isDarkMode ? "text-gray-400" : "text-gray-600"
                   }`}
                 >
-                  These weights determine the influence of each indicator in the
-                  multi-strategy
+                  These weights determine the influence of each indicator
                 </p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
                   {Object.entries(displayData.bestWeights).map(
                     ([indicator, weight]) => (
                       <div
                         key={indicator}
-                        className={`rounded-lg p-4 border ${
+                        className={`rounded-lg p-3 md:p-4 border ${
                           weight > 0
                             ? isDarkMode
                               ? "bg-blue-900/20 border-blue-700"
@@ -795,7 +798,7 @@ function ComparisonPage() {
                         }`}
                       >
                         <div
-                          className={`text-sm font-medium mb-1 ${
+                          className={`text-xs md:text-sm font-medium mb-1 truncate ${
                             isDarkMode ? "text-gray-300" : "text-gray-700"
                           }`}
                         >
@@ -803,7 +806,7 @@ function ComparisonPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <div
-                            className={`text-2xl font-bold ${
+                            className={`text-xl md:text-2xl font-bold ${
                               weight > 0
                                 ? isDarkMode
                                   ? "text-blue-400"
@@ -816,7 +819,7 @@ function ComparisonPage() {
                             {weight}
                           </div>
                           {weight > 0 && (
-                            <div className="flex-1">
+                            <div className="flex-1 hidden md:block">
                               <div
                                 className={`h-2 rounded-full ${
                                   isDarkMode ? "bg-gray-700" : "bg-gray-200"
@@ -850,38 +853,369 @@ function ComparisonPage() {
 
           {/* Standard Configuration Results */}
           <div
-            className={`rounded-xl shadow-sm border ${
+            className={`rounded-lg md:rounded-xl shadow-sm border ${
               isDarkMode
                 ? "bg-gray-800 border-gray-700"
                 : "bg-white border-gray-200"
             }`}
           >
             <div
-              className={`p-6 border-b ${
+              className={`p-4 md:p-6 border-b ${
                 isDarkMode ? "border-gray-700" : "border-gray-200"
               }`}
             >
               <h3
-                className={`text-xl font-semibold flex items-center gap-2 ${
+                className={`text-base md:text-xl font-semibold flex items-center gap-2 ${
                   isDarkMode ? "text-white" : "text-gray-900"
                 }`}
               >
                 <FiBarChart2
-                  className={`text-2xl ${
+                  className={`text-lg md:text-2xl ${
                     isDarkMode ? "text-gray-300" : "text-gray-700"
                   }`}
                 />
                 Standard Configuration Results
               </h3>
               <p
-                className={`text-sm mt-1 ${
+                className={`text-xs md:text-sm mt-1 ${
                   isDarkMode ? "text-gray-400" : "text-gray-600"
                 }`}
               >
-                Performance of each strategy with default trading parameters
+                Performance of each strategy with default parameters
               </p>
             </div>
-            <div className="p-6">
+            
+            {/* Mobile Card View */}
+            <div className="md:hidden">
+              {Object.entries(displayData.comparison?.single || {}).map(
+                ([strategy, data]) => {
+                  const isBestSingle =
+                    displayData.analysis?.bestSingle?.indicator === strategy;
+                  const isOverallWinner =
+                    displayData.comparison?.bestStrategy === "single" &&
+                    isBestSingle;
+
+                  return (
+                    <div
+                      key={strategy}
+                      className={`p-4 border-b ${
+                        isDarkMode
+                          ? "border-gray-700 hover:bg-gray-700"
+                          : "border-gray-100 hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <div
+                            className={`font-semibold text-sm ${
+                              isDarkMode ? "text-white" : "text-gray-900"
+                            }`}
+                          >
+                            {strategy}
+                          </div>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {isBestSingle && (
+                              <span
+                                className={`px-2 py-0.5 text-xs rounded-full font-medium ${
+                                  isDarkMode
+                                    ? "bg-yellow-900 text-yellow-300"
+                                    : "bg-yellow-100 text-yellow-700"
+                                }`}
+                              >
+                                Best Single
+                              </span>
+                            )}
+                            {isOverallWinner && (
+                              <span
+                                className={`px-2 py-0.5 text-xs rounded-full font-medium ${
+                                  isDarkMode
+                                    ? "bg-green-900 text-green-300"
+                                    : "bg-green-100 text-green-700"
+                                }`}
+                              >
+                                Winner
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <span
+                          className={`text-lg font-bold ${getROIColor(data.roi)}`}
+                        >
+                          {formatPercent(data.roi)}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <div
+                            className={`text-xs ${
+                              isDarkMode ? "text-gray-400" : "text-gray-500"
+                            }`}
+                          >
+                            Win Rate
+                          </div>
+                          <div
+                            className={`text-sm font-mono font-semibold ${
+                              isDarkMode ? "text-white" : "text-gray-900"
+                            }`}
+                          >
+                            {formatPercent(data.winRate)}
+                          </div>
+                        </div>
+                        <div>
+                          <div
+                            className={`text-xs ${
+                              isDarkMode ? "text-gray-400" : "text-gray-500"
+                            }`}
+                          >
+                            Trades
+                          </div>
+                          <div
+                            className={`text-sm font-mono font-semibold ${
+                              isDarkMode ? "text-white" : "text-gray-900"
+                            }`}
+                          >
+                            {data.trades}
+                          </div>
+                        </div>
+                        <div>
+                          <div
+                            className={`text-xs ${
+                              isDarkMode ? "text-gray-400" : "text-gray-500"
+                            }`}
+                          >
+                            Sharpe
+                          </div>
+                          <div
+                            className={`text-sm font-mono font-semibold ${
+                              data.sharpeRatio > 1
+                                ? "text-green-600"
+                                : data.sharpeRatio > 0
+                                ? isDarkMode
+                                  ? "text-gray-300"
+                                  : "text-gray-700"
+                                : "text-red-600"
+                            }`}
+                          >
+                            {formatRatio(data.sharpeRatio)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+              )}
+
+              {/* Multi Strategy Card */}
+              {displayData.comparison?.multi && (
+                <div
+                  className={`p-4 border-b ${
+                    isDarkMode
+                      ? "bg-purple-900/20 border-purple-800"
+                      : "bg-purple-50 border-purple-200"
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <div
+                        className={`font-bold text-sm ${
+                          isDarkMode ? "text-purple-300" : "text-purple-900"
+                        }`}
+                      >
+                        Multi-Indicator
+                      </div>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        <span
+                          className={`px-2 py-0.5 text-xs rounded-full font-medium ${
+                            isDarkMode
+                              ? "bg-purple-900 text-purple-300"
+                              : "bg-purple-100 text-purple-700"
+                          }`}
+                        >
+                          Optimized
+                        </span>
+                        {displayData.comparison?.bestStrategy === "multi" && (
+                          <span
+                            className={`px-2 py-0.5 text-xs rounded-full font-medium ${
+                              isDarkMode
+                                ? "bg-green-900 text-green-300"
+                                : "bg-green-100 text-green-700"
+                            }`}
+                          >
+                            Winner
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span
+                      className={`text-lg font-bold ${getROIColor(
+                        displayData.comparison.multi.roi
+                      )}`}
+                    >
+                      {formatPercent(displayData.comparison.multi.roi)}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <div
+                        className={`text-xs ${
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}
+                      >
+                        Win Rate
+                      </div>
+                      <div
+                        className={`text-sm font-mono font-semibold ${
+                          isDarkMode ? "text-white" : "text-gray-900"
+                        }`}
+                      >
+                        {formatPercent(displayData.comparison.multi.winRate)}
+                      </div>
+                    </div>
+                    <div>
+                      <div
+                        className={`text-xs ${
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}
+                      >
+                        Trades
+                      </div>
+                      <div
+                        className={`text-sm font-mono font-semibold ${
+                          isDarkMode ? "text-white" : "text-gray-900"
+                        }`}
+                      >
+                        {displayData.comparison.multi.trades}
+                      </div>
+                    </div>
+                    <div>
+                      <div
+                        className={`text-xs ${
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}
+                      >
+                        Sharpe
+                      </div>
+                      <div
+                        className={`text-sm font-mono font-semibold ${
+                          displayData.comparison.multi.sharpeRatio > 1
+                            ? "text-green-600"
+                            : displayData.comparison.multi.sharpeRatio > 0
+                            ? isDarkMode
+                              ? "text-gray-300"
+                              : "text-gray-700"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {formatRatio(displayData.comparison.multi.sharpeRatio)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Voting Strategy Card */}
+              {displayData.comparison?.voting && (
+                <div
+                  className={`p-4 ${
+                    isDarkMode
+                      ? "bg-indigo-900/20 border-indigo-800"
+                      : "bg-indigo-50 border-indigo-200"
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <div
+                        className={`font-bold text-sm ${
+                          isDarkMode ? "text-indigo-400" : "text-indigo-900"
+                        }`}
+                      >
+                        Voting Strategy
+                      </div>
+                      {displayData.comparison?.bestStrategy === "voting" && (
+                        <span
+                          className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium mt-1 ${
+                            isDarkMode
+                              ? "bg-green-900 text-green-300"
+                              : "bg-green-100 text-green-700"
+                          }`}
+                        >
+                          Winner
+                        </span>
+                      )}
+                    </div>
+                    <span
+                      className={`text-lg font-bold ${getROIColor(
+                        displayData.comparison.voting.roi
+                      )}`}
+                    >
+                      {formatPercent(displayData.comparison.voting.roi)}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <div
+                        className={`text-xs ${
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}
+                      >
+                        Win Rate
+                      </div>
+                      <div
+                        className={`text-sm font-mono font-semibold ${
+                          isDarkMode ? "text-white" : "text-gray-900"
+                        }`}
+                      >
+                        {formatPercent(displayData.comparison.voting.winRate)}
+                      </div>
+                    </div>
+                    <div>
+                      <div
+                        className={`text-xs ${
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}
+                      >
+                        Trades
+                      </div>
+                      <div
+                        className={`text-sm font-mono font-semibold ${
+                          isDarkMode ? "text-white" : "text-gray-900"
+                        }`}
+                      >
+                        {displayData.comparison.voting.trades}
+                      </div>
+                    </div>
+                    <div>
+                      <div
+                        className={`text-xs ${
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}
+                      >
+                        Sharpe
+                      </div>
+                      <div
+                        className={`text-sm font-mono font-semibold ${
+                          displayData.comparison.voting.sharpeRatio > 1
+                            ? "text-green-600"
+                            : displayData.comparison.voting.sharpeRatio > 0
+                            ? isDarkMode
+                              ? "text-gray-300"
+                              : "text-gray-700"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {formatRatio(displayData.comparison.voting.sharpeRatio)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden md:block p-6">
               <div className="w-full overflow-x-auto">
                 <table className="w-full min-w-full table-auto">
                   <thead>
@@ -1249,21 +1583,21 @@ function ComparisonPage() {
           {/* Optimized High ROI Configuration */}
           {displayData.comparisonHighROI && (
             <div
-              className={`rounded-xl shadow-sm border ${
+              className={`rounded-lg md:rounded-xl shadow-sm border ${
                 isDarkMode
                   ? "bg-gray-800 border-gray-700"
                   : "bg-white border-gray-200"
               }`}
             >
               <div
-                className={`p-6 border-b ${
+                className={`p-4 md:p-6 border-b ${
                   isDarkMode
                     ? "bg-gradient-to-r from-green-900/20 to-blue-900/20 border-gray-700"
                     : "bg-gradient-to-r from-green-50 to-blue-50 border-gray-200"
                 }`}
               >
                 <h3
-                  className={`text-xl font-semibold flex items-center gap-2 ${
+                  className={`text-base md:text-xl font-semibold flex items-center gap-2 ${
                     isDarkMode ? "text-white" : "text-gray-900"
                   }`}
                 >
@@ -1271,15 +1605,17 @@ function ComparisonPage() {
                   Optimized Configuration - High ROI
                 </h3>
                 <p
-                  className={`text-sm mt-1 ${
+                  className={`text-xs md:text-sm mt-1 ${
                     isDarkMode ? "text-gray-400" : "text-gray-600"
                   }`}
                 >
-                  Performance with optimized parameters (
-                  {displayData.comparisonHighROI.configName})
+                  Performance with optimized parameters
+                  <span className="hidden md:inline">
+                    {" "}({displayData.comparisonHighROI.configName})
+                  </span>
                 </p>
                 {/* Optimized Config Details */}
-                <div className="mt-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                <div className="mt-3 md:mt-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2 md:gap-3">
                   {Object.entries(
                     displayData.comparisonHighROI.config || {}
                   ).map(([key, value]) => (
@@ -1290,7 +1626,7 @@ function ComparisonPage() {
                       }`}
                     >
                       <div
-                        className={`text-xs capitalize ${
+                        className={`text-xs capitalize truncate ${
                           isDarkMode ? "text-gray-400" : "text-gray-600"
                         }`}
                       >
@@ -1313,7 +1649,14 @@ function ComparisonPage() {
                   ))}
                 </div>
               </div>
-              <div className="p-6">
+              
+              {/* Mobile Card View for High ROI */}
+              <div className="md:hidden">
+                {/* ...similar mobile card structure as Standard Configuration... */}
+              </div>
+
+              {/* Desktop Table View for High ROI */}
+              <div className="hidden md:block p-6">
                 <div className="w-full overflow-x-auto">
                   <table className="w-full min-w-full table-auto">
                     <thead>

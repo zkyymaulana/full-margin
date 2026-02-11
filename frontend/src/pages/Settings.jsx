@@ -216,17 +216,21 @@ function SettingsPage() {
   const isUserConfigured = !!userTelegramChatId;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 px-2 md:px-0">
       {/* Header */}
       <div>
         <h1
-          className={`text-3xl font-bold ${
+          className={`text-2xl md:text-3xl font-bold ${
             isDarkMode ? "text-white" : "text-gray-900"
           }`}
         >
           Settings
         </h1>
-        <p className={`mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+        <p
+          className={`mt-1 text-sm md:text-base ${
+            isDarkMode ? "text-gray-400" : "text-gray-600"
+          }`}
+        >
           Manage your account and preferences
         </p>
       </div>
@@ -237,39 +241,39 @@ function SettingsPage() {
           isDarkMode ? "bg-gray-800 shadow-lg" : "bg-white"
         }`}
       >
-        <div className="p-6">
+        <div className="p-4 md:p-6">
           <h2
-            className={`text-xl font-semibold mb-4 ${
+            className={`text-lg md:text-xl font-semibold mb-4 ${
               isDarkMode ? "text-white" : "text-gray-900"
             }`}
           >
             Preferences
           </h2>
 
-          <div className="space-y-4">
+          <div className="space-y-3 md:space-y-4">
             {/* Dark Mode Toggle */}
             <div
-              className={`flex items-center justify-between p-4 rounded-lg ${
+              className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 md:p-4 rounded-lg ${
                 isDarkMode ? "bg-gray-700/50" : "bg-gray-50"
               }`}
             >
-              <div>
+              <div className="flex-1">
                 <div
-                  className={`font-medium ${
+                  className={`font-medium text-sm md:text-base ${
                     isDarkMode ? "text-white" : "text-gray-900"
                   }`}
                 >
                   Dark Mode
                 </div>
                 <div
-                  className={`text-sm ${
+                  className={`text-xs md:text-sm ${
                     isDarkMode ? "text-gray-400" : "text-gray-600"
                   }`}
                 >
                   Switch to dark theme
                 </div>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
+              <label className="relative inline-flex items-center cursor-pointer self-start sm:self-center">
                 <input
                   type="checkbox"
                   className="sr-only peer"
@@ -288,7 +292,7 @@ function SettingsPage() {
 
             {/* ✅ UPDATED: Telegram Notifications Section */}
             <div
-              className={`p-4 rounded-lg border-2 ${
+              className={`p-3 md:p-4 rounded-lg border-2 ${
                 isUserConfigured
                   ? isDarkMode
                     ? "bg-gray-700/50 border-green-500/30"
@@ -298,12 +302,12 @@ function SettingsPage() {
                   : "bg-gray-50 border-yellow-300"
               }`}
             >
-              <div className="space-y-4">
+              <div className="space-y-3 md:space-y-4">
                 {/* Header dengan status */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <div
-                      className={`font-medium text-lg flex items-center gap-2 ${
+                      className={`font-medium text-base md:text-lg flex items-center gap-2 ${
                         isDarkMode ? "text-white" : "text-gray-900"
                       }`}
                     >
@@ -339,7 +343,7 @@ function SettingsPage() {
                   </div>
 
                   {/* Toggle (hanya aktif jika sudah ada Chat ID) */}
-                  <label className="relative inline-flex items-center cursor-pointer">
+                  <label className="relative inline-flex items-center cursor-pointer self-start sm:self-center">
                     <input
                       type="checkbox"
                       className="sr-only peer"
@@ -365,7 +369,7 @@ function SettingsPage() {
 
                 {/* Deskripsi */}
                 <p
-                  className={`text-sm ${
+                  className={`text-xs md:text-sm ${
                     isDarkMode ? "text-gray-400" : "text-gray-600"
                   }`}
                 >
@@ -376,19 +380,19 @@ function SettingsPage() {
                 {/* Input Telegram Chat ID */}
                 <div className="space-y-2">
                   <label
-                    className={`block text-sm font-medium ${
+                    className={`block text-xs md:text-sm font-medium ${
                       isDarkMode ? "text-gray-300" : "text-gray-700"
                     }`}
                   >
                     Telegram Chat ID
                   </label>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <input
                       type="text"
                       value={telegramChatId}
                       onChange={(e) => setTelegramChatId(e.target.value)}
                       placeholder="Enter your Telegram Chat ID"
-                      className={`flex-1 px-4 py-2 rounded-lg border ${
+                      className={`flex-1 px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${
                         isDarkMode
                           ? "bg-gray-800 border-gray-600 text-white placeholder-gray-500"
                           : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
@@ -399,14 +403,14 @@ function SettingsPage() {
                       disabled={
                         isSavingTelegram || !telegramChatId || !hasChatIdChanged
                       }
-                      className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                      className={`px-4 md:px-6 py-2 rounded-lg font-medium text-sm md:text-base transition-colors w-full sm:w-auto ${
                         isDarkMode
                           ? "bg-blue-600 hover:bg-blue-700 text-white"
                           : "bg-blue-500 hover:bg-blue-600 text-white"
                       } disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                       {isSavingTelegram ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-center gap-2">
                           <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
                           <span>Saving...</span>
                         </div>
@@ -417,7 +421,7 @@ function SettingsPage() {
                   </div>
                   {!hasChatIdChanged && telegramChatId && (
                     <p className="flex items-center gap-1 text-xs text-gray-500">
-                      <FiInfo className="text-sm" />
+                      <FiInfo className="text-sm flex-shrink-0" />
                       No changes detected. Modify Chat ID to enable save.
                     </p>
                   )}
@@ -447,10 +451,12 @@ function SettingsPage() {
                     }`}
                   >
                     <div className="flex items-start gap-2">
-                      <span className="text-lg">❌</span>
+                      <span className="text-base md:text-lg flex-shrink-0">
+                        ❌
+                      </span>
                       <div>
                         <div
-                          className={`font-medium text-sm ${
+                          className={`font-medium text-xs md:text-sm ${
                             isDarkMode ? "text-red-300" : "text-red-800"
                           }`}
                         >
@@ -476,7 +482,7 @@ function SettingsPage() {
               <button
                 onClick={handleTestConnection}
                 disabled={isTesting}
-                className={`w-full p-4 rounded-lg transition-colors ${
+                className={`w-full p-3 md:p-4 rounded-lg transition-colors ${
                   isDarkMode
                     ? "bg-green-900/20 hover:bg-green-900/30 text-green-400"
                     : "bg-green-50 hover:bg-green-100 text-green-700"
@@ -486,12 +492,14 @@ function SettingsPage() {
                   {isTesting ? (
                     <>
                       <div className="animate-spin h-4 w-4 border-2 border-green-500 border-t-transparent rounded-full"></div>
-                      <span>Sending test message...</span>
+                      <span className="text-sm md:text-base">
+                        Sending test message...
+                      </span>
                     </>
                   ) : (
                     <>
-                      <FiActivity className="text-lg" />
-                      <span className="font-medium">
+                      <FiActivity className="text-base md:text-lg" />
+                      <span className="font-medium text-sm md:text-base">
                         Test Telegram Connection
                       </span>
                     </>
@@ -503,22 +511,22 @@ function SettingsPage() {
             {/* Configuration Warning */}
             {!isBackendConfigured && (
               <div
-                className={`p-4 rounded-lg ${
+                className={`p-3 md:p-4 rounded-lg ${
                   isDarkMode ? "bg-yellow-900/20" : "bg-yellow-50"
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  <span className="text-2xl">⚠️</span>
+                  <span className="text-xl md:text-2xl flex-shrink-0">⚠️</span>
                   <div>
                     <div
-                      className={`font-medium ${
+                      className={`font-medium text-sm md:text-base ${
                         isDarkMode ? "text-yellow-300" : "text-yellow-800"
                       }`}
                     >
                       Telegram Not Configured
                     </div>
                     <div
-                      className={`text-sm mt-1 ${
+                      className={`text-xs md:text-sm mt-1 ${
                         isDarkMode ? "text-yellow-400" : "text-yellow-700"
                       }`}
                     >
@@ -539,17 +547,17 @@ function SettingsPage() {
           isDarkMode ? "bg-gray-800 shadow-lg" : "bg-white"
         }`}
       >
-        <div className="p-6">
+        <div className="p-4 md:p-6">
           <h2
-            className={`text-xl font-semibold mb-4 flex items-center gap-2 ${
+            className={`text-lg md:text-xl font-semibold mb-4 flex items-center gap-2 ${
               isDarkMode ? "text-white" : "text-gray-900"
             }`}
           >
-            <FiTool className="text-lg" />
+            <FiTool className="text-base md:text-lg" />
             <span>Troubleshooting</span>
           </h2>
           <p
-            className={`text-sm mb-4 ${
+            className={`text-xs md:text-sm mb-4 ${
               isDarkMode ? "text-gray-400" : "text-gray-600"
             }`}
           >
@@ -559,7 +567,7 @@ function SettingsPage() {
           <div className="space-y-3">
             <button
               onClick={handleForceRefresh}
-              className={`w-full flex items-center justify-between p-4 rounded-lg transition-colors ${
+              className={`w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 md:p-4 rounded-lg transition-colors ${
                 isDarkMode
                   ? "bg-yellow-900/20 hover:bg-yellow-900/30"
                   : "bg-yellow-50 hover:bg-yellow-100"
@@ -567,14 +575,14 @@ function SettingsPage() {
             >
               <div className="text-left">
                 <div
-                  className={`font-medium ${
+                  className={`font-medium text-sm md:text-base ${
                     isDarkMode ? "text-yellow-300" : "text-yellow-800"
                   }`}
                 >
                   Force Light Mode
                 </div>
                 <div
-                  className={`text-sm ${
+                  className={`text-xs md:text-sm ${
                     isDarkMode ? "text-yellow-200" : "text-yellow-600"
                   }`}
                 >
@@ -582,7 +590,7 @@ function SettingsPage() {
                 </div>
               </div>
               <FiRefreshCcw
-                className={`w-5 h-5 ${
+                className={`w-4 h-4 md:w-5 md:h-5 self-start sm:self-center ${
                   isDarkMode ? "text-yellow-400" : "text-yellow-600"
                 }`}
               />
@@ -590,7 +598,7 @@ function SettingsPage() {
 
             <button
               onClick={handleResetCache}
-              className={`w-full flex items-center justify-between p-4 rounded-lg transition-colors ${
+              className={`w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 md:p-4 rounded-lg transition-colors ${
                 isDarkMode
                   ? "bg-blue-900/20 hover:bg-blue-900/30"
                   : "bg-blue-50 hover:bg-blue-100"
@@ -598,14 +606,14 @@ function SettingsPage() {
             >
               <div className="text-left">
                 <div
-                  className={`font-medium ${
+                  className={`font-medium text-sm md:text-base ${
                     isDarkMode ? "text-blue-300" : "text-blue-800"
                   }`}
                 >
                   Clear Cache
                 </div>
                 <div
-                  className={`text-sm ${
+                  className={`text-xs md:text-sm ${
                     isDarkMode ? "text-blue-400" : "text-blue-600"
                   }`}
                 >
@@ -613,14 +621,14 @@ function SettingsPage() {
                 </div>
               </div>
               <FiTrash2
-                className={`w-5 h-5 ${
+                className={`w-4 h-4 md:w-5 md:h-5 self-start sm:self-center ${
                   isDarkMode ? "text-blue-400" : "text-blue-600"
                 }`}
               />
             </button>
 
             <div
-              className={`text-sm space-y-2 ${
+              className={`text-xs md:text-sm space-y-2 ${
                 isDarkMode ? "text-gray-300" : "text-gray-600"
               }`}
             >
@@ -637,11 +645,13 @@ function SettingsPage() {
                   Mode:
                   {isDarkMode ? (
                     <>
-                      Dark <FiMoon className="ml-1 text-lg text-purple-400" />
+                      Dark{" "}
+                      <FiMoon className="ml-1 text-base md:text-lg text-purple-400" />
                     </>
                   ) : (
                     <>
-                      Light <FiSun className="ml-1 text-lg text-yellow-500" />
+                      Light{" "}
+                      <FiSun className="ml-1 text-base md:text-lg text-yellow-500" />
                     </>
                   )}
                 </span>
@@ -657,20 +667,20 @@ function SettingsPage() {
           isDarkMode ? "bg-gray-800 shadow-lg" : "bg-white"
         }`}
       >
-        <div className="p-6">
+        <div className="p-4 md:p-6">
           <h2
-            className={`text-xl font-semibold mb-4 ${
+            className={`text-lg md:text-xl font-semibold mb-4 ${
               isDarkMode ? "text-white" : "text-gray-900"
             }`}
           >
             Technology Stack
           </h2>
           <div
-            className={`space-y-3 text-sm ${
+            className={`space-y-3 text-xs md:text-sm ${
               isDarkMode ? "text-gray-400" : "text-gray-600"
             }`}
           >
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <p className="font-semibold mb-2">Frontend</p>
                 <ul className="space-y-1">
@@ -705,16 +715,16 @@ function SettingsPage() {
           isDarkMode ? "bg-gray-800 shadow-lg" : "bg-white"
         }`}
       >
-        <div className="p-6">
+        <div className="p-4 md:p-6">
           <h2
-            className={`text-xl font-semibold mb-4 ${
+            className={`text-lg md:text-xl font-semibold mb-4 ${
               isDarkMode ? "text-white" : "text-gray-900"
             }`}
           >
             About
           </h2>
           <div
-            className={`space-y-2 text-sm ${
+            className={`space-y-2 text-xs md:text-sm ${
               isDarkMode ? "text-gray-400" : "text-gray-600"
             }`}
           >
