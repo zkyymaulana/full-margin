@@ -94,7 +94,7 @@ export async function getSignals(req, res) {
     const timeframe = req.query.timeframe || "1h";
     const mode = req.query.mode || "paginated";
 
-    console.log(`📊 Fetching indicators for ${symbol} (mode: ${mode})`);
+    console.log(`Fetching indicators for ${symbol} (mode: ${mode})`);
     const startTime = Date.now();
 
     // LATEST - Return only latest signal

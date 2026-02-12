@@ -121,7 +121,7 @@ export async function syncTopCoins() {
         return { ...coin, logo };
       });
     } catch (logoErr) {
-      console.error(`❌ Failed to fetch logos:`, {
+      console.error(`Failed to fetch logos:`, {
         message: logoErr.message,
         status: logoErr.response?.status,
         statusText: logoErr.response?.statusText,

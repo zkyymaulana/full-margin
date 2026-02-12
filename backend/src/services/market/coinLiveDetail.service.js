@@ -28,7 +28,7 @@ export async function getCoinLiveDetail(symbol) {
       },
     };
   } catch (e) {
-    console.error(`❌ getCoinLiveDetail error: ${e.message}`);
+    console.error(`getCoinLiveDetail error: ${e.message}`);
     return { success: false, message: e.message };
   }
 }

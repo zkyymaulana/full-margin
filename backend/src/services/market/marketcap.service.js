@@ -77,17 +77,17 @@ export async function getMarketcapRealtime() {
  * Ambil harga live + candle terakhir untuk coin teratas + history + summary
  * Return ONLY Top 20 paired coins (guaranteed count)
  * Filter hanya symbol dengan format BASE-QUOTE (mengandung "-")
- * ✅ Summary dan data SELALU menampilkan 20 coin teratas
+ * Summary dan data SELALU menampilkan 20 coin teratas
  */
 export async function getMarketcapLive() {
   try {
-    // ✅ STEP 1: Ambil SELALU 20 coin teratas
+    // STEP 1: Ambil SELALU 20 coin teratas
     const top20Coins = await prisma.topCoin.findMany({
       where: {
         symbol: { contains: "-" }, // Hanya pair valid seperti BTC-USD, ETH-USD
       },
       orderBy: { rank: "asc" },
-      take: 20, // ✅ SELALU ambil 20 coin
+      take: 20,
     });
 
     if (!top20Coins.length) {
@@ -97,7 +97,7 @@ export async function getMarketcapLive() {
       };
     }
 
-    // ✅ STEP 2: Fetch live data untuk SEMUA 20 coin teratas
+    // STEP 2: Fetch live data untuk SEMUA 20 coin teratas
     const top20LiveData = [];
     for (const coin of top20Coins) {
       const liveData = await fetchTicker(coin.symbol);
@@ -125,7 +125,7 @@ export async function getMarketcapLive() {
       }
     }
 
-    // ✅ STEP 3: Calculate summary dari SEMUA 20 coin teratas
+    // STEP 3: Calculate summary dari 20 coin teratas
     const totalMarketCap = top20LiveData.reduce(
       (sum, coin) => sum + coin.marketCap,
       0
@@ -143,12 +143,12 @@ export async function getMarketcapLive() {
         ? Number(((btcCoin.marketCap / totalMarketCap) * 100).toFixed(2))
         : 0;
 
-    // ✅ Summary statistics berdasarkan SEMUA 20 coin
+    // Summary statistics berdasarkan 20 coin
     const activeCoins = top20LiveData.length;
     const gainers = top20LiveData.filter((coin) => coin.change24h > 0).length;
     const losers = top20LiveData.filter((coin) => coin.change24h < 0).length;
 
-    // 🎯 STEP 4: Build detail data untuk SEMUA 20 coin
+    // STEP 4: Build detail data untuk 20 coin
     const detailedData = [];
 
     for (const coinSummary of top20LiveData) {
@@ -215,7 +215,7 @@ export async function getMarketcapLive() {
       })
     );
 
-    // ✅ Return 20 coin dengan summary yang konsisten
+    // Return 20 coin dengan summary yang konsisten
     return {
       success: true,
       total: dataWithLogo.length,

@@ -22,7 +22,7 @@ export async function getCandleCount(symbol) {
       where: { symbol, timeframe: "1h" },
     });
   } catch (err) {
-    console.error(`❌ getCandleCount error (${symbol}):`, err.message);
+    console.error(`getCandleCount error (${symbol}):`, err.message);
     return 0;
   }
 }

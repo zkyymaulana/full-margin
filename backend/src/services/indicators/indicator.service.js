@@ -15,9 +15,6 @@ import { calculateOverallSignal } from "../signals/overallAnalyzer.js";
 
 // === MAIN CALCULATION FUNCTION WITH BATCH PROCESSING ===
 export async function calculateAndSaveIndicators(symbol, timeframe = "1h") {
-  console.log(`📊 Calculating indicators for ${symbol}...`);
-  const start = Date.now();
-
   const [candles, existing] = await Promise.all([
     prisma.candle.findMany({
       where: { symbol, timeframe },
@@ -30,7 +27,7 @@ export async function calculateAndSaveIndicators(symbol, timeframe = "1h") {
   ]);
 
   if (!candles.length) {
-    console.log(`⚠️ No candles found for ${symbol}.`);
+    console.log(`No candles found for ${symbol}.`);
     return;
   }
 
@@ -48,13 +45,13 @@ export async function calculateAndSaveIndicators(symbol, timeframe = "1h") {
   }
 
   console.log(
-    `🔍 ${symbol}: Found ${missingCandles.length} candles without indicators`
+    `${symbol}: Found ${missingCandles.length} candles without indicators`
   );
 
-  // ✅ BATCH PROCESSING: Jika terlalu banyak, proses secara bertahap
+  // BATCH PROCESSING: Jika terlalu banyak, proses secara bertahap
   const BATCH_SIZE = 1000; // Process 1000 indicators at a time
   if (missingCandles.length > BATCH_SIZE) {
-    console.log(`⚙️ ${symbol}: Processing in batches of ${BATCH_SIZE}...`);
+    console.log(`${symbol}: Processing in batches of ${BATCH_SIZE}...`);
     return await calculateInBatches(symbol, timeframe, candles, existingTimes);
   }
 
@@ -62,7 +59,7 @@ export async function calculateAndSaveIndicators(symbol, timeframe = "1h") {
   return await processIndicators(symbol, timeframe, candles, existingTimes);
 }
 
-// ✅ NEW: Batch processing for large datasets
+// NEW: Batch processing for large datasets
 async function calculateInBatches(symbol, timeframe, candles, existingTimes) {
   const start = Date.now();
 

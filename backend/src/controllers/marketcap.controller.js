@@ -107,7 +107,7 @@ export async function getCoinSymbols(req, res) {
       symbols: symbolsWithLogo,
     });
   } catch (err) {
-    console.error("❌ Get coin symbols error:", err.message);
+    console.error("Get coin symbols error:", err.message);
     res.status(500).json({
       success: false,
       message: err.message,
