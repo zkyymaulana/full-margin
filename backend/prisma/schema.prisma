@@ -7,27 +7,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id           Int        @id @default(autoincrement())
-  email        String     @unique
-  name         String?
-  passwordHash String
-  createdAt    DateTime   @default(now())
-  lastLogin    DateTime?
-  authLogs     AuthLog[]
-  avatarUrl    String?
-  
-  // === Telegram Notifications ===
-  telegramChatId  String?  // Telegram chat ID untuk notifikasi personal
-  telegramEnabled Boolean  @default(false) // Toggle untuk enable/disable notifikasi
-}
+model Timeframe {
+  id        Int      @id @default(autoincrement())
+  timeframe String   @unique
 
-model AuthLog {
-  id         Int      @id @default(autoincrement())
-  userId     Int
-  action     String   // "login" atau "logout"
-  createdAt  DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id])
+  candles        Candle[]
+  indicators     Indicator[]
+  indicatorWeights IndicatorWeight[]
 }
 
 model Coin {
@@ -35,110 +21,141 @@ model Coin {
   symbol    String   @unique
   name      String?
   rank      Int?
-  logo      String?  // ✅ URL logo dari CoinMarketCap
+  logo      String?
   createdAt DateTime @default(now())
-  candles   Candle[] @relation("CoinCandles")
+
+  candles          Candle[]
+  indicators       Indicator[]
+  indicatorWeights IndicatorWeight[]
+  topCoins         TopCoin[]
 }
 
 model Candle {
-  id        Int    @id @default(autoincrement())
-  symbol    String
-  timeframe String
-  time      BigInt
-  open      Float
-  high      Float
-  low       Float
-  close     Float
-  volume    Float
-  coinId    Int?
-  coin      Coin?  @relation("CoinCandles", fields: [coinId], references: [id], onDelete: Cascade)
+  id          Int      @id @default(autoincrement())
+  coinId      Int
+  timeframeId Int
+  time        BigInt
+  open        Float
+  high        Float
+  low         Float
+  close       Float
+  volume      Float
 
-  @@unique([symbol, timeframe, time])
-  @@index([symbol, time])
+  coin       Coin      @relation(fields: [coinId], references: [id], onDelete: Cascade)
+  timeframe  Timeframe @relation(fields: [timeframeId], references: [id])
+
+  @@unique([coinId, timeframeId, time])
+  @@index([coinId, time])
 }
+
+model Indicator {
+  id          Int      @id @default(autoincrement())
+  coinId      Int
+  timeframeId Int
+  time        BigInt
+
+  // Raw indicator values
+  sma20          Float?
+  sma50          Float?
+  ema20          Float?
+  ema50          Float?
+  rsi            Float?
+  macd           Float?
+  macdSignalLine Float?
+  macdHist       Float?
+  bbUpper        Float?
+  bbMiddle       Float?
+  bbLower        Float?
+  stochK         Float?
+  stochD         Float?
+  stochRsiK      Float?
+  stochRsiD      Float?
+  psar           Float?
+
+  // Individual signals
+  smaSignal      String?
+  emaSignal      String?
+  rsiSignal      String?
+  macdSignal     String?
+  bbSignal       String?
+  stochSignal    String?
+  stochRsiSignal String?
+  psarSignal     String?
+
+  // Aggregated signal
+  overallSignal  String?
+  signalStrength Float?
+  finalScore     Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  coin      Coin      @relation(fields: [coinId], references: [id], onDelete: Cascade)
+  timeframe Timeframe @relation(fields: [timeframeId], references: [id])
+
+  @@unique([coinId, timeframeId, time])
+  @@index([coinId, time])
+  @@index([overallSignal])
+}
+
+model IndicatorWeight {
+  id           Int      @id @default(autoincrement())
+  coinId       Int
+  timeframeId  Int
+
+  startTrain   BigInt
+  endTrain     BigInt
+
+  weights      Json
+  roi          Float
+  winRate      Float
+  maxDrawdown  Float
+  sharpeRatio  Float 
+  trades       Int
+  finalCapital Float
+  candleCount  Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  coin      Coin      @relation(fields: [coinId], references: [id], onDelete: Cascade)
+  timeframe Timeframe @relation(fields: [timeframeId], references: [id])
+
+  @@unique([coinId, timeframeId, startTrain, endTrain])
+  @@index([coinId, timeframeId]) 
+}
+
 
 model TopCoin {
   id        Int      @id @default(autoincrement())
-  rank      Int
-  name      String
-  symbol    String   @unique
+  coinId    Int
   price     Float
   marketCap Float
   volume24h Float
   createdAt DateTime @default(now())
+
+  coin Coin @relation(fields: [coinId], references: [id], onDelete: Cascade)
 }
 
-model Indicator {
-  id         Int      @id @default(autoincrement())
-  symbol     String
-  timeframe  String   @default("1h")
-  time       BigInt
-  
-  // === Technical Indicators Values ===
-  sma20      Float? 
-  sma50      Float? 
-  ema20      Float? 
-  ema50      Float?  
-  rsi        Float?
-  macd       Float?
-  macdSignalLine Float?  
-  macdHist   Float?
-  bbUpper    Float?
-  bbMiddle   Float?
-  bbLower    Float?
-  stochK     Float?
-  stochD     Float?
-  stochRsiK  Float?
-  stochRsiD  Float?
-  psar       Float?
-  
-  // === Signal Values (for performance optimization) ===
-  smaSignal      String? // "buy", "sell", "neutral"
-  emaSignal      String? 
-  rsiSignal      String? 
-  macdSignal     String? 
-  bbSignal       String? 
-  stochSignal    String? 
-  stochRsiSignal String? 
-  psarSignal     String? 
-  
-  // === Overall Signal Analysis ===
-  overallSignal  String? // "strong_buy", "buy", "neutral", "sell", "strong_sell"
-  signalStrength Float?  // 0.0 to 1.0 confidence level
-  finalScore     Float?  // ✅ NEW: Weighted score (can be negative for sell)
-  
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+model User {
+  id              Int      @id @default(autoincrement())
+  email           String   @unique
+  name            String?
+  passwordHash    String
+  createdAt       DateTime @default(now())
+  lastLogin       DateTime?
+  avatarUrl       String?
+  telegramChatId  String?
+  telegramEnabled Boolean  @default(false)
 
-  @@unique([symbol, timeframe, time])
-  @@index([symbol, time])
-  @@index([symbol, timeframe, time])
-  @@index([overallSignal])
+  authLogs AuthLog[]
 }
 
-// Cache for optimized multi-indicator weights per symbol/timeframe and training window
-model IndicatorWeight {
-  id           Int      @id @default(autoincrement())
-  symbol       String
-  timeframe    String
-  startTrain   BigInt
-  endTrain     BigInt
-  weights      Json
+model AuthLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  action    String
+  createdAt DateTime @default(now())
 
-  // === METRIK EVALUASI ===
-  roi           Float
-  winRate       Float
-  maxDrawdown   Float
-  sharpeRatio   Float?
-  trades        Int
-  finalCapital  Float
-
-  // === INFO DATA ===
-  candleCount  Int     @default(0)
-
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@unique([symbol, timeframe, startTrain, endTrain])
-  @@index([symbol, timeframe])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
