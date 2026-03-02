@@ -153,14 +153,17 @@ function Header() {
                     isDarkMode ? "text-white" : "text-gray-900"
                   }`}
                 >
-                  {currentSymbolInfo?.name || selectedSymbol.split("-")[0]}
+                  {currentSymbolInfo?.name ||
+                    (selectedSymbol
+                      ? selectedSymbol.split("-")[0]
+                      : "Loading...")}
                 </div>
                 <div
                   className={`text-xs font-mono ${
                     isDarkMode ? "text-gray-400" : "text-gray-500"
                   }`}
                 >
-                  {selectedSymbol}
+                  {selectedSymbol || "..."}
                 </div>
               </div>
             </div>

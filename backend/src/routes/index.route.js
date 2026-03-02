@@ -26,7 +26,7 @@ router.use("/user", authMiddleware, userRoute);
 // Analysis & Visualization
 router.use("/chart", authMiddleware, chartRoute);
 router.use("/indicator", authMiddleware, indicatorRoute);
-router.use("/multiIndicator", authMiddleware, multiIndicatorRoute);
+router.use("/multiIndicator", multiIndicatorRoute); // ✅ Auth handled per-route (SSE needs query token)
 router.use("/singleIndicator", authMiddleware, singleIndicatorRoute);
 router.use("/comparison", authMiddleware, comparisonRoute);
 

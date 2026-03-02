@@ -4,6 +4,7 @@ import { SymbolProvider } from "./contexts/SymbolContext";
 import { SidebarProvider } from "./contexts/SidebarContext";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { GlobalOptimizationProgress } from "./components/GlobalOptimizationProgress";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
@@ -83,6 +84,9 @@ function App() {
           {/* Catch all */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
+
+        {/* 🗑️ DISABLED - Progress card sekarang di dalam Comparison page */}
+        {/* <GlobalOptimizationProgress /> */}
       </SidebarProvider>
     </SymbolProvider>
   );

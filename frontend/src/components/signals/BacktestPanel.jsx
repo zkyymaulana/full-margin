@@ -1,4 +1,9 @@
-import { FiBarChart2, FiInfo, FiTrendingUp } from "react-icons/fi";
+import { FiBarChart2, FiInfo, FiTrendingUp, FiRefreshCw } from "react-icons/fi";
+import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useSymbol } from "../../contexts/SymbolContext";
+import { useForceReoptimization } from "../../hooks/useOptimization";
+import { getOptimizationEstimate } from "../../services/api.service";
 import {
   formatNumber,
   formatPercent,
@@ -6,9 +11,128 @@ import {
 } from "../../utils/indicatorParser";
 
 function BacktestPanel({ performance, bestCombo, isDarkMode }) {
+  const { selectedSymbol } = useSymbol();
+  const queryClient = useQueryClient();
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [estimate, setEstimate] = useState(null);
+  const [loadingEstimate, setLoadingEstimate] = useState(false);
+
+  // 🆕 Progress tracking states
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [optimizationProgress, setOptimizationProgress] = useState({
+    current: 0,
+    total: 390625,
+    percentage: 0,
+    eta: "Calculating...",
+    bestROI: 0,
+  });
+
+  const { mutate: forceReoptimize, isPending: isReoptimizing } =
+    useForceReoptimization();
+
   if (!performance || Object.keys(performance).length === 0) return null;
 
-  // Format currency
+  // 🆕 Fetch estimate saat modal dibuka
+  const handleRestartOptimization = async () => {
+    setShowConfirmModal(true);
+    setLoadingEstimate(true);
+
+    try {
+      const estimateData = await getOptimizationEstimate(selectedSymbol, "1h");
+      if (estimateData.success) {
+        setEstimate(estimateData.estimate);
+      }
+    } catch (error) {
+      console.error("Error fetching estimate:", error);
+      // Fallback to default estimate if API fails
+      setEstimate({
+        formatted: "2-5 menit",
+        estimatedRange: {
+          minFormatted: "2 menit",
+          maxFormatted: "5 menit",
+        },
+      });
+    } finally {
+      setLoadingEstimate(false);
+    }
+  };
+
+  const confirmRestart = () => {
+    setShowConfirmModal(false);
+
+    // 🆕 Show info modal bahwa optimasi berjalan di background
+    setShowProgressModal(true);
+    setOptimizationProgress({
+      current: 0,
+      total: 390625,
+      percentage: 0,
+      eta: estimate?.formatted || "~50-60 menit",
+      bestROI: 0,
+      status: "running",
+    });
+
+    // 🆕 Kirim request tanpa menunggu response (fire and forget)
+    forceReoptimize(
+      { symbol: selectedSymbol, timeframe: "1h" },
+      {
+        onSuccess: (data) => {
+          console.log("✅ Reoptimization berhasil:", data);
+
+          // Update status di modal
+          setOptimizationProgress((prev) => ({
+            ...prev,
+            status: "completed",
+            percentage: 100,
+            eta: "0s",
+          }));
+
+          // Auto-refresh data
+          queryClient.invalidateQueries(["candles", selectedSymbol]);
+          queryClient.invalidateQueries(["indicator", selectedSymbol]);
+
+          // Tutup modal dan show success
+          setTimeout(() => {
+            setShowProgressModal(false);
+            alert(
+              `✅ Optimasi berhasil!\n\n` +
+                `ROI: ${data.performance?.roi?.toFixed(2)}%\n` +
+                `Win Rate: ${data.performance?.winRate?.toFixed(2)}%\n` +
+                `Trades: ${data.performance?.trades}\n\n` +
+                `Halaman akan di-refresh untuk menampilkan hasil terbaru.`
+            );
+            window.location.reload();
+          }, 1000);
+        },
+        onError: (error) => {
+          console.error("❌ Reoptimization gagal:", error);
+
+          // Cek jika timeout
+          if (error.code === "ECONNABORTED") {
+            console.log(
+              "⏰ Request timeout - optimasi masih berjalan di backend"
+            );
+
+            // Update modal dengan pesan timeout
+            setOptimizationProgress((prev) => ({
+              ...prev,
+              status: "background",
+              eta: estimate?.formatted || "~50-60 menit",
+            }));
+
+            // Jangan tutup modal, kasih instruksi ke user
+          } else {
+            // Error lain
+            setShowProgressModal(false);
+            alert(
+              `❌ Optimasi gagal!\n\n` +
+                `Error: ${error.response?.data?.message || error.message}`
+            );
+          }
+        },
+      }
+    );
+  };
+
   const formatCurrency = (value) => {
     if (!value && value !== 0) return "N/A";
     return new Intl.NumberFormat("en-US", {
@@ -19,17 +143,14 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
     }).format(value);
   };
 
-  // Format date range for training period
   const formatDateRange = () => {
     if (!performance.trainingPeriod) return null;
 
     const { startDateReadable, endDateReadable } = performance.trainingPeriod;
     if (!startDateReadable || !endDateReadable) return null;
 
-    // Simplified format for display
     const formatShortDate = (dateStr) => {
       if (!dateStr) return "";
-      // Extract "14 November 2024" from "14 November 2024 pukul 00.00"
       return dateStr.split(" pukul ")[0];
     };
 
@@ -38,7 +159,6 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
     )}`;
   };
 
-  // Metrics data array for cleaner rendering
   const metrics = [
     {
       label: "ROI",
@@ -110,86 +230,558 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
   ];
 
   return (
-    <div
-      className={`rounded-xl shadow-sm border p-6 ${
-        isDarkMode
-          ? "bg-linear-to-r from-blue-900 to-purple-900 border-blue-700"
-          : "bg-linear-to-r from-blue-50 to-purple-50 border-blue-200"
-      }`}
-    >
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-6">
-        <FiTrendingUp
-          className={`text-2xl ${
-            isDarkMode ? "text-blue-300" : "text-blue-700"
-          }`}
-        />
-        <div>
-          <h3
-            className={`text-lg font-semibold ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
-          >
-            Backtest Performance ({bestCombo})
-          </h3>
-          {formatDateRange() && (
-            <p
-              className={`text-xs ${
-                isDarkMode ? "text-gray-400" : "text-gray-600"
+    <>
+      <div
+        className={`rounded-xl shadow-sm border p-6 ${
+          isDarkMode
+            ? "bg-linear-to-r from-blue-900 to-purple-900 border-blue-700"
+            : "bg-linear-to-r from-blue-50 to-purple-50 border-blue-200"
+        }`}
+      >
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <FiTrendingUp
+              className={`text-2xl ${
+                isDarkMode ? "text-blue-300" : "text-blue-700"
               }`}
-            >
-              Period: {formatDateRange()}
-            </p>
-          )}
-        </div>
-        <div className="group relative mb-4">
-          <FiInfo
-            className={`text-sm cursor-help ${
-              isDarkMode ? "text-white" : "text-gray-700"
-            }`}
-          />
-          <div
-            className={`invisible group-hover:visible absolute left-0 top-6 w-80 p-3 rounded-lg shadow-lg z-50 text-xs ${
-              isDarkMode
-                ? "bg-gray-800 border border-gray-700 text-gray-300"
-                : "bg-white border border-gray-200 text-gray-700"
-            }`}
-          >
-            <p className="font-semibold mb-1 flex items-center gap-1">
-              <FiBarChart2 className="text-lg" />
-              Backtest Results
-            </p>
-            <p>
-              The results of testing the trading strategy using historical data.
-              The best strategy is selected based on the highest ROI from
-              indicator combinations.
-            </p>
-            <p className="mt-2">
-              <strong>Sharpe Ratio:</strong> Measures risk-adjusted returns. A
-              value &gt; 1 is considered good, &gt; 2 is considered very good.
-            </p>
+            />
+            <div>
+              <h3
+                className={`text-lg font-semibold ${
+                  isDarkMode ? "text-white" : "text-gray-900"
+                }`}
+              >
+                Backtest Performance ({bestCombo})
+              </h3>
+              {formatDateRange() && (
+                <p
+                  className={`text-xs ${
+                    isDarkMode ? "text-gray-400" : "text-gray-600"
+                  }`}
+                >
+                  Period: {formatDateRange()}
+                </p>
+              )}
+            </div>
+            <div className="group relative mb-4">
+              <FiInfo
+                className={`text-sm cursor-help ${
+                  isDarkMode ? "text-white" : "text-gray-700"
+                }`}
+              />
+              <div
+                className={`invisible group-hover:visible absolute left-0 top-6 w-80 p-3 rounded-lg shadow-lg z-50 text-xs ${
+                  isDarkMode
+                    ? "bg-gray-800 border border-gray-700 text-gray-300"
+                    : "bg-white border border-gray-200 text-gray-700"
+                }`}
+              >
+                <p className="font-semibold mb-1 flex items-center gap-1">
+                  <FiBarChart2 className="text-lg" />
+                  Backtest Results
+                </p>
+                <p>
+                  The results of testing the trading strategy using historical
+                  data. The best strategy is selected based on the highest ROI
+                  from indicator combinations.
+                </p>
+                <p className="mt-2">
+                  <strong>Sharpe Ratio:</strong> Measures risk-adjusted returns.
+                  A value &gt; 1 is considered good, &gt; 2 is considered very
+                  good.
+                </p>
+              </div>
+            </div>
           </div>
+
+          <button
+            onClick={handleRestartOptimization}
+            disabled={isReoptimizing}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+              isReoptimizing
+                ? isDarkMode
+                  ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                : isDarkMode
+                ? "bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl"
+                : "bg-blue-500 hover:bg-blue-600 text-white shadow-md hover:shadow-lg"
+            }`}
+            title="Jalankan optimasi ulang dari awal (Full Exhaustive Search)"
+          >
+            <FiRefreshCw
+              className={`text-lg ${isReoptimizing ? "animate-spin" : ""}`}
+            />
+            <span className="hidden sm:inline">
+              {isReoptimizing ? "Optimizing..." : "Restart Optimasi"}
+            </span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-4 md:gap-6">
+          {metrics.map((metric, index) => (
+            <div key={index} className="text-center">
+              <div
+                className={`text-xs mb-2 ${
+                  isDarkMode ? "text-gray-300" : "text-gray-600"
+                }`}
+              >
+                {metric.label}
+              </div>
+              <div className={`text-lg font-bold ${metric.colorClass}`}>
+                {metric.value}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Metrics Grid - Responsive */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-4 md:gap-6">
-        {metrics.map((metric, index) => (
-          <div key={index} className="text-center">
-            <div
-              className={`text-xs mb-2 ${
-                isDarkMode ? "text-gray-300" : "text-gray-600"
+      {/* 🆕 MODAL KONFIRMASI DENGAN ESTIMASI DINAMIS */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div
+            className={`rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 ${
+              isDarkMode ? "bg-gray-800 border border-gray-700" : "bg-white"
+            }`}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div
+                className={`p-3 rounded-full ${
+                  isDarkMode ? "bg-yellow-900" : "bg-yellow-100"
+                }`}
+              >
+                <FiRefreshCw
+                  className={`text-2xl ${
+                    isDarkMode ? "text-yellow-300" : "text-yellow-600"
+                  }`}
+                />
+              </div>
+              <h3
+                className={`text-xl font-bold ${
+                  isDarkMode ? "text-white" : "text-gray-900"
+                }`}
+              >
+                Konfirmasi Restart Optimasi
+              </h3>
+            </div>
+
+            <p
+              className={`mb-4 ${
+                isDarkMode ? "text-gray-300" : "text-gray-700"
               }`}
             >
-              {metric.label}
+              Optimasi ulang akan menjalankan{" "}
+              <strong>Full Exhaustive Search</strong> dari awal (
+              {(390625).toLocaleString()} kombinasi) untuk{" "}
+              <strong>{selectedSymbol}</strong>.
+            </p>
+
+            {/* 🆕 ESTIMASI DINAMIS DENGAN INFO LENGKAP */}
+            <div
+              className={`p-4 rounded-lg mb-4 ${
+                isDarkMode
+                  ? "bg-yellow-900 border border-yellow-700"
+                  : "bg-yellow-50 border border-yellow-200"
+              }`}
+            >
+              {loadingEstimate ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
+                  <p
+                    className={`text-sm ${
+                      isDarkMode ? "text-yellow-300" : "text-yellow-800"
+                    }`}
+                  >
+                    Menghitung estimasi waktu...
+                  </p>
+                </div>
+              ) : estimate ? (
+                <div>
+                  <p
+                    className={`text-sm mb-2 ${
+                      isDarkMode ? "text-yellow-300" : "text-yellow-800"
+                    }`}
+                  >
+                    ⏱️ <strong>Estimasi waktu optimasi:</strong>
+                  </p>
+                  <div
+                    className={`text-center py-3 px-4 rounded-lg mb-3 ${
+                      isDarkMode ? "bg-yellow-800" : "bg-yellow-100"
+                    }`}
+                  >
+                    <div
+                      className={`text-2xl font-bold ${
+                        isDarkMode ? "text-yellow-200" : "text-yellow-900"
+                      }`}
+                    >
+                      {estimate.estimatedRange?.minFormatted} -{" "}
+                      {estimate.estimatedRange?.maxFormatted}
+                    </div>
+                    <div
+                      className={`text-xs mt-1 ${
+                        isDarkMode ? "text-yellow-400" : "text-yellow-700"
+                      }`}
+                    >
+                      (sekitar {estimate.estimatedMinutes} menit)
+                    </div>
+                  </div>
+                  <div
+                    className={`text-xs space-y-1 ${
+                      isDarkMode ? "text-yellow-400" : "text-yellow-700"
+                    }`}
+                  >
+                    <p>
+                      📊 Data points:{" "}
+                      <strong>{estimate.dataPoints?.toLocaleString()}</strong>
+                    </p>
+                    <p>
+                      🔢 Total kombinasi:{" "}
+                      <strong>
+                        {estimate.totalCombinations?.toLocaleString()}
+                      </strong>
+                    </p>
+                    {estimate.benchmarkInfo && (
+                      <p className="text-[10px] opacity-75">
+                        Berdasarkan benchmark:{" "}
+                        {estimate.benchmarkInfo.benchmarkDataPoints?.toLocaleString()}{" "}
+                        data = {estimate.benchmarkInfo.benchmarkMinutes} menit
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p
+                  className={`text-sm ${
+                    isDarkMode ? "text-yellow-300" : "text-yellow-800"
+                  }`}
+                >
+                  ⚠️ <strong>Perhatian:</strong> Proses ini akan membutuhkan
+                  waktu cukup lama
+                </p>
+              )}
             </div>
-            <div className={`text-lg font-bold ${metric.colorClass}`}>
-              {metric.value}
+
+            {/* 🆕 WARNING TAMBAHAN */}
+            <div
+              className={`p-3 rounded-lg mb-6 text-xs ${
+                isDarkMode
+                  ? "bg-red-900 border border-red-700 text-red-300"
+                  : "bg-red-50 border border-red-200 text-red-800"
+              }`}
+            >
+              <p className="font-semibold mb-1">⚠️ Penting:</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>Jangan tutup browser/tab selama proses</li>
+                <li>Hasil optimasi lama akan ditimpa</li>
+                <li>Progress dapat dilihat di console browser (F12)</li>
+              </ul>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                  isDarkMode
+                    ? "bg-gray-700 hover:bg-gray-600 text-white"
+                    : "bg-gray-200 hover:bg-gray-300 text-gray-800"
+                }`}
+              >
+                Batal
+              </button>
+              <button
+                onClick={confirmRestart}
+                disabled={loadingEstimate}
+                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                  loadingEstimate
+                    ? "bg-gray-400 cursor-not-allowed text-gray-600"
+                    : "bg-blue-600 hover:bg-blue-700 text-white"
+                }`}
+              >
+                {loadingEstimate ? "Loading..." : "Ya, Lanjutkan"}
+              </button>
             </div>
           </div>
-        ))}
-      </div>
-    </div>
+        </div>
+      )}
+
+      {/* 🆕 PROGRESS MODAL - Menampilkan Status Background */}
+      {showProgressModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+          <div
+            className={`rounded-xl shadow-2xl p-8 max-w-lg w-full mx-4 ${
+              isDarkMode ? "bg-gray-800 border border-gray-700" : "bg-white"
+            }`}
+          >
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-6">
+              <div
+                className={`p-3 rounded-full ${
+                  isDarkMode ? "bg-blue-900" : "bg-blue-100"
+                }`}
+              >
+                <FiRefreshCw
+                  className={`text-3xl animate-spin ${
+                    isDarkMode ? "text-blue-300" : "text-blue-600"
+                  }`}
+                />
+              </div>
+              <div>
+                <h3
+                  className={`text-2xl font-bold ${
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  }`}
+                >
+                  {optimizationProgress.status === "background"
+                    ? "Optimasi Berjalan di Background"
+                    : optimizationProgress.status === "completed"
+                    ? "Optimasi Selesai!"
+                    : "Optimasi Berjalan"}
+                </h3>
+                <p
+                  className={`text-sm ${
+                    isDarkMode ? "text-gray-400" : "text-gray-600"
+                  }`}
+                >
+                  {selectedSymbol} - Full Exhaustive Search
+                </p>
+              </div>
+            </div>
+
+            {/* Konten berbeda berdasarkan status */}
+            {optimizationProgress.status === "background" ? (
+              // Status: Backend Running (setelah timeout)
+              <div>
+                <div
+                  className={`p-6 rounded-lg mb-6 text-center ${
+                    isDarkMode
+                      ? "bg-gradient-to-br from-yellow-900 to-orange-900"
+                      : "bg-gradient-to-br from-yellow-50 to-orange-50"
+                  }`}
+                >
+                  <div className="text-6xl mb-4">⏳</div>
+                  <p
+                    className={`text-lg font-bold mb-2 ${
+                      isDarkMode ? "text-yellow-200" : "text-yellow-900"
+                    }`}
+                  >
+                    Optimasi Masih Berjalan di Server
+                  </p>
+                  <p
+                    className={`text-sm ${
+                      isDarkMode ? "text-yellow-300" : "text-yellow-800"
+                    }`}
+                  >
+                    Estimasi waktu tersisa:{" "}
+                    <strong>{optimizationProgress.eta}</strong>
+                  </p>
+                </div>
+
+                <div
+                  className={`p-4 rounded-lg mb-4 ${
+                    isDarkMode
+                      ? "bg-blue-900 border border-blue-700"
+                      : "bg-blue-50 border border-blue-200"
+                  }`}
+                >
+                  <p
+                    className={`text-sm font-semibold mb-3 ${
+                      isDarkMode ? "text-blue-300" : "text-blue-800"
+                    }`}
+                  >
+                    📋 Instruksi:
+                  </p>
+                  <ul
+                    className={`text-sm space-y-2 ${
+                      isDarkMode ? "text-blue-200" : "text-blue-700"
+                    }`}
+                  >
+                    <li>✅ Optimasi sedang berjalan di backend server</li>
+                    <li>
+                      ✅ Anda <strong>bisa menutup modal ini</strong>
+                    </li>
+                    <li>
+                      ✅ Anda <strong>bisa menutup browser</strong> jika perlu
+                    </li>
+                    <li>
+                      🔄 Refresh halaman setelah{" "}
+                      <strong>{optimizationProgress.eta}</strong>
+                    </li>
+                    <li>📊 Hasil akan otomatis tersimpan di database</li>
+                  </ul>
+                </div>
+
+                <div
+                  className={`p-3 rounded-lg mb-6 text-xs ${
+                    isDarkMode
+                      ? "bg-gray-700 text-gray-300"
+                      : "bg-gray-100 text-gray-700"
+                  }`}
+                >
+                  <p className="mb-1">
+                    💡 <strong>Progress backend dapat dilihat di:</strong>
+                  </p>
+                  <p className="font-mono">Backend Terminal/Console</p>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowProgressModal(false)}
+                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                      isDarkMode
+                        ? "bg-gray-700 hover:bg-gray-600 text-white"
+                        : "bg-gray-200 hover:bg-gray-300 text-gray-800"
+                    }`}
+                  >
+                    Tutup Modal
+                  </button>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                  >
+                    🔄 Refresh Sekarang
+                  </button>
+                </div>
+              </div>
+            ) : optimizationProgress.status === "completed" ? (
+              // Status: Completed
+              <div className="text-center">
+                <div className="text-6xl mb-4">✅</div>
+                <p
+                  className={`text-lg font-bold mb-4 ${
+                    isDarkMode ? "text-green-400" : "text-green-600"
+                  }`}
+                >
+                  Optimasi Berhasil Diselesaikan!
+                </p>
+              </div>
+            ) : (
+              // Status: Running (progress normal)
+              <>
+                {/* Progress Bar */}
+                <div className="mb-6">
+                  <div className="flex justify-between items-center mb-2">
+                    <span
+                      className={`text-sm font-medium ${
+                        isDarkMode ? "text-gray-300" : "text-gray-700"
+                      }`}
+                    >
+                      Progress
+                    </span>
+                    <span
+                      className={`text-sm font-bold ${
+                        isDarkMode ? "text-blue-400" : "text-blue-600"
+                      }`}
+                    >
+                      {optimizationProgress.percentage.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div
+                    className={`w-full h-4 rounded-full overflow-hidden ${
+                      isDarkMode ? "bg-gray-700" : "bg-gray-200"
+                    }`}
+                  >
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500 ease-out"
+                      style={{ width: `${optimizationProgress.percentage}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  {/* Kombinasi Tested */}
+                  <div
+                    className={`p-4 rounded-lg ${
+                      isDarkMode ? "bg-gray-700" : "bg-gray-50"
+                    }`}
+                  >
+                    <p
+                      className={`text-xs mb-1 ${
+                        isDarkMode ? "text-gray-400" : "text-gray-600"
+                      }`}
+                    >
+                      Kombinasi Tested
+                    </p>
+                    <p
+                      className={`text-lg font-bold ${
+                        isDarkMode ? "text-white" : "text-gray-900"
+                      }`}
+                    >
+                      {optimizationProgress.current.toLocaleString()}
+                    </p>
+                    <p
+                      className={`text-xs ${
+                        isDarkMode ? "text-gray-500" : "text-gray-500"
+                      }`}
+                    >
+                      dari {optimizationProgress.total.toLocaleString()}
+                    </p>
+                  </div>
+
+                  {/* ETA - Format seperti backend */}
+                  <div
+                    className={`p-4 rounded-lg ${
+                      isDarkMode
+                        ? "bg-gradient-to-br from-yellow-900 to-orange-900"
+                        : "bg-gradient-to-br from-yellow-50 to-orange-50"
+                    }`}
+                  >
+                    <p
+                      className={`text-xs mb-1 ${
+                        isDarkMode ? "text-yellow-300" : "text-yellow-700"
+                      }`}
+                    >
+                      Estimasi Waktu Tersisa
+                    </p>
+                    <p
+                      className={`text-2xl font-bold ${
+                        isDarkMode ? "text-yellow-200" : "text-yellow-900"
+                      }`}
+                    >
+                      {optimizationProgress.eta}
+                    </p>
+                    <p
+                      className={`text-xs ${
+                        isDarkMode ? "text-yellow-400" : "text-yellow-600"
+                      }`}
+                    >
+                      ETA
+                    </p>
+                  </div>
+                </div>
+
+                {/* Info Box */}
+                <div
+                  className={`p-4 rounded-lg ${
+                    isDarkMode
+                      ? "bg-blue-900 border border-blue-700"
+                      : "bg-blue-50 border border-blue-200"
+                  }`}
+                >
+                  <p
+                    className={`text-sm ${
+                      isDarkMode ? "text-blue-300" : "text-blue-800"
+                    }`}
+                  >
+                    💡 <strong>Tips:</strong> Jangan tutup browser/tab ini.
+                    Progress dapat dipantau di console (F12).
+                  </p>
+                </div>
+
+                {/* Note */}
+                <p
+                  className={`text-xs text-center mt-6 ${
+                    isDarkMode ? "text-gray-500" : "text-gray-400"
+                  }`}
+                >
+                  Proses ini dapat memakan waktu hingga 1 jam tergantung jumlah
+                  data
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

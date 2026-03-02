@@ -15,13 +15,40 @@ import { calculateOverallSignal } from "../signals/overallAnalyzer.js";
 
 // === MAIN CALCULATION FUNCTION WITH BATCH PROCESSING ===
 export async function calculateAndSaveIndicators(symbol, timeframe = "1h") {
+  // Get coinId and timeframeId first
+  const coin = await prisma.coin.findUnique({
+    where: { symbol },
+    select: { id: true },
+  });
+
+  if (!coin) {
+    console.log(`No coin found for ${symbol}.`);
+    return;
+  }
+
+  const timeframeRecord = await prisma.timeframe.findUnique({
+    where: { timeframe },
+    select: { id: true },
+  });
+
+  if (!timeframeRecord) {
+    console.log(`No timeframe found for ${timeframe}.`);
+    return;
+  }
+
   const [candles, existing] = await Promise.all([
     prisma.candle.findMany({
-      where: { symbol, timeframe },
+      where: {
+        coinId: coin.id,
+        timeframeId: timeframeRecord.id,
+      },
       orderBy: { time: "asc" },
     }),
     prisma.indicator.findMany({
-      where: { symbol, timeframe },
+      where: {
+        coinId: coin.id,
+        timeframeId: timeframeRecord.id,
+      },
       orderBy: { time: "asc" },
     }),
   ]);
@@ -52,15 +79,36 @@ export async function calculateAndSaveIndicators(symbol, timeframe = "1h") {
   const BATCH_SIZE = 1000; // Process 1000 indicators at a time
   if (missingCandles.length > BATCH_SIZE) {
     console.log(`${symbol}: Processing in batches of ${BATCH_SIZE}...`);
-    return await calculateInBatches(symbol, timeframe, candles, existingTimes);
+    return await calculateInBatches(
+      symbol,
+      timeframe,
+      candles,
+      existingTimes,
+      coin.id,
+      timeframeRecord.id
+    );
   }
 
   // Process normal (< 1000 missing candles)
-  return await processIndicators(symbol, timeframe, candles, existingTimes);
+  return await processIndicators(
+    symbol,
+    timeframe,
+    candles,
+    existingTimes,
+    coin.id,
+    timeframeRecord.id
+  );
 }
 
 // NEW: Batch processing for large datasets
-async function calculateInBatches(symbol, timeframe, candles, existingTimes) {
+async function calculateInBatches(
+  symbol,
+  timeframe,
+  candles,
+  existingTimes,
+  coinId,
+  timeframeId
+) {
   const start = Date.now();
 
   // Inisialisasi kalkulator sekali saja
@@ -106,8 +154,8 @@ async function calculateInBatches(symbol, timeframe, candles, existingTimes) {
     );
 
     results.push({
-      symbol,
-      timeframe,
+      coinId,
+      timeframeId,
       time,
       ...indicators,
       smaSignal: signals.smaSignal,
@@ -153,7 +201,14 @@ async function calculateInBatches(symbol, timeframe, candles, existingTimes) {
 }
 
 // ✅ NEW: Process normal size datasets
-async function processIndicators(symbol, timeframe, candles, existingTimes) {
+async function processIndicators(
+  symbol,
+  timeframe,
+  candles,
+  existingTimes,
+  coinId,
+  timeframeId
+) {
   const start = Date.now();
   const calculators = initializeCalculators();
   const results = [];
@@ -203,8 +258,8 @@ async function processIndicators(symbol, timeframe, candles, existingTimes) {
       );
 
       results.push({
-        symbol,
-        timeframe,
+        coinId,
+        timeframeId,
         time,
         ...indicators,
         smaSignal: signals.smaSignal,
@@ -307,20 +362,38 @@ async function calculateOverallSignalOptimized(signals, symbol, timeframe) {
   let weights = weightsCache.get(symbol);
 
   if (!weights) {
-    // Load weights from database (from indicatorWeight table, not backtestResult)
-    const weightRecord = await prisma.indicatorWeight.findFirst({
-      where: { symbol, timeframe },
-      orderBy: { updatedAt: "desc" },
-      select: {
-        weights: true,
-      },
+    // Get coinId and timeframeId for query
+    const coin = await prisma.coin.findUnique({
+      where: { symbol },
+      select: { id: true },
     });
 
-    // Use weights or fallback to equal weights
-    if (weightRecord?.weights) {
-      weights = weightRecord.weights;
-    } else {
-      // Equal weights fallback
+    const timeframeRecord = await prisma.timeframe.findUnique({
+      where: { timeframe },
+      select: { id: true },
+    });
+
+    // Load weights from database (from indicatorWeight table)
+    if (coin && timeframeRecord) {
+      const weightRecord = await prisma.indicatorWeight.findFirst({
+        where: {
+          coinId: coin.id,
+          timeframeId: timeframeRecord.id,
+        },
+        orderBy: { updatedAt: "desc" },
+        select: {
+          weights: true,
+        },
+      });
+
+      // Use weights or fallback to equal weights
+      if (weightRecord?.weights) {
+        weights = weightRecord.weights;
+      }
+    }
+
+    // Fallback to equal weights if no record found
+    if (!weights) {
       weights = {
         SMA: 1,
         EMA: 1,

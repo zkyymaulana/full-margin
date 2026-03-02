@@ -63,48 +63,50 @@ export async function getMarketcapLiveController(req, res) {
 
 /**
  * Mengambil daftar symbol coin dari database (hanya Top 20)
- * Data diambil langsung dari TopCoin table
+ * Data diambil dari TopCoin dengan JOIN ke Coin untuk ambil symbol, name, rank, logo
  */
 export async function getCoinSymbols(req, res) {
   try {
-    // Ambil Top 20 dari TopCoin dengan JOIN ke Coin untuk ambil logo
-    const symbols = await prisma.topCoin.findMany({
+    // Ambil Top 20 dari TopCoin dengan JOIN ke Coin
+    const topCoins = await prisma.topCoin.findMany({
       where: {
-        symbol: { contains: "-" }, //  Hanya pair valid seperti BTC-USD, ETH-USD
+        coin: {
+          symbol: { contains: "-" }, // Hanya pair valid seperti BTC-USD, ETH-USD
+        },
       },
-      select: {
-        symbol: true,
-        name: true,
-        rank: true,
-      },
-      orderBy: {
-        rank: "asc", // Urutkan berdasarkan rank dari kecil ke besar
+      include: {
+        coin: {
+          select: {
+            symbol: true,
+            name: true,
+            rank: true,
+            logo: true,
+          },
+        },
       },
       take: 20, // Ambil maksimal 20 symbols
     });
 
-    //  Ambil logo dari tabel Coin untuk setiap symbol
-    const symbolsWithLogo = await Promise.all(
-      symbols.map(async (item) => {
-        const coin = await prisma.coin.findUnique({
-          where: { symbol: item.symbol },
-          select: { logo: true },
-        });
-
-        return {
-          ...item,
-          logo: coin?.logo || null, //  Tambahkan logo, default null jika tidak ada
-        };
-      })
+    // Sort berdasarkan rank
+    const sortedCoins = topCoins.sort(
+      (a, b) => (a.coin.rank || 999) - (b.coin.rank || 999)
     );
 
-    console.log(` Found ${symbolsWithLogo.length} symbols in database`);
+    // Map ke format yang dibutuhkan
+    const symbols = sortedCoins.map((topCoin) => ({
+      symbol: topCoin.coin.symbol,
+      name: topCoin.coin.name,
+      rank: topCoin.coin.rank,
+      logo: topCoin.coin.logo,
+    }));
+
+    console.log(`✅ Found ${symbols.length} symbols in database`);
 
     res.json({
       success: true,
       message: "Berhasil mengambil daftar symbol coin.",
-      total: symbolsWithLogo.length,
-      symbols: symbolsWithLogo,
+      total: symbols.length,
+      symbols: symbols,
     });
   } catch (err) {
     console.error("Get coin symbols error:", err.message);

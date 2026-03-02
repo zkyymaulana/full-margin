@@ -121,8 +121,21 @@ export const countSignalsFromDB = (indicators) => {
  * Parse indicators from API response and categorize them
  * Returns only 8 core indicators without sub-lines
  * ✅ 100% DATABASE SIGNALS - NO CALCULATION
+ * ✅ Return null weight if not optimized (no default)
  */
-export const parseIndicators = (indicators = {}, price = 0, weights = {}) => {
+export const parseIndicators = (indicators = {}, price = 0, weights = null) => {
+  // ✅ Don't use default weights - return null if not optimized
+  const finalWeights =
+    weights && Object.keys(weights).length > 0 ? weights : null;
+
+  if (!finalWeights) {
+    console.warn(
+      "⚠️ [PARSE WARNING] Weights belum dioptimasi. Weight akan ditampilkan sebagai '-'"
+    );
+  } else {
+    console.log("✅ [Parse] Using optimized weights:", finalWeights);
+  }
+
   const parsed = {
     trend: [],
     momentum: [],
@@ -135,7 +148,7 @@ export const parseIndicators = (indicators = {}, price = 0, weights = {}) => {
       name: "SMA",
       key: "SMA",
       signal: safeSignal(indicators.sma.signal),
-      weight: weights.SMA || 0,
+      weight: finalWeights?.SMA ?? null, // ✅ null if not optimized
       type: "trend",
     });
   }
@@ -146,7 +159,7 @@ export const parseIndicators = (indicators = {}, price = 0, weights = {}) => {
       name: "EMA",
       key: "EMA",
       signal: safeSignal(indicators.ema.signal),
-      weight: weights.EMA || 0,
+      weight: finalWeights?.EMA ?? null,
       type: "trend",
     });
   }
@@ -157,7 +170,7 @@ export const parseIndicators = (indicators = {}, price = 0, weights = {}) => {
       name: "Parabolic SAR",
       key: "PSAR",
       signal: safeSignal(indicators.parabolicSar.signal),
-      weight: weights.PSAR || 0,
+      weight: finalWeights?.PSAR ?? null,
       type: "trend",
     });
   }
@@ -168,7 +181,7 @@ export const parseIndicators = (indicators = {}, price = 0, weights = {}) => {
       name: "RSI",
       key: "RSI",
       signal: safeSignal(indicators.rsi.signal),
-      weight: weights.RSI || 0,
+      weight: finalWeights?.RSI ?? null,
       type: "momentum",
     });
   }
@@ -179,7 +192,7 @@ export const parseIndicators = (indicators = {}, price = 0, weights = {}) => {
       name: "MACD",
       key: "MACD",
       signal: safeSignal(indicators.macd.signal),
-      weight: weights.MACD || 0,
+      weight: finalWeights?.MACD ?? null,
       type: "momentum",
     });
   }
@@ -190,7 +203,7 @@ export const parseIndicators = (indicators = {}, price = 0, weights = {}) => {
       name: "Stochastic Oscillator",
       key: "Stochastic",
       signal: safeSignal(indicators.stochastic.signal),
-      weight: weights.Stochastic || 0,
+      weight: finalWeights?.Stochastic ?? null,
       type: "momentum",
     });
   }
@@ -201,7 +214,7 @@ export const parseIndicators = (indicators = {}, price = 0, weights = {}) => {
       name: "Stochastic RSI",
       key: "StochasticRSI",
       signal: safeSignal(indicators.stochasticRsi.signal),
-      weight: weights.StochasticRSI || 0,
+      weight: finalWeights?.StochasticRSI ?? null,
       type: "momentum",
     });
   }
@@ -212,7 +225,7 @@ export const parseIndicators = (indicators = {}, price = 0, weights = {}) => {
       name: "Bollinger Bands",
       key: "BollingerBands",
       signal: safeSignal(indicators.bollingerBands.signal),
-      weight: weights.BollingerBands || 0,
+      weight: finalWeights?.BollingerBands ?? null,
       type: "volatility",
     });
   }
@@ -224,12 +237,23 @@ export const parseIndicators = (indicators = {}, price = 0, weights = {}) => {
  * Parse indicators from API response and categorize them
  * Returns detailed indicators with parameters (e.g., SMA 20, SMA 50, RSI 14)
  * ✅ 100% DATABASE SIGNALS - NO CALCULATION
+ * ✅ Return null weight if not optimized (no default)
  */
 export const parseIndicatorsDetailed = (
   indicators = {},
   price = 0,
-  weights = {}
+  weights = null
 ) => {
+  // ✅ Don't use default weights - return null if not optimized
+  const finalWeights =
+    weights && Object.keys(weights).length > 0 ? weights : null;
+
+  if (!finalWeights) {
+    console.warn(
+      "⚠️ [PARSE DETAILED WARNING] Weights belum dioptimasi. Weight akan ditampilkan sebagai '-'"
+    );
+  }
+
   const parsed = {
     trend: [],
     momentum: [],
@@ -247,7 +271,7 @@ export const parseIndicatorsDetailed = (
         key: `SMA_${period}`,
         value: indicators.sma[period],
         signal: safeSignal(indicators.sma.signal),
-        weight: weights.SMA || 0,
+        weight: finalWeights?.SMA ?? null,
         type: "trend",
       });
     });
@@ -264,7 +288,7 @@ export const parseIndicatorsDetailed = (
         key: `EMA_${period}`,
         value: indicators.ema[period],
         signal: safeSignal(indicators.ema.signal),
-        weight: weights.EMA || 0,
+        weight: finalWeights?.EMA ?? null,
         type: "trend",
       });
     });
@@ -277,7 +301,7 @@ export const parseIndicatorsDetailed = (
       key: "PSAR",
       value: indicators.parabolicSar.value,
       signal: safeSignal(indicators.parabolicSar.signal),
-      weight: weights.PSAR || 0,
+      weight: finalWeights?.PSAR ?? null,
       type: "trend",
     });
   }
@@ -293,7 +317,7 @@ export const parseIndicatorsDetailed = (
         key: `RSI_${period}`,
         value: indicators.rsi[period],
         signal: safeSignal(indicators.rsi.signal),
-        weight: weights.RSI || 0,
+        weight: finalWeights?.RSI ?? null,
         type: "momentum",
       });
     });
@@ -308,7 +332,7 @@ export const parseIndicatorsDetailed = (
       key: "MACD",
       value: indicators.macd.macd,
       signal: macdSignal,
-      weight: weights.MACD || 0,
+      weight: finalWeights?.MACD ?? null,
       type: "momentum",
     });
     parsed.momentum.push({
@@ -316,7 +340,7 @@ export const parseIndicatorsDetailed = (
       key: "MACD_Signal",
       value: indicators.macd.signalLine,
       signal: macdSignal,
-      weight: weights.MACD || 0,
+      weight: finalWeights?.MACD ?? null,
       type: "momentum",
     });
     parsed.momentum.push({
@@ -324,7 +348,7 @@ export const parseIndicatorsDetailed = (
       key: "MACD_Histogram",
       value: indicators.macd.histogram,
       signal: macdSignal,
-      weight: weights.MACD || 0,
+      weight: finalWeights?.MACD ?? null,
       type: "momentum",
     });
   }
@@ -338,7 +362,7 @@ export const parseIndicatorsDetailed = (
       key: "Stochastic_K",
       value: indicators.stochastic["%K"],
       signal: stochSignal,
-      weight: weights.Stochastic || 0,
+      weight: finalWeights?.Stochastic ?? null,
       type: "momentum",
     });
     parsed.momentum.push({
@@ -346,12 +370,12 @@ export const parseIndicatorsDetailed = (
       key: "Stochastic_D",
       value: indicators.stochastic["%D"],
       signal: stochSignal,
-      weight: weights.Stochastic || 0,
+      weight: finalWeights?.Stochastic ?? null,
       type: "momentum",
     });
   }
 
-  // Parse Stochastic RSI (Momentum) - ✅ Database signal only (FIX FOR SCREENSHOT ISSUE!)
+  // Parse Stochastic RSI (Momentum) - ✅ Database signal only
   if (indicators.stochasticRsi) {
     const stochRsiSignal = safeSignal(indicators.stochasticRsi.signal);
 
@@ -360,7 +384,7 @@ export const parseIndicatorsDetailed = (
       key: "StochasticRSI_K",
       value: indicators.stochasticRsi["%K"],
       signal: stochRsiSignal,
-      weight: weights.StochasticRSI || 0,
+      weight: finalWeights?.StochasticRSI ?? null,
       type: "momentum",
     });
     parsed.momentum.push({
@@ -368,7 +392,7 @@ export const parseIndicatorsDetailed = (
       key: "StochasticRSI_D",
       value: indicators.stochasticRsi["%D"],
       signal: stochRsiSignal,
-      weight: weights.StochasticRSI || 0,
+      weight: finalWeights?.StochasticRSI ?? null,
       type: "momentum",
     });
   }
@@ -382,7 +406,7 @@ export const parseIndicatorsDetailed = (
       key: "BB_Upper",
       value: indicators.bollingerBands.upper,
       signal: bbSignal,
-      weight: weights.BollingerBands || 0,
+      weight: finalWeights?.BollingerBands ?? null,
       type: "volatility",
     });
     parsed.volatility.push({
@@ -390,7 +414,7 @@ export const parseIndicatorsDetailed = (
       key: "BB_Middle",
       value: indicators.bollingerBands.middle,
       signal: bbSignal,
-      weight: weights.BollingerBands || 0,
+      weight: finalWeights?.BollingerBands ?? null,
       type: "volatility",
     });
     parsed.volatility.push({
@@ -398,7 +422,7 @@ export const parseIndicatorsDetailed = (
       key: "BB_Lower",
       value: indicators.bollingerBands.lower,
       signal: bbSignal,
-      weight: weights.BollingerBands || 0,
+      weight: finalWeights?.BollingerBands ?? null,
       type: "volatility",
     });
   }

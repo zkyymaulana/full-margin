@@ -13,11 +13,30 @@ export async function getChart(req, res) {
     const limit = Math.min(5000, parseInt(req.query.limit) || 1000);
     const offset = (page - 1) * limit;
 
-    // Ambil info coin (name + logo) dari tabel Coin
-    const coinInfo = await prisma.coin.findUnique({
+    // Get coin and timeframe IDs
+    const coin = await prisma.coin.findUnique({
       where: { symbol },
-      select: { name: true, logo: true },
+      select: { id: true, name: true, logo: true },
     });
+
+    if (!coin) {
+      return res.status(404).json({
+        success: false,
+        message: `Coin ${symbol} not found in database`,
+      });
+    }
+
+    const timeframeRecord = await prisma.timeframe.findUnique({
+      where: { timeframe },
+      select: { id: true },
+    });
+
+    if (!timeframeRecord) {
+      return res.status(404).json({
+        success: false,
+        message: `Timeframe ${timeframe} not found in database`,
+      });
+    }
 
     // Ambil candle dari service
     const chartData = await getChartDataNewest(symbol, limit, offset);
@@ -25,8 +44,8 @@ export async function getChart(req, res) {
       return res.json({
         success: true,
         symbol,
-        name: coinInfo?.name || null,
-        logo: coinInfo?.logo || null,
+        name: coin.name || null,
+        logo: coin.logo || null,
         timeframe,
         total: 0,
         page,
@@ -45,7 +64,10 @@ export async function getChart(req, res) {
 
     //  Mengambil bobot terbaru untuk setiap indikator teknikal untuk menghitung category score
     const weightRecord = await prisma.indicatorWeight.findFirst({
-      where: { symbol, timeframe },
+      where: {
+        coinId: coin.id,
+        timeframeId: timeframeRecord.id,
+      },
       orderBy: { updatedAt: "desc" },
     });
     const weights = weightRecord?.weights || null;
@@ -53,8 +75,8 @@ export async function getChart(req, res) {
     // Cek apakah indikator sudah lengkap untuk rentang waktu ini
     let indicators = await prisma.indicator.findMany({
       where: {
-        symbol,
-        timeframe,
+        coinId: coin.id,
+        timeframeId: timeframeRecord.id,
         time: { gte: BigInt(minTime), lte: BigInt(maxTime) },
       },
       orderBy: { time: "asc" },
@@ -71,8 +93,8 @@ export async function getChart(req, res) {
         await calculateAndSaveIndicators(symbol, timeframe, minTime, maxTime);
         indicators = await prisma.indicator.findMany({
           where: {
-            symbol,
-            timeframe,
+            coinId: coin.id,
+            timeframeId: timeframeRecord.id,
             time: { gte: BigInt(minTime), lte: BigInt(maxTime) },
           },
           orderBy: { time: "asc" },
@@ -184,8 +206,8 @@ export async function getChart(req, res) {
     return res.json({
       success: true,
       symbol,
-      name: coinInfo?.name || null,
-      logo: coinInfo?.logo || null,
+      name: coin.name || null,
+      logo: coin.logo || null,
       timeframe,
       total: chartData.total,
       page,

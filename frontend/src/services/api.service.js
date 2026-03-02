@@ -46,18 +46,29 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.log(
-      "🔍 API Error intercepted:",
-      error.response?.status,
-      error.response?.data
-    );
+    // ✅ Handle network errors dan timeout tanpa log spam
+    if (!error.response) {
+      // Network error, timeout, atau server tidak response
+      if (error.code === "ECONNABORTED") {
+        // Timeout - silent, biarkan caller yang handle
+        return Promise.reject(error);
+      }
+      if (error.message === "Network Error") {
+        console.error("🌐 Network Error: Server tidak dapat dijangkau");
+        return Promise.reject(error);
+      }
+      // Error lain tanpa response (e.g., request canceled)
+      return Promise.reject(error);
+    }
+
+    // ✅ Hanya log jika ada response
+    const status = error.response.status;
+    const errorMessage = error.response.data?.message || "";
+    const errorSuccess = error.response.data?.success;
+
+    console.log("🔍 API Error intercepted:", status, errorMessage);
 
     // Handle 401 Unauthorized OR 403 Forbidden (token errors)
-    const status = error.response?.status;
-    const errorMessage = error.response?.data?.message || "";
-    const errorSuccess = error.response?.data?.success;
-
-    // Check if it's 401 or 403 with token error
     if (status === 401 || status === 403) {
       console.log(`🚨 ${status} Error detected:`, errorMessage);
 
@@ -322,6 +333,79 @@ export const updateUserTelegramSettings = async (userId, settings) => {
 // ✅ NEW: Get user profile with Telegram info
 export const getUserTelegramInfo = async () => {
   const { data } = await apiClient.get("/user/profile");
+  return data;
+};
+
+// =====================================================
+// 🔄 MULTI-INDICATOR OPTIMIZATION API
+// =====================================================
+
+/**
+ * Request Multi-Indicator Optimization (Auto-detect: Full vs Incremental)
+ * Trigger optimization for a specific symbol and timeframe
+ * - If no existing weights → Run FULL exhaustive search
+ * - If existing weights → Run INCREMENTAL local search
+ */
+export const requestOptimization = async (
+  symbol = "BTC-USD",
+  timeframe = "1h"
+) => {
+  const { data } = await apiClient.post(
+    `/multiIndicator/${symbol}/optimize-weights`,
+    {},
+    {
+      params: { timeframe },
+      timeout: 7200000, // 🆕 2 hours (120 minutes) - untuk full exhaustive search
+    }
+  );
+  return data;
+};
+
+/**
+ * Force Reoptimization (Full Exhaustive Search)
+ * Trigger FULL optimization even if weights already exist
+ * @param {string} symbol - Trading symbol (e.g., "BTC-USD")
+ * @param {string} timeframe - Timeframe (default: "1h")
+ * @returns {Promise} Optimization result
+ */
+export const forceReoptimization = async (
+  symbol = "BTC-USD",
+  timeframe = "1h"
+) => {
+  const { data } = await apiClient.post(
+    `/multiIndicator/${symbol}/optimize-weights`,
+    { force: true },
+    {
+      params: { timeframe },
+      timeout: 3600000, // 60 menit (1 jam) - untuk full exhaustive search
+    }
+  );
+  return data;
+};
+
+/**
+ * Get Optimization Time Estimate
+ * Get estimated time for optimization based on data points
+ * @param {string} symbol - Trading symbol (e.g., "BTC-USD")
+ * @param {string} timeframe - Timeframe (default: "1h")
+ * @returns {Promise} Estimate data
+ */
+export const getOptimizationEstimate = async (
+  symbol = "BTC-USD",
+  timeframe = "1h"
+) => {
+  const { data } = await apiClient.get(`/multiIndicator/${symbol}/estimate`, {
+    params: { timeframe },
+    timeout: 10000,
+  });
+  return data;
+};
+
+/**
+ * 🆕 Cancel optimization
+ */
+export const cancelOptimization = async (symbol) => {
+  const { data } = await apiClient.post(`/multiIndicator/${symbol}/cancel`);
   return data;
 };
 

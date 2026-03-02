@@ -191,11 +191,37 @@ async function checkAndSyncHistoricalData() {
   const outdated = [];
   const missingIndicators = [];
 
+  // Get timeframe ID once
+  const timeframeRecord = await prisma.timeframe.findUnique({
+    where: { timeframe: "1h" },
+    select: { id: true },
+  });
+
+  if (!timeframeRecord) {
+    console.error('❌ Timeframe "1h" not found in database');
+    return;
+  }
+
   for (const s of symbolsCache) {
     try {
+      // Get coin ID
+      const coin = await prisma.coin.findUnique({
+        where: { symbol: s },
+        select: { id: true },
+      });
+
+      if (!coin) {
+        console.log(`⚠️ ${s}: Coin not found in database`);
+        outdated.push(s);
+        continue;
+      }
+
       // Check candle data
       const last = await prisma.candle.findFirst({
-        where: { symbol: s, timeframe: "1h" },
+        where: {
+          coinId: coin.id,
+          timeframeId: timeframeRecord.id,
+        },
         orderBy: { time: "desc" },
         select: { time: true },
       });
@@ -205,10 +231,16 @@ async function checkAndSyncHistoricalData() {
       // ✅ NEW: Check if indicators are missing for existing candles
       if (last) {
         const candleCount = await prisma.candle.count({
-          where: { symbol: s, timeframe: "1h" },
+          where: {
+            coinId: coin.id,
+            timeframeId: timeframeRecord.id,
+          },
         });
         const indicatorCount = await prisma.indicator.count({
-          where: { symbol: s, timeframe: "1h" },
+          where: {
+            coinId: coin.id,
+            timeframeId: timeframeRecord.id,
+          },
         });
 
         // If we have more candles than indicators (accounting for 50-period warmup)

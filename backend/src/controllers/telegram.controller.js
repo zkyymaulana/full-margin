@@ -60,7 +60,30 @@ export async function testMultiSignalController(req, res) {
  */
 export async function testAllSignalsController(req, res) {
   try {
-    const symbols = req.body.symbols || ["BTC-USD", "ETH-USD"];
+    // ✅ Ambil symbols dari database, bukan hardcode
+    let symbols = req.body.symbols;
+
+    if (!symbols || symbols.length === 0) {
+      // Ambil dari database jika tidak ada di request body
+      const coins = await prisma.coin.findMany({
+        where: {
+          rank: { not: null },
+          symbol: { contains: "-" },
+        },
+        orderBy: { rank: "asc" },
+        select: { symbol: true },
+        take: 20,
+      });
+
+      symbols = coins.map((c) => c.symbol).filter(Boolean);
+
+      if (symbols.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "No symbols found in database. Please sync data first.",
+        });
+      }
+    }
 
     // Always use multi mode
     const result = await detectAndNotifyAllSymbols(symbols, "multi");

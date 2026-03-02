@@ -5,6 +5,133 @@ import { calculateAndSaveIndicators } from "../indicators/indicator.service.js";
 // Cache untuk tracking last update time per symbol
 const lastUpdateCache = new Map();
 
+/**
+ * Update listingDate for a coin based on earliest candle available in Coinbase
+ * This should be called after historical data sync to set accurate listing dates
+ */
+export async function updateListingDateFromCandles(symbol) {
+  try {
+    const coin = await prisma.coin.findUnique({
+      where: { symbol },
+      select: { id: true, listingDate: true },
+    });
+
+    if (!coin) {
+      console.warn(`⚠️ ${symbol}: Coin not found`);
+      return null;
+    }
+
+    const timeframeRecord = await prisma.timeframe.findUnique({
+      where: { timeframe: "1h" },
+      select: { id: true },
+    });
+
+    if (!timeframeRecord) {
+      console.error('Timeframe "1h" not found');
+      return null;
+    }
+
+    // Get earliest candle for this coin
+    const earliestCandle = await prisma.candle.findFirst({
+      where: {
+        coinId: coin.id,
+        timeframeId: timeframeRecord.id,
+      },
+      orderBy: { time: "asc" },
+      select: { time: true },
+    });
+
+    if (!earliestCandle) {
+      console.warn(`⚠️ ${symbol}: No candles found, cannot set listingDate`);
+      return null;
+    }
+
+    // Convert BigInt timestamp to Date
+    const listingDate = new Date(Number(earliestCandle.time));
+
+    // Only update if listingDate is null or different
+    if (
+      !coin.listingDate ||
+      coin.listingDate.getTime() !== listingDate.getTime()
+    ) {
+      await prisma.coin.update({
+        where: { symbol },
+        data: { listingDate },
+      });
+
+      console.log(
+        `📅 ${symbol}: listingDate set to ${listingDate.toISOString().split("T")[0]}`
+      );
+    }
+
+    return listingDate;
+  } catch (error) {
+    console.error(
+      `❌ ${symbol}: Failed to update listingDate -`,
+      error.message
+    );
+    return null;
+  }
+}
+
+/**
+ * Update listing dates for all coins that have candles but no listingDate
+ * This is useful for bulk updates after initial sync
+ */
+export async function updateAllListingDates() {
+  console.log(`📅 Updating listing dates for all coins...`);
+
+  try {
+    // Get all coins with pairs (contains "-")
+    const coins = await prisma.coin.findMany({
+      where: {
+        symbol: { contains: "-" },
+        rank: { not: null },
+      },
+      select: { symbol: true, listingDate: true },
+      orderBy: { rank: "asc" },
+    });
+
+    if (coins.length === 0) {
+      console.log(`⚠️ No coins found to update`);
+      return { updated: 0, skipped: 0, failed: 0 };
+    }
+
+    const results = {
+      updated: 0,
+      skipped: 0,
+      failed: 0,
+    };
+
+    for (const coin of coins) {
+      try {
+        const result = await updateListingDateFromCandles(coin.symbol);
+
+        if (result) {
+          results.updated++;
+        } else if (coin.listingDate) {
+          results.skipped++;
+        } else {
+          results.failed++;
+        }
+      } catch (error) {
+        console.error(`❌ ${coin.symbol}: ${error.message}`);
+        results.failed++;
+      }
+    }
+
+    console.log(`\n📊 Listing Date Update Summary:`);
+    console.log(`   ✅ Updated: ${results.updated}`);
+    console.log(`   ⏭️  Skipped: ${results.skipped}`);
+    console.log(`   ❌ Failed: ${results.failed}`);
+
+    return results;
+  } catch (error) {
+    console.error(`❌ Failed to update listing dates:`, error.message);
+    throw error;
+  }
+}
+
 export async function syncLatestCandles(symbols = []) {
   console.log(`🕐 Starting candle sync for ${symbols.length} symbols...`);
   const start = Date.now();
@@ -29,7 +156,7 @@ export async function syncLatestCandles(symbols = []) {
 
 async function syncSymbolCandles(symbol) {
   try {
-    // Get coinId from Coin table
+    // Get coin and timeframe IDs
     const coin = await prisma.coin.findUnique({
       where: { symbol },
       select: { id: true },
@@ -40,9 +167,21 @@ async function syncSymbolCandles(symbol) {
       return { symbol, newCandles: 0 };
     }
 
+    const timeframeRecord = await prisma.timeframe.findUnique({
+      where: { timeframe: "1h" },
+      select: { id: true },
+    });
+
+    if (!timeframeRecord) {
+      throw new Error('Timeframe "1h" not found in database');
+    }
+
     // Get last candle time from database
     const lastCandle = await prisma.candle.findFirst({
-      where: { symbol, timeframe: "1h" },
+      where: {
+        coinId: coin.id,
+        timeframeId: timeframeRecord.id,
+      },
       orderBy: { time: "desc" },
     });
 
@@ -89,17 +228,16 @@ async function syncSymbolCandles(symbol) {
       return { symbol, newCandles: 0 };
     }
 
-    // Prepare data for database insert - ensure BigInt for time field and include coinId
+    // Prepare data for database insert
     const candleData = completeCandles.map((candle) => ({
-      symbol,
-      timeframe: "1h",
+      coinId: coin.id,
+      timeframeId: timeframeRecord.id,
       time: BigInt(Math.floor(candle.time)),
       open: candle.open,
       high: candle.high,
       low: candle.low,
       close: candle.close,
       volume: candle.volume,
-      coinId: coin.id, // ✅ Add coinId
     }));
 
     // Batch insert with upsert to handle duplicates
@@ -126,50 +264,38 @@ export async function getActiveSymbols() {
   try {
     if (!prisma) {
       console.error("❌ Prisma client not available");
-      return getDefaultSymbols();
+      return [];
     }
 
-    // ✅ Ambil symbol dari tabel Coin dengan rank valid
+    // ✅ Filter: Hanya coin dengan listing date sebelum 2025-01-01
+    const cutoffDate = new Date("2025-01-01T00:00:00.000Z");
+
     const coins = await prisma.coin.findMany({
-      where: { rank: { not: null } },
+      where: {
+        rank: { not: null },
+        symbol: { contains: "-" }, // Hanya pair valid
+        listingDate: { lt: cutoffDate }, // ✅ HANYA coin yang listing sebelum 2025-01-01
+      },
       orderBy: { rank: "asc" },
       select: { symbol: true },
-      take: 20, // ✅ Changed from 100 to 20
+      take: 20,
     });
 
     const result = coins.map((c) => c.symbol).filter(Boolean);
 
     if (result.length === 0) {
-      console.log("⚠️ No symbols found in database, using defaults");
-      return getDefaultSymbols();
+      console.warn("⚠️ No symbols found in database. Please run sync first.");
+      return [];
     }
 
-    console.log(`✅ Found ${result.length} active symbols in database`);
+    console.log(
+      `✅ Found ${result.length} active symbols from database (listed before 2025-01-01)`
+    );
     return result;
   } catch (error) {
     console.error("❌ Failed to get active symbols:", error.message);
-    console.log("🔄 Using default symbols as fallback");
-    return getDefaultSymbols();
+    return [];
   }
-}
-function getDefaultSymbols() {
-  return [
-    "BTC-USD",
-    "ETH-USD",
-    "ADA-USD",
-    "SOL-USD",
-    "XRP-USD",
-    "DOGE-USD",
-    "LINK-USD",
-    "AVAX-USD",
-    "DOT-USD",
-    "UNI-USD",
-    "LTC-USD",
-    "BCH-USD",
-    "XLM-USD",
-    "AAVE-USD",
-    "SHIB-USD",
-  ];
 }
 
 export function getCacheStatus() {
@@ -198,6 +324,16 @@ export async function syncHistoricalData(
     errors: [],
   };
 
+  // Get timeframe ID once
+  const timeframeRecord = await prisma.timeframe.findUnique({
+    where: { timeframe: "1h" },
+    select: { id: true },
+  });
+
+  if (!timeframeRecord) {
+    throw new Error('Timeframe "1h" not found in database');
+  }
+
   // Process symbols one by one to avoid overwhelming the API
   for (let i = 0; i < symbols.length; i++) {
     const symbol = symbols[i];
@@ -219,7 +355,10 @@ export async function syncHistoricalData(
 
       // Quick check: Get ONLY newest candle time
       const newestCandle = await prisma.candle.findFirst({
-        where: { symbol, timeframe: "1h" },
+        where: {
+          coinId: coin.id,
+          timeframeId: timeframeRecord.id,
+        },
         orderBy: { time: "desc" },
         select: { time: true },
       });
@@ -262,7 +401,9 @@ export async function syncHistoricalData(
       );
 
       if (candles.length === 0) {
-        console.log(`⚠️ No data available from API`);
+        console.log(
+          `⚠️ No data available from API (pair may not have historical data)`
+        );
         results.skipped++;
         continue;
       }
@@ -281,15 +422,14 @@ export async function syncHistoricalData(
 
       // Save to database
       const candleData = completeCandles.map((candle) => ({
-        symbol,
-        timeframe: "1h",
+        coinId: coin.id,
+        timeframeId: timeframeRecord.id,
         time: BigInt(Math.floor(candle.time)),
         open: candle.open,
         high: candle.high,
         low: candle.low,
         close: candle.close,
         volume: candle.volume,
-        coinId: coin.id,
       }));
 
       await prisma.candle.createMany({
@@ -300,6 +440,9 @@ export async function syncHistoricalData(
       // ✅ AUTOMATICALLY CALCULATE INDICATORS AFTER SAVING HISTORICAL CANDLES
       console.log(`📊 Calculating indicators for ${symbol}...`);
       await calculateAndSaveIndicators(symbol, "1h");
+
+      // ✅ UPDATE LISTING DATE based on earliest candle
+      await updateListingDateFromCandles(symbol);
 
       results.successful++;
       results.totalCandles += candleData.length;
@@ -312,6 +455,15 @@ export async function syncHistoricalData(
         await new Promise((resolve) => setTimeout(resolve, 2000));
       }
     } catch (error) {
+      // ✅ Handle 404 specifically (pair tidak ada historical data)
+      if (error.response?.status === 404) {
+        console.warn(
+          `⚠️ ${symbol}: Pair tidak memiliki historical data di Coinbase (404)`
+        );
+        results.skipped++;
+        continue;
+      }
+
       results.failed++;
       results.errors.push({ symbol, error: error.message });
       console.error(`❌ ${symbol}: ${error.message}`);

@@ -4,7 +4,9 @@ import { prisma } from "../../lib/prisma.js";
 export async function getLastCandleTime(symbol) {
   try {
     const last = await prisma.candle.findFirst({
-      where: { symbol },
+      where: {
+        coin: { symbol },
+      },
       orderBy: { time: "desc" },
       select: { time: true },
     });
@@ -19,7 +21,10 @@ export async function getLastCandleTime(symbol) {
 export async function getCandleCount(symbol) {
   try {
     return await prisma.candle.count({
-      where: { symbol, timeframe: "1h" },
+      where: {
+        coin: { symbol },
+        timeframe: { timeframe: "1h" },
+      },
     });
   } catch (err) {
     console.error(`getCandleCount error (${symbol}):`, err.message);
@@ -31,7 +36,10 @@ export async function getCandleCount(symbol) {
 export async function getChartData(symbol, limit = 500, offset = 0) {
   const total = await getCandleCount(symbol);
   const candles = await prisma.candle.findMany({
-    where: { symbol, timeframe: "1h" },
+    where: {
+      coin: { symbol },
+      timeframe: { timeframe: "1h" },
+    },
     orderBy: { time: "asc" },
     skip: offset,
     take: limit,
@@ -62,7 +70,10 @@ export async function getChartData(symbol, limit = 500, offset = 0) {
 export async function getChartDataNewest(symbol, limit = 1000, offset = 0) {
   const total = await getCandleCount(symbol);
   const candles = await prisma.candle.findMany({
-    where: { symbol, timeframe: "1h" },
+    where: {
+      coin: { symbol },
+      timeframe: { timeframe: "1h" },
+    },
     orderBy: { time: "desc" }, // DESC untuk data terbaru dulu
     skip: offset,
     take: limit,
@@ -94,16 +105,24 @@ export async function saveCandlesToDB(symbol, coinId, candles) {
   try {
     if (!candles?.length) return { success: false, message: "No candles" };
 
+    // Get timeframeId for "1h"
+    const timeframeRecord = await prisma.timeframe.findUnique({
+      where: { timeframe: "1h" },
+    });
+
+    if (!timeframeRecord) {
+      throw new Error('Timeframe "1h" not found in database');
+    }
+
     const data = candles.map((c) => ({
-      symbol,
-      timeframe: "1h",
+      coinId,
+      timeframeId: timeframeRecord.id,
       time: BigInt(c.time), // Langsung gunakan milidetik dari candle.time
       open: c.open,
       high: c.high,
       low: c.low,
       close: c.close,
       volume: c.volume,
-      coinId,
     }));
 
     await prisma.candle.createMany({ data, skipDuplicates: true });

@@ -3,6 +3,7 @@ import {
   stopAllSchedulers,
   getSchedulerStatus,
 } from "../services/scheduler/scheduler.service.js";
+import { updateAllListingDates } from "../services/sync/candle-sync.service.js";
 
 export async function startSchedulers(req, res) {
   try {
@@ -53,6 +54,30 @@ export async function getStatus(req, res) {
     res.status(500).json({
       success: false,
       message: "Failed to get scheduler status",
+      error: error.message,
+    });
+  }
+}
+
+/**
+ * Update listing dates for all coins based on earliest candles
+ */
+export async function updateListingDates(req, res) {
+  try {
+    console.log("📅 Manual listing date update triggered...");
+    const results = await updateAllListingDates();
+
+    res.json({
+      success: true,
+      message: "Listing dates updated successfully",
+      data: results,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Update listing dates error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update listing dates",
       error: error.message,
     });
   }

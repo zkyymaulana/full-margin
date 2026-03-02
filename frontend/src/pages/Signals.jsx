@@ -45,6 +45,7 @@ function SignalsPage() {
     performance,
     timeframe,
     signalCounts,
+    isOptimized, // ✅ NEW: Flag untuk cek apakah sudah optimasi
   } = useMemo(() => {
     // 🔥 USE ONLY latestSignal from unified API
     const latestSignal = indicatorData?.latestSignal;
@@ -69,6 +70,7 @@ function SignalsPage() {
         performance: null,
         timeframe: "1h",
         signalCounts: { buy: 0, sell: 0, neutral: 0 },
+        isOptimized: false, // ✅ Belum optimasi
       };
     }
 
@@ -83,25 +85,28 @@ function SignalsPage() {
       time,
     } = latestSignal;
 
+    // ✅ Cek apakah sudah optimasi: ada performance dan weights dari database
+    const hasOptimization = !!(
+      performanceData &&
+      weightsData &&
+      Object.keys(weightsData).length > 0
+    );
+
     // ✅ Count signals from database ONLY
     const counts = countSignalsFromDB(indicators);
 
     console.log("✅ [SIGNALS PAGE] Multi Signal Data:", signalData);
-    console.log(
-      "🔍 [DEBUG] categoryScores from multiSignal:",
-      signalData?.categoryScores
-    );
-    console.log("📈 Category Scores from parent:", scores);
+    console.log("🔍 [DEBUG] Has Optimization:", hasOptimization);
     console.log("📊 Signal Counts:", counts);
 
-    // Parse indicators for cards (simplified - 8 core indicators)
-    const parsed = parseIndicators(indicators, price, weightsData || {});
+    // ✅ Parse indicators - gunakan null jika belum optimasi
+    const finalWeights = hasOptimization ? weightsData : null;
 
-    // Parse detailed indicators for table (with periods like SMA 20, SMA 50)
+    const parsed = parseIndicators(indicators, price, finalWeights);
     const detailedParsed = parseIndicatorsDetailed(
       indicators,
       price,
-      weightsData || {}
+      finalWeights
     );
 
     return {
@@ -117,10 +122,11 @@ function SignalsPage() {
       },
       latestPrice: price,
       latestTime: time,
-      weights: weightsData || {},
+      weights: finalWeights || {},
       performance: performanceData,
       timeframe: indicatorData?.timeframe || "1h",
       signalCounts: counts,
+      isOptimized: hasOptimization, // ✅ Flag
     };
   }, [indicatorData]);
 

@@ -139,9 +139,39 @@ function mergeIndicatorsWithCandles(indicators, candles) {
 
 /** Get best optimized weights from database - ✅ Always use latest optimization */
 async function getBestWeights(symbol, timeframe) {
+  // Get coinId and timeframeId
+  const coin = await prisma.coin.findUnique({
+    where: { symbol },
+    select: { id: true },
+  });
+
+  if (!coin) {
+    console.log(`⚠️ ${symbol}: Coin not found in database`);
+    return {
+      weights: defaultWeights(),
+      source: "default",
+    };
+  }
+
+  const timeframeRecord = await prisma.timeframe.findUnique({
+    where: { timeframe },
+    select: { id: true },
+  });
+
+  if (!timeframeRecord) {
+    console.log(`⚠️ Timeframe ${timeframe} not found in database`);
+    return {
+      weights: defaultWeights(),
+      source: "default",
+    };
+  }
+
   // ✅ UPDATED: Always get the latest optimization by updatedAt DESC
   const latest = await prisma.indicatorWeight.findFirst({
-    where: { symbol, timeframe },
+    where: {
+      coinId: coin.id,
+      timeframeId: timeframeRecord.id,
+    },
     orderBy: { updatedAt: "desc" }, // ✅ Always use the most recent optimization
   });
 
@@ -192,6 +222,22 @@ function defaultWeights() {
 
 /* ==========================================================
    🗳️ VOTING STRATEGY (ALA PINTU & INDODAX)
+   
+   ⚠️ CATATAN PENTING UNTUK SKRIPSI:
+   Voting strategy ini BERBEDA dengan multi-indicator weighted strategy.
+   
+   Multi-Indicator (Skripsi):
+   - Menggunakan FinalScore ternormalisasi (-1 sampai +1)
+   - Entry HANYA pada Strong Buy (score >= 0.6)
+   - Exit HANYA pada Strong Sell (score <= -0.6)
+   - Lebih selektif dan robust
+   
+   Voting Strategy (Benchmark):
+   - Menggunakan majority voting dari 8 indikator
+   - Entry saat BUY votes > SELL votes
+   - Exit saat SELL votes > BUY votes
+   - Mirip dengan Pintu & Indodax indicator display
+   - Digunakan sebagai baseline pembanding TAMBAHAN
 ========================================================== */
 
 /**
@@ -235,8 +281,17 @@ function votingSignal(cur, prev) {
 
 /**
  * 🗳️ BACKTEST VOTING STRATEGY
- * Uses simple majority voting from 8 indicators
- * Similar to how Pintu & Indodax display technical indicators
+ *
+ * ⚠️ CATATAN AKADEMIK:
+ * Strategy ini menggunakan simple majority voting tanpa threshold khusus.
+ * Digunakan sebagai BASELINE PEMBANDING untuk menunjukkan keunggulan
+ * weighted multi-indicator dengan Strong Signal threshold.
+ *
+ * Karakteristik:
+ * - Lebih agresif dalam entry/exit (threshold rendah)
+ * - Jumlah trade biasanya LEBIH BANYAK dari multi-weighted
+ * - Win rate mungkin lebih rendah karena noise
+ * - Cocok untuk perbandingan robustness
  */
 function backtestVotingStrategy(data) {
   if (!data?.length) {
@@ -253,6 +308,9 @@ function backtestVotingStrategy(data) {
 
   console.log(`\n🗳️ Running Voting Strategy backtest...`);
   console.log(`   Total data points: ${data.length}`);
+  console.log(
+    `   ⚠️ Using majority voting (different from weighted multi-indicator)`
+  );
 
   for (let i = 0; i < data.length; i++) {
     const cur = data[i];
@@ -267,7 +325,10 @@ function backtestVotingStrategy(data) {
     // Get voting signal
     const signal = votingSignal(cur, prev);
 
-    // Trading logic: BUY when vote says buy, SELL when vote says sell
+    // 📊 VOTING LOGIC (Simple Majority)
+    // Entry: BUY votes > SELL votes (agresif)
+    // Exit: SELL votes > BUY votes (agresif)
+    // ⚠️ Berbeda dengan multi-weighted yang menggunakan threshold ±0.6
     if (signal === "buy" && !position) {
       position = "BUY";
       entry = price;
@@ -323,14 +384,44 @@ export async function compareStrategies(symbol, startDate, endDate) {
   const start = BigInt(new Date(startDate).getTime());
   const end = BigInt(new Date(endDate).getTime());
 
+  // Get coinId and timeframeId
+  const coin = await prisma.coin.findUnique({
+    where: { symbol },
+    select: { id: true },
+  });
+
+  if (!coin) {
+    return {
+      success: false,
+      message: `Coin ${symbol} not found in database`,
+    };
+  }
+
+  const timeframeRecord = await prisma.timeframe.findUnique({
+    where: { timeframe },
+    select: { id: true },
+  });
+
+  if (!timeframeRecord) {
+    return {
+      success: false,
+      message: `Timeframe ${timeframe} not found in database`,
+    };
+  }
+
+  const { coinId, timeframeId } = {
+    coinId: coin.id,
+    timeframeId: timeframeRecord.id,
+  };
+
   // 1️⃣ Load indicator & candle data
   const [indicators, candles] = await Promise.all([
     prisma.indicator.findMany({
-      where: { symbol, timeframe, time: { gte: start, lte: end } },
+      where: { coinId, timeframeId, time: { gte: start, lte: end } },
       orderBy: { time: "asc" },
     }),
     prisma.candle.findMany({
-      where: { symbol, timeframe, time: { gte: start, lte: end } },
+      where: { coinId, timeframeId, time: { gte: start, lte: end } },
       orderBy: { time: "asc" },
       select: { time: true, close: true },
     }),

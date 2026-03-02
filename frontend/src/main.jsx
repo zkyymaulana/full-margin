@@ -7,6 +7,7 @@ import "react-toastify/dist/ReactToastify.css";
 import App from "./App";
 import "./index.css";
 import { DarkModeProvider, useDarkMode } from "./contexts/DarkModeContext";
+import { OptimizationProvider } from "./contexts/OptimizationContext";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 
 // Create a query client
@@ -49,8 +50,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       <BrowserRouter>
         <QueryClientProvider client={queryClient}>
           <DarkModeProvider>
-            <App />
-            <ToastWrapper />
+            <OptimizationProvider>
+              <App />
+              <ToastWrapper />
+            </OptimizationProvider>
           </DarkModeProvider>
         </QueryClientProvider>
       </BrowserRouter>

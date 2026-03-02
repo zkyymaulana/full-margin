@@ -310,37 +310,41 @@ function DashboardPage() {
             </div>
           </div>
 
-          {candlesLoading && (
+          {/* Loading State - Only show once */}
+          {candlesLoading ? (
             <div className="flex items-center justify-center h-[500px]">
-              <div className={isDarkMode ? "text-gray-400" : "text-gray-500"}>
-                Loading chart data...
+              <div className="text-center">
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+                <div className={isDarkMode ? "text-gray-400" : "text-gray-500"}>
+                  Loading chart data...
+                </div>
               </div>
             </div>
+          ) : (
+            <>
+              {/* OHLCV Card */}
+              {latestCandle && <OHLCVCard latestCandle={latestCandle} />}
+
+              {/* Main Chart */}
+              <MainChart
+                chartRef={chartRef}
+                seriesRef={seriesRef}
+                allCandlesData={allCandlesData}
+                activeIndicators={activeIndicators}
+                chartSync={chartSync}
+                oscillatorChartsRef={oscillatorChartsRef}
+              />
+
+              {/* Oscillator Charts */}
+              <OscillatorCharts
+                activeIndicators={activeIndicators}
+                allCandlesData={allCandlesData}
+                chartSync={chartSync}
+                oscillatorChartsRef={oscillatorChartsRef}
+                mainChartRef={chartRef}
+              />
+            </>
           )}
-
-          {/* OHLCV Card */}
-          {latestCandle && !candlesLoading && (
-            <OHLCVCard latestCandle={latestCandle} />
-          )}
-
-          {/* Main Chart */}
-          <MainChart
-            chartRef={chartRef}
-            seriesRef={seriesRef}
-            allCandlesData={allCandlesData}
-            activeIndicators={activeIndicators}
-            chartSync={chartSync}
-            oscillatorChartsRef={oscillatorChartsRef}
-          />
-
-          {/* Oscillator Charts */}
-          <OscillatorCharts
-            activeIndicators={activeIndicators}
-            allCandlesData={allCandlesData}
-            chartSync={chartSync}
-            oscillatorChartsRef={oscillatorChartsRef}
-            mainChartRef={chartRef}
-          />
         </div>
       </div>
 

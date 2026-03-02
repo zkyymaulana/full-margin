@@ -5,7 +5,7 @@ import routes from "./routes/index.route.js";
 import { prisma } from "./lib/prisma.js";
 
 // Services
-import { seedAdmin } from "../prisma/seed.js";
+import { seedAdmin, seedTimeframes } from "../prisma/seed.js";
 import { syncTopCoins } from "./services/market/syncTopCoins.service.js";
 import { getMarketcapRealtime } from "./services/market/marketcap.service.js";
 import { startAllSchedulers } from "./services/scheduler/scheduler.service.js";
@@ -35,6 +35,7 @@ app.get("/", (_, res) => res.redirect("/api"));
 // Helper: Jalankan langkah inisialisasi bertahap
 async function initializeSystem() {
   const steps = [
+    ["⏱️ Seeding timeframes", seedTimeframes],
     ["👤 Seeding admin", seedAdmin],
     ["📊 Sync Top 20 CMC", syncTopCoins],
     ["🔗 Matching pairs Coinbase", getMarketcapRealtime],

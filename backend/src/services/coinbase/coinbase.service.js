@@ -104,3 +104,78 @@ async function handleFetchError(symbol, batch, err) {
     console.warn(`➡️ Skip 6 jam ke depan untuk menghindari loop error...`);
   }
 }
+
+/**
+ * Ambil 1 candle pertama (earliest) untuk menentukan listing date
+ * Sequential search dari 2016 sampai menemukan data pertama
+ * @param {string} symbol - Trading pair symbol (e.g., "BTC-USD")
+ * @returns {Object|null} - { time: timestamp, open, high, low, close, volume } atau null
+ */
+export async function fetchEarliestCandle(symbol) {
+  try {
+    const currentYear = new Date().getFullYear();
+    const MAX_YEAR = currentYear;
+
+    console.log(
+      `  🔍 Searching from 2016 to ${MAX_YEAR} for earliest ${symbol} data...`
+    );
+
+    // Step 1: Binary search untuk menemukan tahun pertama dengan data (lebih efisien)
+    let firstYearWithData = null;
+
+    for (let year = 2016; year <= MAX_YEAR; year++) {
+      // Cek seluruh tahun (12 bulan) untuk memastikan tidak ada data
+      const yearStart = new Date(`${year}-01-01T00:00:00.000Z`).getTime();
+      const yearEnd = new Date(`${year + 1}-01-01T00:00:00.000Z`).getTime();
+
+      try {
+        const testCandles = await fetchHistoricalCandles(
+          symbol,
+          yearStart,
+          yearEnd
+        );
+
+        if (testCandles && testCandles.length > 0) {
+          // Found data in this year!
+          firstYearWithData = year;
+          console.log(`  🎯 First year with data: ${year}`);
+
+          // Sort untuk dapat candle paling awal
+          testCandles.sort((a, b) => a.time - b.time);
+          const earliest = testCandles[0];
+
+          const earliestDate = new Date(earliest.time)
+            .toISOString()
+            .split("T")[0];
+          console.log(`  📅 Earliest candle: ${earliestDate}`);
+
+          return {
+            time: earliest.time,
+            open: earliest.open,
+            high: earliest.high,
+            low: earliest.low,
+            close: earliest.close,
+            volume: earliest.volume,
+          };
+        }
+      } catch (err) {
+        // No data this year, continue to next year
+        continue;
+      }
+
+      // Small delay to avoid rate limiting
+      await delay(300);
+    }
+
+    console.log(
+      `  ❌ No historical data found for ${symbol} (2016-${MAX_YEAR})`
+    );
+    return null;
+  } catch (err) {
+    console.error(
+      `  ❌ Error finding earliest candle for ${symbol}:`,
+      err.message
+    );
+    return null;
+  }
+}

@@ -1,4 +1,8 @@
 import { prisma } from "../lib/prisma.js";
+import {
+  calculateIndividualSignals,
+  calculateWeightedSignal,
+} from "../utils/indicator.utils.js";
 
 function formatReadableDate(date) {
   if (!date) return null;
@@ -9,36 +13,66 @@ function formatReadableDate(date) {
   }).format(new Date(date));
 }
 
+/**
+ * 🎯 FORMAT MULTI-SIGNAL FROM DATABASE (REFACTORED)
+ * ================================================================
+ * SESUAI PROPOSAL SKRIPSI - Menggunakan Single Source of Truth
+ *
+ * PENTING:
+ * - FinalScore dan signalStrength SUDAH tersimpan di database
+ * - Fungsi ini hanya mem-FORMAT untuk display/UI
+ * - TIDAK melakukan perhitungan ulang (konsistensi data)
+ * - Menggunakan multi-level threshold untuk label
+ *
+ * Signal Classification:
+ * - finalScore >= 0.6  → STRONG BUY 🟢🟢
+ * - finalScore > 0     → BUY 🟢
+ * - finalScore == 0    → NEUTRAL ⚪
+ * - finalScore < 0     → SELL 🔴
+ * - finalScore <= -0.6 → STRONG SELL 🔴🔴
+ * ================================================================
+ */
 function formatMultiSignalFromDB(ind, weights = null) {
   if (!ind) return null;
 
-  // Ambil langsung dari database - NO CALCULATION
-  const dbFinalScore = ind.finalScore ?? 0;
-  const dbStrength = ind.signalStrength ?? 0;
+  // ✅ Ambil langsung dari database (NO RECALCULATION)
+  const finalScore = ind.finalScore ?? 0;
+  const strength = ind.signalStrength ?? 0;
 
-  // Map signal dari finalScore (threshold = 0)
+  // 🎯 SIGNAL CLASSIFICATION (MULTI-LEVEL THRESHOLD)
+  // Threshold yang sama dengan calculateWeightedSignal()
   let signal = "neutral";
   let signalLabel = "NEUTRAL";
   let signalEmoji = "⚪";
-  let finalScore = dbFinalScore;
-  let strength = dbStrength;
 
-  if (finalScore > 0) {
+  const STRONG_BUY_THRESHOLD = 0.6;
+  const STRONG_SELL_THRESHOLD = -0.6;
+
+  if (finalScore >= STRONG_BUY_THRESHOLD) {
+    signal = "strong_buy";
+    signalLabel = "STRONG BUY";
+    signalEmoji = "🟢🟢";
+  } else if (finalScore > 0) {
     signal = "buy";
-    signalLabel = strength >= 0.6 ? "STRONG BUY" : "BUY";
-    signalEmoji = strength >= 0.6 ? "🟢🟢" : "🟢";
+    signalLabel = "BUY";
+    signalEmoji = "🟢";
+  } else if (finalScore <= STRONG_SELL_THRESHOLD) {
+    signal = "strong_sell";
+    signalLabel = "STRONG SELL";
+    signalEmoji = "🔴🔴";
   } else if (finalScore < 0) {
     signal = "sell";
-    signalLabel = strength >= 0.6 ? "STRONG SELL" : "SELL";
-    signalEmoji = strength >= 0.6 ? "🔴🔴" : "🔴";
+    signalLabel = "SELL";
+    signalEmoji = "🔴";
   } else {
+    // finalScore === 0
     signal = "neutral";
-    strength = 0;
     signalLabel = "NEUTRAL";
     signalEmoji = "⚪";
   }
 
-  // NEW: Calculate WEIGHTED categoryScores (contribution to final score)
+  // 🎯 CALCULATE WEIGHTED CATEGORY SCORES
+  // Kontribusi masing-masing kategori terhadap finalScore
   let categoryScores = { trend: 0, momentum: 0, volatility: 0 };
 
   if (weights) {
@@ -50,20 +84,20 @@ function formatMultiSignalFromDB(ind, weights = null) {
       return 0;
     };
 
-    // WEIGHTED Trend category: (signal × weight) for each indicator
+    // WEIGHTED Trend category (SMA + EMA + PSAR)
     const trendScore =
       signalToScore(ind.smaSignal) * (weights.SMA || 0) +
       signalToScore(ind.emaSignal) * (weights.EMA || 0) +
       signalToScore(ind.psarSignal) * (weights.PSAR || 0);
 
-    // WEIGHTED Momentum category
+    // WEIGHTED Momentum category (RSI + MACD + Stochastic + StochasticRSI)
     const momentumScore =
       signalToScore(ind.rsiSignal) * (weights.RSI || 0) +
       signalToScore(ind.macdSignal) * (weights.MACD || 0) +
       signalToScore(ind.stochSignal) * (weights.Stochastic || 0) +
       signalToScore(ind.stochRsiSignal) * (weights.StochasticRSI || 0);
 
-    // WEIGHTED Volatility category
+    // WEIGHTED Volatility category (BollingerBands)
     const volatilityScore =
       signalToScore(ind.bbSignal) * (weights.BollingerBands || 0);
 
@@ -75,13 +109,13 @@ function formatMultiSignalFromDB(ind, weights = null) {
   }
 
   return {
-    signal,
-    strength: parseFloat(strength.toFixed(3)),
-    finalScore: parseFloat(finalScore.toFixed(2)),
-    signalLabel,
-    signalEmoji,
-    categoryScores,
-    source: "db",
+    signal, // 'buy'/'sell'/'neutral'/'strong_buy'/'strong_sell'
+    strength: parseFloat(strength.toFixed(3)), // Confidence level [0, 1]
+    finalScore: parseFloat(finalScore.toFixed(3)), // Normalized score [-1, +1]
+    signalLabel, // 'BUY'/'SELL'/'STRONG BUY'/etc
+    signalEmoji, // Visual indicator
+    categoryScores, // Breakdown per kategori
+    source: "db", // Data source indicator
   };
 }
 
@@ -97,15 +131,45 @@ export async function getSignals(req, res) {
     console.log(`Fetching indicators for ${symbol} (mode: ${mode})`);
     const startTime = Date.now();
 
+    // Get coinId and timeframeId
+    const coin = await prisma.coin.findUnique({
+      where: { symbol },
+      select: { id: true },
+    });
+
+    if (!coin) {
+      return res.status(404).json({
+        success: false,
+        message: `Coin ${symbol} tidak ditemukan.`,
+      });
+    }
+
+    const timeframeRecord = await prisma.timeframe.findUnique({
+      where: { timeframe },
+      select: { id: true },
+    });
+
+    if (!timeframeRecord) {
+      return res.status(404).json({
+        success: false,
+        message: `Timeframe ${timeframe} tidak ditemukan.`,
+      });
+    }
+
+    const { coinId, timeframeId } = {
+      coinId: coin.id,
+      timeframeId: timeframeRecord.id,
+    };
+
     // LATEST - Return only latest signal
     if (mode === "latest") {
       const [latestIndicator, latestWeight] = await Promise.all([
         prisma.indicator.findFirst({
-          where: { symbol, timeframe },
+          where: { coinId, timeframeId },
           orderBy: { time: "desc" },
         }),
         prisma.indicatorWeight.findFirst({
-          where: { symbol, timeframe },
+          where: { coinId, timeframeId },
           orderBy: { updatedAt: "desc" },
         }),
       ]);
@@ -119,7 +183,7 @@ export async function getSignals(req, res) {
 
       // Get latest price
       const latestCandle = await prisma.candle.findFirst({
-        where: { symbol, timeframe, time: latestIndicator.time },
+        where: { coinId, timeframeId, time: latestIndicator.time },
         select: { close: true },
       });
 
@@ -227,7 +291,7 @@ export async function getSignals(req, res) {
     const skip = (page - 1) * limit;
 
     const totalIndicators = await prisma.indicator.count({
-      where: { symbol, timeframe },
+      where: { coinId, timeframeId },
     });
 
     if (totalIndicators === 0) {
@@ -238,7 +302,7 @@ export async function getSignals(req, res) {
     }
 
     const queryOptions = {
-      where: { symbol, timeframe },
+      where: { coinId, timeframeId },
       orderBy: { time: "desc" },
       select: {
         time: true,
@@ -281,17 +345,17 @@ export async function getSignals(req, res) {
       await Promise.all([
         prisma.indicator.findMany(queryOptions),
         prisma.candle.findMany({
-          where: { symbol, timeframe },
+          where: { coinId, timeframeId },
           orderBy: { time: "desc" },
           ...(showAll ? {} : { skip, take: limit }),
           select: { time: true, close: true },
         }),
         prisma.indicator.findFirst({
-          where: { symbol, timeframe },
+          where: { coinId, timeframeId },
           orderBy: { time: "desc" },
         }),
         prisma.indicatorWeight.findFirst({
-          where: { symbol, timeframe },
+          where: { coinId, timeframeId },
           orderBy: { updatedAt: "desc" },
         }),
       ]);

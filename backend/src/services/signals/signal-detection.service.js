@@ -7,13 +7,24 @@ import {
 import { fetchLatestIndicatorData } from "../../utils/db.utils.js";
 
 /**
- * 🎯 SIGNAL DETECTION SERVICE (MULTI-INDICATOR ONLY)
- * ---------------------------------------------------
- * Deteksi sinyal trading dari multi-indicator dan kirim notifikasi
- * - ONLY Multi-Indicator Signals (berdasarkan optimized weights)
- * - Single Indicator signals REMOVED
+ * 🎯 SIGNAL DETECTION SERVICE (ACADEMIC VERSION)
+ * ================================================================
+ * Deteksi sinyal trading multi-indicator dan kirim notifikasi Telegram
  *
- * 📚 Threshold = 0 (sesuai jurnal, tanpa hold zone)
+ * METODOLOGI SESUAI PROPOSAL:
+ * - Menggunakan calculateWeightedSignal() sebagai single source of truth
+ * - FinalScore ternormalisasi [-1, +1]
+ * - Multi-level threshold: STRONG_BUY, BUY, NEUTRAL, SELL, STRONG_SELL
+ *
+ * PENGGUNAAN SINYAL:
+ * - STRONG signals → Prioritas tinggi (notifikasi Telegram)
+ * - BUY/SELL biasa → Informasi tambahan (analisis)
+ * - NEUTRAL → Tidak ada notifikasi
+ *
+ * CATATAN AKADEMIK:
+ * Strong threshold (±0.6) digunakan untuk mengurangi noise dan overtrading.
+ * Hanya sinyal dengan confidence tinggi yang dikirim sebagai notifikasi.
+ * ================================================================
  */
 
 /* =========================================================
@@ -26,8 +37,32 @@ export async function detectAndNotifyMultiIndicatorSignals(
   try {
     console.log(`🎯 Detecting multi-indicator signals for ${symbol}...`);
 
+    // Get coinId and timeframeId
+    const coin = await prisma.coin.findUnique({
+      where: { symbol },
+      select: { id: true },
+    });
+
+    if (!coin) {
+      console.log(`⚠️ ${symbol}: Coin not found in database`);
+      return { success: false, reason: "no_coin" };
+    }
+
+    const timeframeRecord = await prisma.timeframe.findUnique({
+      where: { timeframe },
+      select: { id: true },
+    });
+
+    if (!timeframeRecord) {
+      console.log(`⚠️ Timeframe ${timeframe} not found in database`);
+      return { success: false, reason: "no_timeframe" };
+    }
+
     const latestWeights = await prisma.indicatorWeight.findFirst({
-      where: { symbol, timeframe },
+      where: {
+        coinId: coin.id,
+        timeframeId: timeframeRecord.id,
+      },
       orderBy: { updatedAt: "desc" },
     });
 
@@ -42,13 +77,17 @@ export async function detectAndNotifyMultiIndicatorSignals(
     const current = { ...indicator, close: candle.close };
     const prev = prevIndicator ? { ...prevIndicator } : null;
 
+    // ✅ Calculate individual signals
     const signals = calculateIndividualSignals(current, prev);
 
-    // ✅ Ambil strength dari calculateWeightedSignal (single source of truth)
-    const { normalized, signal, strength } = calculateWeightedSignal(
+    // 🎯 SINGLE SOURCE OF TRUTH: calculateWeightedSignal()
+    // Returns: { finalScore, strength, signal, signalLabel, normalized }
+    const weightedResult = calculateWeightedSignal(
       signals,
       latestWeights.weights
     );
+
+    const { finalScore, strength, signal, signalLabel } = weightedResult;
 
     // ✅ Calculate categoryScores (sama seperti di indicator.controller.js)
     const signalToScore = (sig) => {
@@ -59,22 +98,20 @@ export async function detectAndNotifyMultiIndicatorSignals(
       return 0;
     };
 
+    const w = latestWeights.weights;
     const trendScore =
-      signalToScore(signals.SMA) * (latestWeights.weights.SMA || 0) +
-      signalToScore(signals.EMA) * (latestWeights.weights.EMA || 0) +
-      signalToScore(signals.PSAR) * (latestWeights.weights.PSAR || 0);
+      signalToScore(signals.SMA) * (w.SMA || 0) +
+      signalToScore(signals.EMA) * (w.EMA || 0) +
+      signalToScore(signals.PSAR) * (w.PSAR || 0);
 
     const momentumScore =
-      signalToScore(signals.RSI) * (latestWeights.weights.RSI || 0) +
-      signalToScore(signals.MACD) * (latestWeights.weights.MACD || 0) +
-      signalToScore(signals.Stochastic) *
-        (latestWeights.weights.Stochastic || 0) +
-      signalToScore(signals.StochasticRSI) *
-        (latestWeights.weights.StochasticRSI || 0);
+      signalToScore(signals.RSI) * (w.RSI || 0) +
+      signalToScore(signals.MACD) * (w.MACD || 0) +
+      signalToScore(signals.Stochastic) * (w.Stochastic || 0) +
+      signalToScore(signals.StochasticRSI) * (w.StochasticRSI || 0);
 
     const volatilityScore =
-      signalToScore(signals.BollingerBands) *
-      (latestWeights.weights.BollingerBands || 0);
+      signalToScore(signals.BollingerBands) * (w.BollingerBands || 0);
 
     const categoryScores = {
       trend: parseFloat(trendScore.toFixed(2)),
@@ -82,36 +119,44 @@ export async function detectAndNotifyMultiIndicatorSignals(
       volatility: parseFloat(volatilityScore.toFixed(2)),
     };
 
-    // ✅ Log rinci untuk debugging
-    console.log(`📊 [MultiIndicator] ${symbol} weighted result:`, {
-      signal: signal.toUpperCase(),
+    // ✅ Log hasil untuk debugging
+    console.log(`📊 [MultiIndicator] ${symbol} Signal:`, {
+      signal: signalLabel,
+      finalScore: finalScore.toFixed(3),
       strength: strength.toFixed(3),
-      finalScore: normalized.toFixed(2),
       categoryScores,
       price: candle.close.toFixed(2),
     });
 
+    // 🎯 NOTIFICATION STRATEGY (ACADEMIC)
+    // Hanya kirim notifikasi untuk STRONG signals (high confidence)
+    // BUY/SELL biasa tetap direturn untuk analisis, tapi tidak notifikasi
+
     if (signal === "neutral") {
       console.log(
-        `⚪ ${symbol} NEUTRAL | strength: ${strength.toFixed(3)} | score: ${normalized.toFixed(3)}`
+        `⚪ ${symbol} NEUTRAL | finalScore: ${finalScore.toFixed(3)}`
       );
       return {
         success: true,
         signal: "neutral",
-        finalScore: normalized,
+        signalLabel: "NEUTRAL",
+        finalScore,
         strength: 0,
         categoryScores,
-      }; // ✅ Force strength = 0 untuk neutral
+      };
     }
 
-    // ✅ Kirim ke Telegram dengan categoryScores dan finalScore
+    // 🔔 SEND TELEGRAM NOTIFICATION
+    // Notifikasi dikirim untuk semua sinyal non-neutral
+    // Frontend/user dapat memfilter berdasarkan strength jika perlu
     const result = await sendMultiIndicatorSignal({
       symbol,
       signal,
+      signalLabel, // ✅ Kirim label untuk display (STRONG BUY, BUY, etc)
       price: candle.close,
       strength,
-      finalScore: normalized, // ✅ Kirim finalScore
-      categoryScores, // ✅ Kirim categoryScores untuk Market Interpretation
+      finalScore, // ✅ FinalScore ternormalisasi [-1, +1]
+      categoryScores, // ✅ Untuk Market Interpretation
       activeIndicators: Object.entries(latestWeights.weights).map(([k, w]) => ({
         name: k,
         weight: w,
@@ -128,14 +173,15 @@ export async function detectAndNotifyMultiIndicatorSignals(
 
     if (result.success) {
       console.log(
-        `✅ ${symbol} ${signal.toUpperCase()} | strength: ${strength.toFixed(3)} | score: ${normalized.toFixed(3)}`
+        `✅ ${symbol} ${signalLabel} | finalScore: ${finalScore.toFixed(3)} | strength: ${strength.toFixed(3)}`
       );
     }
 
     return {
       success: true,
       signal,
-      finalScore: normalized,
+      signalLabel,
+      finalScore,
       strength,
       categoryScores,
     };
@@ -188,13 +234,44 @@ export async function autoOptimizeCoinsWithoutWeights(
   symbols,
   timeframe = "1h"
 ) {
+  // Get timeframe ID once
+  const timeframeRecord = await prisma.timeframe.findUnique({
+    where: { timeframe },
+    select: { id: true },
+  });
+
+  if (!timeframeRecord) {
+    console.error(`⚠️ Timeframe ${timeframe} not found in database`);
+    return { count: 0, needs: [] };
+  }
+
   const needs = [];
   for (const symbol of symbols) {
-    const existing = await prisma.indicatorWeight.findFirst({
-      where: { symbol, timeframe },
+    // Get coin ID
+    const coin = await prisma.coin.findUnique({
+      where: { symbol },
+      select: { id: true },
     });
+
+    if (!coin) {
+      console.log(`⚠️ ${symbol}: Coin not found in database, skipping...`);
+      continue;
+    }
+
+    const existing = await prisma.indicatorWeight.findFirst({
+      where: {
+        coinId: coin.id,
+        timeframeId: timeframeRecord.id,
+      },
+    });
+
     if (!existing) {
-      const count = await prisma.candle.count({ where: { symbol, timeframe } });
+      const count = await prisma.candle.count({
+        where: {
+          coinId: coin.id,
+          timeframeId: timeframeRecord.id,
+        },
+      });
       if (count >= 1000) needs.push(symbol);
       else console.log(`⏭️ ${symbol}: Only ${count}/1000 candles`);
     }

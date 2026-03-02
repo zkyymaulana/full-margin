@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import { prisma } from "../../lib/prisma.js";
 import { cleanTopCoinData } from "../../utils/dataCleaner.js";
 import { fetchPairs } from "./coinbase.service.js";
+import { fetchEarliestCandle } from "../coinbase/coinbase.service.js";
 
 dotenv.config();
 
@@ -10,16 +11,23 @@ const CMC_BASE_URL =
   process.env.CMC_API_URL || "https://pro-api.coinmarketcap.com/v1";
 
 /**
- * Sinkronisasi Top 30 Coin dari CoinMarketCap
- * Pairing Top 20 dengan Coinbase
- * Simpan hanya 20 coin yang valid ke database
+ * Sinkronisasi Top Coins dari CoinMarketCap
+ * Pairing dengan Coinbase dan cek earliest candle
+ * Simpan SEMUA coin yang ditemukan (dengan/tanpa listing date valid)
+ * Filter 20 coin dengan listing date < 2025-01-01 untuk analisis
+ *
+ * IMPORTANT:
+ * - listingDate = Earliest candle date from Coinbase (2016-2026)
+ * - Semua coin disimpan untuk menghindari re-checking di run berikutnya
+ * - Hanya coin dengan listingDate < Jan 1, 2025 yang digunakan untuk analisis
  */
 export async function syncTopCoins() {
   try {
     if (!process.env.CMC_API_KEY)
       throw new Error("CMC_API_KEY tidak ditemukan di .env");
 
-    // 1. Ambil Top 30 dari CMC
+    // 1. Ambil Top 50 dari CMC (buffer lebih banyak untuk filtering)
+    console.log("📥 Fetching top 50 coins from CoinMarketCap...");
     const { data } = await axios.get(
       `${CMC_BASE_URL}/cryptocurrency/listings/latest`,
       {
@@ -27,7 +35,7 @@ export async function syncTopCoins() {
           "X-CMC_PRO_API_KEY": process.env.CMC_API_KEY,
           Accept: "application/json",
         },
-        params: { start: 1, limit: 30, convert: "USD", sort: "market_cap" },
+        params: { start: 1, limit: 50, convert: "USD", sort: "market_cap" },
         timeout: 30000,
       }
     );
@@ -47,48 +55,177 @@ export async function syncTopCoins() {
     if (coins.length === 0)
       throw new Error("Tidak ada coin valid setelah data cleaning.");
 
+    console.log(`✅ Got ${coins.length} coins from CMC`);
+
     // 2. Ambil pair aktif dari Coinbase
+    console.log("📥 Fetching active pairs from Coinbase...");
     const activePairs = await fetchPairs();
 
     if (activePairs.size === 0) {
       throw new Error("Tidak ada pair aktif di Coinbase");
     }
 
-    // 3. Pairing: Ambil maksimal 20 coin yang punya pair aktif di Coinbase
-    const pairedCoins = [];
+    console.log(`✅ Got ${activePairs.size} active pairs from Coinbase`);
+
+    // 3. Filter: Cutoff date untuk analisis (bukan untuk menyimpan)
+    const cutoffDate = new Date("2025-01-01T00:00:00.000Z");
+
+    // 4. Pairing + Check Earliest Candle
+    const allCoins = []; // Semua coin yang ditemukan (untuk disimpan)
+    const validCoins = []; // Hanya coin dengan listing < 2025 (untuk analisis)
+
+    console.log("\n🔍 Checking coins for listing dates...\n");
 
     for (const coin of coins) {
+      // Stop mencari coin baru jika sudah dapat 20 valid coins
+      if (validCoins.length >= 20) break;
+
+      // ✅ Coba berbagai kemungkinan pair format
       const possiblePairs = [
         `${coin.symbol}-USD`,
-        `${coin.symbol}-EUR`,
         `${coin.symbol}-USDT`,
-        `${coin.symbol}-GBP`,
+        `${coin.symbol}-EUR`,
         `${coin.symbol}-USDC`,
       ];
 
       const foundPair = possiblePairs.find((p) => activePairs.has(p));
 
-      if (foundPair) {
-        pairedCoins.push({ ...coin, symbol: foundPair });
+      if (!foundPair) {
+        console.log(`⏭️  ${coin.symbol}: No pair found on Coinbase`);
+        continue;
       }
 
-      // Stop setelah dapat 20 coin
-      if (pairedCoins.length === 20) break;
+      // ✅ Cek apakah coin sudah pernah dicek sebelumnya (ada di database)
+      const existingCoin = await prisma.coin.findFirst({
+        where: { symbol: foundPair },
+        select: { listingDate: true, symbol: true },
+      });
+
+      if (existingCoin) {
+        // Coin sudah pernah dicek, gunakan data yang ada
+        const isValid =
+          existingCoin.listingDate && existingCoin.listingDate < cutoffDate;
+
+        if (isValid) {
+          console.log(
+            `✅ ${foundPair}: Already checked, valid for analysis (${validCoins.length + 1}/20)`
+          );
+          validCoins.push({
+            ...coin,
+            symbol: foundPair,
+            listingDate: existingCoin.listingDate,
+          });
+        } else {
+          console.log(
+            `⏭️  ${foundPair}: Already checked, not valid for analysis (listed ${existingCoin.listingDate?.toISOString().split("T")[0] || "never"})`
+          );
+        }
+
+        // Tetap masukkan ke allCoins untuk update data CMC terbaru
+        allCoins.push({
+          ...coin,
+          symbol: foundPair,
+          listingDate: existingCoin.listingDate,
+        });
+
+        continue;
+      }
+
+      // ✅ Coin belum pernah dicek, fetch earliest candle
+      console.log(`🔍 ${foundPair}: Checking earliest candle...`);
+      const earliestCandle = await fetchEarliestCandle(foundPair);
+
+      let listingDate = null;
+      if (earliestCandle) {
+        listingDate = new Date(earliestCandle.time);
+      }
+
+      // 📥 Fetch logo dari CMC untuk coin ini
+      let logo = null;
+      try {
+        const baseSymbol = foundPair.split("-")[0];
+        const { data: infoData } = await axios.get(
+          "https://pro-api.coinmarketcap.com/v2/cryptocurrency/info",
+          {
+            headers: {
+              "X-CMC_PRO_API_KEY": process.env.CMC_API_KEY,
+              Accept: "application/json",
+            },
+            params: { symbol: baseSymbol },
+            timeout: 10000,
+          }
+        );
+        logo = infoData?.data?.[baseSymbol]?.[0]?.logo || null;
+      } catch (logoErr) {
+        console.warn(`⚠️  Failed to fetch logo for ${foundPair}`);
+      }
+
+      // ✅ Simpan ke allCoins
+      const coinData = {
+        ...coin,
+        symbol: foundPair,
+        listingDate: listingDate,
+        logo: logo, // ✅ Logo sudah ada
+      };
+      allCoins.push(coinData);
+
+      // 💾 SIMPAN KE DATABASE LANGSUNG dengan logo
+      const coinRecord = await prisma.coin.upsert({
+        where: { symbol: foundPair },
+        update: {
+          rank: coin.rank,
+          name: coin.name,
+          logo: logo, // ✅ Simpan logo
+          listingDate: listingDate,
+        },
+        create: {
+          symbol: foundPair,
+          rank: coin.rank,
+          name: coin.name,
+          logo: logo, // ✅ Simpan logo
+          listingDate: listingDate,
+        },
+      });
+      console.log(
+        `💾 ${foundPair}: Saved to database ${logo ? "🖼️" : "(no logo)"}`
+      );
+
+      if (!listingDate) {
+        console.log(`❌ ${foundPair}: No historical data available`);
+        continue;
+      }
+
+      // ✅ Cek apakah valid untuk analisis
+      if (listingDate < cutoffDate) {
+        validCoins.push(coinData);
+        console.log(
+          `✅ ${foundPair}: Valid for analysis! Listed on ${listingDate.toISOString().split("T")[0]} (${validCoins.length}/20)`
+        );
+      } else {
+        console.log(
+          `⏭️  ${foundPair}: Too new for analysis (${listingDate.toISOString().split("T")[0]})`
+        );
+      }
     }
 
-    if (pairedCoins.length === 0) {
-      throw new Error("Tidak ada coin yang bisa dipasangkan dengan Coinbase");
+    if (allCoins.length === 0) {
+      throw new Error("Tidak ada coin yang bisa dipair dengan Coinbase");
     }
 
-    // 4. Ambil logo dari CMC API v2/cryptocurrency/info
-    // Extract base symbols (BTC-USD → BTC)
-    const baseSymbols = pairedCoins.map((c) => c.symbol.split("-")[0]);
-    const symbolsParam = [...new Set(baseSymbols)].join(","); // Remove duplicates
+    console.log(
+      `\n🎯 Found ${validCoins.length} coins valid for analysis (listed before Jan 1, 2025)`
+    );
+    console.log(
+      `💾 Total ${allCoins.length} coins to save/update in database\n`
+    );
 
-    let coinsWithLogo = pairedCoins;
+    // 5. Ambil logo dari CMC API v2/cryptocurrency/info
+    const baseSymbols = allCoins.map((c) => c.symbol.split("-")[0]);
+    const symbolsParam = [...new Set(baseSymbols)].join(",");
+    let coinsWithLogo = allCoins;
 
     try {
-      // Gunakan v2 endpoint (bukan v1)
+      console.log("📥 Fetching logos from CoinMarketCap...");
       const { data: infoData } = await axios.get(
         "https://pro-api.coinmarketcap.com/v2/cryptocurrency/info",
         {
@@ -101,106 +238,100 @@ export async function syncTopCoins() {
         }
       );
 
-      // Map logo ke setiap coin
-      coinsWithLogo = pairedCoins.map((coin) => {
-        const baseSymbol = coin.symbol.split("-")[0];
-        const coinInfo = infoData?.data?.[baseSymbol];
-
-        // CMC API v2 returns array, ambil index [0]
-        const logo =
-          Array.isArray(coinInfo) && coinInfo.length > 0 && coinInfo[0]?.logo
-            ? coinInfo[0].logo
-            : null;
-
-        if (logo) {
-          console.log(`Logo found for ${baseSymbol}: ${logo}`);
-        } else {
-          console.warn(`No logo for ${baseSymbol}`);
-        }
-
-        return { ...coin, logo };
-      });
+      if (infoData?.data) {
+        coinsWithLogo = allCoins.map((coin) => {
+          const baseSymbol = coin.symbol.split("-")[0];
+          const coinInfo = infoData.data[baseSymbol]?.[0];
+          return {
+            ...coin,
+            logo: coinInfo?.logo || null,
+          };
+        });
+        console.log("✅ Logos fetched successfully");
+      }
     } catch (logoErr) {
-      console.error(`Failed to fetch logos:`, {
-        message: logoErr.message,
-        status: logoErr.response?.status,
-        statusText: logoErr.response?.statusText,
-        data: logoErr.response?.data,
-      });
-      console.warn(`   Continuing without logos...`);
-      // Continue tanpa logo jika API gagal
-      coinsWithLogo = pairedCoins.map((c) => ({ ...c, logo: null }));
+      console.warn("⚠️  Failed to fetch logos, continuing without logos");
     }
 
-    // 5. DELETE semua coin dengan rank > 30 dari TopCoin table
-    const deletedOldCoins = await prisma.topCoin.deleteMany({
-      where: { rank: { gt: 30 } },
+    // 6. DELETE semua TopCoin yang rank > 30
+    const oldTopCoins = await prisma.topCoin.findMany({
+      include: { coin: true },
     });
 
-    // 6. Simpan Top 20 ke database dengan logo
-    let savedCount = 0;
+    const coinsToDelete = oldTopCoins.filter(
+      (tc) => tc.coin.rank && tc.coin.rank > 30
+    );
 
-    for (const coin of coinsWithLogo) {
-      // Simpan ke tabel Coin dengan logo
-      await prisma.coin.upsert({
-        where: { symbol: coin.symbol },
-        update: {
-          rank: coin.rank,
-          name: coin.name,
-          logo: coin.logo, // Update logo
-        },
-        create: {
-          symbol: coin.symbol,
-          rank: coin.rank,
-          name: coin.name,
-          logo: coin.logo, // Simpan logo
-        },
-      });
-
-      // Simpan ke TopCoin
-      await prisma.topCoin.upsert({
-        where: { symbol: coin.symbol },
-        update: {
-          rank: coin.rank,
-          name: coin.name,
-          price: coin.price,
-          marketCap: coin.marketCap,
-          volume24h: coin.volume24h,
-        },
-        create: {
-          rank: coin.rank,
-          name: coin.name,
-          symbol: coin.symbol,
-          price: coin.price,
-          marketCap: coin.marketCap,
-          volume24h: coin.volume24h,
-        },
-      });
-      savedCount++;
+    for (const tc of coinsToDelete) {
+      await prisma.topCoin.delete({ where: { id: tc.id } });
+      console.log(`🗑️  Deleted: ${tc.coin.symbol} (rank ${tc.coin.rank})`);
     }
+
+    // 7. Simpan SEMUA coin ke database (termasuk yang tidak valid untuk analisis)
+    console.log("\n💾 Saving all coins to database...\n");
+    for (const coin of coinsWithLogo) {
+      // Upsert ke tabel Coin
+      const coinRecord = await prisma.coin.upsert({
+        where: { symbol: coin.symbol },
+        update: {
+          rank: coin.rank,
+          name: coin.name,
+          logo: coin.logo,
+          listingDate: coin.listingDate, // null jika tidak ada data
+        },
+        create: {
+          symbol: coin.symbol,
+          rank: coin.rank,
+          name: coin.name,
+          logo: coin.logo,
+          listingDate: coin.listingDate, // null jika tidak ada data
+        },
+      });
+
+      // Upsert ke tabel TopCoin
+      const existingTopCoin = await prisma.topCoin.findFirst({
+        where: { coinId: coinRecord.id },
+      });
+
+      if (existingTopCoin) {
+        await prisma.topCoin.update({
+          where: { id: existingTopCoin.id },
+          data: {
+            price: coin.price,
+            marketCap: coin.marketCap,
+            volume24h: coin.volume24h,
+          },
+        });
+      } else {
+        await prisma.topCoin.create({
+          data: {
+            coinId: coinRecord.id,
+            price: coin.price,
+            marketCap: coin.marketCap,
+            volume24h: coin.volume24h,
+          },
+        });
+      }
+
+      const dateStr = coin.listingDate
+        ? coin.listingDate.toISOString().split("T")[0]
+        : "no data";
+      const validMark =
+        coin.listingDate && coin.listingDate < cutoffDate ? "✅" : "⏭️";
+      console.log(`${validMark} ${coin.symbol}: Saved (listed ${dateStr})`);
+    }
+
+    console.log(`\n🎉 Sync completed: ${coinsWithLogo.length} coins saved`);
+    console.log(`📊 ${validCoins.length} coins available for analysis\n`);
 
     return {
       success: true,
-      total: savedCount,
-      coinsFromCMC: coins.length,
-      coinsPaired: pairedCoins.length,
-      coinsWithLogo: coinsWithLogo.filter((c) => c.logo).length,
-      coinsDeleted: deletedOldCoins.count,
+      message: `Sync berhasil: ${coinsWithLogo.length} coins saved, ${validCoins.length} valid for analysis`,
+      total: coinsWithLogo.length,
+      validCount: validCoins.length,
     };
   } catch (err) {
-    // Log detail error untuk debugging
-    if (err.response) {
-      console.error("Response status:", err.response.status);
-      console.error(
-        "Response data:",
-        JSON.stringify(err.response.data, null, 2)
-      );
-    } else if (err.request) {
-      console.error("No response received from CMC API");
-    } else {
-      console.error("Error details:", err);
-    }
-
+    console.error("❌ Sync error:", err.message);
     return { success: false, error: err.message };
   }
 }

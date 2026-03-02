@@ -636,3 +636,47 @@ body.sidebar-open {
 .swal2-backdrop-show {
   z-index: 9999 !important;
 }
+
+/* 🆕 SweetAlert2 Dark Mode Custom Styles */
+.swal-dark .swal2-popup {
+  background-color: #1f2937 !important;
+  color: #f3f4f6 !important;
+}
+
+.swal-dark .swal2-title {
+  color: #f3f4f6 !important;
+}
+
+.swal-dark .swal2-html-container {
+  color: #f3f4f6 !important;
+}
+
+.swal-dark .swal2-close {
+  color: #9ca3af !important;
+}
+
+.swal-dark .swal2-close:hover {
+  color: #f3f4f6 !important;
+}
+
+/* SweetAlert2 Animation */
+.swal2-popup {
+  animation: swal2-show 0.3s;
+}
+
+@keyframes swal2-show {
+  0% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  45% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  80% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}

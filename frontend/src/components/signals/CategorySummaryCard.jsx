@@ -29,7 +29,10 @@ function CategorySummaryCard({ title, indicators, isDarkMode, icon }) {
       ) : (
         <div className="space-y-3">
           {indicators.map((indicator) => {
+            // ✅ Check if weight is 0 or null (not optimized)
             const isInactive = indicator.weight === 0;
+            const isNotOptimized =
+              indicator.weight === null || indicator.weight === undefined;
 
             return (
               <div
@@ -58,7 +61,7 @@ function CategorySummaryCard({ title, indicators, isDarkMode, icon }) {
                   </span>
                   <span
                     className={`text-sm font-semibold ${
-                      isInactive
+                      isInactive || isNotOptimized
                         ? isDarkMode
                           ? "text-gray-600"
                           : "text-gray-400"
@@ -67,7 +70,7 @@ function CategorySummaryCard({ title, indicators, isDarkMode, icon }) {
                         : "text-gray-900"
                     }`}
                   >
-                    {indicator.weight}
+                    {isNotOptimized ? "-" : indicator.weight}
                   </span>
                 </div>
               </div>

@@ -22,6 +22,12 @@ model Coin {
   name      String?
   rank      Int?
   logo      String?
+  /// Represents the EARLIEST CANDLE DATE available in Coinbase for this coin
+  /// This is NOT the Coinbase listing date (not available via API)
+  /// This is NOT the crypto launch date from CoinMarketCap
+  /// Value is automatically set after historical data sync based on first available candle
+  /// Null = coin hasn't been synced yet with historical data
+  listingDate DateTime?
   createdAt DateTime @default(now())
 
   candles          Candle[]
@@ -128,7 +134,7 @@ model IndicatorWeight {
 
 model TopCoin {
   id        Int      @id @default(autoincrement())
-  coinId    Int
+  coinId    Int      @unique
   price     Float
   marketCap Float
   volume24h Float

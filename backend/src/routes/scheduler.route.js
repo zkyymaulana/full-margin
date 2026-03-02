@@ -4,6 +4,7 @@ import {
   startSchedulers,
   stopSchedulers,
   getStatus,
+  updateListingDates,
 } from "../controllers/scheduler.controller.js";
 
 const router = express.Router();
@@ -13,5 +14,6 @@ router.get("/status", getStatus);
 // Protected routes (require authentication)
 router.post("/start", authMiddleware, startSchedulers);
 router.post("/stop", authMiddleware, stopSchedulers);
+router.post("/update-listing-dates", authMiddleware, updateListingDates);
 
 export default router;

@@ -22,6 +22,7 @@ export function cleanTopCoinData(coins = []) {
       price: Number(c.price.toFixed(2)),
       marketCap: Number(c.marketCap.toFixed(2)),
       volume24h: c.volume24h ? Number(c.volume24h.toFixed(2)) : 0,
+      listingDate: c.listingDate || null, // ✅ Tambahkan listingDate
     }))
     .sort((a, b) => a.rank - b.rank);
 }
