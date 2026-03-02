@@ -1,7 +1,14 @@
 import { prisma } from "../lib/prisma.js";
-import { getChartDataNewest } from "../services/charts/chartdata.service.js";
+import {
+  getChartDataNewest,
+  getCoinAndTimeframe,
+  getLatestWeights,
+  getIndicatorsForTimeRange,
+  mergeChartData,
+  calculateMetadata,
+  buildPagination,
+} from "../services/charts/chartdata.service.js";
 import { getCoinLiveDetail } from "../services/market/index.js";
-import { calculateAndSaveIndicators } from "../services/indicators/indicator.service.js";
 
 // Controller utama untuk endpoint chart
 // Mengembalikan data candlestick + indikator + multi-signal dari database
@@ -13,32 +20,13 @@ export async function getChart(req, res) {
     const limit = Math.min(5000, parseInt(req.query.limit) || 1000);
     const offset = (page - 1) * limit;
 
-    // Get coin and timeframe IDs
-    const coin = await prisma.coin.findUnique({
-      where: { symbol },
-      select: { id: true, name: true, logo: true },
-    });
+    // Get coin and timeframe from database
+    const { coin, timeframeRecord } = await getCoinAndTimeframe(
+      symbol,
+      timeframe
+    );
 
-    if (!coin) {
-      return res.status(404).json({
-        success: false,
-        message: `Coin ${symbol} not found in database`,
-      });
-    }
-
-    const timeframeRecord = await prisma.timeframe.findUnique({
-      where: { timeframe },
-      select: { id: true },
-    });
-
-    if (!timeframeRecord) {
-      return res.status(404).json({
-        success: false,
-        message: `Timeframe ${timeframe} not found in database`,
-      });
-    }
-
-    // Ambil candle dari service
+    // Fetch candles
     const chartData = await getChartDataNewest(symbol, limit, offset);
     if (!chartData.candles.length) {
       return res.json({
@@ -57,152 +45,39 @@ export async function getChart(req, res) {
       });
     }
 
-    // Mencari waktu minimum dan maksimum
+    // Get time range
     const times = chartData.candles.map((c) => Number(c.time));
     const minTime = Math.min(...times);
     const maxTime = Math.max(...times);
 
-    //  Mengambil bobot terbaru untuk setiap indikator teknikal untuk menghitung category score
-    const weightRecord = await prisma.indicatorWeight.findFirst({
-      where: {
-        coinId: coin.id,
-        timeframeId: timeframeRecord.id,
-      },
-      orderBy: { updatedAt: "desc" },
-    });
-    const weights = weightRecord?.weights || null;
+    // Get latest weights for multi-signal calculation
+    const weights = await getLatestWeights(coin.id, timeframeRecord.id);
 
-    // Cek apakah indikator sudah lengkap untuk rentang waktu ini
-    let indicators = await prisma.indicator.findMany({
-      where: {
-        coinId: coin.id,
-        timeframeId: timeframeRecord.id,
-        time: { gte: BigInt(minTime), lte: BigInt(maxTime) },
-      },
-      orderBy: { time: "asc" },
-    });
+    // Get or recalculate indicators
+    const indicators = await getIndicatorsForTimeRange(
+      symbol,
+      timeframe,
+      coin.id,
+      timeframeRecord.id,
+      minTime,
+      maxTime,
+      chartData.candles.length
+    );
 
-    const coverageBefore = indicators.length;
-    const expected = chartData.candles.length;
+    // Merge candles with indicators
+    const merged = mergeChartData(chartData.candles, indicators, weights);
 
-    if (coverageBefore < expected) {
-      console.log(
-        `[AUTO] Indicator coverage ${coverageBefore}/${expected} → recalculating...`
-      );
-      try {
-        await calculateAndSaveIndicators(symbol, timeframe, minTime, maxTime);
-        indicators = await prisma.indicator.findMany({
-          where: {
-            coinId: coin.id,
-            timeframeId: timeframeRecord.id,
-            time: { gte: BigInt(minTime), lte: BigInt(maxTime) },
-          },
-          orderBy: { time: "asc" },
-        });
-        console.log(
-          `Found ${indicators.length}/${expected} indicators after recalc.`
-        );
-      } catch (err) {
-        console.error(`Indicator calculation failed:`, err.message);
-      }
-    }
+    // Calculate metadata
+    const metadata = calculateMetadata(merged, minTime, maxTime);
 
-    //  Gabungkan candle + indikator (PURE DATABASE - NO CALCULATION)
-    const indicatorMap = new Map(indicators.map((i) => [Number(i.time), i]));
-    const merged = chartData.candles.map((c) => {
-      const ind = indicatorMap.get(Number(c.time));
-
-      //  Format multiSignal dari database (NO RECALCULATION)
-      const multiSignal = formatMultiSignalFromDB(ind, weights);
-
-      return {
-        time: c.time.toString(),
-        open: c.open,
-        high: c.high,
-        low: c.low,
-        close: c.close,
-        volume: c.volume,
-        multiSignal, //  database
-        indicators: ind
-          ? {
-              sma: {
-                20: ind.sma20,
-                50: ind.sma50,
-                signal: ind.smaSignal || "neutral", //  From DB
-              },
-              ema: {
-                20: ind.ema20,
-                50: ind.ema50,
-                signal: ind.emaSignal || "neutral", //  From DB
-              },
-              rsi: {
-                14: ind.rsi,
-                signal: ind.rsiSignal || "neutral", //  From DB
-              },
-              macd: {
-                macd: ind.macd,
-                signalLine: ind.macdSignalLine,
-                histogram: ind.macdHist,
-                signal: ind.macdSignal || "neutral", //  From DB
-              },
-              bollingerBands: {
-                upper: ind.bbUpper,
-                middle: ind.bbMiddle,
-                lower: ind.bbLower,
-                signal: ind.bbSignal || "neutral", //  From DB
-              },
-              stochastic: {
-                "%K": ind.stochK,
-                "%D": ind.stochD,
-                signal: ind.stochSignal || "neutral", //  From DB
-              },
-              stochasticRsi: {
-                "%K": ind.stochRsiK,
-                "%D": ind.stochRsiD,
-                signal: ind.stochRsiSignal || "neutral", //  From DB
-              },
-              parabolicSar: {
-                value: ind.psar,
-                signal: ind.psarSignal || "neutral", //  From DB
-              },
-            }
-          : null,
-      };
-    });
-
-    // Hitung coverage setelah merge
-    const withIndicators = merged.filter((m) => m.indicators).length;
-    const coverage = (withIndicators / merged.length) * 100;
-
-    // Log multiSignal stats untuk debugging
-    const signalStats = {
-      buy: merged.filter((m) => m.multiSignal?.signal === "buy").length,
-      sell: merged.filter((m) => m.multiSignal?.signal === "sell").length,
-      neutral: merged.filter((m) => m.multiSignal?.signal === "neutral").length,
-      missing: merged.filter((m) => !m.multiSignal).length,
-    };
-
-    // Pagination setup
+    // Build pagination
     const totalPages = Math.ceil(chartData.total / limit);
-    const baseUrl = `${req.protocol}://${req.get("host")}${req.baseUrl}${req.path}`;
-    const next =
-      page < totalPages
-        ? {
-            page: page + 1,
-            url: `${baseUrl}?page=${page + 1}&limit=${limit}&timeframe=${timeframe}`,
-          }
-        : null;
-    const prev =
-      page > 1
-        ? {
-            page: page - 1,
-            url: `${baseUrl}?page=${page - 1}&limit=${limit}&timeframe=${timeframe}`,
-          }
-        : null;
+    const pagination = buildPagination(req, page, totalPages, limit, timeframe);
 
+    // Get live market data
     const live = await getCoinLiveDetail(symbol);
 
-    // Kirim response
+    // Send response
     return res.json({
       success: true,
       symbol,
@@ -213,29 +88,8 @@ export async function getChart(req, res) {
       page,
       totalPages,
       limit,
-      pagination: { next, prev },
-      metadata: {
-        coverage: `${withIndicators}/${merged.length}`,
-        coveragePercent: `${coverage.toFixed(1)}%`,
-        signalDistribution: signalStats,
-        source: "database", //  Mark as pure database
-        range: {
-          start: new Date(minTime).toLocaleString("id-ID", {
-            day: "2-digit",
-            month: "long",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-          end: new Date(maxTime).toLocaleString("id-ID", {
-            day: "2-digit",
-            month: "long",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        },
-      },
+      pagination,
+      metadata,
       liveData: live?.data || null,
       data: merged,
     });
@@ -243,86 +97,4 @@ export async function getChart(req, res) {
     console.error("Chart Error:", err.message);
     return res.status(500).json({ success: false, message: err.message });
   }
-}
-
-/**
- * Format sinyal multi-indikator dari database.
- * TIDAK menghitung ulang indikator, hanya mapping data yang sudah tersimpan.
- * Digunakan untuk keperluan chart & monitoring real-time.
- */
-function formatMultiSignalFromDB(ind, weights = null) {
-  if (!ind) return null; // Jika tidak ada data indikator, return null
-
-  // Ambil nilai finalScore & strength langsung dari DB
-  const dbFinalScore = ind.finalScore ?? 0;
-  const dbStrength = ind.signalStrength ?? 0;
-
-  // Mapping sinyal berdasarkan finalScore (threshold = 0)
-  let signal = "neutral";
-  let finalScore = dbFinalScore;
-  let strength = dbStrength;
-
-  if (finalScore > 0) {
-    signal = "buy";
-  } else if (finalScore < 0) {
-    signal = "sell";
-  } else {
-    signal = "neutral";
-    strength = 0;
-  }
-
-  // label & emoji berdasarkan strength threshold (0.6)
-  let signalLabel = "NEUTRAL";
-
-  if (signal === "buy") {
-    signalLabel = strength >= 0.6 ? "STRONG BUY" : "BUY";
-  } else if (signal === "sell") {
-    signalLabel = strength >= 0.6 ? "STRONG SELL" : "SELL";
-  }
-
-  // Default category score
-  let categoryScores = { trend: 0, momentum: 0, volatility: 0 };
-
-  // Jika bobot tersedia, hitung kontribusi per kategori
-  if (weights) {
-    const signalToScore = (sig) => {
-      if (!sig) return 0;
-      const normalized = sig.toLowerCase();
-      if (normalized === "buy" || normalized === "strong_buy") return 1;
-      if (normalized === "sell" || normalized === "strong_sell") return -1;
-      return 0;
-    };
-
-    // Kontribusi tren (SMA + EMA + PSAR)
-    const trendScore =
-      signalToScore(ind.smaSignal) * (weights.SMA || 0) +
-      signalToScore(ind.emaSignal) * (weights.EMA || 0) +
-      signalToScore(ind.psarSignal) * (weights.PSAR || 0);
-
-    // Kontribusi momentum (RSI + MACD + Stochastic + StochRSI)
-    const momentumScore =
-      signalToScore(ind.rsiSignal) * (weights.RSI || 0) +
-      signalToScore(ind.macdSignal) * (weights.MACD || 0) +
-      signalToScore(ind.stochSignal) * (weights.Stochastic || 0) +
-      signalToScore(ind.stochRsiSignal) * (weights.StochasticRSI || 0);
-
-    // Kontribusi volatilitas (Bollinger Bands)
-    const volatilityScore =
-      signalToScore(ind.bbSignal) * (weights.BollingerBands || 0);
-
-    categoryScores = {
-      trend: parseFloat(trendScore.toFixed(2)),
-      momentum: parseFloat(momentumScore.toFixed(2)),
-      volatility: parseFloat(volatilityScore.toFixed(2)),
-    };
-  }
-
-  return {
-    signal,
-    strength: parseFloat(strength.toFixed(3)),
-    finalScore: parseFloat(finalScore.toFixed(2)),
-    signalLabel,
-    categoryScores,
-    source: "db", // Source ditandai dari database
-  };
 }
