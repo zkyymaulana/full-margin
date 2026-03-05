@@ -13,13 +13,22 @@ export function DateRangeSelector({
   const handleQuickSelect = (months, years = 0) => {
     const end = new Date();
     const start = new Date();
+
     if (years) {
       start.setFullYear(start.getFullYear() - years);
     } else {
       start.setMonth(start.getMonth() - months);
     }
-    setEndDate(end.toISOString().split("T")[0]);
-    setStartDate(start.toISOString().split("T")[0]);
+
+    const formatToYYYYMMDD = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+
+    setStartDate(formatToYYYYMMDD(start));
+    setEndDate(formatToYYYYMMDD(end));
   };
 
   return (
@@ -61,8 +70,8 @@ export function DateRangeSelector({
             onChange={(e) => setStartDate(e.target.value)}
             className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
               isDarkMode
-                ? "bg-gray-700 border-gray-600 text-white"
-                : "border-gray-300"
+                ? "bg-gray-700 border-gray-600 text-white [color-scheme:dark]"
+                : "border-gray-300 [color-scheme:light]"
             }`}
           />
         </div>
@@ -81,14 +90,14 @@ export function DateRangeSelector({
             onChange={(e) => setEndDate(e.target.value)}
             className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
               isDarkMode
-                ? "bg-gray-700 border-gray-600 text-white"
-                : "border-gray-300"
+                ? "bg-gray-700 border-gray-600 text-white [color-scheme:dark]"
+                : "border-gray-300 [color-scheme:light]"
             }`}
           />
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 items-center">
         <span
           className={`text-xs md:text-sm self-center hidden md:inline ${
             isDarkMode ? "text-gray-400" : "text-gray-600"
@@ -98,6 +107,7 @@ export function DateRangeSelector({
         </span>
         <button
           onClick={() => handleQuickSelect(1)}
+          title="Last 1 Month - Sets date range from 1 month ago to today"
           className={`px-2.5 md:px-3 py-1.5 text-xs rounded-lg transition-colors hover:cursor-pointer ${
             isDarkMode
               ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
@@ -108,6 +118,7 @@ export function DateRangeSelector({
         </button>
         <button
           onClick={() => handleQuickSelect(3)}
+          title="Last 3 Months - Sets date range from 3 months ago to today"
           className={`px-2.5 md:px-3 py-1.5 text-xs rounded-lg transition-colors hover:cursor-pointer ${
             isDarkMode
               ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
@@ -118,6 +129,7 @@ export function DateRangeSelector({
         </button>
         <button
           onClick={() => handleQuickSelect(6)}
+          title="Last 6 Months - Sets date range from 6 months ago to today"
           className={`px-2.5 md:px-3 py-1.5 text-xs rounded-lg transition-colors hover:cursor-pointer ${
             isDarkMode
               ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
@@ -128,6 +140,7 @@ export function DateRangeSelector({
         </button>
         <button
           onClick={() => handleQuickSelect(0, 1)}
+          title="Last 1 Year - Sets date range from 1 year ago to today"
           className={`px-2.5 md:px-3 py-1.5 text-xs rounded-lg transition-colors hover:cursor-pointer ${
             isDarkMode
               ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
@@ -136,6 +149,14 @@ export function DateRangeSelector({
         >
           1Y
         </button>
+
+        <span
+          className={`text-[10px] md:hidden w-full mt-1 ${
+            isDarkMode ? "text-gray-500" : "text-gray-500"
+          }`}
+        >
+          1M = 1 Month | 3M = 3 Months | 6M = 6 Months | 1Y = 1 Year
+        </span>
       </div>
     </>
   );

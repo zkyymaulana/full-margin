@@ -51,8 +51,8 @@ function getWeightCombination(index, indicators) {
 function backtestWithWeightsCached(cache, weights) {
   const INITIAL_CAPITAL = 10_000;
   const EARLY_STOP_THRESHOLD = INITIAL_CAPITAL * 0.4;
-  const STRONG_BUY = 0;
-  const STRONG_SELL = 0;
+  const BUY_THRESHOLD = 0;
+  const SELL_THRESHOLD = 0;
 
   let capital = INITIAL_CAPITAL;
   let position = null;
@@ -90,10 +90,10 @@ function backtestWithWeightsCached(cache, weights) {
     }
     const score = totalWeight > 0 ? weightedSum / totalWeight : 0;
 
-    if (score >= STRONG_BUY && !position) {
+    if (score > BUY_THRESHOLD && !position) {
       position = "BUY";
       entry = price;
-    } else if (score <= STRONG_SELL && position === "BUY") {
+    } else if (score < SELL_THRESHOLD && position === "BUY") {
       const pnl = price - entry;
       if (pnl > 0) wins++;
       capital += (capital / entry) * pnl;
@@ -131,42 +131,6 @@ function backtestWithWeightsCached(cache, weights) {
     maxDrawdown,
     sharpeRatio,
   };
-}
-
-/**
- * 🔄 Generate local search combinations (±1 from baseline)
- */
-function generateLocalSearch(baselineWeights) {
-  const indicators = Object.keys(baselineWeights);
-  const combinations = [];
-
-  function generate(index, current) {
-    if (index === indicators.length) {
-      const isDifferent = indicators.some(
-        (ind) => current[ind] !== baselineWeights[ind]
-      );
-      if (isDifferent) combinations.push({ ...current });
-      return;
-    }
-
-    const indicator = indicators[index];
-    const baseValue = baselineWeights[indicator];
-    const range = [
-      ...new Set([
-        Math.max(0, baseValue - 1),
-        baseValue,
-        Math.min(4, baseValue + 1),
-      ]),
-    ];
-
-    for (const value of range) {
-      current[indicator] = value;
-      generate(index + 1, current);
-    }
-  }
-
-  generate(0, {});
-  return combinations;
 }
 
 /**
