@@ -1,21 +1,45 @@
 import { useDarkMode } from "../../contexts/DarkModeContext";
 import { FiSettings, FiClock, FiCheckCircle, FiX } from "react-icons/fi";
+import { useState, useEffect } from "react";
 
 export function OptimizationProgressCard({
   showEstimateProgress,
   progressData,
   selectedSymbol,
   onClose,
-  onCancel, // ✅ NEW: Callback untuk cancel
+  onCancel,
 }) {
   const { isDarkMode } = useDarkMode();
 
-  if (!showEstimateProgress || !progressData) return null;
+  // ✅ NEW: Save last progress before completion
+  const [lastRunningProgress, setLastRunningProgress] = useState(null);
+
+  // ✅ FIXED: Don't hide card when optimization is completed or cancelled
+  if (!progressData) return null;
 
   const isCompleted = progressData.status === "completed";
   const isRunning = progressData.status === "running";
   const isWaiting = progressData.status === "waiting";
   const isCancelled = progressData.status === "cancelled";
+
+  // ✅ NEW: Capture last running state before it becomes completed
+  useEffect(() => {
+    if (isRunning && progressData.dataPoints) {
+      // Save the last running progress
+      setLastRunningProgress({
+        current: progressData.current,
+        total: progressData.total,
+        dataPoints: progressData.dataPoints,
+        percentage: progressData.percentage,
+      });
+    }
+  }, [isRunning, progressData]);
+
+  // ✅ For running/waiting states, respect showEstimateProgress
+  // For completed/cancelled states, always show
+  if (!isCompleted && !isCancelled && !showEstimateProgress) {
+    return null;
+  }
 
   const formatDateRange = () => {
     if (!progressData.datasetRange) return null;
@@ -37,6 +61,42 @@ export function OptimizationProgressCard({
 
   const dateRange = formatDateRange();
 
+  // ✅ NEW: Function to get display progress (use last running progress when completed)
+  const getDisplayProgress = () => {
+    if (isCompleted && lastRunningProgress) {
+      // When completed, show the last running progress
+      const candlesProcessed = Math.round(
+        (lastRunningProgress.percentage / 100) * lastRunningProgress.dataPoints
+      );
+      return {
+        current: candlesProcessed,
+        total: lastRunningProgress.dataPoints,
+        percentage: lastRunningProgress.percentage,
+      };
+    }
+
+    // When running, calculate current progress
+    if (isRunning && progressData.dataPoints) {
+      const candlesProcessed = Math.round(
+        (progressData.percentage / 100) * progressData.dataPoints
+      );
+      return {
+        current: candlesProcessed,
+        total: progressData.dataPoints,
+        percentage: progressData.percentage,
+      };
+    }
+
+    // Fallback
+    return {
+      current: progressData.dataPoints || 0,
+      total: progressData.dataPoints || 0,
+      percentage: progressData.percentage || 0,
+    };
+  };
+
+  const displayProgress = getDisplayProgress();
+
   return (
     <div
       className={`rounded-lg md:rounded-xl shadow-sm border p-6 ${
@@ -47,14 +107,10 @@ export function OptimizationProgressCard({
         {/* Animated Spinner or Success/Error Icon */}
         <div className="relative">
           {isCompleted ? (
-            <div className="w-16 h-16 md:w-20 md:h-20 bg-green-500 rounded-full flex items-center justify-center">
-              <FiCheckCircle className="text-4xl md:text-5xl text-white" />
-            </div>
+            <FiCheckCircle className="text-4xl md:text-5xl text-green-500" />
           ) : isCancelled ? (
             // ✅ NEW: Cancelled Icon
-            <div className="w-16 h-16 md:w-20 md:h-20 bg-red-500 rounded-full flex items-center justify-center">
-              <FiX className="text-4xl md:text-5xl text-white" />
-            </div>
+            <FiX className="text-4xl md:text-5xl text-red-500" />
           ) : (
             <>
               <div className="w-16 h-16 md:w-20 md:h-20 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
@@ -178,13 +234,9 @@ export function OptimizationProgressCard({
                       isDarkMode ? "text-gray-300" : "text-gray-700"
                     }`}
                   >
-                    {(
-                      progressData.current ||
-                      progressData.tested ||
-                      0
-                    ).toLocaleString()}
-                    /{(progressData.total || 0).toLocaleString()} (
-                    {progressData.percentage || 0}%)
+                    {displayProgress.current.toLocaleString()}/
+                    {displayProgress.total.toLocaleString()} (
+                    {displayProgress.percentage || 0}%)
                   </div>
                 </div>
                 <div
@@ -199,7 +251,7 @@ export function OptimizationProgressCard({
                         : "bg-gradient-to-r from-purple-500 to-blue-500"
                     }`}
                     style={{
-                      width: `${Math.max(progressData.percentage || 0, 5)}%`,
+                      width: `${Math.max(displayProgress.percentage || 0, 5)}%`,
                     }}
                   ></div>
                 </div>
@@ -246,14 +298,6 @@ export function OptimizationProgressCard({
             {/* Completed State Info */}
             {isCompleted && (
               <div className="mt-2 text-center">
-                <div
-                  className={`text-xs font-medium ${
-                    isDarkMode ? "text-green-400" : "text-green-600"
-                  }`}
-                >
-                  Tested {progressData.total?.toLocaleString()} combinations on{" "}
-                  {progressData.dataPoints?.toLocaleString()} candles!
-                </div>
                 <div
                   className={`text-xs mt-1 ${
                     isDarkMode ? "text-gray-400" : "text-gray-600"
@@ -303,7 +347,7 @@ export function OptimizationProgressCard({
             {(isCompleted || isCancelled) && onClose && (
               <button
                 onClick={onClose}
-                className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+                className={`hover:cursor-pointer flex-1 py-2.5 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
                   isDarkMode
                     ? "bg-gray-700 hover:bg-gray-600 text-white"
                     : "bg-gray-200 hover:bg-gray-300 text-gray-900"

@@ -10,6 +10,54 @@ import { prisma } from "../../lib/prisma.js";
  * - ONLY Multi-Indicator Signals (Single signals REMOVED)
  */
 
+/* ==========================================================
+   🔧 VALIDATION HELPER FUNCTIONS
+========================================================== */
+
+/**
+ * Validate broadcast signal request parameters
+ */
+export function validateBroadcastSignalParams(params) {
+  const { symbol, signal, price } = params;
+
+  if (!symbol || !signal || !price) {
+    throw new Error("symbol, signal, and price are required");
+  }
+
+  // Validate signal value
+  const validSignals = ["buy", "sell", "neutral", "strong_buy", "strong_sell"];
+  if (!validSignals.includes(signal.toLowerCase())) {
+    throw new Error(
+      `Invalid signal. Must be one of: ${validSignals.join(", ")}`
+    );
+  }
+
+  // Validate price is a number
+  if (typeof price !== "number" || isNaN(price) || price <= 0) {
+    throw new Error("price must be a positive number");
+  }
+
+  return true;
+}
+
+/**
+ * Build broadcast signal payload with defaults
+ */
+export function buildBroadcastSignalPayload(params) {
+  const { symbol, signal, price, details = {} } = params;
+
+  return {
+    symbol: symbol.toUpperCase(),
+    signal: signal.toLowerCase(),
+    price,
+    type: "multi", // Always multi
+    details: {
+      ...details,
+      timestamp: new Date().toISOString(),
+    },
+  };
+}
+
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_ENABLED =
   process.env.TELEGRAM_ENABLED === "true" ||

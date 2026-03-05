@@ -2,7 +2,7 @@ import { prisma } from "../../lib/prisma.js";
 import { sendMultiIndicatorSignal } from "../telegram/telegram.service.js";
 import {
   calculateIndividualSignals,
-  calculateWeightedSignal,
+  calculateMultiIndicatorScore,
 } from "../../utils/indicator.utils.js";
 import { fetchLatestIndicatorData } from "../../utils/db.utils.js";
 
@@ -12,7 +12,7 @@ import { fetchLatestIndicatorData } from "../../utils/db.utils.js";
  * Deteksi sinyal trading multi-indicator dan kirim notifikasi Telegram
  *
  * METODOLOGI SESUAI PROPOSAL:
- * - Menggunakan calculateWeightedSignal() sebagai single source of truth
+ * - Menggunakan calculateMultiIndicatorScore() sebagai single source of truth
  * - FinalScore ternormalisasi [-1, +1]
  * - Multi-level threshold: STRONG_BUY, BUY, NEUTRAL, SELL, STRONG_SELL
  *
@@ -80,9 +80,9 @@ export async function detectAndNotifyMultiIndicatorSignals(
     // ✅ Calculate individual signals
     const signals = calculateIndividualSignals(current, prev);
 
-    // 🎯 SINGLE SOURCE OF TRUTH: calculateWeightedSignal()
+    // 🎯 SINGLE SOURCE OF TRUTH: calculateMultiIndicatorScore()
     // Returns: { finalScore, strength, signal, signalLabel, normalized }
-    const weightedResult = calculateWeightedSignal(
+    const weightedResult = calculateMultiIndicatorScore(
       signals,
       latestWeights.weights
     );

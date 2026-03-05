@@ -3,6 +3,8 @@ import {
   clearSignalCache,
   broadcastTelegram,
   broadcastTradingSignal,
+  validateBroadcastSignalParams,
+  buildBroadcastSignalPayload,
 } from "../services/telegram/telegram.service.js";
 import {
   detectAndNotifyMultiIndicatorSignals,
@@ -361,22 +363,14 @@ export async function broadcastController(req, res) {
  */
 export async function broadcastSignalController(req, res) {
   try {
-    const { symbol, signal, price, details } = req.body;
+    // Validate input using service function
+    validateBroadcastSignalParams(req.body);
 
-    if (!symbol || !signal || !price) {
-      return res.status(400).json({
-        success: false,
-        message: "symbol, signal, and price are required",
-      });
-    }
+    // Build payload using service function
+    const payload = buildBroadcastSignalPayload(req.body);
 
-    const result = await broadcastTradingSignal({
-      symbol,
-      signal,
-      price,
-      type: "multi", // Always multi
-      details: details || {},
-    });
+    // Broadcast signal
+    const result = await broadcastTradingSignal(payload);
 
     return res.json({
       success: true,
@@ -385,7 +379,16 @@ export async function broadcastSignalController(req, res) {
     });
   } catch (error) {
     console.error("❌ Broadcast signal error:", error.message);
-    return res.status(500).json({
+
+    // Handle validation errors with 400, others with 500
+    const statusCode =
+      error.message.includes("required") ||
+      error.message.includes("must be") ||
+      error.message.includes("Invalid")
+        ? 400
+        : 500;
+
+    return res.status(statusCode).json({
       success: false,
       message: error.message,
     });

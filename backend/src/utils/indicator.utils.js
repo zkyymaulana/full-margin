@@ -88,7 +88,7 @@ export function calcMaxDrawdown(curve) {
 }
 
 /**
- * 🎯 CALCULATE WEIGHTED MULTI-INDICATOR SIGNAL (ACADEMIC VERSION)
+ * 🎯 CALCULATE MULTI-INDICATOR SCORE (ACADEMIC VERSION)
  * ================================================================
  * Based on: Proposal Skripsi - Analisis Multi-Indikator Teknikal
  *
@@ -139,12 +139,12 @@ export function calcMaxDrawdown(curve) {
  * @returns {Object} { finalScore, strength, signal, signalLabel }
  * ================================================================
  */
-export function calculateWeightedSignal(signals, weights) {
+export function calculateMultiIndicatorScore(signals, weights) {
   const indicators = Object.keys(weights);
   let weightedSum = 0;
   let totalWeight = 0;
 
-  // ✅ Breakdown per indikator untuk transparansi
+  // Breakdown per indikator untuk transparansi
   const breakdown = [];
   for (const ind of indicators) {
     const w = weights[ind] ?? 0;
@@ -164,11 +164,11 @@ export function calculateWeightedSignal(signals, weights) {
     });
   }
 
-  // 🎯 FINAL SCORE NORMALIZATION (WAJIB)
+  // FINAL SCORE NORMALIZATION (WAJIB)
   // Normalisasi ke rentang [-1, +1]
   const finalScore = totalWeight > 0 ? weightedSum / totalWeight : 0;
 
-  // 🎯 SIGNAL CLASSIFICATION (MULTI-LEVEL THRESHOLD)
+  // SIGNAL CLASSIFICATION (MULTI-LEVEL THRESHOLD)
   let signal = "neutral";
   let signalLabel = "NEUTRAL";
 
@@ -194,12 +194,12 @@ export function calculateWeightedSignal(signals, weights) {
     signalLabel = "NEUTRAL";
   }
 
-  // 🎯 STRENGTH CALCULATION
+  // STRENGTH CALCULATION
   // Strength = absolute value of finalScore
   // Untuk neutral: strength HARUS = 0 (konsistensi)
   let strength = signal === "neutral" ? 0 : Math.abs(finalScore);
 
-  // ✅ VALIDATION: Ensure consistency
+  // VALIDATION: Ensure consistency
   if (signal === "neutral" && strength !== 0) {
     strength = 0;
   }

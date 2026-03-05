@@ -248,24 +248,6 @@ function ProfilePage() {
                     <span
                       className={isDarkMode ? "text-gray-400" : "text-gray-600"}
                     >
-                      User ID:
-                    </span>
-                    <span
-                      className={`font-medium ${
-                        isDarkMode ? "text-white" : "text-gray-900"
-                      }`}
-                    >
-                      #{user.id}
-                    </span>
-                  </div>
-                  <div
-                    className={`flex justify-between py-2 border-b ${
-                      isDarkMode ? "border-gray-700" : "border-gray-100"
-                    }`}
-                  >
-                    <span
-                      className={isDarkMode ? "text-gray-400" : "text-gray-600"}
-                    >
                       Member Since:
                     </span>
                     <span

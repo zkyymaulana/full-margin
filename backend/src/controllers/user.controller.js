@@ -1,6 +1,10 @@
 import {
   getUserProfile,
   updateUserProfile,
+  validateUserAuthorization,
+  validateTelegramInput,
+  buildTelegramUpdateData,
+  updateUserTelegramSettings,
 } from "../services/user/profile.service.js";
 
 export async function getProfile(req, res) {
@@ -37,58 +41,19 @@ export async function updateTelegramSettings(req, res) {
   try {
     const userId = parseInt(req.params.id);
     const authUserId = req.user?.id;
-
-    // Validasi: user hanya bisa update settings mereka sendiri
-    if (userId !== authUserId) {
-      return res.status(403).json({
-        success: false,
-        message: "Forbidden: You can only update your own Telegram settings",
-      });
-    }
-
     const { telegramChatId, telegramEnabled } = req.body;
 
-    // Validasi input
-    if (
-      telegramChatId !== undefined &&
-      typeof telegramChatId !== "string" &&
-      telegramChatId !== null
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "telegramChatId must be a string or null",
-      });
-    }
+    // Validate authorization using service function
+    validateUserAuthorization(userId, authUserId);
 
-    if (telegramEnabled !== undefined && typeof telegramEnabled !== "boolean") {
-      return res.status(400).json({
-        success: false,
-        message: "telegramEnabled must be a boolean",
-      });
-    }
+    // Validate input using service function
+    validateTelegramInput(telegramChatId, telegramEnabled);
 
-    // Build update data
-    const updateData = {};
-    if (telegramChatId !== undefined)
-      updateData.telegramChatId = telegramChatId;
-    if (telegramEnabled !== undefined)
-      updateData.telegramEnabled = telegramEnabled;
+    // Build update data using service function
+    const updateData = buildTelegramUpdateData(telegramChatId, telegramEnabled);
 
-    // Update user
-    const { prisma } = await import("../lib/prisma.js");
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: updateData,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        telegramChatId: true,
-        telegramEnabled: true,
-      },
-    });
-
-    console.log(`Updated Telegram settings for user ${userId}`);
+    // Update user using service function
+    const updatedUser = await updateUserTelegramSettings(userId, updateData);
 
     return res.json({
       success: true,
@@ -97,7 +62,15 @@ export async function updateTelegramSettings(req, res) {
     });
   } catch (err) {
     console.error("❌ Error updating Telegram settings:", err.message);
-    return res.status(500).json({
+
+    // Handle specific error types
+    const statusCode = err.message.includes("Forbidden")
+      ? 403
+      : err.message.includes("must be")
+        ? 400
+        : 500;
+
+    return res.status(statusCode).json({
       success: false,
       message: err.message,
     });

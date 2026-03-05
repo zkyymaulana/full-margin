@@ -43,9 +43,9 @@ export function createBollingerBandsCalculator(period = 20, multiplier = 2) {
 
       return {
         upper,
-        middle: smaValue, // ✅ Middle band = SMA
+        middle: smaValue,
         lower,
-        sma: smaValue, // ✅ Keep SMA reference for compatibility
+        sma: smaValue,
         period: period,
         multiplier: multiplier,
       };

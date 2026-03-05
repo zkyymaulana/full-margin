@@ -64,14 +64,28 @@ export async function getMarketcapLiveController(req, res) {
 /**
  * Mengambil daftar symbol coin dari database (hanya Top 20)
  * Data diambil dari TopCoin dengan JOIN ke Coin untuk ambil symbol, name, rank, logo
+ *
+ * FILTERING LOGIC:
+ * - Hanya menampilkan coin dengan listingDate < 1 Januari 2025
+ * - listingDate = earliest candle date dari Coinbase (bukan CMC launch date)
+ * - Coin tanpa listingDate (null) juga ditampilkan (akan di-set setelah historical sync)
+ * - Filter hanya pair valid dengan format BASE-QUOTE (mengandung "-")
  */
 export async function getCoinSymbols(req, res) {
   try {
+    // Define cutoff date: 1 Januari 2025
+    const cutoffDate = new Date("2025-01-01T00:00:00.000Z");
+
     // Ambil Top 20 dari TopCoin dengan JOIN ke Coin
+    // Filter: listing date < 2025-01-01 ATAU listingDate null (belum sync)
     const topCoins = await prisma.topCoin.findMany({
       where: {
         coin: {
           symbol: { contains: "-" }, // Hanya pair valid seperti BTC-USD, ETH-USD
+          OR: [
+            { listingDate: { lt: cutoffDate } }, // Coin dengan data historis sebelum cutoff
+            { listingDate: null }, // Coin baru tanpa listingDate (akan di-set setelah sync)
+          ],
         },
       },
       include: {
@@ -81,6 +95,7 @@ export async function getCoinSymbols(req, res) {
             name: true,
             rank: true,
             logo: true,
+            listingDate: true, // Include untuk debugging
           },
         },
       },
@@ -98,9 +113,12 @@ export async function getCoinSymbols(req, res) {
       name: topCoin.coin.name,
       rank: topCoin.coin.rank,
       logo: topCoin.coin.logo,
+      listingDate: topCoin.coin.listingDate, // Include untuk frontend info (optional)
     }));
 
-    console.log(`✅ Found ${symbols.length} symbols in database`);
+    console.log(
+      `✅ Found ${symbols.length} symbols in database (listed before Jan 1, 2025)`
+    );
 
     res.json({
       success: true,

@@ -1,7 +1,6 @@
 import { prisma } from "../lib/prisma.js";
 import { optimizeIndicatorWeights } from "../services/multiIndicator/multiIndicator-analyzer.service.js";
 import { backtestWithWeights } from "../services/multiIndicator/multiIndicator-backtest.service.js";
-import { scoreSignal } from "../utils/indicator.utils.js";
 
 // FIXED TRAINING WINDOW (CONSISTENT ACROSS ALL FUNCTIONS)
 const FIXED_START_EPOCH = Date.parse("2020-01-01T00:00:00Z");

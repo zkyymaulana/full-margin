@@ -113,3 +113,68 @@ export async function updateUserProfile(userId, payload) {
 
   return { updated, uploadedUrl };
 }
+
+/**
+ * Validate user authorization for updating settings
+ */
+export function validateUserAuthorization(userId, authUserId) {
+  if (userId !== authUserId) {
+    throw new Error("Forbidden: You can only update your own settings");
+  }
+}
+
+/**
+ * Validate Telegram settings input
+ */
+export function validateTelegramInput(telegramChatId, telegramEnabled) {
+  // Validate telegramChatId
+  if (
+    telegramChatId !== undefined &&
+    typeof telegramChatId !== "string" &&
+    telegramChatId !== null
+  ) {
+    throw new Error("telegramChatId must be a string or null");
+  }
+
+  // Validate telegramEnabled
+  if (telegramEnabled !== undefined && typeof telegramEnabled !== "boolean") {
+    throw new Error("telegramEnabled must be a boolean");
+  }
+}
+
+/**
+ * Build Telegram update data object
+ */
+export function buildTelegramUpdateData(telegramChatId, telegramEnabled) {
+  const updateData = {};
+
+  if (telegramChatId !== undefined) {
+    updateData.telegramChatId = telegramChatId;
+  }
+
+  if (telegramEnabled !== undefined) {
+    updateData.telegramEnabled = telegramEnabled;
+  }
+
+  return updateData;
+}
+
+/**
+ * Update user's Telegram settings
+ */
+export async function updateUserTelegramSettings(userId, updateData) {
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: updateData,
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      telegramChatId: true,
+      telegramEnabled: true,
+    },
+  });
+
+  console.log(`Updated Telegram settings for user ${userId}`);
+  return updatedUser;
+}

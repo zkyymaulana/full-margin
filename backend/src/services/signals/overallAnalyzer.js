@@ -4,7 +4,7 @@
  * ✅ SESUAI PROPOSAL SKRIPSI - Menggunakan Single Source of Truth
  * ✅ FinalScore ternormalisasi ke rentang [-1, +1]
  * ✅ Multi-level threshold: STRONG_BUY, BUY, NEUTRAL, SELL, STRONG_SELL
- * ✅ Konsisten dengan calculateWeightedSignal() di indicator.utils.js
+ * ✅ Konsisten dengan calculateMultiIndicatorScore() di indicator.utils.js
  *
  * Formula (NORMALIZED):
  * finalScore = Σ(weight_i × signal_i) / Σ(weight_i)
@@ -24,8 +24,8 @@
  * @returns {Promise<Object>} { overallSignal, signalStrength, finalScore }
  */
 
-// ✅ Import single source of truth dari indicator.utils.js
-import { calculateWeightedSignal as calculateWeightedSignalUtils } from "../../utils/indicator.utils.js";
+// ✅ Import core algorithm tanpa alias
+import { calculateMultiIndicatorScore } from "../../utils/indicator.utils.js";
 
 export async function calculateOverallSignal(
   signals,
@@ -35,7 +35,7 @@ export async function calculateOverallSignal(
 ) {
   // ✅ Use cached weights if provided (for batch processing)
   if (cachedWeights) {
-    return calculateWeightedSignalFromSignals(signals, cachedWeights);
+    return buildOverallSignal(signals, cachedWeights);
   }
 
   // Import prisma di sini untuk menghindari circular dependency
@@ -60,7 +60,7 @@ export async function calculateOverallSignal(
       StochasticRSI: equalWeight,
       PSAR: equalWeight,
     };
-    return calculateWeightedSignalFromSignals(signals, weights);
+    return buildOverallSignal(signals, weights);
   }
 
   const timeframeRecord = await prisma.timeframe.findUnique({
@@ -81,7 +81,7 @@ export async function calculateOverallSignal(
       StochasticRSI: equalWeight,
       PSAR: equalWeight,
     };
-    return calculateWeightedSignalFromSignals(signals, weights);
+    return buildOverallSignal(signals, weights);
   }
 
   // ✅ Step 1: Get optimized weights from database
@@ -107,31 +107,33 @@ export async function calculateOverallSignal(
       PSAR: equalWeight,
     };
 
-    return calculateWeightedSignalFromSignals(signals, weights);
+    return buildOverallSignal(signals, weights);
   }
 
   // ✅ Use optimized weights from database
-  return calculateWeightedSignalFromSignals(signals, weightRecord.weights);
+  return buildOverallSignal(signals, weightRecord.weights);
 }
 
 /**
- * 🎯 Calculate Weighted Signal FROM DATABASE SIGNALS
+ * 🎯 BUILD OVERALL SIGNAL FROM DATABASE SIGNALS (ORCHESTRATION)
  * ================================================================
- * Wrapper function yang meng-convert database signal format
- * ke format yang diterima oleh calculateWeightedSignal() di utils.
+ * Fungsi orchestration yang meng-convert database signal format
+ * ke format yang diterima oleh calculateMultiIndicatorScore() di utils.
  *
- * PENTING:
- * - Fungsi ini hanya adapter/converter
- * - Perhitungan sebenarnya dilakukan oleh calculateWeightedSignalUtils()
+ * PERAN FUNGSI INI:
+ * - Adapter/converter antara database format dan core algorithm
+ * - Perhitungan inti dilakukan oleh calculateMultiIndicatorScore()
  * - Memastikan konsistensi dengan backtest dan realtime signal
+ *
+ * TIDAK mengubah logika perhitungan, hanya format data.
  * ================================================================
  */
-function calculateWeightedSignalFromSignals(signals, weights) {
-  // ✅ Convert database signal format to utils format
+function buildOverallSignal(signals, weights) {
+  // ✅ Convert database signal format to core algorithm format
   // Database: { smaSignal, emaSignal, rsiSignal, ... }
-  // Utils: { SMA, EMA, RSI, ... }
+  // Core Algorithm: { SMA, EMA, RSI, ... }
 
-  const signalsForUtils = {
+  const signalsForCalculation = {
     SMA: signals.smaSignal || "neutral",
     EMA: signals.emaSignal || "neutral",
     RSI: signals.rsiSignal || "neutral",
@@ -142,11 +144,11 @@ function calculateWeightedSignalFromSignals(signals, weights) {
     PSAR: signals.psarSignal || "neutral",
   };
 
-  // ✅ Call single source of truth from indicator.utils.js
-  const result = calculateWeightedSignalUtils(signalsForUtils, weights);
+  // ✅ Call core algorithm (single source of truth)
+  const result = calculateMultiIndicatorScore(signalsForCalculation, weights);
 
   // ✅ Return in expected format for database storage
-  // Result dari utils: { finalScore, strength, signal, signalLabel, normalized }
+  // Result dari core: { finalScore, strength, signal, signalLabel, normalized }
   return {
     overallSignal: result.signal, // 'buy'/'sell'/'neutral'/'strong_buy'/'strong_sell'
     signalStrength: result.strength, // Confidence [0, 1]
@@ -154,6 +156,5 @@ function calculateWeightedSignalFromSignals(signals, weights) {
   };
 }
 
-// ❌ DEPRECATED - Removed duplicate local function
-// Export calculateWeightedSignalFromSignals untuk backward compatibility
-export { calculateWeightedSignalFromSignals as calculateWeightedSignal };
+// ✅ Export dengan nama yang jelas (untuk backward compatibility jika diperlukan)
+export { buildOverallSignal };

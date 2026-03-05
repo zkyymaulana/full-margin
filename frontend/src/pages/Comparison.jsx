@@ -32,6 +32,7 @@ function ComparisonPage() {
   const {
     startOptimization,
     stopOptimization,
+    clearAllProgress, // ✅ NEW: Import clearAllProgress
     progressData,
     isOptimizationActive,
     optimizationSymbol,
@@ -41,7 +42,9 @@ function ComparisonPage() {
   const [endDate, setEndDate] = useState("2025-10-18");
   const [optimizationResult, setOptimizationResult] = useState(null);
   const [showOptimizationNotif, setShowOptimizationNotif] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false); // ✅ NEW
+  const [isCancelling, setIsCancelling] = useState(false);
+  // ✅ NEW: State untuk keep showing completed card
+  const [showCompletedCard, setShowCompletedCard] = useState(false);
 
   const {
     mutate: compare,
@@ -62,6 +65,7 @@ function ComparisonPage() {
   const isOptimizationRunning =
     progressData?.status === "running" || progressData?.status === "waiting";
   const isOptimizationCompleted = progressData?.status === "completed";
+  const isOptimizationCancelled = progressData?.status === "cancelled";
 
   useEffect(() => {
     if (progressData) {
@@ -100,6 +104,14 @@ function ComparisonPage() {
       });
     }
   }, [displayData]);
+
+  // ✅ NEW: Auto-show completed card when optimization finishes
+  useEffect(() => {
+    if (isOptimizationCompleted) {
+      console.log("✅ Optimization completed - keeping card visible");
+      setShowCompletedCard(true);
+    }
+  }, [isOptimizationCompleted]);
 
   const handleCompare = () => {
     if (!startDate || !endDate) {
@@ -316,6 +328,13 @@ function ComparisonPage() {
     });
   };
 
+  // ✅ MODIFIED: Handle close with complete cleanup
+  const handleCloseProgressCard = () => {
+    console.log("❌ User closed progress card - clearing all data");
+    setShowCompletedCard(false);
+    clearAllProgress(); // ✅ Use clearAllProgress instead of stopOptimization
+  };
+
   return (
     <div className="space-y-4 md:space-y-6 px-2 md:px-0">
       <ComparisonHeader />
@@ -332,17 +351,21 @@ function ComparisonPage() {
         isPending={isPending}
       />
 
-      {/* 🆕 Progress card di dalam halaman - tapi pakai global state */}
-      {(isOptimizationRunning || progressData) && (
-        <OptimizationProgressCard
-          showEstimateProgress={true}
-          estimateData={estimateData}
-          progressData={progressData}
-          selectedSymbol={optimizationSymbol}
-          onClose={stopOptimization}
-          onCancel={handleCancelOptimization} // ✅ NEW: Add cancel handler
-        />
-      )}
+      {/* ✅ MODIFIED: Show card when running OR completed OR cancelled */}
+      {(isOptimizationRunning ||
+        isOptimizationCompleted ||
+        isOptimizationCancelled ||
+        showCompletedCard) &&
+        progressData && (
+          <OptimizationProgressCard
+            showEstimateProgress={true}
+            estimateData={estimateData}
+            progressData={progressData}
+            selectedSymbol={optimizationSymbol}
+            onClose={handleCloseProgressCard}
+            onCancel={handleCancelOptimization}
+          />
+        )}
 
       <ErrorDisplay error={error} isLoading={isLoading} isPending={isPending} />
 

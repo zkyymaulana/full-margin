@@ -16,6 +16,92 @@ import { backtestWithWeights } from "../multiIndicator/multiIndicator-backtest.s
 import { calculateIndividualSignals } from "../../utils/indicator.utils.js";
 
 /* ==========================================================
+   🔧 VALIDATION HELPER FUNCTIONS
+========================================================== */
+
+/**
+ * Validate request parameters
+ */
+export function validateComparisonParams(params) {
+  const { symbol, startDate, endDate } = params;
+
+  // Check required fields
+  if (!symbol || !startDate || !endDate) {
+    return {
+      isValid: false,
+      error: {
+        message:
+          "Missing required parameters: symbol, startDate, and endDate are required",
+        example: {
+          symbol: "BTC-USD",
+          startDate: "2024-01-01",
+          endDate: "2024-12-31",
+        },
+      },
+    };
+  }
+
+  // Validate date formats
+  const startDateObj = new Date(startDate);
+  const endDateObj = new Date(endDate);
+
+  if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
+    return {
+      isValid: false,
+      error: {
+        message: "Invalid date format. Use ISO 8601 format (YYYY-MM-DD)",
+      },
+    };
+  }
+
+  // Validate date range
+  if (startDateObj >= endDateObj) {
+    return {
+      isValid: false,
+      error: {
+        message: "startDate must be before endDate",
+      },
+    };
+  }
+
+  return {
+    isValid: true,
+    dates: { startDateObj, endDateObj },
+  };
+}
+
+/**
+ * Handle comparison errors with appropriate response
+ */
+export function handleComparisonError(error) {
+  console.error("❌ Comparison Service Error:", error);
+
+  // Handle specific error types
+  if (
+    error.message.includes("No data found") ||
+    error.message.includes("not found")
+  ) {
+    return {
+      statusCode: 404,
+      response: {
+        success: false,
+        message: error.message,
+      },
+    };
+  }
+
+  // Generic internal server error
+  return {
+    statusCode: 500,
+    response: {
+      success: false,
+      message: "Internal server error during comparison",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    },
+  };
+}
+
+/* ==========================================================
    🧮 HELPER FUNCTIONS
 ========================================================== */
 
