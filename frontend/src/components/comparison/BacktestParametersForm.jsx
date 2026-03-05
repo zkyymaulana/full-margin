@@ -7,9 +7,7 @@ export function BacktestParametersForm({
   endDate,
   setStartDate,
   setEndDate,
-  handleOptimization,
   handleCompare,
-  isOptimizationRunning,
   isLoading,
   isPending,
 }) {
@@ -40,9 +38,7 @@ export function BacktestParametersForm({
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 mt-3 md:mt-4">
           <div className="flex-1" />
           <ActionButtons
-            handleOptimization={handleOptimization}
             handleCompare={handleCompare}
-            isOptimizationRunning={isOptimizationRunning}
             isLoading={isLoading}
             isPending={isPending}
           />

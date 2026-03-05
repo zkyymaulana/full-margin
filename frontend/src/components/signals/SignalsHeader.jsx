@@ -1,4 +1,4 @@
-import { FiInfo } from "react-icons/fi";
+import { FiInfo, FiSettings } from "react-icons/fi";
 import { formatPrice } from "../../utils/indicatorParser";
 
 function SignalsHeader({
@@ -9,38 +9,67 @@ function SignalsHeader({
   timeframe,
   bestCombo,
   isDarkMode,
+  onOptimize, // ✅ NEW: Optimization handler
+  isOptimizing, // ✅ NEW: Optimization status
 }) {
   return (
     <div>
-      <div className="flex items-center gap-3">
-        <h1
-          className={`text-3xl font-bold ${
-            isDarkMode ? "text-white" : "text-gray-900"
-          }`}
-        >
-          Technical Indicator Analysis
-        </h1>
-        <div className="group relative">
-          <div className="text-gray-700 dark:text-gray-300">
-            <FiInfo className="text-2xl cursor-help text-current" />
-          </div>
-
-          <div
-            className={`invisible group-hover:visible absolute left-0 top-8 w-80 p-4 rounded-lg shadow-lg z-50 ${
-              isDarkMode
-                ? "bg-gray-800 border border-gray-700 text-gray-300"
-                : "bg-white border border-gray-200 text-gray-700"
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <h1
+            className={`text-3xl font-bold ${
+              isDarkMode ? "text-white" : "text-gray-900"
             }`}
           >
-            <h4 className="font-semibold mb-2">About This Page</h4>
-            <p className="text-sm">
-              This page displays a comprehensive technical analysis using
-              various indicators grouped into three categories: Trend, Momentum,
-              and Volatility. The system provides BUY/SELL/HOLD recommendations
-              based on the combined results of all indicators.
-            </p>
+            Technical Indicator Analysis
+          </h1>
+          <div className="group relative">
+            <div className="text-gray-700 dark:text-gray-300">
+              <FiInfo className="text-2xl cursor-help text-current" />
+            </div>
+
+            <div
+              className={`invisible group-hover:visible absolute left-0 top-8 w-80 p-4 rounded-lg shadow-lg z-50 ${
+                isDarkMode
+                  ? "bg-gray-800 border border-gray-700 text-gray-300"
+                  : "bg-white border border-gray-200 text-gray-700"
+              }`}
+            >
+              <h4 className="font-semibold mb-2">About This Page</h4>
+              <p className="text-sm">
+                This page displays a comprehensive technical analysis using
+                various indicators grouped into three categories: Trend,
+                Momentum, and Volatility. The system provides BUY/SELL/HOLD
+                recommendations based on the combined results of all indicators.
+              </p>
+            </div>
           </div>
         </div>
+
+        {/* ✅ NEW: Optimization Button */}
+        {onOptimize && (
+          <button
+            onClick={onOptimize}
+            disabled={isOptimizing}
+            className={`py-2 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-2 hover:cursor-pointer ${
+              isDarkMode
+                ? "bg-purple-600 hover:bg-purple-700 text-white"
+                : "bg-purple-500 hover:bg-purple-600 text-white"
+            }`}
+          >
+            {isOptimizing ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm">Optimizing...</span>
+              </>
+            ) : (
+              <>
+                <FiSettings className="text-lg text-white" />
+                <span className="text-sm">Optimize Now</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
       <p className={`mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
         {methodology || "Rule-Based Multi-Indicator Evaluation"}

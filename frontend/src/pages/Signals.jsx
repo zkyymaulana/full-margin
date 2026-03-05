@@ -1,7 +1,11 @@
 import { useIndicator } from "../hooks/useIndicators";
 import { useSymbol } from "../contexts/SymbolContext";
 import { useDarkMode } from "../contexts/DarkModeContext";
-import { useMemo } from "react";
+import { useOptimizationContext } from "../contexts/OptimizationContext";
+import { useOptimizationEstimate } from "../hooks/useOptimization";
+import { useMemo, useState } from "react";
+import Swal from "sweetalert2";
+import { cancelOptimization } from "../services/api.service";
 
 // Import components
 import SignalsHeader from "../components/signals/SignalsHeader";
@@ -9,13 +13,14 @@ import CategorySummaryCard from "../components/signals/CategorySummaryCard";
 import BacktestPanel from "../components/signals/BacktestPanel";
 import IndicatorTable from "../components/signals/IndicatorTable";
 import MultiIndicatorPanel from "../components/signals/MultiIndicatorPanel";
+import { OptimizationProgressCard } from "../components/comparison";
 
 // Import utils
 import {
   parseIndicators,
   parseIndicatorsDetailed,
   normalizeIndicatorName,
-  countSignalsFromDB, // ✅ NEW: Safe signal counting
+  countSignalsFromDB,
 } from "../utils/indicatorParser";
 import { FiActivity, FiTrendingUp, FiZap } from "react-icons/fi";
 
@@ -23,12 +28,42 @@ function SignalsPage() {
   const { selectedSymbol } = useSymbol();
   const { isDarkMode } = useDarkMode();
 
+  // ✅ NEW: Optimization context
+  const {
+    startOptimization,
+    stopOptimization,
+    clearAllProgress,
+    progressData,
+    isOptimizationActive,
+    optimizationSymbol,
+  } = useOptimizationContext();
+
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [showCompletedCard, setShowCompletedCard] = useState(false);
+
   // 🔥 SINGLE UNIFIED ENDPOINT - mode=latest
   const {
     data: indicatorData,
     isLoading,
     error,
   } = useIndicator(selectedSymbol, "latest", "1h");
+
+  // ✅ NEW: Get optimization estimate
+  const { data: estimateData, refetch: refetchEstimate } =
+    useOptimizationEstimate(selectedSymbol, "1h", false);
+
+  const isOptimizationRunning =
+    progressData?.status === "running" || progressData?.status === "waiting";
+  const isOptimizationCompleted = progressData?.status === "completed";
+  const isOptimizationCancelled = progressData?.status === "cancelled";
+
+  // ✅ NEW: Auto-show completed card when optimization finishes
+  useMemo(() => {
+    if (isOptimizationCompleted) {
+      console.log("✅ Optimization completed - keeping card visible");
+      setShowCompletedCard(true);
+    }
+  }, [isOptimizationCompleted]);
 
   // Debug: Log data
   console.log("📊 Unified Indicator Data:", indicatorData);
@@ -38,19 +73,17 @@ function SignalsPage() {
     parsedIndicators,
     parsedIndicatorsDetailed,
     categoryScores,
-    multiSignalData, // ✅ NEW: Full multiSignal object from backend
+    multiSignalData,
     latestPrice,
     latestTime,
     weights,
     performance,
     timeframe,
     signalCounts,
-    isOptimized, // ✅ NEW: Flag untuk cek apakah sudah optimasi
+    isOptimized,
   } = useMemo(() => {
-    // 🔥 USE ONLY latestSignal from unified API
     const latestSignal = indicatorData?.latestSignal;
 
-    // Early return if no data
     if (!latestSignal) {
       console.warn("⚠️ No latestSignal available");
       return {
@@ -70,36 +103,32 @@ function SignalsPage() {
         performance: null,
         timeframe: "1h",
         signalCounts: { buy: 0, sell: 0, neutral: 0 },
-        isOptimized: false, // ✅ Belum optimasi
+        isOptimized: false,
       };
     }
 
-    // 📦 Extract all data from latestSignal
     const {
       indicators,
       categoryScores: scores,
       weights: weightsData,
       performance: performanceData,
-      multiSignal: signalData, // ✅ Full object from backend
+      multiSignal: signalData,
       price,
       time,
     } = latestSignal;
 
-    // ✅ Cek apakah sudah optimasi: ada performance dan weights dari database
     const hasOptimization = !!(
       performanceData &&
       weightsData &&
       Object.keys(weightsData).length > 0
     );
 
-    // ✅ Count signals from database ONLY
     const counts = countSignalsFromDB(indicators);
 
     console.log("✅ [SIGNALS PAGE] Multi Signal Data:", signalData);
     console.log("🔍 [DEBUG] Has Optimization:", hasOptimization);
     console.log("📊 Signal Counts:", counts);
 
-    // ✅ Parse indicators - gunakan null jika belum optimasi
     const finalWeights = hasOptimization ? weightsData : null;
 
     const parsed = parseIndicators(indicators, price, finalWeights);
@@ -126,9 +155,198 @@ function SignalsPage() {
       performance: performanceData,
       timeframe: indicatorData?.timeframe || "1h",
       signalCounts: counts,
-      isOptimized: hasOptimization, // ✅ Flag
+      isOptimized: hasOptimization,
     };
   }, [indicatorData]);
+
+  // ✅ NEW: Handle optimization
+  const handleOptimization = async () => {
+    const { data: estimate } = await refetchEstimate();
+
+    if (!estimate?.success) {
+      Swal.fire({
+        icon: "error",
+        title: "Oops...",
+        text: "Failed to calculate optimization estimate",
+      });
+      return;
+    }
+
+    const estimateInfo = estimate.estimate;
+
+    Swal.fire({
+      title: "Start Optimization?",
+      text: `Estimated time: ${estimateInfo.formatted}`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, start it!",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        confirmOptimization();
+      }
+    });
+  };
+
+  const confirmOptimization = async () => {
+    try {
+      const token = localStorage.getItem("authToken");
+
+      if (!token) {
+        throw new Error("Authentication required. Please login again.");
+      }
+
+      console.log("🔑 Starting optimization process...");
+
+      const controller = new AbortController();
+      const quickCheckTimeout = setTimeout(() => controller.abort(), 500);
+
+      let shouldOpenSSE = false;
+
+      try {
+        const response = await fetch(
+          `${
+            import.meta.env.VITE_API_BASE_URL
+          }/multiIndicator/${selectedSymbol}/optimize-weights?timeframe=1h`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            signal: controller.signal,
+          }
+        );
+
+        clearTimeout(quickCheckTimeout);
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          if (response.status === 403) {
+            localStorage.removeItem("authToken");
+            throw new Error("Session expired. Please login again.");
+          }
+          throw new Error(data.message || "Optimization failed");
+        }
+
+        if (data.success && data.lastOptimized) {
+          const lastOptimizedDate = new Date(data.lastOptimized);
+          const formattedDate = lastOptimizedDate.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          });
+
+          Swal.fire({
+            title: "Already Optimized!",
+            text: `${selectedSymbol} was last optimized on ${formattedDate}. ROI: ${data.performance?.roi?.toFixed(
+              2
+            )}%`,
+            icon: "info",
+          });
+
+          shouldOpenSSE = false;
+        }
+      } catch (fetchError) {
+        if (fetchError.name === "AbortError") {
+          shouldOpenSSE = true;
+        } else {
+          throw fetchError;
+        }
+      }
+
+      if (shouldOpenSSE) {
+        console.log("📡 Opening SSE connection for real-time progress...");
+        startOptimization(selectedSymbol);
+      }
+    } catch (error) {
+      console.error("❌ Optimization error:", error);
+
+      if (error.message?.includes("login again")) {
+        Swal.fire({
+          icon: "error",
+          title: "Session Expired",
+          text: "Your session has expired. Please login again.",
+          confirmButtonColor: "#3085d6",
+        }).then(() => {
+          window.location.href = "/login";
+        });
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Optimization Failed",
+          text: error.message || "Failed to start optimization",
+        });
+      }
+    }
+  };
+
+  // ✅ NEW: Handle cancel optimization
+  const handleCancelOptimization = async () => {
+    if (!optimizationSymbol || isCancelling) return;
+
+    Swal.fire({
+      title: "Are you sure?",
+      text: "Do you want to cancel this optimization?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, cancel it!",
+      cancelButtonText: "No, continue",
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          setIsCancelling(true);
+          console.log(
+            `🛑 Cancelling optimization for ${optimizationSymbol}...`
+          );
+
+          // ✅ FIXED: Send cancel request to backend
+          await cancelOptimization(optimizationSymbol);
+
+          console.log(`✅ Cancel request sent successfully`);
+
+          // ✅ FIXED: Force stop SSE connection immediately
+          stopOptimization();
+
+          // ✅ FIXED: Clear progress card
+          setShowCompletedCard(false);
+
+          // ✅ Show success notification
+          Swal.fire({
+            icon: "success",
+            title: "Cancelled!",
+            text: "Optimization has been cancelled successfully.",
+            timer: 2000,
+            showConfirmButton: false,
+          });
+        } catch (err) {
+          console.error(`❌ Failed to cancel optimization:`, err);
+          Swal.fire({
+            icon: "error",
+            title: "Cancel Failed",
+            text: err.message || "Failed to cancel optimization",
+          });
+
+          // ✅ Force stop even on error
+          stopOptimization();
+          setShowCompletedCard(false);
+        } finally {
+          setIsCancelling(false);
+        }
+      }
+    });
+  };
+
+  // ✅ NEW: Handle close progress card
+  const handleCloseProgressCard = () => {
+    console.log("❌ User closed progress card - clearing all data");
+    setShowCompletedCard(false);
+    clearAllProgress();
+  };
 
   // Determine active categories based on weights
   const activeCategories = useMemo(() => {
@@ -215,7 +433,7 @@ function SignalsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header Section */}
+      {/* Header Section with Optimization Button */}
       <SignalsHeader
         selectedSymbol={selectedSymbol}
         methodology="Weighted Multi-Indicator Strategy"
@@ -224,7 +442,25 @@ function SignalsPage() {
         timeframe={timeframe}
         bestCombo={bestCombo}
         isDarkMode={isDarkMode}
+        onOptimize={handleOptimization} // ✅ Pass handler
+        isOptimizing={isOptimizationRunning} // ✅ Pass status
       />
+
+      {/* ✅ NEW: Optimization Progress Card */}
+      {(isOptimizationRunning ||
+        isOptimizationCompleted ||
+        isOptimizationCancelled ||
+        showCompletedCard) &&
+        progressData && (
+          <OptimizationProgressCard
+            showEstimateProgress={true}
+            estimateData={estimateData}
+            progressData={progressData}
+            selectedSymbol={optimizationSymbol}
+            onClose={handleCloseProgressCard}
+            onCancel={handleCancelOptimization}
+          />
+        )}
 
       {/* Category Summary Cards - 3 Categories */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -292,7 +528,7 @@ function SignalsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <IndicatorTable allIndicators={allIndicators} isDarkMode={isDarkMode} />
         <MultiIndicatorPanel
-          multiSignalData={multiSignalData} // ✅ Pass full object from backend
+          multiSignalData={multiSignalData}
           categoryScores={categoryScores}
           activeCategories={activeCategories}
           parsedIndicators={parsedIndicators}

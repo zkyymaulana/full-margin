@@ -46,8 +46,8 @@ export function OptimizationProvider({ children }) {
     console.log("🛑 Stopping global optimization");
     setIsOptimizationActive(false);
     setOptimizationSymbol(null);
-    // ✅ CRITICAL FIX: Don't clear lastProgressData here!
-    // It will remain visible until explicitly cleared
+    // ✅ FIXED: Clear lastProgressData immediately when stopping
+    setLastProgressData(null);
   };
 
   // ✅ NEW: Function to completely clear everything
