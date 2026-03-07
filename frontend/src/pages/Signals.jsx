@@ -46,6 +46,7 @@ function SignalsPage() {
     data: indicatorData,
     isLoading,
     error,
+    refetch: refetchIndicatorData, // ✅ NEW: Add refetch function
   } = useIndicator(selectedSymbol, "latest", "1h");
 
   // ✅ NEW: Get optimization estimate
@@ -56,6 +57,25 @@ function SignalsPage() {
     progressData?.status === "running" || progressData?.status === "waiting";
   const isOptimizationCompleted = progressData?.status === "completed";
   const isOptimizationCancelled = progressData?.status === "cancelled";
+
+  // ✅ NEW: Auto-refresh data when optimization completes
+  useMemo(() => {
+    if (isOptimizationCompleted && optimizationSymbol === selectedSymbol) {
+      console.log("✅ Optimization completed - refreshing data...");
+      setShowCompletedCard(true);
+
+      // ✅ Wait 1 second then refetch to ensure backend saved the data
+      setTimeout(() => {
+        refetchIndicatorData();
+        console.log("🔄 Data refreshed after optimization");
+      }, 1000);
+    }
+  }, [
+    isOptimizationCompleted,
+    optimizationSymbol,
+    selectedSymbol,
+    refetchIndicatorData,
+  ]);
 
   // ✅ NEW: Auto-show completed card when optimization finishes
   useMemo(() => {
