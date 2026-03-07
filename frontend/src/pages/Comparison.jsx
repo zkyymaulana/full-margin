@@ -31,6 +31,7 @@ function ComparisonPage() {
 
   const [startDate, setStartDate] = useState("2020-01-01");
   const [endDate, setEndDate] = useState(getTodayDate());
+  const [threshold, setThreshold] = useState(0.4); // ✅ NEW: Default threshold 0.4 (Moderate)
 
   const {
     mutate: compare,
@@ -74,10 +75,12 @@ function ComparisonPage() {
       return;
     }
 
+    // ✅ MODIFIED: Include threshold in compare request
     compare({
       symbol: selectedSymbol,
       startDate,
       endDate,
+      threshold, // ✅ Send threshold to backend
     });
   };
 
@@ -90,6 +93,8 @@ function ComparisonPage() {
         endDate={endDate}
         setStartDate={setStartDate}
         setEndDate={setEndDate}
+        threshold={threshold}
+        setThreshold={setThreshold}
         handleCompare={handleCompare}
         isLoading={isLoading}
         isPending={isPending}

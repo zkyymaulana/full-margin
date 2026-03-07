@@ -464,8 +464,15 @@ function backtestVotingStrategy(data) {
 /* ==========================================================
    🎯 MAIN COMPARISON FUNCTION
 ========================================================== */
-export async function compareStrategies(symbol, startDate, endDate) {
-  console.log(`📊 Comparison started for ${symbol}`);
+export async function compareStrategies(
+  symbol,
+  startDate,
+  endDate,
+  threshold = 0.4
+) {
+  console.log(
+    `📊 Comparison started for ${symbol} with threshold ${threshold}`
+  );
   const timeframe = "1h";
   const start = BigInt(new Date(startDate).getTime());
   const end = BigInt(new Date(endDate).getTime());
@@ -535,10 +542,13 @@ export async function compareStrategies(symbol, startDate, endDate) {
   console.log("🚀 Running single indicator backtests...");
   const singleResults = await backtestAllIndicators(data, { fastMode: true });
 
-  // 4️⃣ Run multi indicator backtest
-  console.log("🚀 Running multi indicator backtest...");
+  // 4️⃣ Run multi indicator backtest with custom threshold
+  console.log(
+    `🚀 Running multi indicator backtest with threshold ${threshold}...`
+  );
   const multiResult = await backtestWithWeights(data, bestWeights, {
     fastMode: true,
+    threshold, // ✅ Pass threshold to backtest
   });
 
   // 5️⃣ Run voting strategy backtest

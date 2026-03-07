@@ -16,13 +16,18 @@ export const compareIndicators = async (req, res) => {
       });
     }
 
-    const { symbol, startDate, endDate } = req.body;
+    const { symbol, startDate, endDate, threshold = 0.4 } = req.body; // ✅ NEW: Accept threshold with default 0.4
     console.log(
-      `📊 Comparison request received: ${symbol} (${startDate} → ${endDate})`
+      `📊 Comparison request received: ${symbol} (${startDate} → ${endDate}) with threshold ${threshold}`
     );
 
     // Call service layer (pure business logic)
-    const result = await compareStrategies(symbol, startDate, endDate);
+    const result = await compareStrategies(
+      symbol,
+      startDate,
+      endDate,
+      threshold
+    ); // ✅ Pass threshold
 
     // Handle service response
     if (!result.success) {

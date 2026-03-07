@@ -24,7 +24,7 @@ import { calcRiskMetrics } from "../backtest/backtest.utils.js";
  *
  * 3. Score Normalization:
  *    finalScore = weightedScore / Σ(|weight_i|)
- *    
+ *
  *    This ensures finalScore ∈ [-1, +1]:
  *    - Best case (all BUY):  finalScore = Σ(weight_i × 1) / Σ(weight_i) = 1
  *    - Worst case (all SELL): finalScore = Σ(weight_i × -1) / Σ(weight_i) = -1
@@ -62,7 +62,7 @@ import { calcRiskMetrics } from "../backtest/backtest.utils.js";
 export async function backtestWithWeights(
   data,
   weights = {},
-  { fastMode = false } = {}
+  { fastMode = false, threshold = 0 } = {} // ✅ NEW: Accept threshold parameter
 ) {
   if (!data?.length) throw new Error("Data historis kosong");
 
@@ -77,7 +77,7 @@ export async function backtestWithWeights(
     "StochasticRSI",
     "BollingerBands",
   ];
-  
+
   const missingIndicators = requiredIndicators.filter(
     (ind) => !weights.hasOwnProperty(ind)
   );
@@ -105,23 +105,25 @@ export async function backtestWithWeights(
   const invalidWeights = Object.entries(weights).filter(
     ([_, w]) => w < 0 || w > 4
   );
-  
+
   if (invalidWeights.length > 0) {
     throw new Error(
       `❌ INVALID WEIGHTS: Weights must be in range [0-4]. Invalid: ${invalidWeights.map(([k, v]) => `${k}=${v}`).join(", ")}`
     );
   }
 
-  console.log(`\n🎯 [DSS Backtest] Starting Rule-Based Decision Support System`);
+  console.log(
+    `\n🎯 [DSS Backtest] Starting Rule-Based Decision Support System`
+  );
   console.log(`📊 [DSS] Optimized Weights:`, weights);
   console.log(`📐 [DSS] Sum of Absolute Weights: ${sumAbsWeights}`);
-  console.log(`🎲 [DSS] Decision Boundary: 0 (zero threshold)`);
+  console.log(`🎲 [DSS] Decision Boundary: ${threshold} (custom threshold)`); // ✅ Show custom threshold
   console.log(`📏 [DSS] Expected Final Score Range: [-1, +1]\n`);
 
   const INITIAL_CAPITAL = 10_000;
 
-  // 🎯 DSS DECISION BOUNDARY (CONSTANT THRESHOLD)
-  const DECISION_THRESHOLD = 0; // Zero is the natural boundary
+  // 🎯 DSS DECISION BOUNDARY (CONFIGURABLE THRESHOLD)
+  const DECISION_THRESHOLD = threshold; // ✅ Use parameter instead of hardcoded 0
 
   let capital = INITIAL_CAPITAL;
   let position = null; // null | "BUY"
@@ -158,41 +160,39 @@ export async function backtestWithWeights(
     if (i < 3 || i % 2000 === 0) {
       console.log(
         `[Candle ${i}] weightedSum=${weightedSum.toFixed(3)}, ` +
-        `sumAbsWeights=${sumAbsWeights}, finalScore=${finalScore.toFixed(3)}`
+          `sumAbsWeights=${sumAbsWeights}, finalScore=${finalScore.toFixed(3)}`
       );
     }
 
-    // 4️⃣ RULE-BASED DECISION LOGIC (DSS)
+    // 4️⃣ RULE-BASED DECISION LOGIC WITH CUSTOM THRESHOLD
     //
-    // ✅ ENTRY RULE: finalScore crosses above 0
-    // → Bullish consensus reached (weighted majority signals BUY)
+    // ✅ ENTRY RULE: finalScore crosses above threshold
     if (finalScore > DECISION_THRESHOLD && !position) {
       position = "BUY";
       entry = price;
       console.log(
-        `🟢 [BUY] Candle ${i}: finalScore=${finalScore.toFixed(3)} > 0, ` +
-        `price=$${price.toFixed(2)}`
+        `🟢 [BUY] Candle ${i}: finalScore=${finalScore.toFixed(3)} > ${DECISION_THRESHOLD}, ` +
+          `price=$${price.toFixed(2)}`
       );
     }
-    
-    // ✅ EXIT RULE: finalScore crosses below 0
-    // → Bearish consensus reached (weighted majority signals SELL)
-    else if (finalScore < DECISION_THRESHOLD && position === "BUY") {
+
+    // ✅ EXIT RULE: finalScore crosses below -threshold (symmetric)
+    else if (finalScore < -DECISION_THRESHOLD && position === "BUY") {
       const pnl = price - entry;
       const pnlPercent = ((pnl / entry) * 100).toFixed(2);
-      
+
       if (pnl > 0) wins++;
       capital += (capital / entry) * pnl;
-      
+
       console.log(
-        `🔴 [SELL] Candle ${i}: finalScore=${finalScore.toFixed(3)} < 0, ` +
-        `price=$${price.toFixed(2)}, PnL=$${pnl.toFixed(2)} (${pnlPercent}%)`
+        `🔴 [SELL] Candle ${i}: finalScore=${finalScore.toFixed(3)} < ${-DECISION_THRESHOLD}, ` +
+          `price=$${price.toFixed(2)}, PnL=$${pnl.toFixed(2)} (${pnlPercent}%)`
       );
-      
+
       position = null;
       trades++;
     }
-    
+
     // ⏸️ HOLD: finalScore hasn't crossed threshold
     // → Maintain current position (or stay out of market)
 
@@ -204,14 +204,14 @@ export async function backtestWithWeights(
     const lastPrice = data[data.length - 1].close;
     const pnl = lastPrice - entry;
     const pnlPercent = ((pnl / entry) * 100).toFixed(2);
-    
+
     if (pnl > 0) wins++;
     capital += (capital / entry) * pnl;
     trades++;
-    
+
     console.log(
       `🔴 [FORCE CLOSE] End of data: price=$${lastPrice.toFixed(2)}, ` +
-      `PnL=$${pnl.toFixed(2)} (${pnlPercent}%)`
+        `PnL=$${pnl.toFixed(2)} (${pnlPercent}%)`
     );
   }
 
@@ -219,7 +219,8 @@ export async function backtestWithWeights(
   const roi = ((capital - INITIAL_CAPITAL) / INITIAL_CAPITAL) * 100;
   const winRate = trades > 0 ? (wins / trades) * 100 : 0;
   const maxDrawdown = calcMaxDrawdown(equityCurve);
-  const { sharpeRatio } = calcRiskMetrics(equityCurve);
+  const riskMetrics = calcRiskMetrics(equityCurve);
+  const sharpeRatio = riskMetrics?.sharpeRatio ?? 0; // ✅ FIXED: Handle null/undefined
 
   console.log(`\n✅ [DSS Backtest Complete]`);
   console.log(`   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
@@ -229,12 +230,24 @@ export async function backtestWithWeights(
   console.log(`   📉 Max Drawdown: ${maxDrawdown.toFixed(2)}%`);
   console.log(`   📊 Sharpe Ratio: ${sharpeRatio.toFixed(2)}`);
   console.log(`   🔢 Total Trades: ${trades}`);
+  console.log(`   🎲 Threshold Used: ±${threshold}`);
   console.log(`   📅 Data Points: ${data.length}`);
+
+  // ⚠️ Warning if no trades occurred
+  if (trades === 0) {
+    console.log(
+      `   ⚠️  WARNING: No trades executed with threshold ±${threshold}`
+    );
+    console.log(
+      `   💡 Try using a lower threshold (e.g., 0 or 0.2) for more trades`
+    );
+  }
+
   console.log(`   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
   return {
     success: true,
-    methodology: "Rule-Based Decision Support System (DSS) with Zero Threshold",
+    methodology: `Rule-Based DSS with Threshold ±${threshold}`,
     roi: +roi.toFixed(2),
     winRate: +winRate.toFixed(2),
     trades,
@@ -242,6 +255,7 @@ export async function backtestWithWeights(
     finalCapital: +capital.toFixed(2),
     maxDrawdown: +maxDrawdown.toFixed(2),
     sharpeRatio: +sharpeRatio.toFixed(2),
+    threshold, // ✅ Include threshold in result
     dataPoints: data.length,
     equityCurve, // For Sortino ratio calculation in comparison
   };

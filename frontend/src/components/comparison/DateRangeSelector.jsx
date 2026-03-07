@@ -6,6 +6,8 @@ export function DateRangeSelector({
   endDate,
   setStartDate,
   setEndDate,
+  threshold, // ✅ NEW: Threshold prop
+  setThreshold, // ✅ NEW: Setter for threshold
 }) {
   const { isDarkMode } = useDarkMode();
   const { selectedSymbol } = useSymbol();
@@ -33,7 +35,7 @@ export function DateRangeSelector({
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mb-3 md:mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4 mb-3 md:mb-4">
         <div>
           <label
             className={`block text-xs md:text-sm font-medium mb-1.5 md:mb-2 ${
@@ -94,6 +96,33 @@ export function DateRangeSelector({
                 : "border-gray-300 [color-scheme:light]"
             }`}
           />
+        </div>
+
+        {/* ✅ NEW: Threshold Selector */}
+        <div>
+          <label
+            className={`block text-xs md:text-sm font-medium mb-1.5 md:mb-2 ${
+              isDarkMode ? "text-gray-300" : "text-gray-700"
+            }`}
+          >
+            Entry Threshold
+          </label>
+          <select
+            value={threshold}
+            onChange={(e) => setThreshold(parseFloat(e.target.value))}
+            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+              isDarkMode
+                ? "bg-gray-700 border-gray-600 text-white"
+                : "bg-white border-gray-300"
+            }`}
+          >
+            <option value="0">0 (Sensitive)</option>
+            <option value="0.4">0.4 (Moderate)</option>
+            <option value="0.6">0.6 (Conservative)</option>
+          </select>
+          <p className="text-xs mt-1 text-gray-500">
+            Entry when score &gt; threshold
+          </p>
         </div>
       </div>
 
