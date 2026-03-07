@@ -68,7 +68,7 @@ export async function getMarketcapLiveController(req, res) {
  * FILTERING LOGIC:
  * - Hanya menampilkan coin dengan listingDate < 1 Januari 2025
  * - listingDate = earliest candle date dari Coinbase (bukan CMC launch date)
- * - Coin tanpa listingDate (null) juga ditampilkan (akan di-set setelah historical sync)
+ * - Coin tanpa listingDate (null) tidak ditampilkan
  * - Filter hanya pair valid dengan format BASE-QUOTE (mengandung "-")
  */
 export async function getCoinSymbols(req, res) {
@@ -77,15 +77,15 @@ export async function getCoinSymbols(req, res) {
     const cutoffDate = new Date("2025-01-01T00:00:00.000Z");
 
     // Ambil Top 20 dari TopCoin dengan JOIN ke Coin
-    // Filter: listing date < 2025-01-01 ATAU listingDate null (belum sync)
+    // Filter: listing date < 2025-01-01 (hanya coin dengan data historis valid)
     const topCoins = await prisma.topCoin.findMany({
       where: {
         coin: {
           symbol: { contains: "-" }, // Hanya pair valid seperti BTC-USD, ETH-USD
-          OR: [
-            { listingDate: { lt: cutoffDate } }, // Coin dengan data historis sebelum cutoff
-            { listingDate: null }, // Coin baru tanpa listingDate (akan di-set setelah sync)
-          ],
+          listingDate: {
+            not: null, // Harus ada listingDate
+            lt: cutoffDate, // Dan harus sebelum cutoff date
+          },
         },
       },
       include: {

@@ -107,10 +107,10 @@ export async function getMarketcapLive() {
       where: {
         coin: {
           symbol: { contains: "-" }, // Hanya pair valid
-          OR: [
-            { listingDate: { lt: cutoffDate } }, // Coins with historical data before cutoff
-            { listingDate: null }, // New coins without listingDate yet (will be set after sync)
-          ],
+          listingDate: {
+            not: null, // Harus ada listingDate
+            lt: cutoffDate, // Dan harus sebelum cutoff date
+          },
         },
       },
       include: {

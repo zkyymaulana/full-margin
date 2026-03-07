@@ -117,6 +117,7 @@ export function DateRangeSelector({
             }`}
           >
             <option value="0">0 (Sensitive)</option>
+            <option value="0.2">0.2 (Moderate)</option>
             <option value="0.4">0.4 (Moderate)</option>
             <option value="0.6">0.6 (Conservative)</option>
           </select>
