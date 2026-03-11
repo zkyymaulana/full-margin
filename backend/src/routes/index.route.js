@@ -10,6 +10,7 @@ import comparisonRoute from "./comparison.route.js";
 import schedulerRoute from "./scheduler.route.js";
 import userRoute from "./user.route.js";
 import telegramRoute from "./telegram.route.js";
+import watchlistRoute from "./watchlist.route.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
@@ -22,6 +23,9 @@ router.use("/marketcap", authMiddleware, marketcapRoute);
 
 // User profile (protected)
 router.use("/user", authMiddleware, userRoute);
+
+// Watchlist (protected)
+router.use("/watchlist", authMiddleware, watchlistRoute);
 
 // Analysis & Visualization
 router.use("/chart", authMiddleware, chartRoute);

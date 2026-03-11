@@ -409,4 +409,26 @@ export const cancelOptimization = async (symbol) => {
   return data;
 };
 
+// =====================================================
+// ⭐ WATCHLIST API METHODS
+// =====================================================
+
+// Get current user's watchlist
+export const getWatchlist = async () => {
+  const { data } = await apiClient.get("/watchlist");
+  return data;
+};
+
+// Add a coin to the watchlist
+export const addToWatchlist = async (coinId) => {
+  const { data } = await apiClient.post("/watchlist", { coinId });
+  return data;
+};
+
+// Remove a coin from the watchlist
+export const removeFromWatchlist = async (coinId) => {
+  const { data } = await apiClient.delete(`/watchlist/${coinId}`);
+  return data;
+};
+
 export default apiClient;

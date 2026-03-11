@@ -22,11 +22,6 @@ model Coin {
   name      String?
   rank      Int?
   logo      String?
-  /// Represents the EARLIEST CANDLE DATE available in Coinbase for this coin
-  /// This is NOT the Coinbase listing date (not available via API)
-  /// This is NOT the crypto launch date from CoinMarketCap
-  /// Value is automatically set after historical data sync based on first available candle
-  /// Null = coin hasn't been synced yet with historical data
   listingDate DateTime?
   createdAt DateTime @default(now())
 
@@ -34,6 +29,7 @@ model Coin {
   indicators       Indicator[]
   indicatorWeights IndicatorWeight[]
   topCoins         TopCoin[]
+  watchlist UserWatchlist[]
 }
 
 model Candle {
@@ -155,6 +151,21 @@ model User {
   telegramEnabled Boolean  @default(false)
 
   authLogs AuthLog[]
+  watchlist UserWatchlist[]
+}
+
+model UserWatchlist {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  coinId    Int
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coin Coin @relation(fields: [coinId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, coinId])
+  @@index([userId])
+  @@index([coinId])
 }
 
 model AuthLog {

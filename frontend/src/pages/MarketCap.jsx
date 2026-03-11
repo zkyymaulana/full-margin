@@ -1,4 +1,5 @@
 import { useMarketCapLive } from "../hooks/useMarketcap";
+import { useWatchlist } from "../hooks/useWatchlist";
 import { useState } from "react";
 import { useDarkMode } from "../contexts/DarkModeContext";
 import { useSymbol } from "../contexts/SymbolContext";
@@ -8,12 +9,39 @@ import {
   FiDollarSign,
   FiBarChart2,
   FiTarget,
-  FiRefreshCw,
   FiSearch,
   FiTrendingUp,
   FiTrendingDown,
+  FiStar,
 } from "react-icons/fi";
+import { AiFillStar } from "react-icons/ai";
 import { SiBitcoin } from "react-icons/si";
+
+// ── Star toggle button ────────────────────────────────────────────────────────
+function WatchlistStar({ coinId, isWatched, onToggle, isDarkMode }) {
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle(coinId);
+      }}
+      title={isWatched ? "Remove from watchlist" : "Add to watchlist"}
+      className={`p-1 transition-all duration-150 hover:scale-125 focus:outline-none ${
+        isDarkMode ? "hover:text-yellow-400" : "hover:text-yellow-500"
+      }`}
+    >
+      {isWatched ? (
+        <AiFillStar className="text-yellow-400 text-xl" />
+      ) : (
+        <FiStar
+          className={`text-xl ${
+            isDarkMode ? "text-gray-500" : "text-gray-400"
+          }`}
+        />
+      )}
+    </button>
+  );
+}
 
 function MarketCapPage() {
   const [filter, setFilter] = useState("all");
@@ -24,6 +52,8 @@ function MarketCapPage() {
   const { isDarkMode } = useDarkMode();
   const { setSelectedSymbol } = useSymbol();
   const navigate = useNavigate();
+
+  const { isWatched, toggleWatchlist } = useWatchlist();
 
   const handleCoinClick = (symbol) => {
     console.log("🎯 Coin selected:", symbol);
@@ -326,18 +356,21 @@ function MarketCapPage() {
             <div className="divide-y divide-gray-300">
               {displayedCoins.map((coin) => {
                 const isPositive = coin.change24h >= 0;
-                const chartData = (coin.history || []).map((price, index) => ({
-                  index,
-                  price,
-                }));
+                const watched = isWatched(coin.coinId);
 
                 return (
                   <div
                     key={coin.symbol}
                     onClick={() => handleCoinClick(coin.symbol)}
-                    className={`p-4 ${
-                      isDarkMode ? "hover:bg-gray-700" : "hover:bg-blue-50"
-                    } transition-colors cursor-pointer`}
+                    className={`p-4 transition-colors cursor-pointer ${
+                      watched
+                        ? isDarkMode
+                          ? "bg-yellow-900/10 hover:bg-yellow-900/20"
+                          : "bg-yellow-50 hover:bg-yellow-100"
+                        : isDarkMode
+                        ? "hover:bg-gray-700"
+                        : "hover:bg-blue-50"
+                    }`}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3">
@@ -383,21 +416,29 @@ function MarketCapPage() {
                           </div>
                         </div>
                       </div>
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold ${
-                          isPositive
-                            ? isDarkMode
-                              ? "bg-green-900 text-green-300"
-                              : "bg-green-100 text-green-700"
-                            : isDarkMode
-                            ? "bg-red-900 text-red-300"
-                            : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {isPositive ? <FiTrendingUp /> : <FiTrendingDown />}
-                        {isPositive ? "+" : ""}
-                        {coin.change24h.toFixed(2)}%
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <WatchlistStar
+                          coinId={coin.coinId}
+                          isWatched={watched}
+                          onToggle={toggleWatchlist}
+                          isDarkMode={isDarkMode}
+                        />
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold ${
+                            isPositive
+                              ? isDarkMode
+                                ? "bg-green-900 text-green-300"
+                                : "bg-green-100 text-green-700"
+                              : isDarkMode
+                              ? "bg-red-900 text-red-300"
+                              : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {isPositive ? <FiTrendingUp /> : <FiTrendingDown />}
+                          {isPositive ? "+" : ""}
+                          {coin.change24h.toFixed(2)}%
+                        </span>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 mb-3">
@@ -460,6 +501,14 @@ function MarketCapPage() {
                   Rank
                 </th>
                 <th
+                  className={`text-center py-3 px-2 text-sm font-semibold ${
+                    isDarkMode ? "text-gray-300" : "text-gray-700"
+                  }`}
+                  title="Watchlist"
+                >
+                  Watchlist
+                </th>
+                <th
                   className={`text-left py-3 px-4 text-sm font-semibold ${
                     isDarkMode ? "text-gray-300" : "text-gray-700"
                   }`}
@@ -514,7 +563,7 @@ function MarketCapPage() {
               {displayedCoins.length === 0 ? (
                 <tr>
                   <td
-                    colSpan="8"
+                    colSpan="9"
                     className={`py-12 text-center ${
                       isDarkMode ? "text-gray-400" : "text-gray-500"
                     }`}
@@ -528,34 +577,45 @@ function MarketCapPage() {
               ) : (
                 displayedCoins.map((coin) => {
                   const isPositive = coin.change24h >= 0;
+                  const watched = isWatched(coin.coinId);
                   const chartData = (coin.history || []).map(
-                    (price, index) => ({
-                      index,
-                      price,
-                    })
+                    (price, index) => ({ index, price })
                   );
 
                   return (
                     <tr
                       key={coin.symbol}
-                      className={`border-b transition-colors group ${
-                        isDarkMode
+                      className={`border-b transition-colors group cursor-pointer ${
+                        watched
+                          ? isDarkMode
+                            ? "border-gray-700 bg-yellow-900/10 hover:bg-yellow-900/20"
+                            : "border-gray-100 bg-yellow-50 hover:bg-yellow-100"
+                          : isDarkMode
                           ? "border-gray-700 hover:bg-gray-700"
                           : "border-gray-100 hover:bg-blue-50"
                       }`}
                       onClick={() => handleCoinClick(coin.symbol)}
                     >
                       <td className="py-4 px-4">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`text-sm font-bold ${
-                              isDarkMode ? "text-gray-400" : "text-gray-500"
-                            }`}
-                          >
-                            #{filteredCoins.indexOf(coin) + 1}
-                          </span>
-                        </div>
+                        <span
+                          className={`text-sm font-bold ${
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          }`}
+                        >
+                          #{filteredCoins.indexOf(coin) + 1}
+                        </span>
                       </td>
+
+                      {/* ⭐ Watchlist star column */}
+                      <td className="py-4 px-2 text-center">
+                        <WatchlistStar
+                          coinId={coin.coinId}
+                          isWatched={watched}
+                          onToggle={toggleWatchlist}
+                          isDarkMode={isDarkMode}
+                        />
+                      </td>
+
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-3">
                           {coin.logo ? (
@@ -617,23 +677,21 @@ function MarketCapPage() {
                         </div>
                       </td>
                       <td className="py-4 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <span
-                            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-bold ${
-                              isPositive
-                                ? isDarkMode
-                                  ? "bg-green-900 text-green-300"
-                                  : "bg-green-100 text-green-700"
-                                : isDarkMode
-                                ? "bg-red-900 text-red-300"
-                                : "bg-red-100 text-red-700"
-                            }`}
-                          >
-                            {isPositive ? <FiTrendingUp /> : <FiTrendingDown />}
-                            {isPositive ? "+" : ""}
-                            {coin.change24h.toFixed(2)}%
-                          </span>
-                        </div>
+                        <span
+                          className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-bold ${
+                            isPositive
+                              ? isDarkMode
+                                ? "bg-green-900 text-green-300"
+                                : "bg-green-100 text-green-700"
+                              : isDarkMode
+                              ? "bg-red-900 text-red-300"
+                              : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {isPositive ? <FiTrendingUp /> : <FiTrendingDown />}
+                          {isPositive ? "+" : ""}
+                          {coin.change24h.toFixed(2)}%
+                        </span>
                       </td>
                       <td className="py-4 px-4 text-right">
                         <div
@@ -787,7 +845,7 @@ function MarketCapPage() {
                 isDarkMode
                   ? "bg-blue-600 hover:bg-blue-700 text-white"
                   : "bg-blue-400 hover:bg-blue-500 text-white"
-              } shadow-lg hover:shadow-xl transform hover:scale-105`}
+              } shadow-lg `}
             >
               <FiTrendingDown className="text-base md:text-lg" />
               Load More Coins

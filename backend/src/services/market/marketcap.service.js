@@ -240,6 +240,7 @@ export async function getMarketcapLive() {
         rank: coinSummary.rank,
         name: coinSummary.name,
         symbol: coinSummary.symbol,
+        coinId: coinSummary.coinId,
         logo: coinData?.logo || null,
         price: formatPrice(rawPrice),
         volume: Number(rawVolume.toFixed(2)),

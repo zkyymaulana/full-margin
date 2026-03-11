@@ -1,5 +1,6 @@
 import axios from "axios";
 import { prisma } from "../../lib/prisma.js";
+import { getWatchersForCoin } from "../watchlist/watchlist.service.js";
 
 /**
  * 📱 TELEGRAM NOTIFICATION SERVICE (MULTI-INDICATOR ONLY)
@@ -608,6 +609,103 @@ ${signalEmoji} *${signalText} SIGNAL* ${signalEmoji}
   }
 
   return await broadcastTelegram(message.trim());
+}
+
+/**
+ * 🔔 Send a trading signal to users who have a specific coin in their watchlist
+ * Called after a signal is generated for a coin.
+ */
+export async function sendSignalToWatchers({
+  coinId,
+  symbol,
+  signal,
+  price,
+  strength = 0,
+  finalScore = 0,
+  signalLabel = null,
+  categoryScores = { trend: 0, momentum: 0, volatility: 0 },
+  performance = {
+    roi: 0,
+    winRate: 0,
+    maxDrawdown: 0,
+    sharpeRatio: 0,
+    trades: 0,
+  },
+  timeframe = "1h",
+}) {
+  try {
+    const watchers = await getWatchersForCoin(coinId);
+
+    if (!watchers.length) {
+      console.log(`📭 No watchers for coin ${symbol} (id: ${coinId})`);
+      return { success: true, sent: 0, total: 0 };
+    }
+
+    const eligibleWatchers = watchers.filter(
+      (w) => w.user.telegramEnabled && w.user.telegramChatId
+    );
+
+    if (!eligibleWatchers.length) {
+      console.log(`📭 No Telegram-enabled watchers for coin ${symbol}`);
+      return { success: true, sent: 0, total: watchers.length };
+    }
+
+    let displayLabel = signalLabel;
+    if (!displayLabel) {
+      if (signal === "buy")
+        displayLabel = strength >= 0.6 ? "Strong Buy" : "Buy";
+      else if (signal === "sell")
+        displayLabel = strength >= 0.6 ? "Strong Sell" : "Sell";
+      else displayLabel = "Neutral";
+    }
+
+    const message = formatTelegramSignalMessage({
+      symbol,
+      signal,
+      signalLabel: displayLabel,
+      price,
+      finalScore,
+      strength,
+      categoryScores,
+      timeframe,
+      performance,
+    });
+
+    const results = { sent: 0, failed: 0, errors: [] };
+
+    for (const watcher of eligibleWatchers) {
+      const result = await sendTelegramMessage(
+        message.trim(),
+        watcher.user.telegramChatId
+      );
+      if (result.success) {
+        results.sent++;
+      } else {
+        results.failed++;
+        results.errors.push({
+          userId: watcher.user.id,
+          email: watcher.user.email,
+          reason: result.reason,
+        });
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    console.log(
+      `✅ Watchlist signal sent for ${symbol}: ${results.sent}/${eligibleWatchers.length} watchers notified`
+    );
+
+    return {
+      success: true,
+      sent: results.sent,
+      failed: results.failed,
+      total: watchers.length,
+      eligible: eligibleWatchers.length,
+    };
+  } catch (error) {
+    console.error("❌ Error sending signal to watchers:", error.message);
+    return { success: false, reason: "error", error: error.message };
+  }
 }
 
 // Export sendTelegramMessage for backward compatibility

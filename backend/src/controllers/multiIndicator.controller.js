@@ -1061,118 +1061,112 @@ export async function optimizeAllCoinsController(req, res) {
     const timeframe = (req.query.timeframe || "1h").toLowerCase();
 
     console.log(`\n🚀 Starting mass optimization for 20 top coins...`);
-    console.log(
-      `   Training window: DYNAMIC (based on data availability per coin)\n`
-    );
 
-    // Konstanta untuk training window
     const FIXED_START = BigInt(FIXED_START_EPOCH);
     const FIXED_END = BigInt(FIXED_END_EPOCH);
 
-    // Ambil 20 coin teratas
+    // ✅ Ambil 20 coin teratas beserta id-nya
     const coins = await prisma.coin.findMany({
       orderBy: { rank: "asc" },
       take: 20,
-      select: { symbol: true },
+      select: { id: true, symbol: true },
     });
 
     if (!coins.length) {
-      return res.status(404).json({
-        success: false,
-        message: "Tidak ada data coin di tabel Coin.",
-      });
+      return res
+        .status(404)
+        .json({
+          success: false,
+          message: "Tidak ada data coin di tabel Coin.",
+        });
     }
 
+    // ✅ Ambil timeframeId sekali saja
+    const timeframeRecord = await prisma.timeframe.findUnique({
+      where: { timeframe },
+      select: { id: true },
+    });
+
+    if (!timeframeRecord) {
+      return res
+        .status(404)
+        .json({ success: false, message: `Timeframe ${timeframe} not found` });
+    }
+
+    const timeframeId = timeframeRecord.id;
     const results = [];
     let successCount = 0;
     let skippedCount = 0;
     let failedCount = 0;
 
-    // Proses setiap coin secara sequential
-    for (const [index, coin] of coins.entries()) {
-      const symbol = coin.symbol.toUpperCase();
+    for (const [index, coinRow] of coins.entries()) {
+      const symbol = coinRow.symbol.toUpperCase();
+      const coinId = coinRow.id;
       const progress = `[${index + 1}/${coins.length}]`;
 
       try {
         console.log(`${progress} 📊 Optimizing ${symbol}...`);
 
-        // Ambil candle tertua dan terbaru untuk symbol ini
+        // ✅ Gunakan coinId + timeframeId
         const [earliestCandle, latestCandle] = await Promise.all([
           prisma.candle.findFirst({
-            where: { symbol, timeframe },
+            where: { coinId, timeframeId },
             orderBy: { time: "asc" },
             select: { time: true },
           }),
           prisma.candle.findFirst({
-            where: { symbol, timeframe },
+            where: { coinId, timeframeId },
             orderBy: { time: "desc" },
             select: { time: true },
           }),
         ]);
 
-        // Validasi data candle
         if (!earliestCandle || !latestCandle) {
           console.warn(`${progress} ⚠️ No candle data for ${symbol}`);
-          results.push({
-            symbol,
-            success: false,
-            message: "No candle data",
-          });
+          results.push({ symbol, success: false, message: "No candle data" });
           failedCount++;
           continue;
         }
 
-        // Tentukan training window secara dinamis
         let realStartEpoch, realEndEpoch;
-
         if (earliestCandle.time < FIXED_END) {
-          // Data dimulai sebelum 2025-11-01 → gunakan window skripsi
           realStartEpoch = FIXED_START;
           realEndEpoch = FIXED_END;
         } else {
-          // Data dimulai setelah 2025-01-01 → gunakan semua data tersedia
           realStartEpoch = earliestCandle.time;
           realEndEpoch = latestCandle.time;
         }
 
         console.log(
-          `${progress} Training window used: ${new Date(Number(realStartEpoch)).toISOString()} → ${new Date(Number(realEndEpoch)).toISOString()}`
+          `${progress} Training window: ${new Date(Number(realStartEpoch)).toISOString()} → ${new Date(Number(realEndEpoch)).toISOString()}`
         );
 
-        // Fetch data dengan dynamic window
+        // ✅ Fetch data dengan coinId + timeframeId
         const [indicators, candles] = await Promise.all([
           prisma.indicator.findMany({
             where: {
-              symbol,
-              timeframe,
-              time: {
-                gte: realStartEpoch,
-                lt: realEndEpoch,
-              },
+              coinId,
+              timeframeId,
+              time: { gte: realStartEpoch, lt: realEndEpoch },
             },
             orderBy: { time: "asc" },
           }),
           prisma.candle.findMany({
             where: {
-              symbol,
-              timeframe,
-              time: {
-                gte: realStartEpoch,
-                lt: realEndEpoch,
-              },
+              coinId,
+              timeframeId,
+              time: { gte: realStartEpoch, lt: realEndEpoch },
             },
             orderBy: { time: "asc" },
             select: { time: true, close: true },
           }),
         ]);
 
-        // Gabungkan indikator + harga
         const map = new Map(candles.map((c) => [c.time.toString(), c.close]));
         const data = indicators
           .filter((i) => map.has(i.time.toString()))
           .map((i) => ({ ...i, close: map.get(i.time.toString()) }));
 
-        // Validasi data gabungan
         if (!data.length || data.length < 100) {
           console.warn(
             `${progress} ⚠️ Insufficient data for ${symbol} (${data.length}/100 minimum)`
@@ -1186,18 +1180,17 @@ export async function optimizeAllCoinsController(req, res) {
           continue;
         }
 
-        // CEK apakah sudah ada optimasi sebelumnya dengan range yang sama - ✅ Use latest
+        // ✅ Cek existing weight dengan coinId + timeframeId
         const existingWeight = await prisma.indicatorWeight.findFirst({
           where: {
-            symbol,
-            timeframe,
+            coinId,
+            timeframeId,
             startTrain: realStartEpoch,
             endTrain: realEndEpoch,
           },
-          orderBy: { updatedAt: "desc" }, // ✅ Always use the latest optimization
+          orderBy: { updatedAt: "desc" },
         });
 
-        // Format tanggal untuk response
         const formatDate = (t) =>
           new Intl.DateTimeFormat("id-ID", {
             dateStyle: "long",
@@ -1205,7 +1198,6 @@ export async function optimizeAllCoinsController(req, res) {
             timeZone: "Asia/Jakarta",
           }).format(new Date(Number(t)));
 
-        // Jika sudah ada, skip optimasi
         if (existingWeight) {
           console.log(
             `${progress} ⏭️ ${symbol} already optimized, skipping...`
@@ -1213,7 +1205,6 @@ export async function optimizeAllCoinsController(req, res) {
           console.log(
             `   ROI: ${existingWeight.roi.toFixed(2)}% | WinRate: ${existingWeight.winRate.toFixed(2)}% | MDD: ${existingWeight.maxDrawdown.toFixed(2)}%`
           );
-
           results.push({
             symbol,
             success: true,
@@ -1239,20 +1230,36 @@ export async function optimizeAllCoinsController(req, res) {
             weights: existingWeight.weights,
             lastOptimized: existingWeight.updatedAt,
           });
-
           skippedCount++;
           continue;
         }
 
-        // Jalankan optimasi HANYA jika belum ada
         console.log(`${progress} 🔍 Starting optimization for ${symbol}...`);
         const result = await optimizeIndicatorWeights(data, symbol);
 
-        // Simpan ke database dengan dynamic epochs
-        await prisma.indicatorWeight.create({
-          data: {
-            symbol,
-            timeframe,
+        // ✅ Simpan dengan coinId + timeframeId
+        await prisma.indicatorWeight.upsert({
+          where: {
+            coinId_timeframeId_startTrain_endTrain: {
+              coinId,
+              timeframeId,
+              startTrain: realStartEpoch,
+              endTrain: realEndEpoch,
+            },
+          },
+          update: {
+            weights: result.bestWeights,
+            roi: result.performance.roi,
+            winRate: result.performance.winRate,
+            maxDrawdown: result.performance.maxDrawdown,
+            sharpeRatio: result.performance.sharpeRatio,
+            trades: result.performance.trades,
+            finalCapital: result.performance.finalCapital,
+            candleCount: data.length,
+          },
+          create: {
+            coinId,
+            timeframeId,
             startTrain: realStartEpoch,
             endTrain: realEndEpoch,
             weights: result.bestWeights,
@@ -1266,7 +1273,6 @@ export async function optimizeAllCoinsController(req, res) {
           },
         });
 
-        // Tambahkan ke hasil
         results.push({
           symbol,
           success: true,
@@ -1295,24 +1301,19 @@ export async function optimizeAllCoinsController(req, res) {
 
         successCount++;
         console.log(
-          `${progress} ✅ ${symbol} created → ROI: ${result.performance.roi.toFixed(2)}% | WinRate: ${result.performance.winRate.toFixed(2)}% | MDD: ${result.performance.maxDrawdown.toFixed(2)}%`
+          `${progress} ✅ ${symbol} → ROI: ${result.performance.roi.toFixed(2)}% | WinRate: ${result.performance.winRate.toFixed(2)}% | MDD: ${result.performance.maxDrawdown.toFixed(2)}%`
         );
       } catch (err) {
         console.error(
           `${progress} ❌ Error optimizing ${symbol}:`,
           err.message
         );
-        results.push({
-          symbol,
-          success: false,
-          message: err.message,
-        });
+        results.push({ symbol, success: false, message: err.message });
         failedCount++;
       }
     }
 
     const summaryMessage = `Optimasi selesai (${successCount} berhasil / ${skippedCount} di-skip / ${failedCount} gagal)`;
-
     console.log(`\n✅ ${summaryMessage}`);
 
     res.json({
@@ -1326,11 +1327,13 @@ export async function optimizeAllCoinsController(req, res) {
     });
   } catch (err) {
     console.error("❌ Error optimizeAllCoins:", err.message);
-    res.status(500).json({
-      success: false,
-      message: err.message,
-      stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
-    });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: err.message,
+        stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
+      });
   }
 }
 
@@ -1344,11 +1347,29 @@ export async function backtestWithOptimizedWeightsController(req, res) {
       `\n📊 Starting optimized-weight backtest for ${symbol} (${timeframe})`
     );
 
-    // Find weight dengan FIXED window
+    // ✅ Lookup coinId + timeframeId
+    const [coin, timeframeRecord] = await Promise.all([
+      prisma.coin.findUnique({ where: { symbol }, select: { id: true } }),
+      prisma.timeframe.findUnique({
+        where: { timeframe },
+        select: { id: true },
+      }),
+    ]);
+
+    if (!coin)
+      return res
+        .status(404)
+        .json({ success: false, message: `Coin ${symbol} not found` });
+    if (!timeframeRecord)
+      return res
+        .status(404)
+        .json({ success: false, message: `Timeframe ${timeframe} not found` });
+
+    // ✅ Find weight dengan coinId + timeframeId
     const latest = await prisma.indicatorWeight.findFirst({
       where: {
-        symbol,
-        timeframe,
+        coinId: coin.id,
+        timeframeId: timeframeRecord.id,
         startTrain: BigInt(FIXED_START_EPOCH),
         endTrain: BigInt(FIXED_END_EPOCH),
       },
@@ -1356,26 +1377,29 @@ export async function backtestWithOptimizedWeightsController(req, res) {
     });
 
     if (!latest)
-      return res.status(404).json({
-        success: false,
-        message: "No optimized weights found. Please run optimization first.",
-      });
+      return res
+        .status(404)
+        .json({
+          success: false,
+          message: "No optimized weights found. Please run optimization first.",
+        });
 
     const startQuery = Date.now();
 
+    // ✅ Fetch data dengan coinId + timeframeId
     const [indicators, candles] = await Promise.all([
       prisma.indicator.findMany({
         where: {
-          symbol,
-          timeframe,
+          coinId: coin.id,
+          timeframeId: timeframeRecord.id,
           time: { gte: BigInt(FIXED_START_EPOCH), lt: BigInt(FIXED_END_EPOCH) },
         },
         orderBy: { time: "asc" },
       }),
       prisma.candle.findMany({
         where: {
-          symbol,
-          timeframe,
+          coinId: coin.id,
+          timeframeId: timeframeRecord.id,
           time: { gte: BigInt(FIXED_START_EPOCH), lt: BigInt(FIXED_END_EPOCH) },
         },
         orderBy: { time: "asc" },
@@ -1389,12 +1413,10 @@ export async function backtestWithOptimizedWeightsController(req, res) {
       .map((i) => ({ ...i, close: map.get(i.time.toString()) }));
 
     if (!data.length)
-      return res.status(400).json({
-        success: false,
-        message: "Data tidak ditemukan",
-      });
+      return res
+        .status(400)
+        .json({ success: false, message: "Data tidak ditemukan" });
 
-    // Format tanggal
     const formatDate = (t) =>
       new Intl.DateTimeFormat("id-ID", {
         dateStyle: "long",
@@ -1406,7 +1428,6 @@ export async function backtestWithOptimizedWeightsController(req, res) {
       start: formatDate(data[0]?.time),
       end: formatDate(data[data.length - 1]?.time),
     };
-
     const dataset = {
       candleStart: formatDate(candles[0]?.time),
       indicatorStart: formatDate(indicators[0]?.time),
@@ -1448,10 +1469,12 @@ export async function backtestWithOptimizedWeightsController(req, res) {
     });
   } catch (err) {
     console.error("❌ Error in optimized-weight backtest:", err.message);
-    res.status(500).json({
-      success: false,
-      message: err.message,
-      stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
-    });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: err.message,
+        stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
+      });
   }
 }
