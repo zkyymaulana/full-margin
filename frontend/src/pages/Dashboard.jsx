@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSymbol } from "../contexts/SymbolContext";
 import { useDarkMode } from "../contexts/DarkModeContext";
@@ -19,13 +19,12 @@ function DashboardPage() {
   const [timeframe, setTimeframe] = useState("1h");
   const [activeIndicators, setActiveIndicators] = useState([]);
   const [allCandlesData, setAllCandlesData] = useState([]);
+  const [hoveredCandle, setHoveredCandle] = useState(null);
 
   // Chart refs
   const chartRef = useRef(null);
   const seriesRef = useRef(null);
   const oscillatorChartsRef = useRef({});
-
-  // 🆕 Track sync cleanup function
   const syncCleanupRef = useRef(null);
 
   // Custom hooks
@@ -125,109 +124,100 @@ function DashboardPage() {
     }
   }, [allCandlesData, candlesData?.data?.length]);
 
-  // 🎯 CENTRALIZED CHART SYNC SETUP (FIXED VERSION - BIDIRECTIONAL)
-  // Setup sync AFTER all charts are ready and re-setup when indicators change
-  useEffect(() => {
-    // ✅ CLEANUP OLD SYNC FIRST
+  // 🎯 Fungsi untuk (re)setup semua sync — dipanggil kapanpun chart berubah
+  const setupAllSync = useCallback(() => {
+    // Cleanup sync lama dulu
     if (syncCleanupRef.current) {
-      console.log("[ChartSync] Cleaning up previous sync setup");
       syncCleanupRef.current();
       syncCleanupRef.current = null;
     }
 
-    // Wait for all charts to be ready
-    const setupTimeout = setTimeout(() => {
-      const allCharts = [
-        chartRef.current,
-        ...Object.values(oscillatorChartsRef.current),
-      ].filter(Boolean);
+    const allCharts = [
+      chartRef.current,
+      ...Object.values(oscillatorChartsRef.current),
+    ].filter(Boolean);
 
-      if (allCharts.length <= 1) {
-        console.log(
-          "[ChartSync] Only main chart available, skipping sync setup"
-        );
-        return;
+    if (allCharts.length < 2) return; // butuh minimal main + 1 oscillator
+
+    console.log(`[ChartSync] Setup sync for ${allCharts.length} charts`);
+
+    const cleanupFunctions = [];
+    allCharts.forEach((chart, index) => {
+      const chartName =
+        index === 0
+          ? "main"
+          : Object.keys(oscillatorChartsRef.current)[index - 1] ||
+            `chart-${index}`;
+      const cleanup = chartSync.setupChartSync(chart, allCharts, chartName);
+      if (cleanup) cleanupFunctions.push(cleanup);
+    });
+
+    syncCleanupRef.current = () => {
+      cleanupFunctions.forEach((fn) => {
+        if (fn) fn();
+      });
+    };
+
+    console.log("[ChartSync] ✅ Sync setup complete!");
+  }, [chartSync]);
+
+  // 🎯 Callback dari OscillatorCharts — dipanggil tepat saat chart baru siap
+  const handleChartReady = useCallback(
+    (chartKey, chart) => {
+      console.log(`[ChartSync] Chart ready: ${chartKey}`);
+
+      // 1️⃣ Langsung apply logical range main chart ke chart baru
+      if (chartRef.current) {
+        try {
+          const logicalRange = chartRef.current
+            .timeScale()
+            .getVisibleLogicalRange();
+          if (logicalRange) {
+            chart.timeScale().setVisibleLogicalRange(logicalRange);
+          }
+        } catch (e) {
+          /* ignore */
+        }
       }
 
-      console.log(
-        `[ChartSync] Setting up BIDIRECTIONAL sync for ${
-          allCharts.length
-        } charts (${Object.keys(oscillatorChartsRef.current).join(", ")})`
-      );
+      // 2️⃣ Re-setup semua sync agar chart baru masuk ke jaringan sync
+      setupAllSync();
+    },
+    [setupAllSync]
+  );
 
-      // 🆕 Setup sync for ALL charts (bidirectional)
-      const cleanupFunctions = [];
+  // 🎯 CENTRALIZED CHART SYNC SETUP — hanya re-run saat activeIndicators berubah
+  useEffect(() => {
+    // Saat indikator di-toggle OFF (chart dihapus), re-setup sync
+    // Saat indikator di-toggle ON, handleChartReady yang akan setup
+    const oscillatorIds = ["rsi", "stochastic", "stochasticRsi", "macd"];
+    const hasActiveOscillators = activeIndicators.some((id) =>
+      oscillatorIds.includes(id)
+    );
 
-      allCharts.forEach((chart, index) => {
-        if (chart) {
-          const chartName =
-            index === 0
-              ? "main"
-              : Object.keys(oscillatorChartsRef.current)[index - 1] ||
-                `chart-${index}`;
-          const cleanup = chartSync.setupChartSync(chart, allCharts, chartName);
-          if (cleanup) {
-            cleanupFunctions.push(cleanup);
-          }
-        }
-      });
+    if (!hasActiveOscillators) {
+      // Semua oscillator off — cleanup sync
+      if (syncCleanupRef.current) {
+        syncCleanupRef.current();
+        syncCleanupRef.current = null;
+      }
+      return;
+    }
 
-      // ✅ Store all cleanup functions
-      syncCleanupRef.current = () => {
-        console.log(
-          `[ChartSync] Cleaning up all ${cleanupFunctions.length} chart sync setups`
-        );
-        cleanupFunctions.forEach((cleanup) => {
-          if (cleanup) cleanup();
-        });
-      };
+    // Ada oscillator aktif — re-setup dengan delay kecil untuk handle chart removal
+    const t = setTimeout(() => setupAllSync(), 50);
+    return () => clearTimeout(t);
+  }, [activeIndicators, setupAllSync]);
 
-      console.log("[ChartSync] ✅ Bidirectional sync setup complete!");
-    }, 250); // Increased delay to ensure all charts are fully rendered
-
+  // Cleanup saat unmount
+  useEffect(() => {
     return () => {
-      clearTimeout(setupTimeout);
-      // Cleanup when component unmounts
       if (syncCleanupRef.current) {
         syncCleanupRef.current();
         syncCleanupRef.current = null;
       }
     };
-  }, [activeIndicators, chartSync]); // Re-run when activeIndicators change
-
-  // 🎯 INITIAL RANGE SYNC (when data or indicators change)
-  // Ensure all charts start with the same visible range
-  useEffect(() => {
-    const syncTimeout = setTimeout(() => {
-      if (!chartRef.current) return;
-
-      const indicatorCharts = Object.values(oscillatorChartsRef.current).filter(
-        Boolean
-      );
-      if (indicatorCharts.length === 0) return;
-
-      const mainTimeScale = chartRef.current.timeScale();
-      const visibleRange = mainTimeScale.getVisibleRange();
-
-      if (visibleRange) {
-        console.log(
-          "[ChartSync] Applying initial range sync to",
-          indicatorCharts.length,
-          "indicator charts"
-        );
-
-        indicatorCharts.forEach((chart) => {
-          try {
-            chart.timeScale().setVisibleRange(visibleRange);
-          } catch (e) {
-            console.warn("[ChartSync] Initial sync error:", e.message);
-          }
-        });
-      }
-    }, 400); // Increased delay to run after sync setup
-
-    return () => clearTimeout(syncTimeout);
-  }, [allCandlesData, activeIndicators]);
+  }, []);
 
   // Toggle indicator
   const toggleIndicator = (indicatorId) => {
@@ -323,7 +313,9 @@ function DashboardPage() {
           ) : (
             <>
               {/* OHLCV Card */}
-              {latestCandle && <OHLCVCard latestCandle={latestCandle} />}
+              {latestCandle && (
+                <OHLCVCard latestCandle={hoveredCandle || latestCandle} />
+              )}
 
               {/* Main Chart */}
               <MainChart
@@ -333,6 +325,7 @@ function DashboardPage() {
                 activeIndicators={activeIndicators}
                 chartSync={chartSync}
                 oscillatorChartsRef={oscillatorChartsRef}
+                onCrosshairMove={setHoveredCandle}
               />
 
               {/* Oscillator Charts */}
@@ -342,6 +335,7 @@ function DashboardPage() {
                 chartSync={chartSync}
                 oscillatorChartsRef={oscillatorChartsRef}
                 mainChartRef={chartRef}
+                onChartReady={handleChartReady}
               />
             </>
           )}

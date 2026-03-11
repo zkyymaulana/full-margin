@@ -136,6 +136,7 @@ function OscillatorCharts({
   chartSync,
   oscillatorChartsRef,
   mainChartRef,
+  onChartReady, // 🆕 callback dipanggil setiap kali chart oscillator siap
 }) {
   const { isDarkMode } = useDarkMode();
 
@@ -168,6 +169,23 @@ function OscillatorCharts({
     });
 
     oscillatorChartsRef.current[chartKey] = chart;
+
+    // 🆕 Langsung apply logical range dari main chart agar tidak fitContent sendiri
+    if (mainChartRef?.current) {
+      try {
+        const logicalRange = mainChartRef.current
+          .timeScale()
+          .getVisibleLogicalRange();
+        if (logicalRange) {
+          chart.timeScale().setVisibleLogicalRange(logicalRange);
+        }
+      } catch (e) {
+        /* ignore */
+      }
+    }
+
+    // 🆕 Beritahu Dashboard chart ini sudah siap
+    if (onChartReady) onChartReady(chartKey, chart);
 
     return chart;
   };

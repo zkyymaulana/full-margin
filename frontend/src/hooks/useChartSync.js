@@ -11,15 +11,16 @@ import { useRef, useCallback } from "react";
  * ✅ Prevents circular sync loops
  */
 export const useChartSync = () => {
-  const isSyncingRef = useRef(false);
+  // ✅ Simpan referensi chart mana yang sedang jadi "source" sync
+  // null = tidak ada sync berjalan
+  const syncSourceRef = useRef(null);
   const crosshairSyncRef = useRef(false);
   const crosshairUnsubscribersRef = useRef({});
   const dataRangeRef = useRef(null);
   const allCandlesDataRef = useRef([]);
-  // 🆕 Add missing ref for backward compatibility
   const currentVisibleRangeRef = useRef(null);
 
-  // 🔧 Format timestamp for tooltip
+  // 🔧 Format timestamp untuk tooltip
   const formatTimestamp = useCallback((time) => {
     if (!time) return "";
 
@@ -34,125 +35,52 @@ export const useChartSync = () => {
     });
   }, []);
 
-  // 🎯 Main sync function: synchronize visible time range
-  const syncVisibleRange = useCallback((sourceChart, targetCharts) => {
-    if (isSyncingRef.current) return;
-
-    isSyncingRef.current = true;
-
-    try {
-      // ✅ Check if source chart is still valid
-      if (!sourceChart) {
-        isSyncingRef.current = false;
-        return;
-      }
-
-      const sourceTimeScale = sourceChart.timeScale();
-      const visibleLogicalRange = sourceTimeScale.getVisibleLogicalRange();
-
-      if (!visibleLogicalRange) {
-        isSyncingRef.current = false;
-        return;
-      }
-
-      // 🆕 Store current visible range for backward compatibility
-      const visibleRange = sourceTimeScale.getVisibleRange();
-      if (visibleRange) {
-        currentVisibleRangeRef.current = visibleRange;
-      }
-
-      // 🔧 Debug log
-      console.log(
-        `[ChartSync] Syncing range to ${targetCharts.length} target charts`,
-        visibleLogicalRange
-      );
-
-      // Apply to all target charts (already filtered, no need to check again)
-      targetCharts.forEach((chart, index) => {
-        // ✅ Validate chart exists and has timeScale method
-        if (chart && typeof chart.timeScale === "function") {
-          try {
-            const targetTimeScale = chart.timeScale();
-            // ✅ Check if setVisibleLogicalRange method exists
-            if (typeof targetTimeScale.setVisibleLogicalRange === "function") {
-              targetTimeScale.setVisibleLogicalRange(visibleLogicalRange);
-              console.log(`[ChartSync] ✅ Synced chart ${index + 1}`);
-            }
-          } catch (error) {
-            // ⚠️ Chart might be disposed, just warn and continue
-            if (error.message.includes("disposed")) {
-              console.warn(
-                `[ChartSync] Chart ${index + 1} is disposed, skipping`
-              );
-            } else {
-              console.warn(
-                `[ChartSync] ❌ Failed to sync chart ${index + 1}:`,
-                error.message
-              );
-            }
-          }
-        }
-      });
-    } catch (error) {
-      // ⚠️ Source chart might be disposed
-      if (error.message.includes("disposed")) {
-        console.warn("[ChartSync] Source chart is disposed, stopping sync");
-      } else {
-        console.error("[ChartSync] Sync error:", error);
-      }
-    } finally {
-      // Reset flag after a short delay to prevent rapid re-sync
-      setTimeout(() => {
-        isSyncingRef.current = false;
-      }, 50);
-    }
-  }, []);
-
-  // 🎯 Crosshair sync function
+  // 🎯 Crosshair sync
   const syncCrosshair = useCallback((sourceChart, targetCharts, param) => {
     if (crosshairSyncRef.current) return;
-
     crosshairSyncRef.current = true;
 
     try {
       targetCharts.forEach((chart) => {
-        if (chart && chart !== sourceChart) {
-          if (param && param.time !== undefined) {
-            // Get price value from the first series
-            const series = chart.series();
-            if (series.length > 0) {
+        if (!chart || chart === sourceChart) return;
+        try {
+          if (param && param.time !== undefined && param.point) {
+            // Use setCrosshairPosition with first available series
+            const allSeries = chart.series ? chart.series() : [];
+            if (allSeries.length > 0) {
+              const priceEntry =
+                param.seriesData && param.seriesData.size > 0
+                  ? Array.from(param.seriesData.values())[0]
+                  : null;
               const price =
-                param.seriesData.size > 0
-                  ? Array.from(param.seriesData.values())[0]?.value
-                  : undefined;
-
-              if (price !== undefined) {
-                chart.setCrosshairPosition(price, param.time, series[0]);
+                priceEntry?.value ??
+                priceEntry?.close ??
+                priceEntry?.open ??
+                null;
+              if (price !== null) {
+                chart.setCrosshairPosition(price, param.time, allSeries[0]);
               }
             }
           } else {
-            // Clear crosshair
             chart.clearCrosshairPosition();
           }
+        } catch (e) {
+          // ignore disposed chart errors
         }
       });
-    } catch (error) {
-      console.warn("[ChartSync] Crosshair sync error:", error);
     } finally {
       crosshairSyncRef.current = false;
     }
   }, []);
 
-  // 🎯 Setup crosshair sync with timestamp tooltip
+  // 🎯 Setup crosshair sync + timestamp tooltip
   const setupCrosshairSync = useCallback(
     (chart, allCharts, chartType) => {
       if (!chart) return null;
 
       const handleCrosshairMove = (param) => {
-        // Sync crosshair to other charts
         syncCrosshair(chart, allCharts, param);
 
-        // Add/update timestamp tooltip
         const chartElement = chart.chartElement();
         if (!chartElement) return;
 
@@ -161,7 +89,6 @@ export const useChartSync = () => {
         if (param && param.time !== undefined) {
           const timestamp = formatTimestamp(param.time);
 
-          // Create tooltip if doesn't exist
           if (!tooltip) {
             tooltip = document.createElement("div");
             tooltip.className = "chart-timestamp-tooltip";
@@ -189,7 +116,6 @@ export const useChartSync = () => {
           tooltip.style.display = "block";
           tooltip.style.opacity = "1";
         } else {
-          // Hide tooltip when crosshair leaves
           if (tooltip) {
             tooltip.style.opacity = "0";
             setTimeout(() => {
@@ -203,13 +129,10 @@ export const useChartSync = () => {
       crosshairUnsubscribersRef.current[chartType] = unsubscribe;
 
       return () => {
-        if (unsubscribe) {
-          unsubscribe();
-        }
+        if (unsubscribe) unsubscribe();
         delete crosshairUnsubscribersRef.current[chartType];
 
-        // Remove tooltip
-        const chartElement = chart.chartElement();
+        const chartElement = chart.chartElement?.();
         if (chartElement) {
           const tooltip = chartElement.querySelector(
             ".chart-timestamp-tooltip"
@@ -221,7 +144,7 @@ export const useChartSync = () => {
     [syncCrosshair, formatTimestamp]
   );
 
-  // 🎯 Setup chart synchronization (main function)
+  // 🎯 Setup full chart sync (range + crosshair)
   const setupChartSync = useCallback(
     (chart, allCharts, chartType = "unknown") => {
       if (!chart) return null;
@@ -230,68 +153,80 @@ export const useChartSync = () => {
 
       const timeScale = chart.timeScale();
       const otherCharts = allCharts.filter((c) => c !== chart);
-
-      // 🆕 Track if chart is disposed
       let isDisposed = false;
 
-      // Subscribe to logical range changes (better than visible range for sync)
+      // ✅ Subscribe to logical range — use requestAnimationFrame to batch rapid events
       const unsubscribeLogicalRange =
         timeScale.subscribeVisibleLogicalRangeChange(() => {
-          if (!isSyncingRef.current && !isDisposed) {
-            requestAnimationFrame(() => {
-              // ✅ Check again before syncing (chart might be disposed during RAF)
-              if (!isDisposed) {
-                syncVisibleRange(chart, otherCharts);
+          if (isDisposed) return;
+
+          // ✅ Jika ada chart lain yang sedang jadi source, abaikan event ini
+          // (ini adalah event "balik" yang terpicu dari setVisibleLogicalRange)
+          if (
+            syncSourceRef.current !== null &&
+            syncSourceRef.current !== chart
+          ) {
+            return;
+          }
+
+          // ✅ Tandai chart ini sebagai source
+          syncSourceRef.current = chart;
+
+          try {
+            const visibleLogicalRange = timeScale.getVisibleLogicalRange();
+            if (!visibleLogicalRange) return;
+
+            const visibleRange = timeScale.getVisibleRange();
+            if (visibleRange) currentVisibleRangeRef.current = visibleRange;
+
+            // ✅ Langsung sync — TANPA requestAnimationFrame
+            // RAF menyebabkan delay yang memungkinkan event balik lolos
+            otherCharts.forEach((target) => {
+              if (!target || typeof target.timeScale !== "function") return;
+              try {
+                target.timeScale().setVisibleLogicalRange(visibleLogicalRange);
+              } catch (e) {
+                if (!e.message?.includes("disposed")) {
+                  console.warn("[ChartSync] sync error:", e.message);
+                }
               }
             });
+          } finally {
+            // ✅ Reset source setelah semua target selesai di-set
+            syncSourceRef.current = null;
           }
         });
 
-      // Setup crosshair sync
       const unsubscribeCrosshair = setupCrosshairSync(
         chart,
         allCharts,
         chartType
       );
 
-      // Cleanup function
       return () => {
         console.log(`[ChartSync] Cleaning up sync for "${chartType}" chart`);
-
-        // ✅ Set disposed flag FIRST to stop any pending RAF callbacks
         isDisposed = true;
+        // Pastikan flag source bersih jika chart ini adalah source saat di-cleanup
+        if (syncSourceRef.current === chart) syncSourceRef.current = null;
 
-        // ✅ Unsubscribe from events BEFORE chart is removed
-        if (unsubscribeLogicalRange) {
-          try {
-            unsubscribeLogicalRange();
-          } catch (error) {
-            console.warn(
-              `[ChartSync] Error unsubscribing logical range:`,
-              error.message
-            );
-          }
+        try {
+          unsubscribeLogicalRange?.();
+        } catch (e) {
+          /* disposed */
         }
-
-        if (unsubscribeCrosshair) {
-          try {
-            unsubscribeCrosshair();
-          } catch (error) {
-            console.warn(
-              `[ChartSync] Error unsubscribing crosshair:`,
-              error.message
-            );
-          }
+        try {
+          unsubscribeCrosshair?.();
+        } catch (e) {
+          /* disposed */
         }
       };
     },
-    [syncVisibleRange, setupCrosshairSync]
+    [setupCrosshairSync]
   );
 
   return {
     setupChartSync,
     setupCrosshairSync,
-    syncVisibleRange,
     dataRangeRef,
     allCandlesDataRef,
     currentVisibleRangeRef, // 🆕 Add to return for backward compatibility

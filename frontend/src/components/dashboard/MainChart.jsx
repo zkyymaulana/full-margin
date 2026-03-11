@@ -140,10 +140,13 @@ function MainChart({
   activeIndicators,
   chartSync,
   oscillatorChartsRef,
+  onCrosshairMove,
 }) {
   const { isDarkMode } = useDarkMode();
   const chartContainerRef = useRef(null);
   const indicatorSeriesRef = useRef({});
+  // 🆕 simpan { seriesObj, priceLine }[] agar bisa di-remove saat indikator berubah
+  const priceLinesRef = useRef([]);
 
   // ✅ USE SAFE LOGO REMOVAL HOOK
   useSafeTradingViewLogoRemoval();
@@ -204,6 +207,40 @@ function MainChart({
     };
   }, [isDarkMode]);
 
+  // 🆕 Subscribe crosshairMove → emit hovered candle OHLCV to parent
+  useEffect(() => {
+    if (!chartRef.current || !onCrosshairMove) return;
+
+    const handler = (param) => {
+      if (!param || !param.time || !param.seriesData) {
+        onCrosshairMove(null);
+        return;
+      }
+      const seriesData = param.seriesData.get(seriesRef.current);
+      if (seriesData) {
+        const timeMs = param.time * 1000;
+        const rawCandle = allCandlesData.find((c) => Number(c.time) === timeMs);
+        onCrosshairMove({
+          open: seriesData.open,
+          high: seriesData.high,
+          low: seriesData.low,
+          close: seriesData.close,
+          volume: rawCandle ? rawCandle.volume : null,
+        });
+      } else {
+        onCrosshairMove(null);
+      }
+    };
+
+    chartRef.current.subscribeCrosshairMove(handler);
+
+    return () => {
+      if (chartRef.current) {
+        chartRef.current.unsubscribeCrosshairMove(handler);
+      }
+    };
+  }, [chartRef.current, onCrosshairMove, allCandlesData]);
+
   // Update overlay indicators
   useEffect(() => {
     if (!chartRef.current || !allCandlesData.length) return;
@@ -218,14 +255,43 @@ function MainChart({
     });
     indicatorSeriesRef.current = {};
 
+    // 🆕 Hapus semua price line lama
+    priceLinesRef.current.forEach(({ seriesObj, priceLine }) => {
+      try {
+        seriesObj.removePriceLine(priceLine);
+      } catch (e) {}
+    });
+    priceLinesRef.current = [];
+
+    // Helper: buat price line pada series dengan nilai terakhir
+    const addPriceLine = (lineSeries, label, color, lastValue) => {
+      if (lastValue === null || lastValue === undefined) return;
+      const priceStr = lastValue >= 1000 ? `${label}` : `${label}`;
+      const pl = lineSeries.createPriceLine({
+        price: lastValue,
+        color: color,
+        lineWidth: 1,
+        lineStyle: 2, // LineStyle.Dashed
+        axisLabelVisible: true,
+        title: priceStr,
+        axisLabelColor: color,
+        axisLabelTextColor: "#ffffff",
+      });
+      priceLinesRef.current.push({ seriesObj: lineSeries, priceLine: pl });
+    };
+
+    // Ambil candle terakhir untuk nilai awal price line
+    const sorted = [...allCandlesData].sort(
+      (a, b) => Number(a.time) - Number(b.time)
+    );
+    const lastCandle = sorted[sorted.length - 1];
+
     // Add active overlay indicators
     overlayIndicators.forEach((indicator) => {
       if (!activeIndicators.includes(indicator.id)) return;
 
       if (indicator.periods && indicator.colors) {
-        // Multiple periods (SMA/EMA)
         const seriesArray = [];
-
         indicator.periods.forEach((period, index) => {
           const chartData = allCandlesData
             .map((d) => ({
@@ -239,20 +305,30 @@ function MainChart({
             const lineSeries = chartRef.current.addLineSeries({
               color: indicator.colors[index],
               lineWidth: 2,
-              title: `${indicator.type.toUpperCase()} ${period}`,
               ...getCleanSeriesOptions(),
             });
             lineSeries.setData(chartData);
             seriesArray.push(lineSeries);
+
+            // 🆕 Price line
+            const lastVal = getIndicatorValueByPeriod(
+              lastCandle,
+              indicator.type,
+              period
+            );
+            addPriceLine(
+              lineSeries,
+              `${indicator.type.toUpperCase()} ${period}`,
+              indicator.colors[index],
+              lastVal
+            );
           }
         });
-
         indicatorSeriesRef.current[indicator.id] = seriesArray;
       } else if (indicator.type === "bollinger") {
-        // Bollinger Bands - Three separate lines (upper, middle, lower)
         const seriesArray = [];
         const bands = ["upper", "middle", "lower"];
-        const labels = ["Upper", "Middle", "Lower"];
+        const bbLabels = ["BB Upper", "BB Mid", "BB Lower"];
 
         bands.forEach((band, index) => {
           const chartData = allCandlesData
@@ -267,17 +343,23 @@ function MainChart({
             const lineSeries = chartRef.current.addLineSeries({
               color: indicator.colors[index],
               lineWidth: 2,
-              title: `BB ${labels[index]}`,
               ...getCleanSeriesOptions(),
             });
             lineSeries.setData(chartData);
             seriesArray.push(lineSeries);
+
+            // 🆕 Price line
+            const lastVal = lastCandle?.indicators?.bollingerBands?.[band];
+            addPriceLine(
+              lineSeries,
+              bbLabels[index],
+              indicator.colors[index],
+              lastVal
+            );
           }
         });
-
         indicatorSeriesRef.current[indicator.id] = seriesArray;
       } else if (indicator.type === "psar") {
-        // Parabolic SAR - Render as dots (scatter points)
         const chartData = allCandlesData
           .map((d) => ({
             time: Number(d.time) / 1000,
@@ -287,29 +369,27 @@ function MainChart({
           .sort((a, b) => a.time - b.time);
 
         if (chartData.length > 0) {
-          // Create line series but configure as dots
           const dotSeries = chartRef.current.addLineSeries({
             color: indicator.color,
-            lineWidth: 0, // No connecting line
-            title: indicator.label,
+            lineWidth: 0,
             crosshairMarkerVisible: true,
             crosshairMarkerRadius: 6,
             pointMarkersVisible: true,
             ...getCleanSeriesOptions(),
           });
-
-          // Apply additional options to ensure dots are visible
           dotSeries.applyOptions({
             lineStyle: 0,
             lineWidth: 0,
             crosshairMarkerRadius: 6,
           });
-
           dotSeries.setData(chartData);
           indicatorSeriesRef.current[indicator.id] = dotSeries;
+
+          // 🆕 Price line
+          const lastVal = lastCandle?.indicators?.parabolicSar?.value;
+          addPriceLine(dotSeries, "PSAR", indicator.color, lastVal);
         }
       } else {
-        // Fallback for other single series indicators
         const chartData = allCandlesData
           .map((d) => ({
             time: Number(d.time) / 1000,
@@ -322,11 +402,14 @@ function MainChart({
           const lineSeries = chartRef.current.addLineSeries({
             color: indicator.color,
             lineWidth: 2,
-            title: indicator.label,
             ...getCleanSeriesOptions(),
           });
           lineSeries.setData(chartData);
           indicatorSeriesRef.current[indicator.id] = lineSeries;
+
+          // 🆕 Price line
+          const lastVal = getIndicatorValue(lastCandle, indicator.type);
+          addPriceLine(lineSeries, indicator.label, indicator.color, lastVal);
         }
       }
     });
@@ -335,6 +418,117 @@ function MainChart({
       `📊 Overlay indicators updated from ${allCandlesData.length} candles`
     );
   }, [activeIndicators, allCandlesData]);
+
+  // 🆕 Update nilai price line saat crosshair hover, kembalikan ke lastCandle saat keluar
+  useEffect(() => {
+    if (!chartRef.current) return;
+
+    const handler = (param) => {
+      if (!priceLinesRef.current.length) return;
+
+      const sorted = [...allCandlesData].sort(
+        (a, b) => Number(a.time) - Number(b.time)
+      );
+      const lastCandle = sorted[sorted.length - 1];
+
+      // Kumpulkan metadata dari indicatorSeriesRef untuk update priceLine
+      const updateLine = (
+        lineSeries,
+        priceLine,
+        label,
+        color,
+        hoveredValue,
+        lastValue
+      ) => {
+        const value =
+          hoveredValue !== null && hoveredValue !== undefined
+            ? hoveredValue
+            : lastValue;
+        if (value === null || value === undefined) return;
+        const priceStr = value >= 1000 ? `${label}` : `${label}`;
+        try {
+          priceLine.applyOptions({ price: value, title: priceStr });
+        } catch (e) {}
+      };
+
+      overlayIndicators.forEach((indicator) => {
+        if (!activeIndicators.includes(indicator.id)) return;
+
+        if (indicator.periods && indicator.colors) {
+          const seriesArray = indicatorSeriesRef.current[indicator.id];
+          if (!Array.isArray(seriesArray)) return;
+          indicator.periods.forEach((period, index) => {
+            const s = seriesArray[index];
+            if (!s) return;
+            const entry = priceLinesRef.current.find((e) => e.seriesObj === s);
+            if (!entry) return;
+            const hovered = param?.time
+              ? param.seriesData?.get(s)?.value ?? null
+              : null;
+            const last = getIndicatorValueByPeriod(
+              lastCandle,
+              indicator.type,
+              period
+            );
+            updateLine(
+              s,
+              entry.priceLine,
+              `${indicator.type.toUpperCase()} ${period}`,
+              indicator.colors[index],
+              hovered,
+              last
+            );
+          });
+        } else if (indicator.type === "bollinger") {
+          const seriesArray = indicatorSeriesRef.current[indicator.id];
+          if (!Array.isArray(seriesArray)) return;
+          const bbLabels = ["BB Upper", "BB Mid", "BB Lower"];
+          const bands = ["upper", "middle", "lower"];
+          seriesArray.forEach((s, i) => {
+            const entry = priceLinesRef.current.find((e) => e.seriesObj === s);
+            if (!entry) return;
+            const hovered = param?.time
+              ? param.seriesData?.get(s)?.value ?? null
+              : null;
+            const last = lastCandle?.indicators?.bollingerBands?.[bands[i]];
+            updateLine(
+              s,
+              entry.priceLine,
+              bbLabels[i],
+              indicator.colors[i],
+              hovered,
+              last
+            );
+          });
+        } else {
+          const s = indicatorSeriesRef.current[indicator.id];
+          if (!s) return;
+          const entry = priceLinesRef.current.find((e) => e.seriesObj === s);
+          if (!entry) return;
+          const hovered = param?.time
+            ? param.seriesData?.get(s)?.value ?? null
+            : null;
+          const last =
+            indicator.type === "psar"
+              ? lastCandle?.indicators?.parabolicSar?.value
+              : getIndicatorValue(lastCandle, indicator.type);
+          updateLine(
+            s,
+            entry.priceLine,
+            indicator.label,
+            indicator.color,
+            hovered,
+            last
+          );
+        }
+      });
+    };
+
+    chartRef.current.subscribeCrosshairMove(handler);
+    return () => {
+      if (chartRef.current) chartRef.current.unsubscribeCrosshairMove(handler);
+    };
+  }, [chartRef.current, activeIndicators, allCandlesData]);
 
   // Update multi-indicator signal markers (BUY/SELL arrows)
   // ✅ PURE DATABASE SIGNALS - NO FRONTEND CALCULATION
