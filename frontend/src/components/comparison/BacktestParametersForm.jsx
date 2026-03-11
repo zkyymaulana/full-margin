@@ -7,8 +7,6 @@ export function BacktestParametersForm({
   endDate,
   setStartDate,
   setEndDate,
-  threshold, // ✅ NEW: Threshold prop
-  setThreshold, // ✅ NEW: Setter for threshold
   handleCompare,
   isLoading,
   isPending,
@@ -35,8 +33,6 @@ export function BacktestParametersForm({
           endDate={endDate}
           setStartDate={setStartDate}
           setEndDate={setEndDate}
-          threshold={threshold}
-          setThreshold={setThreshold}
         />
 
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 mt-3 md:mt-4">

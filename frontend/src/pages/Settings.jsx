@@ -4,65 +4,77 @@ import { toast } from "react-toastify";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getTelegramConfig,
-  toggleTelegram,
   testTelegramConnection,
   updateUserTelegramSettings,
   getUserProfile,
+  getWatchlist,
 } from "../services/api.service";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   FiActivity,
   FiAlertTriangle,
   FiCheckCircle,
+  FiChevronDown,
   FiInfo,
-  FiMessageCircle,
-  FiMoon,
-  FiRefreshCcw,
-  FiSun,
-  FiTool,
-  FiTrash2,
+  FiList,
+  FiPlusCircle,
   FiZap,
 } from "react-icons/fi";
 
 function SettingsPage() {
   const { user } = useAuth();
   const { isDarkMode, toggleDarkMode } = useDarkMode();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [isTesting, setIsTesting] = useState(false);
 
-  // ✅ NEW: State untuk Telegram Chat ID
+  const [isTesting, setIsTesting] = useState(false);
   const [telegramChatId, setTelegramChatId] = useState("");
   const [isSavingTelegram, setIsSavingTelegram] = useState(false);
+  const [isChatGuideOpen, setIsChatGuideOpen] = useState(false);
 
-  // Fetch user profile (termasuk Telegram info)
   const { data: userProfile, isLoading: profileLoading } = useQuery({
     queryKey: ["userProfile"],
     queryFn: getUserProfile,
   });
 
-  // ✅ Update state when userProfile changes
+  const { data: watchlistData, isLoading: watchlistLoading } = useQuery({
+    queryKey: ["watchlist"],
+    queryFn: getWatchlist,
+  });
+
+  const { data: telegramConfig, isLoading: configLoading } = useQuery({
+    queryKey: ["telegramConfig"],
+    queryFn: getTelegramConfig,
+    refetchInterval: 30000,
+  });
+
   useEffect(() => {
     if (userProfile?.data?.telegramChatId) {
       setTelegramChatId(userProfile.data.telegramChatId);
     }
   }, [userProfile]);
 
-  // ✅ Check if Chat ID has changed (for Save button)
+  const watchlistCoins = watchlistData?.data || [];
+  const watchlistCount = watchlistCoins.length;
+  const watchlistSymbols = watchlistCoins
+    .slice(0, 5)
+    .map((e) => e.coin?.symbol?.replace(/-USD$/i, "") || e.coin?.symbol)
+    .filter(Boolean);
+
   const hasChatIdChanged =
     telegramChatId !== (userProfile?.data?.telegramChatId || "");
 
-  // Fetch Telegram config (global backend config)
-  const { data: telegramConfig, isLoading: configLoading } = useQuery({
-    queryKey: ["telegramConfig"],
-    queryFn: getTelegramConfig,
-    refetchInterval: 30000, // Refresh setiap 30 detik
-  });
+  const config = telegramConfig?.config || {};
+  const isBackendConfigured = config.configured || false;
+  const userTelegramEnabled = userProfile?.data?.telegramEnabled || false;
+  const userTelegramChatId = userProfile?.data?.telegramChatId || null;
+  const isUserConfigured = !!userTelegramChatId;
 
-  // ✅ NEW: Mutation untuk update Telegram user settings
   const updateTelegramMutation = useMutation({
     mutationFn: ({ userId, settings }) =>
       updateUserTelegramSettings(userId, settings),
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries(["userProfile"]);
       toast.success("Telegram settings saved successfully!");
       setIsSavingTelegram(false);
@@ -75,46 +87,23 @@ function SettingsPage() {
     },
   });
 
-  // Toggle Telegram mutation
-  const toggleMutation = useMutation({
-    mutationFn: toggleTelegram,
-    onSuccess: (data) => {
-      queryClient.invalidateQueries(["telegramConfig"]);
-      toast.success(data.message || "Telegram settings updated");
-    },
-    onError: (error) => {
-      toast.error(
-        error.response?.data?.message || "Failed to update Telegram settings"
-      );
-    },
-  });
-
-  // ✅ NEW: Handler untuk save Telegram settings
   const handleSaveTelegramSettings = () => {
-    // Validasi Chat ID
     if (!telegramChatId || telegramChatId.trim() === "") {
       toast.error("Please enter your Telegram Chat ID");
       return;
     }
-
-    // Validasi format (harus angka)
     if (!/^\d+$/.test(telegramChatId.trim())) {
       toast.error("Telegram Chat ID must be numeric");
       return;
     }
-
     if (!user?.id) {
       toast.error("User not found");
       return;
     }
-
     setIsSavingTelegram(true);
     updateTelegramMutation.mutate({
       userId: user.id,
-      settings: {
-        telegramChatId: telegramChatId.trim(),
-        telegramEnabled: true, // Auto enable saat save
-      },
+      settings: { telegramChatId: telegramChatId.trim() },
     });
   };
 
@@ -122,10 +111,17 @@ function SettingsPage() {
     const currentEnabled = userProfile?.data?.telegramEnabled || false;
     const hasChatId = userProfile?.data?.telegramChatId;
 
-    // Jika tidak ada Chat ID, blok toggle
-    if (!hasChatId) {
-      toast.warning("Please enter and save your Telegram Chat ID first!");
-      return;
+    if (!currentEnabled) {
+      if (!hasChatId) {
+        toast.error("Please connect your Telegram Chat ID first.");
+        return;
+      }
+      if (watchlistCount === 0) {
+        toast.error(
+          "Add coins to your watchlist before enabling notifications."
+        );
+        return;
+      }
     }
 
     if (!user?.id) {
@@ -133,40 +129,30 @@ function SettingsPage() {
       return;
     }
 
-    // Toggle enabled status
     updateTelegramMutation.mutate({
       userId: user.id,
-      settings: {
-        telegramEnabled: !currentEnabled,
-      },
+      settings: { telegramEnabled: !currentEnabled },
     });
   };
 
   const handleTestConnection = async () => {
-    const userChatId = userProfile?.data?.telegramChatId;
-    const isEnabled = userProfile?.data?.telegramEnabled;
-
-    // ✅ Cek apakah Chat ID sudah ada
-    if (!userChatId) {
-      toast.warning("⚠️ Please save your Telegram Chat ID first!");
+    if (!userTelegramChatId) {
+      toast.warning("Please save your Telegram Chat ID first!");
       return;
     }
-
-    // ✅ Cek apakah Telegram sudah diaktifkan
-    if (!isEnabled) {
+    if (!userTelegramEnabled) {
       toast.error(
-        "Telegram notifications is disabled! Please enable it first by turning on the toggle switch."
+        "Enable Telegram notifications before testing the connection."
       );
       return;
     }
-
     setIsTesting(true);
     try {
       const result = await testTelegramConnection();
       if (result.success) {
-        toast.success("Test message sent! Check your Telegram");
+        toast.success("Test message sent! Check your Telegram.");
       } else {
-        toast.error("Failed to send test message");
+        toast.error("Failed to send test message.");
       }
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to test connection");
@@ -175,390 +161,481 @@ function SettingsPage() {
     }
   };
 
-  const handleResetCache = () => {
-    // Clear all localStorage
-    const darkModeValue = localStorage.getItem("darkMode");
-    localStorage.clear();
-
-    // Restore dark mode setting
-    if (darkModeValue) {
-      localStorage.setItem("darkMode", darkModeValue);
-    }
-
-    toast.success("Cache cleared successfully! Reloading...");
-
-    setTimeout(() => {
-      window.location.reload();
-    }, 1000);
-  };
-
-  const handleForceRefresh = () => {
-    // Force remove dark class
-    document.documentElement.classList.remove("dark");
-    document.body.classList.remove("dark");
-
-    // Reset dark mode to false
-    localStorage.setItem("darkMode", "false");
-
-    toast.info("Force refreshing to light mode...");
-
-    setTimeout(() => {
-      window.location.reload();
-    }, 500);
-  };
-
-  const config = telegramConfig?.config || {};
-  const isBackendConfigured = config.configured || false;
-
-  // ✅ User-specific Telegram settings
-  const userTelegramEnabled = userProfile?.data?.telegramEnabled || false;
-  const userTelegramChatId = userProfile?.data?.telegramChatId || null;
-  const isUserConfigured = !!userTelegramChatId;
+  const card = `rounded-xl shadow-sm ${
+    isDarkMode ? "bg-gray-800 shadow-lg" : "bg-white"
+  }`;
+  const t = (dark, light) => (isDarkMode ? dark : light);
 
   return (
     <div className="space-y-4 md:space-y-6 px-2 md:px-0">
-      {/* Header */}
       <div>
         <h1
-          className={`text-2xl md:text-3xl font-bold ${
-            isDarkMode ? "text-white" : "text-gray-900"
-          }`}
+          className={`text-2xl md:text-3xl font-bold ${t(
+            "text-white",
+            "text-gray-900"
+          )}`}
         >
           Settings
         </h1>
         <p
-          className={`mt-1 text-sm md:text-base ${
-            isDarkMode ? "text-gray-400" : "text-gray-600"
-          }`}
+          className={`mt-1 text-sm md:text-base ${t(
+            "text-gray-400",
+            "text-gray-600"
+          )}`}
         >
           Manage your account and preferences
         </p>
       </div>
 
-      {/* Preferences Card */}
-      <div
-        className={`rounded-xl shadow-sm ${
-          isDarkMode ? "bg-gray-800 shadow-lg" : "bg-white"
-        }`}
-      >
-        <div className="p-4 md:p-6">
+      <div className={card}>
+        <div className="p-4 md:p-6 space-y-4">
           <h2
-            className={`text-lg md:text-xl font-semibold mb-4 ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
+            className={`text-lg md:text-xl font-semibold ${t(
+              "text-white",
+              "text-gray-900"
+            )}`}
           >
             Preferences
           </h2>
 
-          <div className="space-y-3 md:space-y-4">
-            {/* Dark Mode Toggle */}
-            <div
-              className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 md:p-4 rounded-lg ${
-                isDarkMode ? "bg-gray-700/50" : "bg-gray-50"
-              }`}
-            >
-              <div className="flex-1">
-                <div
-                  className={`font-medium text-sm md:text-base ${
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  }`}
-                >
-                  Dark Mode
-                </div>
-                <div
-                  className={`text-xs md:text-sm ${
-                    isDarkMode ? "text-gray-400" : "text-gray-600"
-                  }`}
-                >
-                  Switch to dark theme
-                </div>
+          <div
+            className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 md:p-4 rounded-lg ${t(
+              "bg-gray-700/50",
+              "bg-gray-50"
+            )}`}
+          >
+            <div>
+              <div
+                className={`font-medium text-sm md:text-base ${t(
+                  "text-white",
+                  "text-gray-900"
+                )}`}
+              >
+                Dark Mode
               </div>
-              <label className="relative inline-flex items-center cursor-pointer self-start sm:self-center">
+              <div
+                className={`text-xs md:text-sm ${t(
+                  "text-gray-400",
+                  "text-gray-600"
+                )}`}
+              >
+                Switch to dark theme
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer self-start sm:self-center">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={isDarkMode}
+                onChange={toggleDarkMode}
+              />
+              <div
+                className={`w-11 h-6 rounded-full peer peer-focus:outline-none peer-focus:ring-4 ${t(
+                  "bg-gray-600 peer-focus:ring-blue-800",
+                  "bg-gray-200 peer-focus:ring-blue-300"
+                )} peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600`}
+              />
+            </label>
+          </div>
+
+          <div
+            className={`p-4 rounded-lg space-y-4 ${t(
+              "bg-gray-700/50",
+              "bg-gray-50"
+            )}`}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span
+                  className={`font-semibold text-base md:text-lg ${t(
+                    "text-white",
+                    "text-gray-900"
+                  )}`}
+                >
+                  Telegram Notifications
+                </span>
+              </div>
+
+              <label
+                className={`relative inline-flex items-center self-start sm:self-center ${
+                  !isUserConfigured
+                    ? "cursor-not-allowed opacity-40"
+                    : "cursor-pointer"
+                }`}
+              >
                 <input
                   type="checkbox"
                   className="sr-only peer"
-                  checked={isDarkMode}
-                  onChange={toggleDarkMode}
+                  checked={userTelegramEnabled}
+                  onChange={handleTelegramToggle}
+                  disabled={
+                    !isUserConfigured || updateTelegramMutation.isPending
+                  }
                 />
                 <div
-                  className={`w-11 h-6 rounded-full peer peer-focus:outline-none peer-focus:ring-4 ${
-                    isDarkMode
-                      ? "bg-gray-600 peer-focus:ring-blue-800"
-                      : "bg-gray-200 peer-focus:ring-blue-300"
-                  } peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600`}
-                ></div>
+                  className={`w-11 h-6 rounded-full peer peer-focus:outline-none peer-focus:ring-4 ${t(
+                    "bg-gray-600 peer-focus:ring-blue-800",
+                    "bg-gray-200 peer-focus:ring-blue-300"
+                  )} peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
+                    isUserConfigured ? "peer-checked:bg-blue-600" : ""
+                  }`}
+                />
               </label>
             </div>
 
-            {/* ✅ UPDATED: Telegram Notifications Section */}
-            <div
-              className={`p-3 md:p-4 rounded-lg border-2 ${
-                isUserConfigured
-                  ? isDarkMode
-                    ? "bg-gray-700/50 border-green-500/30"
-                    : "bg-gray-50 border-green-300"
-                  : isDarkMode
-                  ? "bg-gray-700/50 border-yellow-500/30"
-                  : "bg-gray-50 border-yellow-300"
-              }`}
+            <p
+              className={`text-xs md:text-sm ${t(
+                "text-gray-400",
+                "text-gray-500"
+              )}`}
             >
-              <div className="space-y-3 md:space-y-4">
-                {/* Header dengan status */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div
-                      className={`font-medium text-base md:text-lg flex items-center gap-2 ${
-                        isDarkMode ? "text-white" : "text-gray-900"
-                      }`}
-                    >
-                      Telegram Notifications
-                    </div>
+              Receive trading signal alerts directly to your personal Telegram
+              account.
+            </p>
 
-                    {isUserConfigured ? (
-                      <span
-                        className={`flex items-center gap-1 text-xs px-2 py-1 rounded ${
-                          isDarkMode
-                            ? "bg-green-900/30 text-green-400"
-                            : "bg-green-100 text-green-800"
-                        }`}
-                      >
-                        <FiCheckCircle className="text-sm" />
-                        Connected
-                      </span>
-                    ) : (
-                      <span
-                        className={`flex items-center gap-1 text-xs px-2 py-1 rounded ${
-                          isDarkMode
-                            ? "bg-yellow-900/30 text-yellow-400"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        <FiAlertTriangle className="text-sm" />
-                        Not Connected
-                      </span>
-                    )}
-                    {profileLoading && (
-                      <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                    )}
-                  </div>
-
-                  {/* Toggle (hanya aktif jika sudah ada Chat ID) */}
-                  <label className="relative inline-flex items-center cursor-pointer self-start sm:self-center">
-                    <input
-                      type="checkbox"
-                      className="sr-only peer"
-                      checked={userTelegramEnabled}
-                      onChange={handleTelegramToggle}
-                      disabled={
-                        !isUserConfigured || updateTelegramMutation.isPending
-                      }
-                    />
-                    <div
-                      className={`w-11 h-6 rounded-full peer peer-focus:outline-none peer-focus:ring-4 ${
-                        isDarkMode
-                          ? "bg-gray-600 peer-focus:ring-blue-800"
-                          : "bg-gray-200 peer-focus:ring-blue-300"
-                      } peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
-                        isUserConfigured
-                          ? "peer-checked:bg-blue-600"
-                          : "opacity-50 cursor-not-allowed"
-                      }`}
-                    ></div>
-                  </label>
-                </div>
-
-                {/* Deskripsi */}
-                <p
-                  className={`text-xs md:text-sm ${
-                    isDarkMode ? "text-gray-400" : "text-gray-600"
-                  }`}
+            <div
+              className={`rounded-lg border overflow-hidden ${t(
+                "bg-gray-800/60 border-gray-600",
+                "bg-white border-gray-200"
+              )}`}
+            >
+              <div
+                className={`flex items-center gap-2 px-3 py-2.5 ${t(
+                  "border-gray-700",
+                  "border-gray-100"
+                )} ${watchlistCount === 0 ? "" : "border-b"}`}
+              >
+                <FiList
+                  className={`text-sm shrink-0 ${t(
+                    "text-blue-400",
+                    "text-blue-600"
+                  )}`}
+                />
+                <span
+                  className={`font-medium text-sm ${t(
+                    "text-white",
+                    "text-gray-900"
+                  )}`}
                 >
-                  Receive trading signal alerts directly to your personal
-                  Telegram account
-                </p>
-
-                {/* Input Telegram Chat ID */}
-                <div className="space-y-2">
-                  <label
-                    className={`block text-xs md:text-sm font-medium ${
-                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                  Watchlist Status
+                </span>
+                {watchlistLoading && (
+                  <div className="animate-spin h-3 w-3 border-2 border-blue-500 border-t-transparent rounded-full ml-1" />
+                )}
+                {!watchlistLoading && (
+                  <span
+                    className={`ml-auto text-xs font-semibold px-1.5 py-0.5 rounded ${
+                      watchlistCount > 0
+                        ? t(
+                            "bg-blue-900/40 text-blue-300",
+                            "bg-blue-100 text-blue-700"
+                          )
+                        : t(
+                            "bg-gray-700 text-gray-400",
+                            "bg-gray-100 text-gray-500"
+                          )
                     }`}
                   >
-                    Telegram Chat ID
-                  </label>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <input
-                      type="text"
-                      value={telegramChatId}
-                      onChange={(e) => setTelegramChatId(e.target.value)}
-                      placeholder="Enter your Telegram Chat ID"
-                      className={`flex-1 px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${
-                        isDarkMode
-                          ? "bg-gray-800 border-gray-600 text-white placeholder-gray-500"
-                          : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
-                      } focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                    />
-                    <button
-                      onClick={handleSaveTelegramSettings}
-                      disabled={
-                        isSavingTelegram || !telegramChatId || !hasChatIdChanged
-                      }
-                      className={`px-4 md:px-6 py-2 rounded-lg font-medium text-sm md:text-base transition-colors w-full sm:w-auto ${
-                        isDarkMode
-                          ? "bg-blue-600 hover:bg-blue-700 text-white"
-                          : "bg-blue-500 hover:bg-blue-600 text-white"
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    {watchlistCount} {watchlistCount === 1 ? "coin" : "coins"}
+                  </span>
+                )}
+              </div>
+
+              <div className="px-3 py-2.5">
+                {watchlistCount > 0 ? (
+                  <div className="space-y-2">
+                    <p
+                      className={`text-xs ${t(
+                        "text-gray-400",
+                        "text-gray-500"
+                      )}`}
                     >
-                      {isSavingTelegram ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                          <span>Saving...</span>
-                        </div>
-                      ) : (
-                        "Save"
-                      )}
-                    </button>
-                  </div>
-                  {!hasChatIdChanged && telegramChatId && (
-                    <p className="flex items-center gap-1 text-xs text-gray-500">
-                      <FiInfo className="text-sm flex-shrink-0" />
-                      No changes detected. Modify Chat ID to enable save.
-                    </p>
-                  )}
-
-                  <p className="flex items-start gap-1 text-xs text-gray-500">
-                    <FiZap className="text-sm mt-0.5 flex-shrink-0" />
-                    <span>
-                      To get your Chat ID: Open Telegram, search for your bot,
-                      send{" "}
-                      <code
-                        className={`px-1 py-0.5 rounded ${
-                          isDarkMode ? "bg-gray-700" : "bg-gray-200"
-                        }`}
+                      You are monitoring{" "}
+                      <span
+                        className={`font-semibold ${t(
+                          "text-white",
+                          "text-gray-800"
+                        )}`}
                       >
-                        /start
-                      </code>
-                      , and copy the Chat ID from the bot's reply.
-                    </span>
-                  </p>
-                </div>
-
-                {/* Warning jika backend belum configured */}
-                {!isBackendConfigured && (
-                  <div
-                    className={`p-3 rounded-lg ${
-                      isDarkMode ? "bg-red-900/20" : "bg-red-50"
-                    }`}
-                  >
-                    <div className="flex items-start gap-2">
-                      <span className="text-base md:text-lg flex-shrink-0">
-                        ❌
-                      </span>
+                        {watchlistCount}
+                      </span>{" "}
+                      {watchlistCount === 1 ? "coin" : "coins"}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {watchlistSymbols.map((sym) => (
+                        <span
+                          key={sym}
+                          className={`text-xs font-semibold px-2 py-0.5 rounded-full ${t(
+                            "bg-blue-900/50 text-blue-300 border border-blue-700/50",
+                            "bg-blue-50 text-blue-700 border border-blue-200"
+                          )}`}
+                        >
+                          {sym}
+                        </span>
+                      ))}
+                      {watchlistCount > 5 && (
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full ${t(
+                            "bg-gray-700 text-gray-400",
+                            "bg-gray-100 text-gray-500"
+                          )}`}
+                        >
+                          +{watchlistCount - 5} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-2 space-y-3">
+                    <div
+                      className={`flex items-start gap-2 text-xs ${t(
+                        "text-yellow-400",
+                        "text-yellow-700"
+                      )}`}
+                    >
+                      <FiAlertTriangle className="mt-0.5 shrink-0 text-sm" />
                       <div>
-                        <div
-                          className={`font-medium text-xs md:text-sm ${
-                            isDarkMode ? "text-red-300" : "text-red-800"
-                          }`}
+                        <p className="font-medium">
+                          No coins in your watchlist yet.
+                        </p>
+                        <p
+                          className={`mt-0.5 ${t(
+                            "text-gray-400",
+                            "text-gray-500"
+                          )}`}
                         >
-                          Backend Not Configured
-                        </div>
-                        <div
-                          className={`text-xs mt-1 ${
-                            isDarkMode ? "text-red-400" : "text-red-700"
-                          }`}
-                        >
-                          Please configure TELEGRAM_BOT_TOKEN in backend .env
-                          file first.
-                        </div>
+                          Add coins to start receiving trading signal
+                          notifications.
+                        </p>
                       </div>
                     </div>
+                    <button
+                      onClick={() => navigate("/marketcap")}
+                      className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${t(
+                        "bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-700/40",
+                        "bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200"
+                      )}`}
+                    >
+                      <FiPlusCircle className="text-sm" />
+                      Add Coins to Watchlist
+                    </button>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Test Connection Button */}
+            <div className="space-y-2">
+              <label
+                className={`block text-xs md:text-sm font-medium ${t(
+                  "text-gray-300",
+                  "text-gray-700"
+                )}`}
+              >
+                Telegram Chat ID
+              </label>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  value={telegramChatId}
+                  onChange={(e) => setTelegramChatId(e.target.value)}
+                  placeholder="e.g. 123456789"
+                  className={`flex-1 px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${t(
+                    "bg-gray-800 border-gray-600 text-white placeholder-gray-500",
+                    "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
+                  )} focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow`}
+                />
+                <button
+                  onClick={handleSaveTelegramSettings}
+                  disabled={
+                    isSavingTelegram || !telegramChatId || !hasChatIdChanged
+                  }
+                  className="px-4 md:px-6 py-2 rounded-lg font-medium text-sm transition-colors w-full sm:w-auto bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isSavingTelegram ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                      Saving...
+                    </span>
+                  ) : (
+                    "Save"
+                  )}
+                </button>
+              </div>
+
+              {!hasChatIdChanged && telegramChatId && (
+                <p
+                  className={`flex items-center gap-1 text-xs ${t(
+                    "text-gray-500",
+                    "text-gray-400"
+                  )}`}
+                >
+                  <FiInfo className="shrink-0" />
+                  No changes detected. Modify Chat ID to enable save.
+                </p>
+              )}
+
+              <div
+                className={`rounded-lg border overflow-hidden mt-1 ${t(
+                  "border-gray-700",
+                  "border-gray-200"
+                )}`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setIsChatGuideOpen((o) => !o)}
+                  className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors  hover:cursor-pointer ${t(
+                    "bg-gray-800/60 hover:bg-gray-700/60 text-gray-300",
+                    "bg-gray-50 hover:bg-gray-100 text-gray-700"
+                  )}`}
+                >
+                  <span className="flex items-center gap-1.5 text-sm font-semibold">
+                    How to get your Chat ID ?
+                  </span>
+                  <FiChevronDown
+                    className={`shrink-0 text-sm transition-transform duration-200 ${
+                      isChatGuideOpen ? "rotate-180" : "rotate-0"
+                    } ${t("text-gray-400", "text-gray-500")}`}
+                  />
+                </button>
+
+                <div
+                  className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                    isChatGuideOpen
+                      ? "max-h-64 opacity-100"
+                      : "max-h-0 opacity-0"
+                  }`}
+                >
+                  <ol
+                    className={`px-3 py-3 space-y-2 text-xs border-t ${t(
+                      "border-gray-700 text-gray-400",
+                      "border-gray-200 text-gray-600"
+                    )}`}
+                  >
+                    {[
+                      <>
+                        Open the{" "}
+                        <strong className={t("text-gray-200", "text-gray-800")}>
+                          Telegram
+                        </strong>{" "}
+                        app
+                      </>,
+                      <>
+                        Search for{" "}
+                        <strong className={t("text-gray-200", "text-gray-800")}>
+                          your bot
+                        </strong>{" "}
+                        by its username
+                      </>,
+                      <>
+                        Send the command{" "}
+                        <code
+                          className={`px-1 py-0.5 rounded text-[11px] ${t(
+                            "bg-gray-700 text-blue-300",
+                            "bg-gray-200 text-blue-700"
+                          )}`}
+                        >
+                          /start
+                        </code>
+                      </>,
+                      <>
+                        Copy the{" "}
+                        <strong className={t("text-gray-200", "text-gray-800")}>
+                          Chat ID
+                        </strong>{" "}
+                        from the bot&apos;s reply and paste it above
+                      </>,
+                    ].map((step, i) => (
+                      <li key={i} className="flex items-center gap-2.5">
+                        <span
+                          className={`shrink-0 text-md font-bold mt-0.5 ${t(
+                            "text-black",
+                            "text-black"
+                          )}`}
+                        >
+                          {i + 1}
+                        </span>
+                        <span className="text-md">{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              </div>
+            </div>
+
+            {!isBackendConfigured && (
+              <div
+                className={`flex items-start gap-2 p-3 rounded-lg ${t(
+                  "bg-red-900/20 text-red-400",
+                  "bg-red-50 text-red-700"
+                )}`}
+              >
+                <span className="shrink-0 text-base leading-none">❌</span>
+                <div>
+                  <p
+                    className={`font-medium text-xs md:text-sm ${t(
+                      "text-red-300",
+                      "text-red-800"
+                    )}`}
+                  >
+                    Backend Not Configured
+                  </p>
+                  <p className="text-xs mt-0.5">
+                    Set{" "}
+                    <code
+                      className={`px-1 rounded ${t(
+                        "bg-red-900/40",
+                        "bg-red-100"
+                      )}`}
+                    >
+                      TELEGRAM_BOT_TOKEN
+                    </code>{" "}
+                    in the backend <code>.env</code> file.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {isUserConfigured && isBackendConfigured && (
               <button
                 onClick={handleTestConnection}
                 disabled={isTesting}
-                className={`w-full p-3 md:p-4 rounded-lg transition-colors ${
-                  isDarkMode
-                    ? "bg-green-900/20 hover:bg-green-900/30 text-green-400"
-                    : "bg-green-50 hover:bg-green-100 text-green-700"
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                className={`w-full p-2.5 rounded-lg border transition-colors text-sm font-medium ${t(
+                  "bg-green-900/20 hover:bg-green-900/30 text-green-400 border-green-700/30",
+                  "bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                )} disabled:opacity-40 disabled:cursor-not-allowed`}
               >
-                <div className="flex items-center justify-center gap-2">
-                  {isTesting ? (
-                    <>
-                      <div className="animate-spin h-4 w-4 border-2 border-green-500 border-t-transparent rounded-full"></div>
-                      <span className="text-sm md:text-base">
-                        Sending test message...
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <FiActivity className="text-base md:text-lg" />
-                      <span className="font-medium text-sm md:text-base">
-                        Test Telegram Connection
-                      </span>
-                    </>
-                  )}
-                </div>
+                {isTesting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="animate-spin h-4 w-4 border-2 border-green-500 border-t-transparent rounded-full" />
+                    Sending test message...
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-center gap-2">
+                    <FiActivity /> Test Telegram Connection
+                  </span>
+                )}
               </button>
-            )}
-
-            {/* Configuration Warning */}
-            {!isBackendConfigured && (
-              <div
-                className={`p-3 md:p-4 rounded-lg ${
-                  isDarkMode ? "bg-yellow-900/20" : "bg-yellow-50"
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <span className="text-xl md:text-2xl flex-shrink-0">⚠️</span>
-                  <div>
-                    <div
-                      className={`font-medium text-sm md:text-base ${
-                        isDarkMode ? "text-yellow-300" : "text-yellow-800"
-                      }`}
-                    >
-                      Telegram Not Configured
-                    </div>
-                    <div
-                      className={`text-xs md:text-sm mt-1 ${
-                        isDarkMode ? "text-yellow-400" : "text-yellow-700"
-                      }`}
-                    >
-                      Please configure your Telegram bot token and chat ID in
-                      the backend environment variables (.env file).
-                    </div>
-                  </div>
-                </div>
-              </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Tech Stack Card */}
-      <div
-        className={`rounded-xl shadow-sm ${
-          isDarkMode ? "bg-gray-800 shadow-lg" : "bg-white"
-        }`}
-      >
+      <div className={card}>
         <div className="p-4 md:p-6">
           <h2
-            className={`text-lg md:text-xl font-semibold mb-4 ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
+            className={`text-lg md:text-xl font-semibold mb-4 ${t(
+              "text-white",
+              "text-gray-900"
+            )}`}
           >
             Technology Stack
           </h2>
           <div
-            className={`space-y-3 text-xs md:text-sm ${
-              isDarkMode ? "text-gray-400" : "text-gray-600"
-            }`}
+            className={`text-xs md:text-sm ${t(
+              "text-gray-400",
+              "text-gray-600"
+            )}`}
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -578,7 +655,7 @@ function SettingsPage() {
                 <ul className="space-y-1">
                   <li>• Node.js + Express</li>
                   <li>• PostgreSQL</li>
-                  <li>• Sequelize ORM</li>
+                  <li>• Prisma ORM</li>
                   <li>• JWT Authentication</li>
                   <li>• Telegram Bot API</li>
                   <li>• bcrypt</li>
@@ -589,27 +666,24 @@ function SettingsPage() {
         </div>
       </div>
 
-      {/* About Card */}
-      <div
-        className={`rounded-xl shadow-sm ${
-          isDarkMode ? "bg-gray-800 shadow-lg" : "bg-white"
-        }`}
-      >
+      <div className={card}>
         <div className="p-4 md:p-6">
           <h2
-            className={`text-lg md:text-xl font-semibold mb-4 ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
+            className={`text-lg md:text-xl font-semibold mb-4 ${t(
+              "text-white",
+              "text-gray-900"
+            )}`}
           >
             About
           </h2>
           <div
-            className={`space-y-2 text-xs md:text-sm ${
-              isDarkMode ? "text-gray-400" : "text-gray-600"
-            }`}
+            className={`space-y-1 text-xs md:text-sm ${t(
+              "text-gray-400",
+              "text-gray-600"
+            )}`}
           >
             <p className="font-medium">
-              Crypto Analyze - Full Stack Application
+              Crypto Analyze — Full Stack Application
             </p>
             <p>Version 2.0.0</p>
             <p>

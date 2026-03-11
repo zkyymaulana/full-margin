@@ -161,8 +161,43 @@ export function buildTelegramUpdateData(telegramChatId, telegramEnabled) {
 
 /**
  * Update user's Telegram settings
+ * Validates watchlist when enabling notifications.
  */
 export async function updateUserTelegramSettings(userId, updateData) {
+  // If caller is trying to enable Telegram, enforce pre-conditions
+  if (updateData.telegramEnabled === true) {
+    // 1. Must have a Chat ID saved (either in updateData or already in DB)
+    if (updateData.telegramChatId === null) {
+      throw new Error(
+        "telegramChatId is required to enable Telegram notifications"
+      );
+    }
+
+    if (updateData.telegramChatId === undefined) {
+      // Check existing value in DB
+      const existingUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { telegramChatId: true },
+      });
+      if (!existingUser?.telegramChatId) {
+        throw new Error(
+          "Please save your Telegram Chat ID before enabling notifications"
+        );
+      }
+    }
+
+    // 2. Must have at least one coin in the watchlist
+    const watchlistCount = await prisma.userWatchlist.count({
+      where: { userId },
+    });
+
+    if (watchlistCount === 0) {
+      throw new Error(
+        "Add coins to your watchlist before enabling Telegram notifications"
+      );
+    }
+  }
+
   const updatedUser = await prisma.user.update({
     where: { id: userId },
     data: updateData,

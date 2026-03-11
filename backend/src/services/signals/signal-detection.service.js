@@ -1,5 +1,5 @@
 import { prisma } from "../../lib/prisma.js";
-import { sendMultiIndicatorSignal } from "../telegram/telegram.service.js";
+import { sendSignalToWatchers } from "../telegram/telegram.service.js";
 import {
   calculateIndividualSignals,
   calculateMultiIndicatorScore,
@@ -146,10 +146,9 @@ export async function detectAndNotifyMultiIndicatorSignals(
       };
     }
 
-    // 🔔 SEND TELEGRAM NOTIFICATION
-    // Notifikasi dikirim untuk semua sinyal non-neutral
-    // Frontend/user dapat memfilter berdasarkan strength jika perlu
-    const result = await sendMultiIndicatorSignal({
+    // 🔔 SEND TELEGRAM NOTIFICATION — only to users who watch this coin
+    const result = await sendSignalToWatchers({
+      coinId: coin.id,
       symbol,
       signal,
       signalLabel, // ✅ Kirim label untuk display (STRONG BUY, BUY, etc)
@@ -173,7 +172,7 @@ export async function detectAndNotifyMultiIndicatorSignals(
 
     if (result.success) {
       console.log(
-        `✅ ${symbol} ${signalLabel} | finalScore: ${finalScore.toFixed(3)} | strength: ${strength.toFixed(3)}`
+        `✅ ${symbol} ${signalLabel} | finalScore: ${finalScore.toFixed(3)} | strength: ${strength.toFixed(3)} | notified: ${result.sent}/${result.eligible ?? result.total} watchers`
       );
     }
 
