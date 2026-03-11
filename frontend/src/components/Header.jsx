@@ -7,6 +7,7 @@ import { useUserProfile } from "../hooks/useUser";
 import { confirmLogout } from "../utils/notifications";
 import { useDarkMode } from "../contexts/DarkModeContext";
 import { useSidebar } from "../contexts/SidebarContext";
+import { FiSearch } from "react-icons/fi";
 
 function Header() {
   const { logout } = useAuth();
@@ -205,16 +206,14 @@ function Header() {
                     placeholder="Search coins..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className={`w-full px-4 py-2 pl-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm ${
+                    className={`w-full px-4 py-2 pl-10 border-none rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm ${
                       isDarkMode
                         ? "bg-gray-700 border-gray-600 text-white"
                         : "bg-gray-50 border-gray-200 text-gray-900"
                     }`}
                     autoFocus
                   />
-                  <span className="absolute left-3 top-2.5 text-gray-400">
-                    🔍
-                  </span>
+                  <FiSearch className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                 </div>
               </div>
 

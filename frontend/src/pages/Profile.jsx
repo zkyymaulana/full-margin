@@ -241,7 +241,7 @@ function ProfilePage() {
 
                 <div className="w-full space-y-2 text-sm">
                   <div
-                    className={`flex justify-between py-2 border-b ${
+                    className={`flex justify-between py-2 ${
                       isDarkMode ? "border-gray-700" : "border-gray-100"
                     }`}
                   >
@@ -257,22 +257,6 @@ function ProfilePage() {
                     >
                       {user.createdAt
                         ? new Date(user.createdAt).toLocaleDateString()
-                        : "N/A"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-2">
-                    <span
-                      className={isDarkMode ? "text-gray-400" : "text-gray-600"}
-                    >
-                      Last Login:
-                    </span>
-                    <span
-                      className={`font-medium ${
-                        isDarkMode ? "text-white" : "text-gray-900"
-                      }`}
-                    >
-                      {user.lastLogin
-                        ? new Date(user.lastLogin).toLocaleDateString()
                         : "N/A"}
                     </span>
                   </div>
