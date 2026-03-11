@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useComparison } from "../hooks/useComparison";
 import { useSymbol } from "../contexts/SymbolContext";
 import { useDarkMode } from "../contexts/DarkModeContext";
@@ -20,7 +20,9 @@ function ComparisonPage() {
   const { isDarkMode } = useDarkMode();
   const queryClient = useQueryClient();
 
-  // ✅ FIXED: Get today's date for end date
+  // Track simbol yang sedang aktif saat comparison dijalankan
+  const comparedSymbolRef = useRef(null);
+
   const getTodayDate = () => {
     const today = new Date();
     const year = today.getFullYear();
@@ -31,6 +33,8 @@ function ComparisonPage() {
 
   const [startDate, setStartDate] = useState("2020-01-01");
   const [endDate, setEndDate] = useState(getTodayDate());
+  // ✅ State lokal untuk hasil — bisa di-reset secara deterministik
+  const [displayData, setDisplayData] = useState(null);
 
   const {
     mutate: compare,
@@ -38,35 +42,36 @@ function ComparisonPage() {
     isLoading,
     isPending,
     error,
+    reset: resetComparison,
   } = useComparison();
 
-  // ...existing useEffect hooks...
+  // ✅ Reset semua hasil saat simbol berubah
   useEffect(() => {
-    console.log("🔄 Loading State:", { isLoading, isPending });
-  }, [isLoading, isPending]);
+    console.log(
+      `[Comparison] Symbol changed → ${selectedSymbol}, resetting results`
+    );
+    setDisplayData(null);
+    resetComparison();
+    queryClient.removeQueries({ queryKey: ["comparison"] });
+    comparedSymbolRef.current = null;
+  }, [selectedSymbol]);
 
-  const cachedData = queryClient.getQueryData(["comparison", selectedSymbol]);
-
+  // ✅ Simpan hasil ke state lokal HANYA jika simbol hasil = simbol aktif saat ini
   useEffect(() => {
-    if (comparisonData?.success) {
-      queryClient.setQueryData(["comparison", selectedSymbol], comparisonData, {
-        cacheTime: 30 * 60 * 1000,
-      });
+    if (!comparisonData?.success) return;
+
+    if (comparedSymbolRef.current !== selectedSymbol) {
+      console.warn(
+        `[Comparison] Ignoring stale result — result is for "${comparedSymbolRef.current}", current symbol is "${selectedSymbol}"`
+      );
+      return;
     }
-  }, [comparisonData, selectedSymbol, queryClient]);
 
-  const displayData = comparisonData || cachedData;
-
-  useEffect(() => {
-    if (displayData?.comparison?.bestStrategy) {
-      console.log("🏆 Best Strategy:", displayData.comparison.bestStrategy);
-      console.log("📊 Comparison Data:", {
-        single: displayData.analysis?.bestSingle,
-        multi: displayData.comparison?.multi?.roi,
-        voting: displayData.comparison?.voting?.roi,
-      });
-    }
-  }, [displayData]);
+    console.log(
+      `[Comparison] ✅ Result accepted for symbol: ${selectedSymbol}`
+    );
+    setDisplayData(comparisonData);
+  }, [comparisonData]);
 
   const handleCompare = () => {
     if (!startDate || !endDate) {
@@ -74,11 +79,12 @@ function ComparisonPage() {
       return;
     }
 
-    compare({
-      symbol: selectedSymbol,
-      startDate,
-      endDate,
-    });
+    // Catat simbol mana yang sedang di-compare
+    comparedSymbolRef.current = selectedSymbol;
+    console.log(`[Comparison] Running comparison for: ${selectedSymbol}`);
+
+    setDisplayData(null); // Reset tampilan sebelum request baru
+    compare({ symbol: selectedSymbol, startDate, endDate });
   };
 
   return (

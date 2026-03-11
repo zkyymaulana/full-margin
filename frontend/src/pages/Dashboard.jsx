@@ -254,7 +254,7 @@ function DashboardPage() {
           <p
             className={`mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
           >
-            Real-time cryptocurrency market analysis
+            Cryptocurrency market analysis
           </p>
         </div>
       </div>
