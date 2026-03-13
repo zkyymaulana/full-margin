@@ -116,10 +116,6 @@ export async function fetchEarliestCandle(symbol) {
     const currentYear = new Date().getFullYear();
     const MAX_YEAR = currentYear;
 
-    console.log(
-      `  🔍 Searching from 2016 to ${MAX_YEAR} for earliest ${symbol} data...`
-    );
-
     // Step 1: Binary search untuk menemukan tahun pertama dengan data (lebih efisien)
     let firstYearWithData = null;
 
@@ -138,16 +134,10 @@ export async function fetchEarliestCandle(symbol) {
         if (testCandles && testCandles.length > 0) {
           // Found data in this year!
           firstYearWithData = year;
-          console.log(`  🎯 First year with data: ${year}`);
 
           // Sort untuk dapat candle paling awal
           testCandles.sort((a, b) => a.time - b.time);
           const earliest = testCandles[0];
-
-          const earliestDate = new Date(earliest.time)
-            .toISOString()
-            .split("T")[0];
-          console.log(`  📅 Earliest candle: ${earliestDate}`);
 
           return {
             time: earliest.time,
@@ -166,16 +156,8 @@ export async function fetchEarliestCandle(symbol) {
       // Small delay to avoid rate limiting
       await delay(300);
     }
-
-    console.log(
-      `  ❌ No historical data found for ${symbol} (2016-${MAX_YEAR})`
-    );
     return null;
   } catch (err) {
-    console.error(
-      `  ❌ Error finding earliest candle for ${symbol}:`,
-      err.message
-    );
     return null;
   }
 }

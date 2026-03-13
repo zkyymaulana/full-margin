@@ -10,17 +10,6 @@ dotenv.config();
 const CMC_BASE_URL =
   process.env.CMC_API_URL || "https://pro-api.coinmarketcap.com/v1";
 
-/**
- * Sinkronisasi Top Coins dari CoinMarketCap
- * Pairing dengan Coinbase dan cek earliest candle
- * Simpan SEMUA coin yang ditemukan (dengan/tanpa listing date valid)
- * Filter 20 coin dengan listing date < 2025-01-01 untuk analisis
- *
- * IMPORTANT:
- * - listingDate = Earliest candle date from Coinbase (2016-2026)
- * - Semua coin disimpan untuk menghindari re-checking di run berikutnya
- * - Hanya coin dengan listingDate < Jan 1, 2025 yang digunakan untuk analisis
- */
 export async function syncTopCoins() {
   try {
     if (!process.env.CMC_API_KEY)
@@ -55,17 +44,12 @@ export async function syncTopCoins() {
     if (coins.length === 0)
       throw new Error("Tidak ada coin valid setelah data cleaning.");
 
-    console.log(`✅ Got ${coins.length} coins from CMC`);
-
     // 2. Ambil pair aktif dari Coinbase
-    console.log("📥 Fetching active pairs from Coinbase...");
     const activePairs = await fetchPairs();
 
     if (activePairs.size === 0) {
       throw new Error("Tidak ada pair aktif di Coinbase");
     }
-
-    console.log(`✅ Got ${activePairs.size} active pairs from Coinbase`);
 
     // 3. Filter: Cutoff date untuk analisis (bukan untuk menyimpan)
     const cutoffDate = new Date("2025-01-01T00:00:00.000Z");
@@ -74,13 +58,11 @@ export async function syncTopCoins() {
     const allCoins = []; // Semua coin yang ditemukan (untuk disimpan)
     const validCoins = []; // Hanya coin dengan listing < 2025 (untuk analisis)
 
-    console.log("\n🔍 Checking coins for listing dates...\n");
-
     for (const coin of coins) {
       // Stop mencari coin baru jika sudah dapat 20 valid coins
       if (validCoins.length >= 20) break;
 
-      // ✅ Coba berbagai kemungkinan pair format
+      // Coba berbagai kemungkinan pair format
       const possiblePairs = [
         `${coin.symbol}-USD`,
         `${coin.symbol}-USDT`,
@@ -95,7 +77,7 @@ export async function syncTopCoins() {
         continue;
       }
 
-      // ✅ Cek apakah coin sudah pernah dicek sebelumnya (ada di database)
+      // Cek apakah coin sudah pernah dicek sebelumnya (ada di database)
       const existingCoin = await prisma.coin.findFirst({
         where: { symbol: foundPair },
         select: { listingDate: true, symbol: true },
@@ -108,7 +90,7 @@ export async function syncTopCoins() {
 
         if (isValid) {
           console.log(
-            `✅ ${foundPair}: Already checked, valid for analysis (${validCoins.length + 1}/20)`
+            `${foundPair}: Already checked, valid for analysis (${validCoins.length + 1}/20)`
           );
           validCoins.push({
             ...coin,
@@ -117,7 +99,7 @@ export async function syncTopCoins() {
           });
         } else {
           console.log(
-            `⏭️  ${foundPair}: Already checked, not valid for analysis (listed ${existingCoin.listingDate?.toISOString().split("T")[0] || "never"})`
+            `${foundPair}: Already checked, not valid for analysis (listed ${existingCoin.listingDate?.toISOString().split("T")[0] || "never"})`
           );
         }
 
@@ -131,8 +113,8 @@ export async function syncTopCoins() {
         continue;
       }
 
-      // ✅ Coin belum pernah dicek, fetch earliest candle
-      console.log(`🔍 ${foundPair}: Checking earliest candle...`);
+      // Coin belum pernah dicek, fetch earliest candle
+      console.log(`${foundPair}: Checking earliest candle...`);
       const earliestCandle = await fetchEarliestCandle(foundPair);
 
       let listingDate = null;
@@ -140,7 +122,7 @@ export async function syncTopCoins() {
         listingDate = new Date(earliestCandle.time);
       }
 
-      // 📥 Fetch logo dari CMC untuk coin ini
+      // Fetch logo dari CMC untuk coin ini
       let logo = null;
       try {
         const baseSymbol = foundPair.split("-")[0];
@@ -160,7 +142,7 @@ export async function syncTopCoins() {
         console.warn(`⚠️  Failed to fetch logo for ${foundPair}`);
       }
 
-      // ✅ Simpan ke allCoins
+      // Simpan ke allCoins
       const coinData = {
         ...coin,
         symbol: foundPair,
@@ -169,41 +151,16 @@ export async function syncTopCoins() {
       };
       allCoins.push(coinData);
 
-      // 💾 SIMPAN KE DATABASE LANGSUNG dengan logo
-      const coinRecord = await prisma.coin.upsert({
-        where: { symbol: foundPair },
-        update: {
-          rank: coin.rank,
-          name: coin.name,
-          logo: logo, // ✅ Simpan logo
-          listingDate: listingDate,
-        },
-        create: {
-          symbol: foundPair,
-          rank: coin.rank,
-          name: coin.name,
-          logo: logo, // ✅ Simpan logo
-          listingDate: listingDate,
-        },
-      });
-      console.log(
-        `💾 ${foundPair}: Saved to database ${logo ? "🖼️" : "(no logo)"}`
-      );
-
       if (!listingDate) {
-        console.log(`❌ ${foundPair}: No historical data available`);
         continue;
       }
 
-      // ✅ Cek apakah valid untuk analisis
+      // Cek apakah valid untuk analisis
       if (listingDate < cutoffDate) {
         validCoins.push(coinData);
-        console.log(
-          `✅ ${foundPair}: Valid for analysis! Listed on ${listingDate.toISOString().split("T")[0]} (${validCoins.length}/20)`
-        );
       } else {
         console.log(
-          `⏭️  ${foundPair}: Too new for analysis (${listingDate.toISOString().split("T")[0]})`
+          `${foundPair}: Too new for analysis (${listingDate.toISOString().split("T")[0]})`
         );
       }
     }
@@ -212,20 +169,12 @@ export async function syncTopCoins() {
       throw new Error("Tidak ada coin yang bisa dipair dengan Coinbase");
     }
 
-    console.log(
-      `\n🎯 Found ${validCoins.length} coins valid for analysis (listed before Jan 1, 2025)`
-    );
-    console.log(
-      `💾 Total ${allCoins.length} coins to save/update in database\n`
-    );
-
     // 5. Ambil logo dari CMC API v2/cryptocurrency/info
     const baseSymbols = allCoins.map((c) => c.symbol.split("-")[0]);
     const symbolsParam = [...new Set(baseSymbols)].join(",");
     let coinsWithLogo = allCoins;
 
     try {
-      console.log("📥 Fetching logos from CoinMarketCap...");
       const { data: infoData } = await axios.get(
         "https://pro-api.coinmarketcap.com/v2/cryptocurrency/info",
         {
@@ -247,10 +196,9 @@ export async function syncTopCoins() {
             logo: coinInfo?.logo || null,
           };
         });
-        console.log("✅ Logos fetched successfully");
       }
     } catch (logoErr) {
-      console.warn("⚠️  Failed to fetch logos, continuing without logos");
+      console.warn("Failed to fetch logos, continuing without logos");
     }
 
     // 6. DELETE semua TopCoin yang rank > 30
@@ -264,11 +212,10 @@ export async function syncTopCoins() {
 
     for (const tc of coinsToDelete) {
       await prisma.topCoin.delete({ where: { id: tc.id } });
-      console.log(`🗑️  Deleted: ${tc.coin.symbol} (rank ${tc.coin.rank})`);
+      console.log(`Deleted: ${tc.coin.symbol} (rank ${tc.coin.rank})`);
     }
 
     // 7. Simpan SEMUA coin ke database (termasuk yang tidak valid untuk analisis)
-    console.log("\n💾 Saving all coins to database...\n");
     for (const coin of coinsWithLogo) {
       // Upsert ke tabel Coin
       const coinRecord = await prisma.coin.upsert({
@@ -312,17 +259,10 @@ export async function syncTopCoins() {
           },
         });
       }
-
-      const dateStr = coin.listingDate
-        ? coin.listingDate.toISOString().split("T")[0]
-        : "no data";
-      const validMark =
-        coin.listingDate && coin.listingDate < cutoffDate ? "✅" : "⏭️";
-      console.log(`${validMark} ${coin.symbol}: Saved (listed ${dateStr})`);
     }
 
-    console.log(`\n🎉 Sync completed: ${coinsWithLogo.length} coins saved`);
-    console.log(`📊 ${validCoins.length} coins available for analysis\n`);
+    console.log(`\Sync completed: ${coinsWithLogo.length} coins saved`);
+    console.log(`${validCoins.length} coins available for analysis\n`);
 
     return {
       success: true,
@@ -331,7 +271,6 @@ export async function syncTopCoins() {
       validCount: validCoins.length,
     };
   } catch (err) {
-    console.error("❌ Sync error:", err.message);
     return { success: false, error: err.message };
   }
 }

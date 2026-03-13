@@ -378,8 +378,6 @@ export async function broadcastSignalController(req, res) {
       result,
     });
   } catch (error) {
-    console.error("❌ Broadcast signal error:", error.message);
-
     // Handle validation errors with 400, others with 500
     const statusCode =
       error.message.includes("required") ||

@@ -248,7 +248,7 @@ export async function getSignals(req, res) {
       data: organized,
     });
   } catch (err) {
-    console.error("❌ getSignals error:", err);
+    console.error("getSignals error:", err);
     res.status(500).json({
       success: false,
       message: err.message || "Internal server error",

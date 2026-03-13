@@ -24,7 +24,7 @@ export const compareIndicators = async (req, res) => {
       startDate,
       endDate,
       threshold
-    ); // ✅ Pass threshold
+    );
 
     // Handle service response
     if (!result.success) {

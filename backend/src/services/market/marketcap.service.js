@@ -1,7 +1,6 @@
 // pairing & live marketcap summary
 import dotenv from "dotenv";
 import { prisma } from "../../lib/prisma.js";
-import { syncTopCoins } from "./syncTopCoins.service.js";
 import { fetchTicker } from "./coinbase.service.js";
 
 dotenv.config();
@@ -28,9 +27,6 @@ function formatPrice(value) {
  */
 export async function getMarketcapRealtime() {
   try {
-    // ✅ syncTopCoins sudah dipanggil di initialization, tidak perlu panggil lagi
-    // Langsung ambil data dari database saja
-
     // Ambil TopCoin dengan JOIN ke Coin untuk dapat rank, name, symbol, logo
     const topCoins = await prisma.topCoin.findMany({
       where: {

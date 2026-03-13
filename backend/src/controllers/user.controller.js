@@ -61,8 +61,6 @@ export async function updateTelegramSettings(req, res) {
       data: updatedUser,
     });
   } catch (err) {
-    console.error("❌ Error updating Telegram settings:", err.message);
-
     // Handle specific error types
     const statusCode = err.message.includes("Forbidden")
       ? 403
