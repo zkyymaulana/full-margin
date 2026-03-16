@@ -1,22 +1,225 @@
-import { prisma } from "../lib/prisma.js";
-import { optimizeIndicatorWeights } from "../services/multiIndicator/multiIndicator-analyzer.service.js";
-import { backtestWithWeights } from "../services/multiIndicator/multiIndicator-backtest.service.js";
+/**
+ * 🎮 Controller Multi-Indicator
+ * ================================================================
+ * Thin controller layer yang hanya menangani HTTP requests/responses.
+ *
+ * Tanggung Jawab:
+ * - Parse request parameters
+ * - Validate input
+ * - Call service functions
+ * - Return JSON responses
+ *
+ * TIDAK BOLEH MENGANDUNG:
+ * - Business logic
+ * - Database queries (gunakan service)
+ * - Algorithm logic (gunakan service)
+ * - Job state management (gunakan service)
+ * ================================================================
+ */
 
-// FIXED TRAINING WINDOW (CONSISTENT ACROSS ALL FUNCTIONS)
-const FIXED_START_EPOCH = Date.parse("2020-01-01T00:00:00Z");
-const FIXED_END_EPOCH = Date.parse("2025-01-01T00:00:00Z");
+import {
+  getOptimizationEstimate,
+  runOptimization,
+  createJob,
+  getJob,
+  updateJob,
+  removeJob,
+  getSSEClients,
+  cancelJob,
+  isCancelRequested,
+  setupSSE,
+  sendEvent,
+  broadcastEvent,
+  closeAllSSE,
+  setupHeartbeat,
+  runBacktestWithOptimizedWeights,
+  optimizeAllCoins,
+  getRunningJobs,
+  clearAllJobs,
+  addSSEClient,
+} from "../services/multiIndicator/index.js";
+import { calculateCategoryScores } from "../utils/multiindicator-score.utils.js";
+import jwt from "jsonwebtoken";
 
-/* --- 🆕 Global state untuk tracking optimasi yang sedang berjalan --- */
-const optimizationJobs = new Map(); // Symbol -> { status, progress, result, error, sseClients: Set, cancelRequested: false, abortController: AbortController }
+/**
+ * 🔐 Middleware: Verify JWT token untuk SSE endpoints
+ * SSE tidak support HTTP headers, jadi token dipass via query parameter
+ */
+async function verifySSEToken(token) {
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    return decoded;
+  } catch (err) {
+    throw new Error("Invalid or expired token");
+  }
+}
 
-/* --- 🆕 Cancel Optimization Endpoint --- */
+/**
+ * 📊 GET /api/multi-indicator/:symbol/estimate
+ *
+ * Dapatkan estimasi waktu optimization untuk symbol tertentu.
+ *
+ * Query parameters:
+ * - timeframe: "1h" (default), "4h", "1d", etc.
+ *
+ * Response: {estimate, dataPoints, totalCombinations, ...}
+ */
+export async function getOptimizationEstimateController(req, res) {
+  try {
+    const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
+    const timeframe = (req.query.timeframe || "1h").toLowerCase();
+
+    console.log(
+      `\n📊 [CONTROLLER] Getting estimate for ${symbol} (${timeframe})`
+    );
+
+    // Call service untuk get estimate
+    const estimate = await getOptimizationEstimate(symbol, timeframe);
+
+    res.json({
+      success: true,
+      symbol,
+      timeframe,
+      estimate,
+    });
+  } catch (err) {
+    console.error("❌ Error getting estimate:", err.message);
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+}
+
+/**
+ * 📡 GET /api/multi-indicator/:symbol/stream?token=JWT_TOKEN
+ *
+ * SSE endpoint untuk streaming optimization progress.
+ *
+ * Clients connect ke endpoint ini dan menerima real-time updates:
+ * - start: Optimization dimulai
+ * - progress: Progress update setiap 1000 kombinasi
+ * - completed: Optimization selesai
+ * - cancelled: Optimization dibatalkan
+ * - error: Error terjadi
+ *
+ * Query parameters:
+ * - token: JWT authentication token (REQUIRED)
+ * - timeframe: "1h" (default)
+ *
+ * Response: Server-Sent Events stream
+ */
+export async function streamOptimizationProgressController(req, res) {
+  const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
+  const token = req.query.token;
+
+  try {
+    // ✅ Verify JWT token dari query parameter
+    if (!token) {
+      res.status(401).json({
+        success: false,
+        message: "Authentication token required. Use ?token=YOUR_TOKEN",
+      });
+      return;
+    }
+
+    const user = await verifySSEToken(token);
+    console.log(`📡 [SSE] Authenticated user: ${user.email} for ${symbol}`);
+
+    // ================================================================================
+    // STEP 1: Setup SSE Response Headers
+    // ================================================================================
+    setupSSE(res);
+    console.log(`📡 [SSE] SSE headers configured for ${symbol}`);
+
+    // ================================================================================
+    // STEP 2: CREATE/GET JOB dan TAMBAHKAN CLIENT ke JOB
+    // ================================================================================
+    // PENTING: Tambahkan SSE client ke job state
+    // Ini memungkinkan backend untuk broadcast ke client saat progress update
+    createJob(symbol);
+    addSSEClient(symbol, res); // ← ADD CLIENT KE JOB!
+    const job = getJob(symbol);
+
+    console.log(
+      `📡 [SSE] Client added to job for ${symbol}. Total clients: ${getSSEClients(symbol).size}`
+    );
+
+    // ================================================================================
+    // STEP 3: SEND CURRENT JOB STATE ke CLIENT
+    // ================================================================================
+    // Jika job sedang running, kirim current progress
+    if (job?.status === "running" && job?.progress) {
+      console.log(`📡 [SSE] Job running, sending current progress`);
+      sendEvent(res, "progress", job.progress);
+    }
+    // Jika job sudah completed, kirim hasil
+    else if (job?.status === "completed" && job?.result) {
+      console.log(`📡 [SSE] Job completed, sending result`);
+      sendEvent(res, "completed", job.result);
+      res.end();
+      return;
+    }
+    // Jika ada error, kirim error message
+    else if (job?.status === "error" && job?.error) {
+      console.log(`📡 [SSE] Job error, sending error message`);
+      sendEvent(res, "error", { message: job.error });
+      res.end();
+      return;
+    }
+    // Otherwise, kirim status waiting
+    else {
+      console.log(`📡 [SSE] Job waiting, sending status message`);
+      sendEvent(res, "status", {
+        status: job?.status || "waiting",
+        message: "Waiting for optimization to start...",
+      });
+    }
+
+    // ================================================================================
+    // STEP 4: Setup Heartbeat untuk Keep Connection Alive
+    // ================================================================================
+    // Kirim heartbeat setiap 30 detik untuk prevent timeout
+    const heartbeatInterval = setupHeartbeat(res, 30000);
+
+    // ================================================================================
+    // STEP 5: Handle Client Disconnect
+    // ================================================================================
+    req.on("close", () => {
+      console.log(`📡 [SSE] Client disconnected for ${symbol}`);
+      clearInterval(heartbeatInterval);
+      // Jangan hapus job, hanya disconnect client
+      // Job state tetap ada untuk client lain yang mungkin masih connected
+    });
+
+    req.on("error", (err) => {
+      console.error(`📡 [SSE] Client error for ${symbol}:`, err.message);
+      clearInterval(heartbeatInterval);
+    });
+  } catch (err) {
+    console.error(`❌ [SSE] Error in stream controller:`, err.message);
+    res.status(401).json({
+      success: false,
+      message: err.message,
+    });
+  }
+}
+
+/**
+ * 🛑 POST /api/multi-indicator/:symbol/cancel
+ *
+ * Cancel optimization yang sedang berjalan.
+ *
+ * Response: {success: true, message: "..."}
+ */
 export async function cancelOptimizationController(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
 
-    console.log(`🛑 Cancel request received for ${symbol}`);
+    console.log(`🛑 [CONTROLLER] Cancel request for ${symbol}`);
 
-    const job = optimizationJobs.get(symbol);
+    // Cancel job via job service
+    const job = getJob(symbol);
 
     if (!job) {
       return res.status(404).json({
@@ -33,47 +236,23 @@ export async function cancelOptimizationController(req, res) {
     }
 
     // Mark as cancelled
-    job.cancelRequested = true;
-    job.status = "cancelled";
-    optimizationJobs.set(symbol, job);
+    cancelJob(symbol);
 
-    console.log(`✅ Optimization cancelled for ${symbol}`);
+    // Broadcast cancellation ke semua SSE clients
+    const clients = getSSEClients(symbol);
+    broadcastEvent(clients, "cancelled", {
+      message: "Optimization cancelled by user",
+      symbol,
+    });
 
-    // Broadcast cancellation to all SSE clients
-    if (job.sseClients) {
-      job.sseClients.forEach((client) => {
-        try {
-          const payload = JSON.stringify({
-            type: "cancelled",
-            message: "Optimization cancelled by user",
-            symbol,
-          });
-          client.write(`data: ${payload}\n\n`);
-
-          if (client.socket && !client.socket.destroyed) {
-            client.socket.uncork?.();
-          }
-        } catch (err) {
-          console.error(`Error broadcasting cancel:`, err.message);
-        }
-      });
-
-      // Close all SSE connections
-      setTimeout(() => {
-        job.sseClients.forEach((client) => {
-          try {
-            client.end();
-          } catch (err) {
-            // Ignore
-          }
-        });
-      }, 1000);
-    }
-
-    // Clean up after 1 minute
+    // Close SSE connections
     setTimeout(() => {
-      optimizationJobs.delete(symbol);
-      console.log(`🧹 Cleaned up cancelled optimization for ${symbol}`);
+      closeAllSSE(clients);
+    }, 1000);
+
+    // Clean up job setelah 1 menit
+    setTimeout(() => {
+      removeJob(symbol);
     }, 60 * 1000);
 
     res.json({
@@ -89,1392 +268,323 @@ export async function cancelOptimizationController(req, res) {
   }
 }
 
-/* --- 🆕 Server Restart/Shutdown Handler --- */
-process.on("SIGINT", handleServerShutdown);
-process.on("SIGTERM", handleServerShutdown);
-
-function handleServerShutdown() {
-  console.log("\n🛑 Server shutting down, cancelling all optimizations...");
-
-  // Broadcast cancellation to all active optimizations
-  for (const [symbol, job] of optimizationJobs.entries()) {
-    if (job.status === "running" && job.sseClients) {
-      console.log(`📡 Broadcasting shutdown for ${symbol}`);
-
-      job.sseClients.forEach((client) => {
-        try {
-          const payload = JSON.stringify({
-            type: "cancelled",
-            message: "Server is restarting. Please try again.",
-            reason: "server_restart",
-            symbol,
-          });
-          client.write(`data: ${payload}\n\n`);
-
-          if (client.socket && !client.socket.destroyed) {
-            client.socket.uncork?.();
-          }
-
-          // Close connection
-          setTimeout(() => client.end(), 500);
-        } catch (err) {
-          console.error(`Error broadcasting shutdown:`, err.message);
-        }
-      });
-    }
-  }
-
-  // Clear all jobs
-  optimizationJobs.clear();
-
-  // Exit after cleanup
-  setTimeout(() => {
-    console.log("👋 Goodbye!");
-    process.exit(0);
-  }, 1000);
-}
-
-/* --- 🆕 SSE Progress Endpoint --- */
-export async function streamOptimizationProgressController(req, res) {
-  const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
-
-  // ✅ Authenticate via query parameter token (SSE doesn't support headers)
-  const token = req.query.token;
-
-  if (!token) {
-    res.status(401).json({
-      success: false,
-      message: "Authentication token required. Use ?token=YOUR_TOKEN",
-    });
-    return;
-  }
-
-  // ✅ Verify JWT token
-  try {
-    const jwt = await import("jsonwebtoken");
-    const decoded = jwt.default.verify(token, process.env.JWT_SECRET);
-
-    // Attach user to request (optional, for logging)
-    req.user = decoded;
-    console.log(`📡 [SSE] Authenticated user: ${decoded.email} for ${symbol}`);
-  } catch (err) {
-    console.error(`❌ [SSE] Invalid token:`, err.message);
-    res.status(401).json({
-      success: false,
-      message: "Invalid or expired token",
-    });
-    return;
-  }
-
-  // ✅ Set SSE headers - CRITICAL for real-time streaming
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache, no-transform");
-  res.setHeader("Connection", "keep-alive");
-  res.setHeader("X-Accel-Buffering", "no"); // Disable nginx buffering
-
-  // CORS headers (if needed)
-  res.setHeader("Access-Control-Allow-Origin", "*");
-
-  // ✅ CRITICAL: Disable compression for SSE
-  res.setHeader("Content-Encoding", "none");
-
-  // ✅ Set response to unbuffered mode
-  if (res.socket) {
-    res.socket.setNoDelay(true);
-    res.socket.setTimeout(0);
-  }
-
-  // ✅ Send headers immediately
-  res.flushHeaders();
-
-  console.log(`📡 [SSE] Client connected for ${symbol}`);
-
-  // Get or create job state
-  let job = optimizationJobs.get(symbol);
-
-  if (!job) {
-    // Initialize empty state if no job exists yet
-    job = {
-      status: "waiting",
-      progress: null,
-      result: null,
-      error: null,
-      sseClients: new Set(),
-    };
-    optimizationJobs.set(symbol, job);
-  }
-
-  // Add this client to the set
-  if (!job.sseClients) {
-    job.sseClients = new Set();
-  }
-  job.sseClients.add(res);
-
-  // ✅ Helper function to send SSE events with IMMEDIATE flush
-  const sendEvent = (eventName, data) => {
-    try {
-      const payload = JSON.stringify({ type: eventName, ...data });
-
-      // ✅ Write data
-      res.write(`data: ${payload}\n\n`);
-
-      // ✅ FORCE immediate transmission using socket
-      if (res.socket && !res.socket.destroyed) {
-        // Force TCP send without buffering
-        res.socket.uncork?.();
-      }
-
-      console.log(`📤 [SSE] Sent ${eventName} event (${payload.length} chars)`);
-      return true;
-    } catch (err) {
-      console.error(`⚠️ [SSE] Error sending event:`, err.message);
-      return false;
-    }
-  };
-
-  // Send current state immediately
-  if (job.status === "running" && job.progress) {
-    sendEvent("progress", job.progress);
-  } else if (job.status === "completed" && job.result) {
-    sendEvent("completed", job.result);
-    res.end();
-    return;
-  } else if (job.status === "error" && job.error) {
-    sendEvent("error", { message: job.error });
-    res.end();
-    return;
-  } else {
-    sendEvent("status", {
-      status: job.status,
-      message: "Waiting for optimization to start...",
-    });
-  }
-
-  // Keep connection alive with heartbeat
-  const heartbeatInterval = setInterval(() => {
-    try {
-      res.write(`:heartbeat\n\n`);
-      if (res.socket && !res.socket.destroyed) {
-        res.socket.uncork?.();
-      }
-    } catch (err) {
-      clearInterval(heartbeatInterval);
-    }
-  }, 15000); // Every 15 seconds
-
-  // Handle client disconnect
-  req.on("close", () => {
-    console.log(`📡 [SSE] Client disconnected for ${symbol}`);
-    clearInterval(heartbeatInterval);
-
-    const currentJob = optimizationJobs.get(symbol);
-    if (currentJob?.sseClients) {
-      currentJob.sseClients.delete(res);
-
-      // Clean up if no clients left and not running
-      if (currentJob.sseClients.size === 0 && currentJob.status !== "running") {
-        optimizationJobs.delete(symbol);
-        console.log(`🧹 [SSE] Cleaned up job state for ${symbol}`);
-      }
-    }
-  });
-}
-
 /**
- * Helper: Convert signal string to numeric value
+ * 🚀 POST /api/multi-indicator/:symbol/optimize-weights
+ *
+ * Jalankan optimization untuk cryptocurrency symbol tertentu.
+ *
+ * Query parameters:
+ * - timeframe: "1h" (default)
+ * - force: "true" untuk force reoptimization
+ *
+ * Body:
+ * - force: boolean (alternative ke query parameter)
+ *
+ * Response:
+ * {
+ *   success: true,
+ *   symbol: "BTC-USD",
+ *   timeframe: "1h",
+ *   lastOptimized: ISO datetime,
+ *   performance: {roi, winRate, maxDrawdown, ...},
+ *   weights: {SMA: 2, EMA: 1, ...},
+ *   categoryScores: {trend, momentum, volatility},
+ *   latest: {time, open, high, low, close, volume}
+ * }
  */
-function toSignalValue(signal) {
-  if (!signal) return 0;
-  const normalized = signal.toLowerCase();
-  if (normalized === "buy") return 1;
-  if (normalized === "sell") return -1;
-  return 0;
-}
-
-function calculateCategoryScores(indicators, weights) {
-  // Safe weight extraction with defaults
-  const w = {
-    SMA: weights?.SMA || 0,
-    EMA: weights?.EMA || 0,
-    PSAR: weights?.PSAR || 0,
-    RSI: weights?.RSI || 0,
-    MACD: weights?.MACD || 0,
-    Stochastic: weights?.Stochastic || 0,
-    StochasticRSI: weights?.StochasticRSI || 0,
-    BollingerBands: weights?.BollingerBands || 0,
-  };
-
-  // Extract signals from indicators
-  const signals = {
-    sma: toSignalValue(indicators?.sma?.signal),
-    ema: toSignalValue(indicators?.ema?.signal),
-    psar: toSignalValue(indicators?.parabolicSar?.signal),
-    rsi: toSignalValue(indicators?.rsi?.signal),
-    macd: toSignalValue(indicators?.macd?.signal),
-    stochastic: toSignalValue(indicators?.stochastic?.signal),
-    stochasticRsi: toSignalValue(indicators?.stochasticRsi?.signal),
-    bb: toSignalValue(indicators?.bollingerBands?.signal),
-  };
-
-  // TREND CATEGORY (SMA + EMA + PSAR)
-  const trendWeightSum = w.SMA + w.EMA + w.PSAR;
-  const trendScore =
-    trendWeightSum > 0
-      ? (signals.sma * w.SMA + signals.ema * w.EMA + signals.psar * w.PSAR) /
-        trendWeightSum
-      : 0;
-
-  // MOMENTUM CATEGORY (RSI + MACD + Stochastic + StochasticRSI)
-  const momentumWeightSum = w.RSI + w.MACD + w.Stochastic + w.StochasticRSI;
-  const momentumScore =
-    momentumWeightSum > 0
-      ? (signals.rsi * w.RSI +
-          signals.macd * w.MACD +
-          signals.stochastic * w.Stochastic +
-          signals.stochasticRsi * w.StochasticRSI) /
-        momentumWeightSum
-      : 0;
-
-  // VOLATILITY CATEGORY (BollingerBands only)
-  const volatilityWeightSum = w.BollingerBands;
-  const volatilityScore =
-    volatilityWeightSum > 0
-      ? (signals.bb * w.BollingerBands) / volatilityWeightSum
-      : 0;
-
-  return {
-    trend: parseFloat(trendScore.toFixed(2)),
-    momentum: parseFloat(momentumScore.toFixed(2)),
-    volatility: parseFloat(volatilityScore.toFixed(2)),
-  };
-}
-
-/* --- 🆕 Get Optimization Estimate --- */
-export async function getOptimizationEstimateController(req, res) {
-  try {
-    const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
-    const timeframe = (req.query.timeframe || "1h").toLowerCase();
-
-    console.log(`📊 Calculating optimization estimate for ${symbol}...`);
-    console.log(`   Timeframe: ${timeframe}`);
-
-    // Get coin and timeframe IDs
-    console.log(`🔍 [STEP 1] Looking up coin: ${symbol}`);
-    const coin = await prisma.coin.findUnique({
-      where: { symbol },
-      select: { id: true, name: true },
-    });
-
-    if (!coin) {
-      console.error(`❌ Coin not found: ${symbol}`);
-      return res.status(404).json({
-        success: false,
-        message: `Coin ${symbol} not found in database`,
-      });
-    }
-    console.log(`✅ Coin found: ${coin.name} (ID: ${coin.id})`);
-
-    console.log(`🔍 [STEP 2] Looking up timeframe: ${timeframe}`);
-    const timeframeRecord = await prisma.timeframe.findUnique({
-      where: { timeframe },
-      select: { id: true },
-    });
-
-    if (!timeframeRecord) {
-      console.error(`❌ Timeframe not found: ${timeframe}`);
-      return res.status(404).json({
-        success: false,
-        message: `Timeframe ${timeframe} not found in database`,
-      });
-    }
-    console.log(`✅ Timeframe found (ID: ${timeframeRecord.id})`);
-
-    // Count available data points using coinId and timeframeId
-    console.log(`🔍 [STEP 3] Counting indicators...`);
-    console.log(`   coinId: ${coin.id}`);
-    console.log(`   timeframeId: ${timeframeRecord.id}`);
-    console.log(
-      `   time range: ${new Date(FIXED_START_EPOCH).toISOString()} → ${new Date(FIXED_END_EPOCH).toISOString()}`
-    );
-
-    const dataCount = await prisma.indicator.count({
-      where: {
-        coinId: coin.id,
-        timeframeId: timeframeRecord.id,
-        time: {
-          gte: BigInt(FIXED_START_EPOCH),
-          lt: BigInt(FIXED_END_EPOCH),
-        },
-      },
-    });
-
-    console.log(`✅ Data count: ${dataCount} indicators found`);
-
-    if (dataCount === 0) {
-      console.warn(
-        `⚠️ No data available for ${symbol} in specified time range`
-      );
-      return res.status(404).json({
-        success: false,
-        message: "No data available for optimization",
-        details: {
-          symbol,
-          coinId: coin.id,
-          timeframe,
-          timeframeId: timeframeRecord.id,
-          timeRange: {
-            start: new Date(FIXED_START_EPOCH).toISOString(),
-            end: new Date(FIXED_END_EPOCH).toISOString(),
-          },
-        },
-      });
-    }
-
-    // 🎯 FORMULA ESTIMASI BERDASARKAN BENCHMARK REAL
-    const BENCHMARK_DATA_POINTS = 45893;
-    const BENCHMARK_MINUTES = 78;
-    const totalCombinations = 390625; // 5^8
-
-    // Linear scaling berdasarkan data points
-    const estimatedMinutes = Math.ceil(
-      (dataCount / BENCHMARK_DATA_POINTS) * BENCHMARK_MINUTES
-    );
-    const estimatedSeconds = estimatedMinutes * 60;
-
-    // Range estimate (±15% karena variance algoritma)
-    const minSeconds = Math.floor(estimatedSeconds * 0.85);
-    const maxSeconds = Math.ceil(estimatedSeconds * 1.15);
-
-    // Format waktu yang user-friendly
-    const formatTime = (seconds) => {
-      if (seconds < 60) return `${seconds} detik`;
-      const minutes = Math.floor(seconds / 60);
-      const secs = seconds % 60;
-      return secs > 0 ? `${minutes} menit ${secs} detik` : `${minutes} menit`;
-    };
-
-    const estimate = {
-      dataPoints: dataCount,
-      totalCombinations,
-      estimatedSeconds,
-      estimatedMinutes,
-      estimatedRange: {
-        min: minSeconds,
-        max: maxSeconds,
-        minFormatted: formatTime(minSeconds),
-        maxFormatted: formatTime(maxSeconds),
-      },
-      formatted: formatTime(estimatedSeconds),
-      benchmarkInfo: {
-        benchmarkDataPoints: BENCHMARK_DATA_POINTS,
-        benchmarkMinutes: BENCHMARK_MINUTES,
-        scalingFactor: (dataCount / BENCHMARK_DATA_POINTS).toFixed(2),
-      },
-      displayNote: `Testing ${totalCombinations.toLocaleString()} combinations on ${dataCount.toLocaleString()} candles`, // ✅ Clear message
-    };
-
-    console.log(
-      `✅ Estimate: ${estimate.formatted} (${dataCount} data points)`
-    );
-    console.log(
-      `   Scaling factor: ${estimate.benchmarkInfo.scalingFactor}x benchmark`
-    );
-
-    res.json({
-      success: true,
-      symbol,
-      timeframe,
-      estimate,
-    });
-  } catch (err) {
-    console.error("❌ Error calculating estimate:", err.message);
-    console.error("Stack trace:", err.stack);
-    res.status(500).json({
-      success: false,
-      message: err.message,
-      error: process.env.NODE_ENV === "development" ? err.stack : undefined,
-    });
-  }
-}
-
-/* --- Optimize --- */
 export async function optimizeIndicatorWeightsController(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
     const timeframe = (req.query.timeframe || "1h").toLowerCase();
-
-    // 🆕 Support force reoptimization
     const forceReoptimize =
       req.body.force === true || req.query.force === "true";
 
     console.log(
-      `\n📊 Starting Full Exhaustive Search Optimization for ${symbol} (${timeframe})`
-    );
-    console.log(
-      `   Training window: ${new Date(FIXED_START_EPOCH).toISOString()} → ${new Date(
-        FIXED_END_EPOCH
-      ).toISOString()} (FIXED)`
+      `\n🚀 [CONTROLLER] Starting optimization for ${symbol} (${timeframe})`
     );
 
     if (forceReoptimize) {
-      console.log(
-        `   🔄 FORCE REOPTIMIZATION MODE - Will override existing weights`
-      );
+      console.log(`   🔄 Force reoptimization enabled`);
     }
 
-    const startQuery = Date.now();
-
-    // 🔧 Get coinId and timeframeId first
-    const [coin, timeframeRecord] = await Promise.all([
-      prisma.coin.findUnique({
-        where: { symbol },
-        select: { id: true },
-      }),
-      prisma.timeframe.findUnique({
-        where: { timeframe },
-        select: { id: true },
-      }),
-    ]);
-
-    if (!coin) {
-      return res.status(404).json({
-        success: false,
-        message: `Coin ${symbol} not found in database`,
-      });
-    }
-
-    if (!timeframeRecord) {
-      return res.status(404).json({
-        success: false,
-        message: `Timeframe ${timeframe} not found in database`,
-      });
-    }
-
-    // Check if optimization already exists using coinId and timeframeId
-    const existingWeight = await prisma.indicatorWeight.findFirst({
-      where: {
-        coinId: coin.id,
-        timeframeId: timeframeRecord.id,
-        startTrain: BigInt(FIXED_START_EPOCH),
-        endTrain: BigInt(FIXED_END_EPOCH),
-      },
-      orderBy: { updatedAt: "desc" },
+    // ================================================================================
+    // STEP 1: CREATE JOB & MARK STATUS = "running" IMMEDIATELY
+    // ================================================================================
+    // PENTING: Update status ke "running" SEBELUM optimization dimulai
+    // Ini memastikan SSE clients dapat connect dan ditambahkan ke job
+    createJob(symbol);
+    updateJob(symbol, {
+      status: "running",
+      startedAt: new Date().toISOString(),
     });
+    console.log(`✅ Job created for ${symbol} - status: running`);
 
-    let performanceData, weightsData, lastOptimizedDate;
+    // Setup callbacks untuk progress tracking
+    const onProgress = (progressData) => {
+      const job = getJob(symbol);
+      if (job) {
+        job.progress = progressData;
+        updateJob(symbol, { progress: progressData });
 
-    // 🆕 Skip existing check if force reoptimize
-    if (existingWeight && !forceReoptimize) {
-      console.log(`⏩ Optimization already exists for ${symbol}`);
-      console.log(
-        `   ROI: ${existingWeight.roi.toFixed(2)}%, WinRate: ${existingWeight.winRate.toFixed(2)}%`
-      );
-
-      performanceData = {
-        roi: existingWeight.roi,
-        winRate: existingWeight.winRate,
-        maxDrawdown: existingWeight.maxDrawdown,
-        sharpeRatio: existingWeight.sharpeRatio,
-        trades: existingWeight.trades,
-        initialCapital: 10000,
-        finalCapital: existingWeight.finalCapital,
-      };
-      weightsData = existingWeight.weights;
-      lastOptimizedDate = existingWeight.updatedAt;
-    } else {
-      // Run optimization (either no existing data OR force reoptimize)
-      if (forceReoptimize && existingWeight) {
-        console.log(`🔄 Forcing reoptimization despite existing weights...`);
-      }
-
-      // Fetch data within fixed window using coinId and timeframeId
-      const [indicators, candles] = await Promise.all([
-        prisma.indicator.findMany({
-          where: {
-            coinId: coin.id,
-            timeframeId: timeframeRecord.id,
-            time: {
-              gte: BigInt(FIXED_START_EPOCH),
-              lt: BigInt(FIXED_END_EPOCH),
-            },
-          },
-          orderBy: { time: "asc" },
-        }),
-        prisma.candle.findMany({
-          where: {
-            coinId: coin.id,
-            timeframeId: timeframeRecord.id,
-            time: {
-              gte: BigInt(FIXED_START_EPOCH),
-              lt: BigInt(FIXED_END_EPOCH),
-            },
-          },
-          orderBy: { time: "asc" },
-          select: { time: true, close: true },
-        }),
-      ]);
-
-      const map = new Map(candles.map((c) => [c.time.toString(), c.close]));
-      const data = indicators
-        .filter((i) => map.has(i.time.toString()))
-        .map((i) => ({ ...i, close: map.get(i.time.toString()) }));
-
-      if (!data.length)
-        return res.status(400).json({
-          success: false,
-          message: "Data kosong atau tidak cukup untuk optimasi",
-        });
-
-      if (data.length < 100) {
-        return res.status(400).json({
-          success: false,
-          message: `Data tidak cukup untuk optimasi (${data.length}/100 minimum)`,
-        });
-      }
-
-      // Format tanggal
-      const formatDate = (t) =>
-        new Intl.DateTimeFormat("id-ID", {
-          dateStyle: "long",
-          timeStyle: "short",
-          timeZone: "Asia/Jakarta",
-        }).format(new Date(Number(t)));
-
-      const range = {
-        start: formatDate(data[0]?.time),
-        end: formatDate(data[data.length - 1]?.time),
-      };
-
-      console.log(`Dataset: ${data.length} merged data points`);
-      console.log(`Range: ${range.start} → ${range.end}`);
-
-      // 🆕 Initialize progress state BEFORE optimization starts
-      const progressState = {
-        symbol,
-        status: "running",
-        progress: {
-          tested: 0,
-          total: 390625,
-          percentage: 0,
-          bestROI: 0,
-          eta: "Calculating...",
-        },
-        startedAt: new Date().toISOString(),
-        sseClients: new Set(),
-      };
-
-      // Get existing state to preserve SSE clients
-      const existingState = optimizationJobs.get(symbol);
-      if (existingState?.sseClients) {
-        progressState.sseClients = existingState.sseClients;
-      }
-
-      optimizationJobs.set(symbol, progressState);
-      console.log(`✅ [SSE] Progress state initialized for ${symbol}`);
-
-      // Broadcast to all SSE clients
-      const broadcastProgress = (eventName, data) => {
-        const job = optimizationJobs.get(symbol);
-        if (job?.sseClients) {
-          console.log(
-            `📡 [SSE-BROADCAST] Event: ${eventName} | Clients: ${job.sseClients.size}`
-          );
-          console.log(
-            `📡 [SSE-BROADCAST] Data:`,
-            JSON.stringify(data).substring(0, 200)
-          );
-
-          let successCount = 0;
-          let failCount = 0;
-
-          job.sseClients.forEach((client) => {
-            try {
-              const defaultPayload = JSON.stringify({
-                type: eventName,
-                ...data,
-              });
-              client.write(`data: ${defaultPayload}\n\n`);
-
-              // ✅ CRITICAL: Force immediate transmission using socket
-              if (client.socket && !client.socket.destroyed) {
-                client.socket.uncork?.();
-              }
-
-              successCount++;
-            } catch (err) {
-              console.error(`  ❌ Error broadcasting to client:`, err.message);
-              job.sseClients.delete(client);
-              failCount++;
-            }
-          });
-
-          console.log(
-            `📡 [SSE-BROADCAST] Result: ${successCount} success, ${failCount} failed\n`
-          );
-        } else {
-          console.warn(`⚠️ [SSE-BROADCAST] No clients connected for ${symbol}`);
-        }
-      };
-
-      // ✅ IMMEDIATELY send start event BEFORE optimization begins
-      console.log(`📡 [SSE] Broadcasting START event for ${symbol}...`);
-      broadcastProgress("start", {
-        symbol,
-        dataPoints: data.length,
-        totalCombinations: 390625,
-        datasetRange: {
-          start: new Date(Number(data[0].time)).toISOString(),
-          end: new Date(Number(data[data.length - 1].time)).toISOString(),
-        },
-      });
-
-      // 🆕 Progress callback with SSE broadcasting
-      const onProgress = (progressData) => {
-        const currentState = optimizationJobs.get(symbol);
-
-        // ✅ CRITICAL: Check if cancelled BEFORE broadcasting progress
-        if (
-          !currentState ||
-          currentState.cancelRequested === true ||
-          currentState.status === "cancelled"
-        ) {
-          console.log(
-            `🛑 [${symbol}] Skipping progress broadcast - optimization is cancelled`
-          );
-          return; // Don't broadcast if cancelled
-        }
-
-        if (currentState) {
-          currentState.progress = progressData;
-          currentState.status = "running";
-          optimizationJobs.set(symbol, currentState);
-
-          // Broadcast to SSE clients
-          broadcastProgress("progress", progressData);
-
-          // Log only every 10,000 combinations for cleaner console
-          if (
-            progressData.tested % 10000 === 0 ||
-            progressData.tested === progressData.total
-          ) {
-            console.log(
-              `📊 [${symbol}] ${progressData.tested}/${progressData.total} (${progressData.percentage}%) | Best: ${progressData.bestROI}% | ETA: ${progressData.eta}`
-            );
-          }
-        }
-      };
-
-      // ✅ NEW: Cancel checker function
-      const checkCancel = () => {
-        const currentState = optimizationJobs.get(symbol);
-        return currentState?.cancelRequested === true;
-      };
-
-      try {
-        console.log(`🚀 Starting optimization for ${symbol}...`);
-        const result = await optimizeIndicatorWeights(
-          data,
-          symbol,
-          onProgress,
-          checkCancel
-        ); // ✅ Pass checkCancel
-
-        // ✅ Handle cancellation response
-        if (result.cancelled) {
-          console.log(`🛑 Optimization was cancelled for ${symbol}`);
-
-          const cancelState = optimizationJobs.get(symbol);
-          if (cancelState) {
-            cancelState.status = "cancelled";
-            optimizationJobs.set(symbol, cancelState);
-          }
-
-          // Already broadcasted by cancelOptimizationController
-          // Just clean up
-          setTimeout(() => {
-            optimizationJobs.delete(symbol);
-            console.log(`🧹 Cleaned up cancelled optimization for ${symbol}`);
-          }, 60 * 1000);
-
-          return; // Don't continue processing
-        }
-
-        // Mark as completed
-        const finalState = optimizationJobs.get(symbol);
-        if (finalState) {
-          finalState.status = "completed";
-          finalState.result = result;
-          finalState.completedAt = new Date().toISOString();
-          optimizationJobs.set(symbol, finalState);
-
-          // Broadcast completion to SSE clients
-          broadcastProgress("completed", {
-            success: true,
-            performance: result.performance,
-            weights: result.bestWeights,
-            executionTime: result.executionTimeSeconds,
-          });
-
-          console.log(`✅ [SSE] Optimization completed for ${symbol}`);
-
-          // Close all SSE connections
-          setTimeout(() => {
-            if (finalState.sseClients) {
-              finalState.sseClients.forEach((client) => {
-                try {
-                  client.end();
-                } catch (err) {
-                  // Ignore errors when closing
-                }
-              });
-            }
-          }, 1000);
-        }
-
-        // Save to database with coinId and timeframeId
-        await prisma.indicatorWeight.upsert({
-          where: {
-            coinId_timeframeId_startTrain_endTrain: {
-              coinId: coin.id,
-              timeframeId: timeframeRecord.id,
-              startTrain: BigInt(FIXED_START_EPOCH),
-              endTrain: BigInt(FIXED_END_EPOCH),
-            },
-          },
-          update: {
-            weights: result.bestWeights,
-            roi: result.performance.roi,
-            winRate: result.performance.winRate,
-            maxDrawdown: result.performance.maxDrawdown,
-            sharpeRatio: result.performance.sharpeRatio,
-            trades: result.performance.trades,
-            finalCapital: result.performance.finalCapital,
-            candleCount: data.length,
-          },
-          create: {
-            coinId: coin.id,
-            timeframeId: timeframeRecord.id,
-            startTrain: BigInt(FIXED_START_EPOCH),
-            endTrain: BigInt(FIXED_END_EPOCH),
-            weights: result.bestWeights,
-            roi: result.performance.roi,
-            winRate: result.performance.winRate,
-            maxDrawdown: result.performance.maxDrawdown,
-            sharpeRatio: result.performance.sharpeRatio,
-            trades: result.performance.trades,
-            finalCapital: result.performance.finalCapital,
-            candleCount: data.length,
-          },
-        });
-
-        const totalProcessingTime = `${((Date.now() - startQuery) / 1000).toFixed(2)}s`;
-
-        console.log(`Optimization saved to database`);
-        console.log(`Total processing time: ${totalProcessingTime}`);
-
-        performanceData = {
-          roi: result.performance.roi,
-          winRate: result.performance.winRate,
-          maxDrawdown: result.performance.maxDrawdown,
-          sharpeRatio: result.performance.sharpeRatio,
-          trades: result.performance.trades,
-          initialCapital: 10000,
-          finalCapital: result.performance.finalCapital,
-        };
-        weightsData = result.bestWeights;
-        lastOptimizedDate = new Date().toISOString();
-
-        // Clean up after 5 minutes
-        setTimeout(
-          () => {
-            optimizationJobs.delete(symbol);
-            console.log(`🧹 Cleaned up progress state for ${symbol}`);
-          },
-          5 * 60 * 1000
+        // Broadcast ke SSE clients
+        const clients = getSSEClients(symbol);
+        console.log(
+          `📡 Broadcasting progress to ${clients.size} clients for ${symbol}`
         );
-      } catch (optimizationError) {
-        console.error(
-          `❌ Optimization error for ${symbol}:`,
-          optimizationError
-        );
-
-        const errorState = optimizationJobs.get(symbol);
-        if (errorState) {
-          errorState.status = "error";
-          errorState.error = optimizationError.message;
-          optimizationJobs.set(symbol, errorState);
-
-          // Broadcast error to SSE clients
-          broadcastProgress("error", {
-            message: optimizationError.message,
-          });
-
-          // Close SSE connections
-          if (errorState.sseClients) {
-            errorState.sseClients.forEach((client) => {
-              try {
-                client.end();
-              } catch (err) {
-                // Ignore
-              }
-            });
-          }
-        }
-
-        // Clean up after 1 minute on error
-        setTimeout(() => {
-          optimizationJobs.delete(symbol);
-        }, 60 * 1000);
-
-        throw optimizationError;
+        broadcastEvent(clients, "progress", progressData);
       }
-    }
-
-    // Fetch LATEST candle and indicator data using coinId and timeframeId
-    console.log(`Fetching latest candle and indicators for ${symbol}...`);
-
-    const [latestCandle, latestIndicator] = await Promise.all([
-      prisma.candle.findFirst({
-        where: { coinId: coin.id, timeframeId: timeframeRecord.id },
-        orderBy: { time: "desc" },
-        select: {
-          time: true,
-          open: true,
-          high: true,
-          low: true,
-          close: true,
-          volume: true,
-        },
-      }),
-      prisma.indicator.findFirst({
-        where: { coinId: coin.id, timeframeId: timeframeRecord.id },
-        orderBy: { time: "desc" },
-      }),
-    ]);
-
-    if (!latestCandle || !latestIndicator) {
-      return res.status(404).json({
-        success: false,
-        message: "No latest candle or indicator data found",
-      });
-    }
-
-    // Build latest data structure (same format as /api/chart)
-    const latestData = {
-      time: Number(latestCandle.time),
-      open: latestCandle.open,
-      high: latestCandle.high,
-      low: latestCandle.low,
-      close: latestCandle.close,
-      volume: latestCandle.volume,
-
-      // Multi-indicator signal
-      multiSignal: {
-        signal: latestIndicator.overallSignal?.toLowerCase() || "neutral",
-        strength: latestIndicator.signalStrength || 0,
-        normalized: latestIndicator.normalizedSignal || 0,
-        rawSignal: latestIndicator.rawSignal?.toLowerCase() || "neutral",
-        source: "db",
-      },
-
-      // All indicators (same structure as chart endpoint)
-      indicators: {
-        sma: {
-          20: latestIndicator.sma20,
-          50: latestIndicator.sma50,
-          signal: latestIndicator.smaSignal,
-        },
-        ema: {
-          20: latestIndicator.ema20,
-          50: latestIndicator.ema50,
-          signal: latestIndicator.emaSignal,
-        },
-        rsi: {
-          14: latestIndicator.rsi,
-          signal: latestIndicator.rsiSignal,
-        },
-        macd: {
-          macd: latestIndicator.macd,
-          signalLine: latestIndicator.macdSignal,
-          histogram: latestIndicator.macdHistogram,
-          signal: latestIndicator.macdSignal,
-        },
-        bollingerBands: {
-          upper: latestIndicator.bbUpper,
-          middle: latestIndicator.bbMiddle,
-          lower: latestIndicator.bbLower,
-          signal: latestIndicator.bbSignal,
-        },
-        stochastic: {
-          "%K": latestIndicator.stochK,
-          "%D": latestIndicator.stochD,
-          signal: latestIndicator.stochSignal,
-        },
-        stochasticRsi: {
-          "%K": latestIndicator.stochRsiK,
-          "%D": latestIndicator.stochRsiD,
-          signal: latestIndicator.stochRsiSignal,
-        },
-        parabolicSar: {
-          value: latestIndicator.psar,
-          signal: latestIndicator.psarSignal,
-        },
-      },
     };
 
-    // 🎯 Calculate Category Scores from backend
+    const checkCancel = () => {
+      return isCancelRequested(symbol);
+    };
+
+    // ================================================================================
+    // STEP 2: CALL SERVICE - OPTIMIZATION DIMULAI
+    // ================================================================================
+    // Call service untuk run optimization
+    // Pada tahap ini, SSE clients sudah bisa connect karena job status = "running"
+    console.log(`🔄 Starting optimization service for ${symbol}...`);
+    const result = await runOptimization(symbol, timeframe, {
+      forceReoptimize,
+      onProgress,
+      checkCancel,
+    });
+
+    if (result.cancelled) {
+      // ================================================================================
+      // CANCELLED: Broadcast cancellation dan cleanup
+      // ================================================================================
+      console.log(`🛑 Optimization cancelled for ${symbol}`);
+      const clients = getSSEClients(symbol);
+      broadcastEvent(clients, "cancelled", {
+        message: "Optimization cancelled by user",
+        symbol,
+      });
+
+      setTimeout(() => {
+        closeAllSSE(clients);
+      }, 500);
+
+      setTimeout(() => {
+        removeJob(symbol);
+      }, 60 * 1000);
+
+      return res.status(200).json(result);
+    }
+
+    // ================================================================================
+    // STEP 3: COMPLETED - Broadcast hasil dan cleanup
+    // ================================================================================
+    console.log(`✅ Optimization completed for ${symbol}`);
+
+    // Calculate category scores
     const categoryScores = calculateCategoryScores(
-      latestData.indicators,
-      weightsData
+      result.latest || {},
+      result.weights || {}
     );
 
-    console.log(`Latest data fetched successfully`);
-    console.log(`Time: ${new Date(latestData.time).toISOString()}`);
-    console.log(`Price: ${latestData.close}`);
-    console.log(`Multi Signal: ${latestData.multiSignal.signal}`);
-    console.log(`Category Scores:`, categoryScores);
+    // Mark job as completed
+    updateJob(symbol, {
+      status: "completed",
+      result,
+      completedAt: new Date().toISOString(),
+    });
 
-    // Return response with latest data + categoryScores
+    // Broadcast completion to SSE clients
+    const clients = getSSEClients(symbol);
+    console.log(
+      `📡 Broadcasting completion to ${clients.size} clients for ${symbol}`
+    );
+    broadcastEvent(clients, "completed", {
+      success: true,
+      performance: result.performance,
+      weights: result.weights,
+      categoryScores,
+    });
+
+    // Close SSE connections setelah 1 detik
+    setTimeout(() => {
+      closeAllSSE(clients);
+    }, 1000);
+
+    // Clean up job setelah 5 menit
+    setTimeout(
+      () => {
+        removeJob(symbol);
+      },
+      5 * 60 * 1000
+    );
+
     res.json({
       success: true,
       symbol,
       timeframe,
-      lastOptimized: lastOptimizedDate,
-      performance: performanceData,
-      weights: weightsData,
+      lastOptimized: result.lastOptimized,
+      performance: result.performance,
+      weights: result.weights,
       categoryScores,
-      latest: latestData,
+      latest: result.latest,
     });
   } catch (err) {
     console.error("❌ Error in optimization:", err.message);
+
+    // ================================================================================
+    // ERROR HANDLING: Broadcast error dan cleanup
+    // ================================================================================
+    const errorSymbol = (req.params.symbol || "BTC-USD").toUpperCase();
+    const job = getJob(errorSymbol);
+    if (job) {
+      updateJob(errorSymbol, {
+        status: "error",
+        error: err.message,
+      });
+
+      // Broadcast error ke SSE clients
+      const clients = getSSEClients(errorSymbol);
+      console.log(
+        `📡 Broadcasting error to ${clients.size} clients for ${errorSymbol}`
+      );
+      broadcastEvent(clients, "error", {
+        message: err.message,
+      });
+      closeAllSSE(clients);
+
+      // Clean up
+      setTimeout(() => {
+        removeJob(errorSymbol);
+      }, 60 * 1000);
+    }
+
     res.status(500).json({
       success: false,
       message: err.message,
-      stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
     });
   }
 }
 
-/* --- Optimize All --- */
+/**
+ * 🔄 POST /api/multi-indicator/optimize-all
+ *
+ * Optimize semua top 20 coins dalam satu batch job.
+ *
+ * Query parameters:
+ * - timeframe: "1h" (default)
+ *
+ * Response:
+ * {
+ *   success: true,
+ *   message: "Optimasi selesai (...)",
+ *   count: 20,
+ *   successCount: 15,
+ *   skippedCount: 3,
+ *   failedCount: 2,
+ *   results: [...]
+ * }
+ */
 export async function optimizeAllCoinsController(req, res) {
   try {
     const timeframe = (req.query.timeframe || "1h").toLowerCase();
 
-    console.log(`\n🚀 Starting mass optimization for 20 top coins...`);
+    console.log(`\n🔄 [CONTROLLER] Starting batch optimization for all coins`);
 
-    const FIXED_START = BigInt(FIXED_START_EPOCH);
-    const FIXED_END = BigInt(FIXED_END_EPOCH);
+    // Call service untuk optimize semua coins
+    const result = await optimizeAllCoins(timeframe);
 
-    // ✅ Ambil 20 coin teratas beserta id-nya
-    const coins = await prisma.coin.findMany({
-      orderBy: { rank: "asc" },
-      take: 20,
-      select: { id: true, symbol: true },
-    });
-
-    if (!coins.length) {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "Tidak ada data coin di tabel Coin.",
-        });
-    }
-
-    // ✅ Ambil timeframeId sekali saja
-    const timeframeRecord = await prisma.timeframe.findUnique({
-      where: { timeframe },
-      select: { id: true },
-    });
-
-    if (!timeframeRecord) {
-      return res
-        .status(404)
-        .json({ success: false, message: `Timeframe ${timeframe} not found` });
-    }
-
-    const timeframeId = timeframeRecord.id;
-    const results = [];
-    let successCount = 0;
-    let skippedCount = 0;
-    let failedCount = 0;
-
-    for (const [index, coinRow] of coins.entries()) {
-      const symbol = coinRow.symbol.toUpperCase();
-      const coinId = coinRow.id;
-      const progress = `[${index + 1}/${coins.length}]`;
-
-      try {
-        console.log(`${progress} 📊 Optimizing ${symbol}...`);
-
-        // ✅ Gunakan coinId + timeframeId
-        const [earliestCandle, latestCandle] = await Promise.all([
-          prisma.candle.findFirst({
-            where: { coinId, timeframeId },
-            orderBy: { time: "asc" },
-            select: { time: true },
-          }),
-          prisma.candle.findFirst({
-            where: { coinId, timeframeId },
-            orderBy: { time: "desc" },
-            select: { time: true },
-          }),
-        ]);
-
-        if (!earliestCandle || !latestCandle) {
-          console.warn(`${progress} ⚠️ No candle data for ${symbol}`);
-          results.push({ symbol, success: false, message: "No candle data" });
-          failedCount++;
-          continue;
-        }
-
-        let realStartEpoch, realEndEpoch;
-        if (earliestCandle.time < FIXED_END) {
-          realStartEpoch = FIXED_START;
-          realEndEpoch = FIXED_END;
-        } else {
-          realStartEpoch = earliestCandle.time;
-          realEndEpoch = latestCandle.time;
-        }
-
-        console.log(
-          `${progress} Training window: ${new Date(Number(realStartEpoch)).toISOString()} → ${new Date(Number(realEndEpoch)).toISOString()}`
-        );
-
-        // ✅ Fetch data dengan coinId + timeframeId
-        const [indicators, candles] = await Promise.all([
-          prisma.indicator.findMany({
-            where: {
-              coinId,
-              timeframeId,
-              time: { gte: realStartEpoch, lt: realEndEpoch },
-            },
-            orderBy: { time: "asc" },
-          }),
-          prisma.candle.findMany({
-            where: {
-              coinId,
-              timeframeId,
-              time: { gte: realStartEpoch, lt: realEndEpoch },
-            },
-            orderBy: { time: "asc" },
-            select: { time: true, close: true },
-          }),
-        ]);
-
-        const map = new Map(candles.map((c) => [c.time.toString(), c.close]));
-        const data = indicators
-          .filter((i) => map.has(i.time.toString()))
-          .map((i) => ({ ...i, close: map.get(i.time.toString()) }));
-
-        if (!data.length || data.length < 100) {
-          console.warn(
-            `${progress} ⚠️ Insufficient data for ${symbol} (${data.length}/100 minimum)`
-          );
-          results.push({
-            symbol,
-            success: false,
-            message: `Insufficient data (${data.length}/100 minimum)`,
-          });
-          failedCount++;
-          continue;
-        }
-
-        // ✅ Cek existing weight dengan coinId + timeframeId
-        const existingWeight = await prisma.indicatorWeight.findFirst({
-          where: {
-            coinId,
-            timeframeId,
-            startTrain: realStartEpoch,
-            endTrain: realEndEpoch,
-          },
-          orderBy: { updatedAt: "desc" },
-        });
-
-        const formatDate = (t) =>
-          new Intl.DateTimeFormat("id-ID", {
-            dateStyle: "long",
-            timeStyle: "short",
-            timeZone: "Asia/Jakarta",
-          }).format(new Date(Number(t)));
-
-        if (existingWeight) {
-          console.log(
-            `${progress} ⏭️ ${symbol} already optimized, skipping...`
-          );
-          console.log(
-            `   ROI: ${existingWeight.roi.toFixed(2)}% | WinRate: ${existingWeight.winRate.toFixed(2)}% | MDD: ${existingWeight.maxDrawdown.toFixed(2)}%`
-          );
-          results.push({
-            symbol,
-            success: true,
-            skipped: true,
-            timeframe,
-            dataPoints: data.length,
-            trainingWindow: {
-              start: new Date(Number(realStartEpoch)).toISOString(),
-              end: new Date(Number(realEndEpoch)).toISOString(),
-            },
-            range: {
-              start: formatDate(data[0].time),
-              end: formatDate(data[data.length - 1].time),
-            },
-            performance: {
-              roi: existingWeight.roi,
-              winRate: existingWeight.winRate,
-              maxDrawdown: existingWeight.maxDrawdown,
-              sharpeRatio: existingWeight.sharpeRatio,
-              trades: existingWeight.trades,
-              finalCapital: existingWeight.finalCapital,
-            },
-            weights: existingWeight.weights,
-            lastOptimized: existingWeight.updatedAt,
-          });
-          skippedCount++;
-          continue;
-        }
-
-        console.log(`${progress} 🔍 Starting optimization for ${symbol}...`);
-        const result = await optimizeIndicatorWeights(data, symbol);
-
-        // ✅ Simpan dengan coinId + timeframeId
-        await prisma.indicatorWeight.upsert({
-          where: {
-            coinId_timeframeId_startTrain_endTrain: {
-              coinId,
-              timeframeId,
-              startTrain: realStartEpoch,
-              endTrain: realEndEpoch,
-            },
-          },
-          update: {
-            weights: result.bestWeights,
-            roi: result.performance.roi,
-            winRate: result.performance.winRate,
-            maxDrawdown: result.performance.maxDrawdown,
-            sharpeRatio: result.performance.sharpeRatio,
-            trades: result.performance.trades,
-            finalCapital: result.performance.finalCapital,
-            candleCount: data.length,
-          },
-          create: {
-            coinId,
-            timeframeId,
-            startTrain: realStartEpoch,
-            endTrain: realEndEpoch,
-            weights: result.bestWeights,
-            roi: result.performance.roi,
-            winRate: result.performance.winRate,
-            maxDrawdown: result.performance.maxDrawdown,
-            sharpeRatio: result.performance.sharpeRatio,
-            trades: result.performance.trades,
-            finalCapital: result.performance.finalCapital,
-            candleCount: data.length,
-          },
-        });
-
-        results.push({
-          symbol,
-          success: true,
-          skipped: false,
-          timeframe,
-          dataPoints: data.length,
-          trainingWindow: {
-            start: new Date(Number(realStartEpoch)).toISOString(),
-            end: new Date(Number(realEndEpoch)).toISOString(),
-          },
-          range: {
-            start: formatDate(data[0].time),
-            end: formatDate(data[data.length - 1]?.time),
-          },
-          performance: {
-            roi: result.performance.roi,
-            winRate: result.performance.winRate,
-            maxDrawdown: result.performance.maxDrawdown,
-            sharpeRatio: result.performance.sharpeRatio,
-            trades: result.performance.trades,
-            finalCapital: result.performance.finalCapital,
-          },
-          weights: result.bestWeights,
-          optimizationTimeSeconds: result.executionTimeSeconds,
-        });
-
-        successCount++;
-        console.log(
-          `${progress} ✅ ${symbol} → ROI: ${result.performance.roi.toFixed(2)}% | WinRate: ${result.performance.winRate.toFixed(2)}% | MDD: ${result.performance.maxDrawdown.toFixed(2)}%`
-        );
-      } catch (err) {
-        console.error(
-          `${progress} ❌ Error optimizing ${symbol}:`,
-          err.message
-        );
-        results.push({ symbol, success: false, message: err.message });
-        failedCount++;
-      }
-    }
-
-    const summaryMessage = `Optimasi selesai (${successCount} berhasil / ${skippedCount} di-skip / ${failedCount} gagal)`;
-    console.log(`\n✅ ${summaryMessage}`);
-
-    res.json({
-      success: true,
-      message: summaryMessage,
-      count: coins.length,
-      successCount,
-      skippedCount,
-      failedCount,
-      results,
-    });
+    res.json(result);
   } catch (err) {
-    console.error("❌ Error optimizeAllCoins:", err.message);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: err.message,
-        stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
-      });
+    console.error("❌ Error optimizing all coins:", err.message);
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 }
 
-/* --- Backtest --- */
+/**
+ * 📊 POST /api/multi-indicator/:symbol/backtest
+ *
+ * Jalankan backtest dengan weights yang sudah dioptimalkan.
+ *
+ * Query parameters:
+ * - timeframe: "1h" (default)
+ *
+ * Response:
+ * {
+ *   success: true,
+ *   symbol: "BTC-USD",
+ *   performance: {roi, winRate, maxDrawdown, ...},
+ *   weights: {...},
+ *   totalData: 45893
+ * }
+ */
 export async function backtestWithOptimizedWeightsController(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
     const timeframe = (req.query.timeframe || "1h").toLowerCase();
 
     console.log(
-      `\n📊 Starting optimized-weight backtest for ${symbol} (${timeframe})`
+      `\n📊 [CONTROLLER] Starting backtest for ${symbol} (${timeframe})`
     );
 
-    // ✅ Lookup coinId + timeframeId
-    const [coin, timeframeRecord] = await Promise.all([
-      prisma.coin.findUnique({ where: { symbol }, select: { id: true } }),
-      prisma.timeframe.findUnique({
-        where: { timeframe },
-        select: { id: true },
-      }),
-    ]);
+    // Call service untuk run backtest
+    const result = await runBacktestWithOptimizedWeights(symbol, timeframe);
 
-    if (!coin)
-      return res
-        .status(404)
-        .json({ success: false, message: `Coin ${symbol} not found` });
-    if (!timeframeRecord)
-      return res
-        .status(404)
-        .json({ success: false, message: `Timeframe ${timeframe} not found` });
-
-    // ✅ Find weight dengan coinId + timeframeId
-    const latest = await prisma.indicatorWeight.findFirst({
-      where: {
-        coinId: coin.id,
-        timeframeId: timeframeRecord.id,
-        startTrain: BigInt(FIXED_START_EPOCH),
-        endTrain: BigInt(FIXED_END_EPOCH),
-      },
-      orderBy: { updatedAt: "desc" },
-    });
-
-    if (!latest)
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "No optimized weights found. Please run optimization first.",
-        });
-
-    const startQuery = Date.now();
-
-    // ✅ Fetch data dengan coinId + timeframeId
-    const [indicators, candles] = await Promise.all([
-      prisma.indicator.findMany({
-        where: {
-          coinId: coin.id,
-          timeframeId: timeframeRecord.id,
-          time: { gte: BigInt(FIXED_START_EPOCH), lt: BigInt(FIXED_END_EPOCH) },
-        },
-        orderBy: { time: "asc" },
-      }),
-      prisma.candle.findMany({
-        where: {
-          coinId: coin.id,
-          timeframeId: timeframeRecord.id,
-          time: { gte: BigInt(FIXED_START_EPOCH), lt: BigInt(FIXED_END_EPOCH) },
-        },
-        orderBy: { time: "asc" },
-        select: { time: true, close: true },
-      }),
-    ]);
-
-    const map = new Map(candles.map((c) => [c.time.toString(), c.close]));
-    const data = indicators
-      .filter((i) => map.has(i.time.toString()))
-      .map((i) => ({ ...i, close: map.get(i.time.toString()) }));
-
-    if (!data.length)
-      return res
-        .status(400)
-        .json({ success: false, message: "Data tidak ditemukan" });
-
-    const formatDate = (t) =>
-      new Intl.DateTimeFormat("id-ID", {
-        dateStyle: "long",
-        timeStyle: "short",
-        timeZone: "Asia/Jakarta",
-      }).format(new Date(Number(t)));
-
-    const range = {
-      start: formatDate(data[0]?.time),
-      end: formatDate(data[data.length - 1]?.time),
-    };
-    const dataset = {
-      candleStart: formatDate(candles[0]?.time),
-      indicatorStart: formatDate(indicators[0]?.time),
-      candleCount: candles.length,
-      indicatorCount: indicators.length,
-    };
-
-    console.log(`   Total data points: ${data.length}`);
-    console.log(`   Range: ${range.start} - ${range.end}`);
-    console.log(`   Using optimized weights:`, latest.weights);
-
-    const result = await backtestWithWeights(data, latest.weights);
-    const processingTime = `${((Date.now() - startQuery) / 1000).toFixed(2)}s`;
-
-    console.log(`✅ Optimized-weight backtest completed in ${processingTime}`);
-    console.log(
-      `   ROI: ${result.roi}%, Win Rate: ${result.winRate}%, Trades: ${result.trades}`
-    );
-
-    res.json({
-      success: true,
-      symbol,
-      timeframe,
-      totalData: data.length,
-      range,
-      dataset,
-      processingTime,
-      timestamp: new Date().toISOString(),
-      methodology: "Optimized-Weight Multi-Indicator Backtest",
-      weights: latest.weights,
-      performance: {
-        roi: result.roi,
-        winRate: result.winRate,
-        maxDrawdown: result.maxDrawdown,
-        sharpeRatio: result.sharpeRatio || null,
-        trades: result.trades,
-        finalCapital: result.finalCapital,
-      },
-    });
+    res.json(result);
   } catch (err) {
-    console.error("❌ Error in optimized-weight backtest:", err.message);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: err.message,
-        stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
-      });
+    console.error("❌ Error in backtest:", err.message);
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 }
+
+/**
+ * 🛑 Server Shutdown Handler
+ *
+ * Graceful shutdown: Cancel all running optimizations dan close SSE connections
+ */
+function handleServerShutdown() {
+  console.log("\n🛑 Server shutting down, cancelling all optimizations...");
+
+  // Broadcast shutdown to all running jobs
+  const runningJobs = getRunningJobs();
+  for (const job of runningJobs) {
+    console.log(`📡 Broadcasting shutdown for ${job.symbol}`);
+
+    broadcastEvent(job.sseClients, "cancelled", {
+      type: "cancelled",
+      message: "Server is restarting. Please try again.",
+      reason: "server_restart",
+      symbol: job.symbol,
+    });
+
+    // Close connections
+    setTimeout(() => {
+      closeAllSSE(job.sseClients);
+    }, 500);
+  }
+
+  // Clear all jobs
+  clearAllJobs();
+
+  // Exit
+  setTimeout(() => {
+    console.log("👋 Goodbye!");
+    process.exit(0);
+  }, 1000);
+}
+
+// Setup shutdown handlers
+process.on("SIGINT", handleServerShutdown);
+process.on("SIGTERM", handleServerShutdown);
+
+export default {
+  getOptimizationEstimateController,
+  streamOptimizationProgressController,
+  cancelOptimizationController,
+  optimizeIndicatorWeightsController,
+  optimizeAllCoinsController,
+  backtestWithOptimizedWeightsController,
+};

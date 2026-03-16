@@ -12,7 +12,7 @@
 
 import { prisma } from "../../lib/prisma.js";
 import { backtestAllIndicators } from "../backtest/backtest.service.js";
-import { backtestWithWeights } from "../multiIndicator/multiIndicator-backtest.service.js";
+import { backtestWithWeights } from "../multiIndicator/index.js";
 import { calculateIndividualSignals } from "../../utils/indicator.utils.js";
 
 /* ==========================================================
