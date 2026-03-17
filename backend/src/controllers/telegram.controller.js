@@ -5,7 +5,7 @@ import {
   broadcastTradingSignal,
   validateBroadcastSignalParams,
   buildBroadcastSignalPayload,
-} from "../services/telegram/telegram.service.js";
+} from "../services/telegram/index.js";
 import {
   detectAndNotifyMultiIndicatorSignals,
   detectAndNotifyAllSymbols,

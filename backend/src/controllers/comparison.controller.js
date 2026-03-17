@@ -2,7 +2,7 @@ import {
   compareStrategies,
   validateComparisonParams,
   handleComparisonError,
-} from "../services/comparison/comparison.service.js";
+} from "../services/comparison/index.js";
 
 export const compareIndicators = async (req, res) => {
   try {

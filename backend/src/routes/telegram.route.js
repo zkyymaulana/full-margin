@@ -1,15 +1,15 @@
 import express from "express";
 import {
   testTelegramController,
+  clearCacheController,
   testMultiSignalController,
   testAllSignalsController,
-  clearCacheController,
   getTelegramConfigController,
   toggleTelegramController,
   telegramWebhookController,
   broadcastController,
   broadcastSignalController,
-} from "../controllers/telegram.controller.js";
+} from "../controllers/index.js";
 
 const router = express.Router();
 

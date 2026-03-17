@@ -1,5 +1,5 @@
 import express from "express";
-import { getSignals } from "../controllers/indicator.controller.js";
+import { getSignals } from "../controllers/index.js";
 
 const router = express.Router();
 

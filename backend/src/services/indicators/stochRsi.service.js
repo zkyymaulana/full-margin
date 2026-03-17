@@ -1,6 +1,6 @@
 // === STOCHASTIC RSI CALCULATOR ===
 // Kombinasi RSI dan Stochastic Oscillator, membuat indikator lebih sensitif terhadap perubahan harga.
-import { createRollingWindow } from "./utils/rollingWindow.js";
+import { createRollingWindow } from "../../utils/rollingWindow.js";
 import { createRSICalculator } from "./rsi.service.js";
 
 export function createStochasticRSICalculator(

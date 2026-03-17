@@ -5,7 +5,7 @@ import {
   stopSchedulers,
   getStatus,
   updateListingDates,
-} from "../controllers/scheduler.controller.js";
+} from "../controllers/index.js";
 
 const router = express.Router();
 

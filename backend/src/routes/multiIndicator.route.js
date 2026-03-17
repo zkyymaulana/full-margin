@@ -5,8 +5,8 @@ import {
   optimizeAllCoinsController,
   getOptimizationEstimateController,
   streamOptimizationProgressController,
-  cancelOptimizationController, // ✅ NEW
-} from "../controllers/multiIndicator.controller.js";
+  cancelOptimizationController,
+} from "../controllers/index.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 
 const router = Router();
@@ -31,6 +31,6 @@ router.get(
   authMiddleware,
   backtestWithOptimizedWeightsController
 );
-router.post("/:symbol/cancel", authMiddleware, cancelOptimizationController); // ✅ NEW
+router.post("/:symbol/cancel", authMiddleware, cancelOptimizationController);
 
 export default router;

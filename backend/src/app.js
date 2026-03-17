@@ -6,9 +6,9 @@ import { prisma } from "./lib/prisma.js";
 
 // Services
 import { seedAdmin, seedTimeframes } from "../prisma/seed.js";
-import { syncTopCoins } from "./services/market/syncTopCoins.service.js";
-import { getMarketcapRealtime } from "./services/market/marketcap.service.js";
-import { startAllSchedulers } from "./services/scheduler/scheduler.service.js";
+import { syncTopCoins } from "./services/market/index.js";
+import { getMarketcapRealtime } from "./services/market/index.js";
+import { startAllSchedulers } from "./services/scheduler/index.js";
 
 dotenv.config();
 

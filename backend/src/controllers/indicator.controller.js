@@ -4,23 +4,12 @@ import {
   getLatestSignalData,
   formatIndicatorStructure,
   formatPerformanceData,
-  getPaginatedIndicators,
-  getCandlePrices,
   organizeIndicatorData,
   buildIndicatorPagination,
   getPaginatedSignalData,
   buildLatestSignal,
   buildResponseMetadata,
 } from "../services/indicators/indicator.service.js";
-
-function formatReadableDate(date) {
-  if (!date) return null;
-  return new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "long",
-    timeStyle: "short",
-    timeZone: "Asia/Jakarta",
-  }).format(new Date(date));
-}
 
 /**
  * 🎯 FORMAT MULTI-SIGNAL FROM DATABASE (REFACTORED)

@@ -1,125 +1,47 @@
-import axios from "axios";
-import dotenv from "dotenv";
 import { cleanTickerData } from "../../utils/dataCleaner.js";
-
-dotenv.config();
-
-const API = process.env.COINBASE_API_URL || "https://api.exchange.coinbase.com";
-const TIMEOUT = 10000;
+import { fetchTicker as fetchTickerClient } from "../../clients/coinbase.client.js";
 
 /**
- * Ambil semua pair aktif dari Coinbase
+ * File: src/services/market/coinbase.service.js
+ * -------------------------------------------------
+ * Tujuan: Menyimpan business logic terkait data ticker Coinbase.
+ * - Service hanya melakukan parsing, transformasi, dan data cleaning.
+ * - Semua HTTP request ke Coinbase berada di src/clients/coinbase.client.js
  */
-export async function fetchPairs() {
-  try {
-    const { data } = await axios.get(`${API}/products`, { timeout: TIMEOUT });
-    return new Set(
-      data
-        .filter((p) => p.status === "online" && !p.trading_disabled)
-        .map((p) => p.id.toUpperCase())
-    );
-  } catch {
-    console.error("Gagal mengambil pair Coinbase");
-    return new Set();
-  }
-}
 
 /**
- * Ambil 1 candle pertama (earliest) untuk menentukan listing date
- * Fetch dengan binary search dari 2015-2024 untuk efisiensi
- * @param {string} symbol - Trading pair symbol (e.g., "BTC-USD")
- * @returns {Object|null} - { time: timestamp, open, high, low, close, volume } atau null
- */
-export async function fetchEarliestCandle(symbol) {
-  try {
-    // Try years from 2015 to 2024 to find first available data
-    const years = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024];
-
-    for (const year of years) {
-      try {
-        const startDate = new Date(`${year}-01-01T00:00:00.000Z`);
-        const endDate = new Date(`${year}-12-31T23:59:59.000Z`);
-
-        const { data } = await axios.get(`${API}/products/${symbol}/candles`, {
-          params: {
-            start: startDate.toISOString(),
-            end: endDate.toISOString(),
-            granularity: 3600, // 1 hour
-          },
-          timeout: TIMEOUT,
-        });
-
-        if (data && data.length > 0) {
-          // Sort by time ascending to get earliest
-          const sorted = data.sort((a, b) => a[0] - b[0]);
-          const earliest = sorted[0];
-
-          return {
-            time: earliest[0] * 1000, // Unix timestamp to ms
-            low: earliest[1],
-            high: earliest[2],
-            open: earliest[3],
-            close: earliest[4],
-            volume: earliest[5],
-          };
-        }
-      } catch (err) {
-        // If 404, pair tidak ada data di tahun ini - lanjut ke tahun berikutnya
-        if (err.response?.status === 404) {
-          continue;
-        }
-        // Log other errors but continue
-        console.warn(`  ⚠️ Error checking ${year}:`, err.message);
-        continue;
-      }
-    }
-
-    // Jika tidak ada data di semua tahun
-    return null;
-  } catch (err) {
-    console.error(
-      `❌ Error fetching earliest candle for ${symbol}:`,
-      err.message
-    );
-    return null;
-  }
-}
-
-/**
- * Ambil data harga dan OHLC dari Coinbase
+ * Ambil data harga dan OHLC dari Coinbase.
+ *
+ * Parameter:
+ * @param {string} symbol - Pair (contoh: "BTC-USD")
+ *
+ * Return:
+ * @returns {Promise<object|null>} Data ticker yang sudah dibersihkan (cleanTickerData), atau null jika gagal.
  */
 export async function fetchTicker(symbol) {
   try {
-    const [ticker, stats] = await Promise.all([
-      axios.get(`${API}/products/${symbol}/ticker`, { timeout: TIMEOUT }),
-      axios.get(`${API}/products/${symbol}/stats`, { timeout: TIMEOUT }),
-    ]);
+    // Semua request eksternal berada di client
+    const res = await fetchTickerClient(symbol);
+    if (!res) return null;
 
-    // Parsing mennjadi null jika tidak ada, BUKAN 0
-    const price =
-      ticker.data && ticker.data.price != null
-        ? Number(ticker.data.price)
-        : null;
+    const { ticker, stats } = res;
+
+    // Parsing menjadi null jika tidak ada, BUKAN 0 (behavior dipertahankan)
+    const price = ticker?.price != null ? Number(ticker.price) : null;
 
     const volume =
-      ticker.data && ticker.data.volume != null
-        ? Number(ticker.data.volume)
-        : stats.data && stats.data.volume != null
-          ? Number(stats.data.volume)
+      ticker?.volume != null
+        ? Number(ticker.volume)
+        : stats?.volume != null
+          ? Number(stats.volume)
           : null;
 
-    const high =
-      stats.data && stats.data.high != null ? Number(stats.data.high) : null;
+    const high = stats?.high != null ? Number(stats.high) : null;
+    const low = stats?.low != null ? Number(stats.low) : null;
+    const open = stats?.open != null ? Number(stats.open) : null;
 
-    const low =
-      stats.data && stats.data.low != null ? Number(stats.data.low) : null;
-
-    const open =
-      stats.data && stats.data.open != null ? Number(stats.data.open) : null;
-
-    const time = ticker.data?.time
-      ? new Date(ticker.data.time).getTime()
-      : new Date().getTime();
+    // Jika server tidak memberikan time, fallback ke waktu sekarang
+    const time = ticker?.time ? new Date(ticker.time).getTime() : Date.now();
 
     const rawData = {
       symbol,

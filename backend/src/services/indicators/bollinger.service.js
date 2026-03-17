@@ -1,6 +1,6 @@
 // === BOLLINGER BANDS CALCULATOR ===
 // Menunjukkan batas atas dan bawah dari volatilitas harga.
-import { createRollingWindow } from "./utils/rollingWindow.js";
+import { createRollingWindow } from "../../utils/rollingWindow.js";
 import { createSMACalculator } from "./sma.service.js";
 
 export function createBollingerBandsCalculator(period = 20, multiplier = 2) {

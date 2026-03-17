@@ -2,8 +2,8 @@ import {
   loginService,
   logoutService,
   registerService,
-} from "../services/auth/auth.service.js";
-import { verifyGoogleToken } from "../services/auth/google-auth.service.js";
+  verifyGoogleToken,
+} from "../services/auth/index.js";
 import { verifyToken, generateToken } from "../utils/jwt.js";
 import { prisma } from "../lib/prisma.js";
 

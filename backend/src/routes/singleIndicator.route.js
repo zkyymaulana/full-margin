@@ -2,7 +2,7 @@ import { Router } from "express";
 import {
   backtestSingleIndicatorController,
   backtestAllIndicatorsController,
-} from "../controllers/singleIndicator.controller.js";
+} from "../controllers/index.js";
 
 const router = Router();
 

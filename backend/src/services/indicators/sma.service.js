@@ -1,6 +1,6 @@
 // === SMA CALCULATOR (Simple Moving Average) ===
 // Menghitung rata-rata harga penutupan selama periode tertentu.
-import { createRollingWindow } from "./utils/rollingWindow.js";
+import { createRollingWindow } from "../../utils/rollingWindow.js";
 
 export function createSMACalculator(period) {
   const window = createRollingWindow(period);

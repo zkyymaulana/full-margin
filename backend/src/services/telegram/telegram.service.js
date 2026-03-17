@@ -1,281 +1,36 @@
-import axios from "axios";
 import { prisma } from "../../lib/prisma.js";
 import { getWatchersForCoin } from "../watchlist/watchlist.service.js";
+import { formatTelegramSignalMessage } from "./telegram.message.js";
+import {
+  broadcastTelegram,
+  sendTelegramMessage,
+} from "./telegram.broadcast.js";
 
 /**
- * 📱 TELEGRAM NOTIFICATION SERVICE (MULTI-INDICATOR ONLY)
- * --------------------------------------------------------
- * Mengirim notifikasi trading signals ke Telegram
- * - Multi-user support: Broadcast ke semua user dengan telegramEnabled
- * - Anti-spam: Tidak mengirim notifikasi berulang untuk sinyal yang sama
- * - ONLY Multi-Indicator Signals (Single signals REMOVED)
+ * File: telegram.service.js
+ * -------------------------------------------------
+ * Tujuan: Orchestrator utama notifikasi Telegram.
+ * - Mengatur alur pengiriman sinyal (multi-indicator) ke user
+ * - Mengelola anti-spam cache supaya sinyal yang sama tidak dikirim berulang
+ * - Berinteraksi dengan database untuk mencari user yang eligible
+ * - Memanggil modul broadcast untuk pengiriman ke Telegram API
  */
-
-/* ==========================================================
-   🔧 VALIDATION HELPER FUNCTIONS
-========================================================== */
-
-/**
- * Validate broadcast signal request parameters
- */
-export function validateBroadcastSignalParams(params) {
-  const { symbol, signal, price } = params;
-
-  if (!symbol || !signal || !price) {
-    throw new Error("symbol, signal, and price are required");
-  }
-
-  // Validate signal value
-  const validSignals = ["buy", "sell", "neutral", "strong_buy", "strong_sell"];
-  if (!validSignals.includes(signal.toLowerCase())) {
-    throw new Error(
-      `Invalid signal. Must be one of: ${validSignals.join(", ")}`
-    );
-  }
-
-  // Validate price is a number
-  if (typeof price !== "number" || isNaN(price) || price <= 0) {
-    throw new Error("price must be a positive number");
-  }
-
-  return true;
-}
-
-/**
- * Build broadcast signal payload with defaults
- */
-export function buildBroadcastSignalPayload(params) {
-  const { symbol, signal, price, details = {} } = params;
-
-  return {
-    symbol: symbol.toUpperCase(),
-    signal: signal.toLowerCase(),
-    price,
-    type: "multi", // Always multi
-    details: {
-      ...details,
-      timestamp: new Date().toISOString(),
-    },
-  };
-}
-
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_ENABLED =
-  process.env.TELEGRAM_ENABLED === "true" ||
-  process.env.TELEGRAM_ENABLED === true;
-
-// Log configuration on startup
-console.log(`📱 Telegram Configuration:`);
-console.log(`   Enabled: ${TELEGRAM_ENABLED}`);
-console.log(
-  `   Bot Token: ${TELEGRAM_BOT_TOKEN ? "✅ Configured" : "❌ Missing"}`
-);
-console.log(`   Mode: Multi-Indicator Only`);
 
 // Cache untuk tracking sinyal terakhir (anti-spam)
+// Key yang dipakai: "<SYMBOL>_multi" (dipertahankan seperti sebelumnya)
 const lastSignalCache = new Map();
 
 /**
- * 📨 Kirim pesan ke Telegram (WAJIB dengan chatId)
- * @param {string} message - Pesan yang akan dikirim
- * @param {string} chatId - Telegram Chat ID tujuan (REQUIRED)
- * @param {object} options - Opsi tambahan
- */
-async function sendTelegramMessage(message, chatId, options = {}) {
-  // WAJIB: chatId harus ada, tidak ada fallback
-  if (!chatId) {
-    console.error("❌ Chat ID is required");
-    return { success: false, reason: "no_chat_id" };
-  }
-
-  if (!TELEGRAM_ENABLED) {
-    console.log("⚠️ Telegram notifications disabled (TELEGRAM_ENABLED=false)");
-    return { success: false, reason: "disabled" };
-  }
-
-  if (!TELEGRAM_BOT_TOKEN) {
-    console.error("❌ Telegram bot token not configured");
-    return { success: false, reason: "not_configured" };
-  }
-
-  try {
-    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-
-    const response = await axios.post(url, {
-      chat_id: chatId,
-      text: message,
-      parse_mode: options.parseMode || "Markdown",
-      disable_web_page_preview: options.disablePreview !== false,
-    });
-
-    if (response.data.ok) {
-      console.log(`✅ Telegram message sent to ${chatId}`);
-      return { success: true, messageId: response.data.result.message_id };
-    }
-
-    console.error("❌ Telegram API returned error:", response.data);
-    return { success: false, reason: "api_error", error: response.data };
-  } catch (error) {
-    console.error("❌ Failed to send Telegram message:", error.message);
-    if (error.response) {
-      console.error("   Response status:", error.response.status);
-      console.error("   Response data:", error.response.data);
-    }
-    return { success: false, reason: "network_error", error: error.message };
-  }
-}
-
-/**
- * 📊 HELPER: Interpret category scores to human-readable text
- */
-function interpretTrendScore(score) {
-  if (score >= 3) return "Very Strong Uptrend";
-  if (score >= 1) return "Strong Uptrend";
-  if (score >= 0.5) return "Moderate Uptrend";
-  if (score > -0.5) return "Sideways";
-  if (score > -1) return "Moderate Downtrend";
-  if (score > -3) return "Strong Downtrend";
-  return "Very Strong Downtrend";
-}
-
-function interpretMomentumScore(score) {
-  if (score >= 4) return "Extreme Bullish Momentum";
-  if (score >= 2) return "Strong Bullish Momentum";
-  if (score >= 0.5) return "Moderate Bullish Momentum";
-  if (score > -0.5) return "Neutral Momentum";
-  if (score > -2) return "Moderate Bearish Momentum";
-  if (score > -4) return "Strong Bearish Momentum";
-  return "Extreme Bearish Momentum";
-}
-
-function interpretVolatilityScore(score) {
-  if (score >= 2) return "High Volatility (Bullish)";
-  if (score >= 0.5) return "Elevated Volatility (Bullish)";
-  if (score > -0.5) return "Normal Volatility";
-  if (score > -2) return "Elevated Volatility (Bearish)";
-  return "High Volatility (Bearish)";
-}
-
-/**
- * 🎯 HELPER: Generate insight text based on category scores
- */
-function generateInsight(categoryScores, signal) {
-  const { trend, momentum, volatility } = categoryScores;
-
-  // Determine dominant factors (absolute value > 1)
-  const dominantFactors = [];
-
-  if (Math.abs(trend) >= 1) {
-    dominantFactors.push(trend > 0 ? "positive trend" : "negative trend");
-  }
-
-  if (Math.abs(momentum) >= 1) {
-    dominantFactors.push(momentum > 0 ? "strong momentum" : "weak momentum");
-  }
-
-  if (Math.abs(volatility) >= 0.5) {
-    dominantFactors.push(volatility > 0 ? "high volatility" : "low volatility");
-  }
-
-  // Build insight text
-  const bias =
-    signal === "buy" ? "Bullish" : signal === "sell" ? "Bearish" : "Neutral";
-
-  if (dominantFactors.length === 0) {
-    return `${bias} bias with mixed signals across indicators.`;
-  }
-
-  const factorsText = dominantFactors.join(" and ");
-  return `${bias} bias supported mainly by ${factorsText}.`;
-}
-
-/**
- * 📨 FORMAT TELEGRAM SIGNAL MESSAGE
- * Formats trading signal data into structured, human-readable message
- */
-function formatTelegramSignalMessage({
-  symbol,
-  signal,
-  signalLabel,
-  price,
-  finalScore,
-  strength,
-  categoryScores = { trend: 0, momentum: 0, volatility: 0 },
-  timeframe = "1h",
-  performance,
-}) {
-  // Format price with currency
-  const formatCurrency = (value) => {
-    return `$${value.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
-  };
-
-  // Format date and time (MM/DD/YYYY, HH:MM)
-  const now = new Date();
-  const dateStr = now.toLocaleDateString("en-US", {
-    month: "2-digit",
-    day: "2-digit",
-    year: "numeric",
-    timeZone: "Asia/Jakarta",
-  });
-  const timeStr = now.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "Asia/Jakarta",
-  });
-
-  // Format max drawdown safely
-  const maxDrawdown =
-    performance.maxDrawdown !== undefined &&
-    performance.maxDrawdown !== null &&
-    !isNaN(performance.maxDrawdown)
-      ? performance.maxDrawdown.toFixed(2)
-      : "0.00";
-
-  // Generate insight
-  const insight = generateInsight(categoryScores, signal);
-
-  // Determine signal emoji (big circles like in the image)
-  const signalEmoji = signal === "buy" ? "🟢" : signal === "sell" ? "🔴" : "⚪";
-
-  // Build structured message with icons
-  const message = `${signalEmoji} *${signalLabel.toUpperCase()}* ${signalEmoji}
-
-📊 *Symbol:* ${symbol}
-💰 *Price:* ${formatCurrency(price)}
-📈 *Score:* ${finalScore >= 0 ? "+" : ""}${finalScore.toFixed(2)}
-💪 *Strength:* ${(strength * 100).toFixed(1)}%
-⏱️ *Timeframe:* ${timeframe}
-🕐 *Time:* ${dateStr}, ${timeStr}
-
-📊 *Market Interpretation:*
-• Trend: ${categoryScores.trend >= 0 ? "+" : ""}${categoryScores.trend.toFixed(2)} (${interpretTrendScore(categoryScores.trend)})
-• Momentum: ${categoryScores.momentum >= 0 ? "+" : ""}${categoryScores.momentum.toFixed(2)} (${interpretMomentumScore(categoryScores.momentum)})
-• Volatility: ${categoryScores.volatility >= 0 ? "+" : ""}${categoryScores.volatility.toFixed(2)} (${interpretVolatilityScore(categoryScores.volatility)})
-
-📈 *Performance Metrics:*
-• ROI: ${performance.roi.toFixed(2)}%
-• Win Rate: ${performance.winRate.toFixed(2)}%
-• Max Drawdown: ${maxDrawdown}%
-• Sharpe Ratio: ${performance.sharpeRatio.toFixed(2)}
-• Trades: ${performance.trades}
-
-💡 *Insight:*
-${insight}
-
-⚠️ _Decision Support Only — Not Financial Advice_`;
-
-  return message;
-}
-
-/**
  * 🔔 Kirim notifikasi sinyal multi-indicator ke semua user yang aktif
- * ✅ FULLY SCORE-BASED: No voting, no arbitrary threshold
- * ✅ Signal direction: score > 0 → BUY, score < 0 → SELL, score == 0 → NEUTRAL
- * ✅ STRONG label: strength >= 0.6
+ *
+ * Tujuan:
+ * - Membentuk pesan dari hasil deteksi sinyal
+ * - Broadcast ke semua user yang telegramEnabled
+ * - Menggunakan cache untuk anti-spam (skip jika sinyal sama dengan sebelumnya)
+ *
+ * Catatan penting:
+ * - Algoritma dan format pesan tidak diubah.
+ * - Query database dan delay tetap sama.
  */
 export async function sendMultiIndicatorSignal({
   symbol,
@@ -294,12 +49,13 @@ export async function sendMultiIndicatorSignal({
   const cacheKey = `${symbol}_multi`;
   const lastSignal = lastSignalCache.get(cacheKey);
 
+  // Jika sinyal sama persis dengan terakhir, maka skip kirim agar tidak spam
   if (lastSignal === signal) {
     console.log(`⏭️ Skipping duplicate signal: ${symbol} multi ${signal}`);
     return { success: false, reason: "duplicate" };
   }
 
-  // Update cache
+  // Update cache (menyimpan sinyal terakhir untuk symbol tersebut)
   lastSignalCache.set(cacheKey, signal);
 
   // ✅ VALIDATION: Jika neutral, strength harus 0
@@ -332,7 +88,7 @@ export async function sendMultiIndicatorSignal({
     categoryScores,
   });
 
-  // ✅ Format message using new structured layout
+  // Format message menggunakan modul message (format tidak berubah)
   const message = formatTelegramSignalMessage({
     symbol,
     signal,
@@ -345,7 +101,7 @@ export async function sendMultiIndicatorSignal({
     performance,
   });
 
-  // Broadcast ke semua user yang aktif
+  // Broadcast ke semua user yang aktif (query tetap sama)
   try {
     const enabledUsers = await prisma.user.findMany({
       where: {
@@ -413,7 +169,10 @@ export async function sendMultiIndicatorSignal({
 }
 
 /**
- * 📊 Kirim summary harian ke semua user
+ * Kirim ringkasan harian ke semua user yang mengaktifkan Telegram.
+ *
+ * @param {Array<{symbol:string, signal:string, price:number}>} symbols
+ * @returns {Promise<object>} Hasil broadcast.
  */
 export async function sendDailySummary(symbols) {
   const summaryLines = symbols.map(
@@ -429,11 +188,16 @@ ${summaryLines.join("\n")}
 🕐 ${new Date().toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" })}
 `;
 
+  // Delegasi ke broadcast module
   return await broadcastTelegram(message.trim());
 }
 
 /**
- * ⚠️ Kirim notifikasi error/warning ke semua admin
+ * Kirim notifikasi error/warning ke semua admin (menggunakan broadcast umum).
+ *
+ * @param {Error} error
+ * @param {string} [context] - Informasi konteks error.
+ * @returns {Promise<object>} Hasil broadcast.
  */
 export async function sendErrorNotification(error, context = "") {
   const message = `
@@ -450,7 +214,14 @@ Error: ${error.message}
 }
 
 /**
- * 🧹 Clear signal cache (untuk reset)
+ * Membersihkan cache sinyal (anti-spam).
+ *
+ * Cara kerja cache:
+ * - Menyimpan sinyal terakhir per symbol dalam Map
+ * - Jika sinyal sama muncul lagi, notifikasi akan di-skip
+ *
+ * @param {string|null} [symbol] - Jika diisi, hanya cache untuk symbol itu yang dibersihkan.
+ * @returns {void}
  */
 export function clearSignalCache(symbol = null) {
   if (symbol) {
@@ -467,7 +238,9 @@ export function clearSignalCache(symbol = null) {
 }
 
 /**
- * ✅ Test koneksi Telegram - broadcast ke semua user
+ * Test koneksi Telegram dengan cara broadcast pesan test.
+ *
+ * @returns {Promise<object>} Hasil broadcast.
  */
 export async function testTelegramConnection() {
   const message = `
@@ -483,137 +256,13 @@ Time: ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}
 }
 
 /**
- * 📣 Broadcast pesan ke semua user yang mengaktifkan notifikasi Telegram
- * @param {string} message - Pesan yang akan dikirim
- * @param {object} options - Opsi pengiriman pesan
- * @returns {object} - Hasil broadcast
- */
-export async function broadcastTelegram(message, options = {}) {
-  try {
-    console.log("📣 Broadcasting Telegram message to all enabled users...");
-
-    // Ambil semua user yang mengaktifkan notifikasi Telegram
-    const enabledUsers = await prisma.user.findMany({
-      where: {
-        telegramEnabled: true,
-        telegramChatId: { not: null },
-      },
-      select: {
-        id: true,
-        email: true,
-        telegramChatId: true,
-      },
-    });
-
-    if (enabledUsers.length === 0) {
-      console.log("⚠️ No users with Telegram enabled");
-      return {
-        success: true,
-        sent: 0,
-        failed: 0,
-        message: "No users to notify",
-      };
-    }
-
-    console.log(`📤 Sending to ${enabledUsers.length} users...`);
-
-    const results = {
-      sent: 0,
-      failed: 0,
-      errors: [],
-    };
-
-    // Kirim pesan ke setiap user
-    for (const user of enabledUsers) {
-      try {
-        const result = await sendTelegramMessage(
-          message,
-          user.telegramChatId,
-          options
-        );
-
-        if (result.success) {
-          results.sent++;
-          console.log(`  ✅ Sent to ${user.email} (${user.telegramChatId})`);
-        } else {
-          results.failed++;
-          results.errors.push({
-            userId: user.id,
-            email: user.email,
-            reason: result.reason,
-          });
-          console.log(`  ❌ Failed to send to ${user.email}: ${result.reason}`);
-        }
-
-        // Delay kecil untuk menghindari rate limiting
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      } catch (error) {
-        results.failed++;
-        results.errors.push({
-          userId: user.id,
-          email: user.email,
-          error: error.message,
-        });
-        console.error(`  ❌ Error sending to ${user.email}:`, error.message);
-      }
-    }
-
-    console.log(
-      `✅ Broadcast completed: ${results.sent} sent, ${results.failed} failed`
-    );
-
-    return {
-      success: true,
-      sent: results.sent,
-      failed: results.failed,
-      total: enabledUsers.length,
-      errors: results.errors,
-    };
-  } catch (error) {
-    console.error("❌ Broadcast error:", error.message);
-    return {
-      success: false,
-      error: error.message,
-    };
-  }
-}
-
-/**
- * 📣 Broadcast sinyal trading ke semua user (Multi-Indicator Only)
- */
-export async function broadcastTradingSignal({
-  symbol,
-  signal,
-  price,
-  type = "multi",
-  details = {},
-}) {
-  const signalEmoji = signal === "buy" ? "🟢" : signal === "sell" ? "🔴" : "⚪";
-  const signalText = signal.toUpperCase();
-
-  let message = `
-${signalEmoji} *${signalText} SIGNAL* ${signalEmoji}
-
-📊 *Symbol:* ${symbol}
-💰 *Price:* $${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-⏰ *Type:* Multi-Indicator
-🕐 *Time:* ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}
-`;
-
-  if (details.indicators) {
-    message += `\n🎯 *Active Indicators:*\n${details.indicators}`;
-  }
-
-  if (details.performance) {
-    message += `\n\n📈 *Performance:*\n${details.performance}`;
-  }
-
-  return await broadcastTelegram(message.trim());
-}
-
-/**
- * 🔔 Send a trading signal to users who have a specific coin in their watchlist
- * Called after a signal is generated for a coin.
+ * Mengirim sinyal ke user yang mem-watch koin tertentu.
+ *
+ * Alur:
+ * 1) Ambil watchers via watchlist service
+ * 2) Filter yang telegramEnabled & punya chatId
+ * 3) Format pesan dengan formatter yang sama
+ * 4) Kirim satu per satu dengan delay (anti rate limit)
  */
 export async function sendSignalToWatchers({
   coinId,
@@ -708,5 +357,5 @@ export async function sendSignalToWatchers({
   }
 }
 
-// Export sendTelegramMessage for backward compatibility
+// Export sendTelegramMessage untuk kompatibilitas (tanpa ubah controller lama)
 export { sendTelegramMessage };

@@ -1,33 +1,24 @@
-import axios from "axios";
 import dotenv from "dotenv";
 import { prisma } from "../../lib/prisma.js";
 import { cleanTopCoinData } from "../../utils/dataCleaner.js";
-import { fetchPairs } from "./coinbase.service.js";
-import { fetchEarliestCandle } from "../coinbase/coinbase.service.js";
+import {
+  fetchPairs,
+  fetchEarliestCandle,
+} from "../../clients/coinbase.client.js";
+import {
+  getTopCoins,
+  getCoinLogos,
+} from "../../clients/coinmarketcap.client.js";
 
 dotenv.config();
 
-const CMC_BASE_URL =
-  process.env.CMC_API_URL || "https://pro-api.coinmarketcap.com/v1";
-
 export async function syncTopCoins() {
   try {
-    if (!process.env.CMC_API_KEY)
-      throw new Error("CMC_API_KEY tidak ditemukan di .env");
-
     // 1. Ambil Top 50 dari CMC (buffer lebih banyak untuk filtering)
     console.log("📥 Fetching top 50 coins from CoinMarketCap...");
-    const { data } = await axios.get(
-      `${CMC_BASE_URL}/cryptocurrency/listings/latest`,
-      {
-        headers: {
-          "X-CMC_PRO_API_KEY": process.env.CMC_API_KEY,
-          Accept: "application/json",
-        },
-        params: { start: 1, limit: 50, convert: "USD", sort: "market_cap" },
-        timeout: 30000,
-      }
-    );
+
+    // Semua HTTP request berada di client
+    const data = await getTopCoins(50);
 
     if (!data?.data) throw new Error("Data dari CMC kosong.");
 
@@ -44,7 +35,7 @@ export async function syncTopCoins() {
     if (coins.length === 0)
       throw new Error("Tidak ada coin valid setelah data cleaning.");
 
-    // 2. Ambil pair aktif dari Coinbase
+    // 2. Ambil pair aktif dari Coinbase (via client)
     const activePairs = await fetchPairs();
 
     if (activePairs.size === 0) {
@@ -113,7 +104,7 @@ export async function syncTopCoins() {
         continue;
       }
 
-      // Coin belum pernah dicek, fetch earliest candle
+      // Coin belum pernah dicek, fetch earliest candle (via client)
       console.log(`${foundPair}: Checking earliest candle...`);
       const earliestCandle = await fetchEarliestCandle(foundPair);
 
@@ -122,21 +113,11 @@ export async function syncTopCoins() {
         listingDate = new Date(earliestCandle.time);
       }
 
-      // Fetch logo dari CMC untuk coin ini
+      // Fetch logo dari CMC untuk coin ini (via client)
       let logo = null;
       try {
         const baseSymbol = foundPair.split("-")[0];
-        const { data: infoData } = await axios.get(
-          "https://pro-api.coinmarketcap.com/v2/cryptocurrency/info",
-          {
-            headers: {
-              "X-CMC_PRO_API_KEY": process.env.CMC_API_KEY,
-              Accept: "application/json",
-            },
-            params: { symbol: baseSymbol },
-            timeout: 10000,
-          }
-        );
+        const infoData = await getCoinLogos(baseSymbol);
         logo = infoData?.data?.[baseSymbol]?.[0]?.logo || null;
       } catch (logoErr) {
         console.warn(`⚠️  Failed to fetch logo for ${foundPair}`);
@@ -169,23 +150,13 @@ export async function syncTopCoins() {
       throw new Error("Tidak ada coin yang bisa dipair dengan Coinbase");
     }
 
-    // 5. Ambil logo dari CMC API v2/cryptocurrency/info
+    // 5. Ambil logo dari CMC API v2/cryptocurrency/info (via client)
     const baseSymbols = allCoins.map((c) => c.symbol.split("-")[0]);
     const symbolsParam = [...new Set(baseSymbols)].join(",");
     let coinsWithLogo = allCoins;
 
     try {
-      const { data: infoData } = await axios.get(
-        "https://pro-api.coinmarketcap.com/v2/cryptocurrency/info",
-        {
-          headers: {
-            "X-CMC_PRO_API_KEY": process.env.CMC_API_KEY,
-            Accept: "application/json",
-          },
-          params: { symbol: symbolsParam },
-          timeout: 30000,
-        }
-      );
+      const infoData = await getCoinLogos(symbolsParam);
 
       if (infoData?.data) {
         coinsWithLogo = allCoins.map((coin) => {

@@ -4,7 +4,7 @@ import {
   getCoinMarketcap,
   getMarketcapLiveController,
   getCoinSymbols,
-} from "../controllers/marketcap.controller.js";
+} from "../controllers/index.js";
 
 const router = express.Router();
 

@@ -3,7 +3,7 @@ import {
   getProfile,
   updateProfile,
   updateTelegramSettings,
-} from "../controllers/user.controller.js";
+} from "../controllers/index.js";
 
 const router = express.Router();
 
