@@ -12,6 +12,8 @@ export function StandardConfigResults({ displayData }) {
 
   if (!displayData.comparison) return null;
 
+  const bestStrategy = displayData.bestStrategy?.name;
+
   return (
     <div
       className={`rounded-lg md:rounded-xl shadow-sm border ${
@@ -50,8 +52,7 @@ export function StandardConfigResults({ displayData }) {
           ([strategy, data]) => {
             const isBestSingle =
               displayData.analysis?.bestSingle?.indicator === strategy;
-            const isOverallWinner =
-              displayData.comparison?.bestStrategy === "single" && isBestSingle;
+            const isOverallWinner = bestStrategy === "single" && isBestSingle;
 
             return (
               <div
@@ -192,7 +193,7 @@ export function StandardConfigResults({ displayData }) {
                   >
                     Optimized
                   </span>
-                  {displayData.comparison?.bestStrategy === "multi" && (
+                  {bestStrategy === "multi" && (
                     <span
                       className={`px-2 py-0.5 text-xs rounded-full font-medium ${
                         isDarkMode
@@ -291,7 +292,7 @@ export function StandardConfigResults({ displayData }) {
                 >
                   Voting Strategy
                 </div>
-                {displayData.comparison?.bestStrategy === "voting" && (
+                {bestStrategy === "voting" && (
                   <span
                     className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium mt-1 ${
                       isDarkMode
@@ -439,8 +440,7 @@ export function StandardConfigResults({ displayData }) {
                   const isBestSingle =
                     displayData.analysis?.bestSingle?.indicator === strategy;
                   const isOverallWinner =
-                    displayData.comparison?.bestStrategy === "single" &&
-                    isBestSingle;
+                    bestStrategy === "single" && isBestSingle;
 
                   return (
                     <tr
@@ -561,7 +561,7 @@ export function StandardConfigResults({ displayData }) {
                       >
                         Optimized
                       </span>
-                      {displayData.comparison?.bestStrategy === "multi" && (
+                      {bestStrategy === "multi" && (
                         <span
                           className={`px-2 py-0.5 text-xs rounded-full font-medium ${
                             isDarkMode
@@ -646,7 +646,7 @@ export function StandardConfigResults({ displayData }) {
                       >
                         Voting Strategy
                       </span>
-                      {displayData.comparison?.bestStrategy === "voting" && (
+                      {bestStrategy === "voting" && (
                         <span
                           className={`px-2 py-0.5 text-xs rounded-full font-medium ${
                             isDarkMode

@@ -23,17 +23,19 @@ function ComparisonPage() {
   // Track simbol yang sedang aktif saat comparison dijalankan
   const comparedSymbolRef = useRef(null);
 
-  const getTodayDate = () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, "0");
-    const day = String(today.getDate()).padStart(2, "0");
+  const formatDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   };
 
-  const [startDate, setStartDate] = useState("2020-01-01");
-  const [endDate, setEndDate] = useState(getTodayDate());
-  // ✅ State lokal untuk hasil — bisa di-reset secara deterministik
+  const today = new Date();
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(today.getFullYear() - 1);
+
+  const [startDate, setStartDate] = useState(formatDate(oneYearAgo));
+  const [endDate, setEndDate] = useState(formatDate(today));
   const [displayData, setDisplayData] = useState(null);
 
   const {

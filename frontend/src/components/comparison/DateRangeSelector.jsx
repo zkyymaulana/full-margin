@@ -10,14 +10,16 @@ export function DateRangeSelector({
   const { isDarkMode } = useDarkMode();
   const { selectedSymbol } = useSymbol();
 
-  const handleQuickSelect = (months, years = 0) => {
+  const handleQuickSelect = ({ days = 0, months = 0, years = 0 }) => {
     const end = new Date();
     const start = new Date();
 
     if (years) {
       start.setFullYear(start.getFullYear() - years);
-    } else {
+    } else if (months) {
       start.setMonth(start.getMonth() - months);
+    } else if (days) {
+      start.setDate(start.getDate() - days);
     }
 
     const formatToYYYYMMDD = (date) => {
@@ -106,8 +108,19 @@ export function DateRangeSelector({
           Quick Select:
         </span>
         <button
-          onClick={() => handleQuickSelect(1)}
-          title="Last 1 Month - Sets date range from 1 month ago to today"
+          onClick={() => handleQuickSelect({ days: 7 })}
+          title="Last 1 Week"
+          className={`px-2.5 md:px-3 py-1.5 text-xs rounded-lg transition-colors hover:cursor-pointer ${
+            isDarkMode
+              ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
+              : "bg-gray-100 hover:bg-gray-200"
+          }`}
+        >
+          1W
+        </button>
+        <button
+          onClick={() => handleQuickSelect({ months: 1 })}
+          title="Last 1 Month"
           className={`px-2.5 md:px-3 py-1.5 text-xs rounded-lg transition-colors hover:cursor-pointer ${
             isDarkMode
               ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
@@ -117,8 +130,8 @@ export function DateRangeSelector({
           1M
         </button>
         <button
-          onClick={() => handleQuickSelect(3)}
-          title="Last 3 Months - Sets date range from 3 months ago to today"
+          onClick={() => handleQuickSelect({ months: 3 })}
+          title="Last 3 Month"
           className={`px-2.5 md:px-3 py-1.5 text-xs rounded-lg transition-colors hover:cursor-pointer ${
             isDarkMode
               ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
@@ -128,19 +141,8 @@ export function DateRangeSelector({
           3M
         </button>
         <button
-          onClick={() => handleQuickSelect(6)}
-          title="Last 6 Months - Sets date range from 6 months ago to today"
-          className={`px-2.5 md:px-3 py-1.5 text-xs rounded-lg transition-colors hover:cursor-pointer ${
-            isDarkMode
-              ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
-              : "bg-gray-100 hover:bg-gray-200"
-          }`}
-        >
-          6M
-        </button>
-        <button
-          onClick={() => handleQuickSelect(0, 1)}
-          title="Last 1 Year - Sets date range from 1 year ago to today"
+          onClick={() => handleQuickSelect({ years: 1 })}
+          title="Last 1 Years"
           className={`px-2.5 md:px-3 py-1.5 text-xs rounded-lg transition-colors hover:cursor-pointer ${
             isDarkMode
               ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
