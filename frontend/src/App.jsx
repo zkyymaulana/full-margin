@@ -2,18 +2,18 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { SymbolProvider } from "./contexts/SymbolContext";
 import { SidebarProvider } from "./contexts/SidebarContext";
-import Layout from "./components/Layout";
-import ProtectedRoute from "./components/ProtectedRoute";
-import { GlobalOptimizationProgress } from "./components/GlobalOptimizationProgress";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Dashboard from "./pages/Dashboard";
-import Profile from "./pages/Profile";
-import Unauthorized from "./pages/Unauthorized";
-import SignalsPage from "./pages/Signals";
-import ComparisonPage from "./pages/Comparison";
-import MarketCapPage from "./pages/MarketCap";
-import SettingsPage from "./pages/Settings";
+import { Layout, ProtectedRoute } from "./components/common";
+import {
+  Login,
+  Register,
+  Dashboard,
+  Profile,
+  Unauthorized,
+  SignalsPage,
+  ComparisonPage,
+  MarketCapPage,
+  SettingsPage,
+} from "./pages";
 
 // Public Route (redirect if authenticated)
 const PublicRoute = ({ children }) => {
@@ -69,16 +69,6 @@ function App() {
             <Route path="marketcap" element={<MarketCapPage />} />
             <Route path="profile" element={<Profile />} />
             <Route path="settings" element={<SettingsPage />} />
-
-            {/* Example: Admin-only route (uncomment when needed) */}
-            {/* <Route
-              path="admin"
-              element={
-                <AdminRoute>
-                  <AdminPanel />
-                </AdminRoute>
-              }
-            /> */}
           </Route>
 
           {/* Catch all */}

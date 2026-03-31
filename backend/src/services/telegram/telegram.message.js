@@ -157,19 +157,20 @@ export function formatTelegramSignalMessage({
   // Susunan pesan (Markdown) harus sama
   const message = `${signalEmoji} *${signalLabel.toUpperCase()}* ${signalEmoji}
 
-📊 *Symbol:* ${symbol}
-💰 *Price:* ${formatCurrency(price)}
-📈 *Score:* ${finalScore >= 0 ? "+" : ""}${finalScore.toFixed(2)}
-💪 *Strength:* ${(strength * 100).toFixed(1)}%
-⏱️ *Timeframe:* ${timeframe}
-🕐 *Time:* ${dateStr}, ${timeStr}
+📊 ${symbol}
+• *Price:* ${formatCurrency(price)}
+• *Score:* ${finalScore >= 0 ? "+" : ""}${finalScore.toFixed(2)}
+• *Strength:* ${(strength * 100).toFixed(1)}%
+• *Timeframe:* ${timeframe}
+• *Time:* ${dateStr}, ${timeStr}
 
 📊 *Market Interpretation:*
 • Trend: ${categoryScores.trend >= 0 ? "+" : ""}${categoryScores.trend.toFixed(2)} (${interpretTrendScore(categoryScores.trend)})
 • Momentum: ${categoryScores.momentum >= 0 ? "+" : ""}${categoryScores.momentum.toFixed(2)} (${interpretMomentumScore(categoryScores.momentum)})
 • Volatility: ${categoryScores.volatility >= 0 ? "+" : ""}${categoryScores.volatility.toFixed(2)} (${interpretVolatilityScore(categoryScores.volatility)})
 
-📈 *Performance Metrics:*
+📈 *Backtest Performance Metrics:*
+1 Januari 2020 - 1 Januari 2025
 • ROI: ${performance.roi.toFixed(2)}%
 • Win Rate: ${performance.winRate.toFixed(2)}%
 • Max Drawdown: ${maxDrawdown}%

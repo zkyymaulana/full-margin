@@ -1,11 +1,11 @@
 import { NavLink } from "react-router-dom";
-import { useLogout } from "../hooks/useAuth";
-import { confirmLogout } from "../utils/notifications";
+import { useLogout } from "../../hooks/useAuth";
+import { confirmLogout } from "../../utils/notifications";
 import { useState, useEffect } from "react";
-import { useDarkMode } from "../contexts/DarkModeContext";
-import { useSidebar } from "../contexts/SidebarContext";
+import { useDarkMode } from "../../contexts/DarkModeContext";
+import { useSidebar } from "../../contexts/SidebarContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getUserProfile } from "../services/api.service";
+import { getUserProfile } from "../../services/api.service";
 import { FiBarChart2, FiTrendingUp, FiSliders } from "react-icons/fi";
 import { FaCoins } from "react-icons/fa6";
 

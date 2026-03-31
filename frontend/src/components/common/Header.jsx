@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth";
-import { useSymbol } from "../contexts/SymbolContext";
-import { useMarketcapSymbols } from "../hooks/useMarketcap";
-import { useUserProfile } from "../hooks/useUser";
-import { confirmLogout } from "../utils/notifications";
-import { useDarkMode } from "../contexts/DarkModeContext";
-import { useSidebar } from "../contexts/SidebarContext";
+import { useAuth } from "../../hooks/useAuth";
+import { useSymbol } from "../../contexts/SymbolContext";
+import { useMarketcapSymbols } from "../../hooks/useMarketcap";
+import { useUserProfile } from "../../hooks/useUser";
+import { confirmLogout } from "../../utils/notifications";
+import { useDarkMode } from "../../contexts/DarkModeContext";
+import { useSidebar } from "../../contexts/SidebarContext";
 import { FiSearch } from "react-icons/fi";
 
 function Header() {

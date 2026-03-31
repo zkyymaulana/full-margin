@@ -1,7 +1,7 @@
-import { useOptimizationContext } from "../contexts/OptimizationContext";
-import { OptimizationProgressCard } from "../components/comparison/OptimizationProgressCard";
-import { useOptimizationEstimate } from "../hooks/useOptimization";
-import { cancelOptimization } from "../services/api.service";
+import { useOptimizationContext } from "../../contexts/OptimizationContext";
+import { OptimizationProgressCard } from "../comparison/OptimizationProgressCard";
+import { useOptimizationEstimate } from "../../hooks/useOptimization";
+import { cancelOptimization } from "../../services/api.service";
 import { useState } from "react";
 
 export function GlobalOptimizationProgress() {

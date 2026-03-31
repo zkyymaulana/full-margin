@@ -8,11 +8,13 @@ import Swal from "sweetalert2";
 import { cancelOptimization } from "../services/api.service";
 
 // Import components
-import SignalsHeader from "../components/signals/SignalsHeader";
-import CategorySummaryCard from "../components/signals/CategorySummaryCard";
-import BacktestPanel from "../components/signals/BacktestPanel";
-import IndicatorTable from "../components/signals/IndicatorTable";
-import MultiIndicatorPanel from "../components/signals/MultiIndicatorPanel";
+import {
+  SignalsHeader,
+  MultiIndicatorPanel,
+  CategorySummaryCard,
+  IndicatorTable,
+  BacktestPanel,
+} from "../components/signals";
 import { OptimizationProgressCard } from "../components/comparison";
 
 // Import utils

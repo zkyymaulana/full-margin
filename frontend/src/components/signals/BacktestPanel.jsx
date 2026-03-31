@@ -4,11 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useSymbol } from "../../contexts/SymbolContext";
 import { useForceReoptimization } from "../../hooks/useOptimization";
 import { getOptimizationEstimate } from "../../services/api.service";
-import {
-  formatNumber,
-  formatPercent,
-  formatRatio,
-} from "../../utils/indicatorParser";
+import { formatPercent, formatRatio } from "../../utils/indicatorParser";
 
 function BacktestPanel({ performance, bestCombo, isDarkMode }) {
   const { selectedSymbol } = useSymbol();
