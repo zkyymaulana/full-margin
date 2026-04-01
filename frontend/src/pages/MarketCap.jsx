@@ -27,7 +27,7 @@ function MarketCapPage() {
   const { setSelectedSymbol } = useSymbol();
   const navigate = useNavigate();
 
-  const { isWatched, toggleWatchlist } = useWatchlist();
+  const { isWatched, toggleWatchlist, refetch: refetchWatchlist } = useWatchlist();
 
   const handleCoinClick = (symbol) => {
     console.log("🎯 Coin selected:", symbol);
@@ -140,6 +140,19 @@ function MarketCapPage() {
             Top cryptocurrencies ranked by market capitalization
           </p>
         </div>
+        <button
+          onClick={() => {
+            refetch();
+            refetchWatchlist();
+          }}
+          className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 text-sm ${
+            isDarkMode
+              ? "bg-blue-600 hover:bg-blue-700 text-white"
+              : "bg-blue-500 hover:bg-blue-600 text-white"
+          } shadow-md hover:shadow-lg`}
+        >
+          🔄 Refresh Data
+        </button>
       </div>
 
       <MarketStatsCards summary={summary} timestamp={timestamp} />

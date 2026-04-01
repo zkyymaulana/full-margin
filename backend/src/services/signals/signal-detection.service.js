@@ -129,22 +129,11 @@ export async function detectAndNotifyMultiIndicatorSignals(
     });
 
     // 🎯 NOTIFICATION STRATEGY (ACADEMIC)
-    // Hanya kirim notifikasi untuk STRONG signals (high confidence)
-    // BUY/SELL biasa tetap direturn untuk analisis, tapi tidak notifikasi
+    // Kirim semua sinyal (NEUTRAL, BUY, SELL) ke watchlist users
 
-    if (signal === "neutral") {
-      console.log(
-        `⚪ ${symbol} NEUTRAL | finalScore: ${finalScore.toFixed(3)}`
-      );
-      return {
-        success: true,
-        signal: "neutral",
-        signalLabel: "NEUTRAL",
-        finalScore,
-        strength: 0,
-        categoryScores,
-      };
-    }
+    console.log(
+      `${signal === "neutral" ? "⚪" : signal.includes("buy") ? "🟢" : "🔴"} ${symbol} ${signalLabel} | finalScore: ${finalScore.toFixed(3)}`
+    );
 
     // 🔔 SEND TELEGRAM NOTIFICATION — only to users who watch this coin
     const result = await sendSignalToWatchers({

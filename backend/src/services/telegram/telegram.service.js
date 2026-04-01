@@ -11,14 +11,61 @@ import {
  * -------------------------------------------------
  * Tujuan: Orchestrator utama notifikasi Telegram.
  * - Mengatur alur pengiriman sinyal (multi-indicator) ke user
- * - Mengelola anti-spam cache supaya sinyal yang sama tidak dikirim berulang
+ * - Mengelola signal change detection via DATABASE (persistent)
  * - Berinteraksi dengan database untuk mencari user yang eligible
  * - Memanggil modul broadcast untuk pengiriman ke Telegram API
+ *
+ * ✅ PERSISTENT CACHE (Database):
+ * - Cache disimpan di tabel SignalCache
+ * - Survive server restart, deployment, scaling
+ * - Production-ready untuk Render.com
  */
 
-// Cache untuk tracking sinyal terakhir (anti-spam)
-// Key yang dipakai: "<SYMBOL>_multi" (dipertahankan seperti sebelumnya)
-const lastSignalCache = new Map();
+/**
+ * 🔍 Get last signal from database cache
+ * @param {string} symbol - e.g., "BTC-USD"
+ * @param {string} cacheType - "watchlist" or "broadcast"
+ * @returns {Promise<string|null>} Last signal or null
+ */
+async function getLastSignalFromDB(symbol, cacheType) {
+  try {
+    const cache = await prisma.signalCache.findUnique({
+      where: {
+        symbol_cacheType: { symbol, cacheType },
+      },
+    });
+    return cache?.lastSignal || null;
+  } catch (error) {
+    console.error(`❌ Error reading signal cache:`, error.message);
+    return null;
+  }
+}
+
+/**
+ * 💾 Update signal cache in database
+ * @param {string} symbol - e.g., "BTC-USD"
+ * @param {string} cacheType - "watchlist" or "broadcast"
+ * @param {string} signal - "buy", "sell", or "neutral"
+ */
+async function updateSignalCacheDB(symbol, cacheType, signal) {
+  try {
+    await prisma.signalCache.upsert({
+      where: {
+        symbol_cacheType: { symbol, cacheType },
+      },
+      update: {
+        lastSignal: signal,
+      },
+      create: {
+        symbol,
+        cacheType,
+        lastSignal: signal,
+      },
+    });
+  } catch (error) {
+    console.error(`❌ Error updating signal cache:`, error.message);
+  }
+}
 
 /**
  * 🔔 Kirim notifikasi sinyal multi-indicator ke semua user yang aktif
@@ -26,11 +73,12 @@ const lastSignalCache = new Map();
  * Tujuan:
  * - Membentuk pesan dari hasil deteksi sinyal
  * - Broadcast ke semua user yang telegramEnabled
- * - Menggunakan cache untuk anti-spam (skip jika sinyal sama dengan sebelumnya)
+ * - Menggunakan DATABASE cache untuk signal change detection
  *
- * Catatan penting:
- * - Algoritma dan format pesan tidak diubah.
- * - Query database dan delay tetap sama.
+ * 🎯 SIGNAL CHANGE DETECTION (Dashboard-like):
+ * - Hanya kirim notifikasi ketika signal BERUBAH
+ * - BUY → BUY → BUY = no notification
+ * - BUY → SELL = notification sent ✅
  */
 export async function sendMultiIndicatorSignal({
   symbol,
@@ -39,24 +87,26 @@ export async function sendMultiIndicatorSignal({
   strength = 0,
   finalScore = 0,
   signalLabel = null,
-  signalEmoji = null,
   categoryScores = { trend: 0, momentum: 0, volatility: 0 },
-  activeIndicators,
   performance,
   timeframe = "1h",
 }) {
-  // Check cache untuk anti-spam
-  const cacheKey = `${symbol}_multi`;
-  const lastSignal = lastSignalCache.get(cacheKey);
+  // ✅ DATABASE CACHE: Check last signal from DB
+  const lastSignal = await getLastSignalFromDB(symbol, "broadcast");
 
-  // Jika sinyal sama persis dengan terakhir, maka skip kirim agar tidak spam
+  // Skip jika signal sama dengan sebelumnya (prevent spam)
   if (lastSignal === signal) {
-    console.log(`⏭️ Skipping duplicate signal: ${symbol} multi ${signal}`);
-    return { success: false, reason: "duplicate" };
+    console.log(
+      `⏭️ [${symbol}] Signal unchanged (${signal}), skipping broadcast`
+    );
+    return { success: false, reason: "signal_unchanged", signal };
   }
 
-  // Update cache (menyimpan sinyal terakhir untuk symbol tersebut)
-  lastSignalCache.set(cacheKey, signal);
+  // Update database cache untuk signal baru
+  await updateSignalCacheDB(symbol, "broadcast", signal);
+  console.log(
+    `🔔 [${symbol}] Signal changed: ${lastSignal || "none"} → ${signal}`
+  );
 
   // ✅ VALIDATION: Jika neutral, strength harus 0
   if (signal === "neutral" && strength !== 0) {
@@ -214,26 +264,69 @@ Error: ${error.message}
 }
 
 /**
- * Membersihkan cache sinyal (anti-spam).
+ * Membersihkan cache sinyal dari DATABASE.
  *
  * Cara kerja cache:
- * - Menyimpan sinyal terakhir per symbol dalam Map
+ * - Menyimpan sinyal terakhir per symbol di tabel SignalCache
  * - Jika sinyal sama muncul lagi, notifikasi akan di-skip
+ * - Persistent across server restarts
  *
  * @param {string|null} [symbol] - Jika diisi, hanya cache untuk symbol itu yang dibersihkan.
- * @returns {void}
+ * @returns {Promise<void>}
  */
-export function clearSignalCache(symbol = null) {
-  if (symbol) {
-    for (const key of lastSignalCache.keys()) {
-      if (key.startsWith(symbol)) {
-        lastSignalCache.delete(key);
-      }
+export async function clearSignalCache(symbol = null) {
+  try {
+    if (symbol) {
+      // Delete cache for specific symbol (both watchlist & broadcast)
+      await prisma.signalCache.deleteMany({
+        where: { symbol },
+      });
+      console.log(`🧹 Cleared database signal cache for ${symbol}`);
+    } else {
+      // Delete all cache
+      await prisma.signalCache.deleteMany();
+      console.log("🧹 Cleared all database signal cache");
     }
-    console.log(`🧹 Cleared signal cache for ${symbol}`);
-  } else {
-    lastSignalCache.clear();
-    console.log("🧹 Cleared all signal cache");
+  } catch (error) {
+    console.error("❌ Error clearing signal cache:", error.message);
+  }
+}
+
+/**
+ * Get cache status dari DATABASE untuk debugging
+ * @returns {Promise<Object>} Cache statistics
+ */
+export async function getSignalCacheStatus() {
+  try {
+    const allCache = await prisma.signalCache.findMany({
+      orderBy: { updatedAt: "desc" },
+    });
+
+    const cacheByType = {
+      watchlist: {},
+      broadcast: {},
+    };
+
+    allCache.forEach((cache) => {
+      cacheByType[cache.cacheType][cache.symbol] = {
+        lastSignal: cache.lastSignal,
+        updatedAt: cache.updatedAt,
+      };
+    });
+
+    return {
+      total: allCache.length,
+      entries: cacheByType,
+      raw: allCache,
+    };
+  } catch (error) {
+    console.error("❌ Error reading signal cache status:", error.message);
+    return {
+      total: 0,
+      entries: { watchlist: {}, broadcast: {} },
+      raw: [],
+      error: error.message,
+    };
   }
 }
 
@@ -244,7 +337,7 @@ export function clearSignalCache(symbol = null) {
  */
 export async function testTelegramConnection() {
   const message = `
-✅ *TELEGRAM CONNECTION TEST*
+*TELEGRAM CONNECTION TEST*
 
 System: Crypto Trading Bot
 Status: Connected
@@ -259,10 +352,16 @@ Time: ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}
  * Mengirim sinyal ke user yang mem-watch koin tertentu.
  *
  * Alur:
- * 1) Ambil watchers via watchlist service
- * 2) Filter yang telegramEnabled & punya chatId
- * 3) Format pesan dengan formatter yang sama
- * 4) Kirim satu per satu dengan delay (anti rate limit)
+ * 1) Check signal change dari DATABASE (skip jika sama)
+ * 2) Ambil watchers via watchlist service
+ * 3) Filter yang telegramEnabled & punya chatId
+ * 4) Format pesan dengan formatter yang sama
+ * 5) Kirim satu per satu dengan delay (anti rate limit)
+ *
+ * 🎯 SIGNAL CHANGE DETECTION (Dashboard-like):
+ * - Hanya kirim notifikasi ketika signal BERUBAH
+ * - BUY → BUY → BUY = no notification
+ * - BUY → SELL = notification sent ✅
  */
 export async function sendSignalToWatchers({
   coinId,
@@ -283,6 +382,23 @@ export async function sendSignalToWatchers({
   timeframe = "1h",
 }) {
   try {
+    // ✅ DATABASE CACHE: Check last signal from DB
+    const lastSignal = await getLastSignalFromDB(symbol, "watchlist");
+
+    // Skip jika signal sama dengan sebelumnya (prevent spam)
+    if (lastSignal === signal) {
+      console.log(
+        `⏭️ [${symbol}] Signal unchanged (${signal}), skipping notification`
+      );
+      return { success: false, reason: "signal_unchanged", signal };
+    }
+
+    // Update database cache untuk signal baru
+    await updateSignalCacheDB(symbol, "watchlist", signal);
+    console.log(
+      `🔔 [${symbol}] Signal changed: ${lastSignal || "none"} → ${signal}`
+    );
+
     const watchers = await getWatchersForCoin(coinId);
 
     if (!watchers.length) {

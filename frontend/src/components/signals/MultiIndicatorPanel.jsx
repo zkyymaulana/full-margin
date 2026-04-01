@@ -41,6 +41,12 @@ function MultiIndicatorPanel({
     signal === "sell" ? -strength : signal === "buy" ? strength : 0;
   const sliderPosition = ((sliderValue + 1) / 2) * 100; // Convert -1..+1 to 0..100%
 
+  const percent = Math.abs(strength * 100).toFixed(0);
+  const direction =
+    signal === "buy" ? "BUY" : signal === "sell" ? "SELL" : "NEUTRAL";
+
+  const sign = signal === "sell" && strength > 0 ? "-" : "+";
+
   return (
     <div
       className={`rounded-xl shadow-sm border ${
@@ -131,8 +137,8 @@ function MultiIndicatorPanel({
               isDarkMode ? "text-gray-400" : "text-gray-500"
             }`}
           >
-            Strength: {signal === "sell" && strength > 0 ? "-" : "+"}
-            {formatNumber(strength, 2)}
+            Strength: {sign}
+            {formatNumber(strength, 2)} ({percent}% {direction})
           </div>
 
           {/* ✅ Signal Counts from Database */}
