@@ -2,6 +2,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import api, { requestOptimization } from "../services/api.service";
 import { useState, useEffect, useRef } from "react";
 
+const MAX_SSE_RETRIES = 8;
+
 /**
  * Custom Hook: useOptimization
  *
@@ -65,13 +67,13 @@ export function useForceReoptimization() {
 export function useOptimizationEstimate(
   symbol,
   timeframe = "1h",
-  enabled = true
+  enabled = true,
 ) {
   return useQuery({
     queryKey: ["optimizationEstimate", symbol, timeframe],
     queryFn: async () => {
       const response = await api.get(
-        `/multiIndicator/${symbol}/estimate?timeframe=${timeframe}`
+        `/multiIndicator/${symbol}/estimate?timeframe=${timeframe}`,
       );
       return response.data;
     },
@@ -94,13 +96,94 @@ export function useOptimizationEstimate(
  */
 export const useOptimizationProgress = (symbol, enabled = false) => {
   const [progress, setProgress] = useState(null);
+  const [reconnectNonce, setReconnectNonce] = useState(0);
   const eventSourceRef = useRef(null);
   const isConnectedRef = useRef(false);
   const reconnectTimeoutRef = useRef(null);
-  const shouldStopReconnectRef = useRef(false); // ✅ NEW: Flag to permanently stop reconnection
+  const retryCountRef = useRef(0);
+  const isMountedRef = useRef(true);
   const manualCloseRef = useRef(false); // ✅ NEW: Flag to track manual close
 
+  const clearReconnectTimeout = () => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+  };
+
+  const closeEventSource = () => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+    isConnectedRef.current = false;
+  };
+
+  const fetchStatusFallback = async (activeSymbol) => {
+    const token = localStorage.getItem("authToken");
+    if (!token || !activeSymbol) return null;
+
+    try {
+      const url = `${import.meta.env.VITE_API_BASE_URL}/multiIndicator/${activeSymbol}/status`;
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch {
+      return null;
+    }
+  };
+
+  const mapStatusToProgress = (statusResponse) => {
+    if (!statusResponse?.success) return null;
+
+    if (statusResponse.status === "completed") {
+      return {
+        current:
+          statusResponse.result?.performance?.totalCombinations || 390625,
+        total: statusResponse.result?.performance?.totalCombinations || 390625,
+        percentage: 100,
+        bestROI: statusResponse.result?.performance?.roi || 0,
+        etaFormatted: "Completed!",
+        status: "completed",
+      };
+    }
+
+    if (statusResponse.status === "error") {
+      return {
+        status: "error",
+        message: statusResponse.error || "Optimization failed",
+      };
+    }
+
+    if (statusResponse.status === "running") {
+      const p = statusResponse.progress || {};
+      return {
+        current: p.tested || p.current || 0,
+        total: p.total || 390625,
+        percentage: p.percentage || 0,
+        bestROI: p.bestROI || 0,
+        etaSeconds: p.etaSeconds,
+        etaFormatted: p.eta || "Reconnecting...",
+        status: "running",
+      };
+    }
+
+    return {
+      current: 0,
+      total: 390625,
+      percentage: 0,
+      bestROI: 0,
+      etaFormatted: "Waiting...",
+      status: "waiting",
+    };
+  };
+
   useEffect(() => {
+    isMountedRef.current = true;
+
     // ✅ Only open connection if enabled AND symbol exists
     if (!enabled || !symbol) {
       console.log(`⏹️ [SSE] Connection disabled or no symbol provided`);
@@ -112,30 +195,23 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
         manualCloseRef.current = false;
       }
 
-      return;
-    }
+      clearReconnectTimeout();
+      closeEventSource();
+      retryCountRef.current = 0;
 
-    // ✅ Check if reconnection should be blocked
-    if (shouldStopReconnectRef.current) {
-      console.log(
-        `🛑 [SSE] Reconnection blocked for ${symbol} - server restart detected`
-      );
       return;
     }
 
     // ✅ Prevent duplicate connections - STRICT CHECK
     if (isConnectedRef.current && eventSourceRef.current) {
       console.log(
-        `⚠️ [SSE] Already connected for ${symbol}, skipping duplicate connection`
+        `⚠️ [SSE] Already connected for ${symbol}, skipping duplicate connection`,
       );
       return;
     }
 
     // ✅ Clear any pending reconnect
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
+    clearReconnectTimeout();
 
     // ✅ Get auth token
     const token = localStorage.getItem("authToken");
@@ -148,7 +224,7 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
     const sseUrl = `${
       import.meta.env.VITE_API_BASE_URL
     }/multiIndicator/${symbol}/optimize-stream?token=${encodeURIComponent(
-      token
+      token,
     )}`;
     console.log(`📡 [SSE] Opening connection for ${symbol}...`);
 
@@ -160,15 +236,7 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
       // ✅ Connection opened successfully
       eventSource.onopen = () => {
         console.log(`✅ [SSE] Connection opened for ${symbol}`);
-
-        // ✅ CRITICAL: Close immediately if reconnection should be blocked
-        if (shouldStopReconnectRef.current) {
-          console.log(`🛑 [SSE] Closing connection - reconnection blocked`);
-          eventSource.close();
-          eventSourceRef.current = null;
-          isConnectedRef.current = false;
-          return;
-        }
+        retryCountRef.current = 0;
       };
 
       // ✅ CRITICAL: Handle ALL messages (SSE messages without event name)
@@ -193,7 +261,7 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
             case "status":
               // Informational only - set waiting state
               console.log(
-                `ℹ️ [SSE] Status: ${data.status} - ${data.message || ""}`
+                `ℹ️ [SSE] Status: ${data.status} - ${data.message || ""}`,
               );
 
               // ✅ ALWAYS set waiting state when receiving status event
@@ -256,7 +324,7 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
               // Log milestone (every 10%)
               if (percentage % 10 === 0 || tested === total) {
                 console.log(
-                  `📈 [SSE] Progress: ${tested}/${total} (${percentage}%) | Best: ${bestROI}% | ETA: ${eta}`
+                  `📈 [SSE] Progress: ${tested}/${total} (${percentage}%) | Best: ${bestROI}% | ETA: ${eta}`,
                 );
               }
               break;
@@ -292,11 +360,7 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
               setTimeout(() => {
                 console.log(`🧹 [SSE] Cleaning up after completion`);
                 setProgress(null);
-                if (eventSourceRef.current) {
-                  eventSourceRef.current.close();
-                  eventSourceRef.current = null;
-                  isConnectedRef.current = false;
-                }
+                closeEventSource();
               }, 3000);
               break;
 
@@ -305,11 +369,7 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
 
               // Clear progress and close connection
               setProgress(null);
-              if (eventSourceRef.current) {
-                eventSourceRef.current.close();
-                eventSourceRef.current = null;
-                isConnectedRef.current = false;
-              }
+              closeEventSource();
               break;
 
             default:
@@ -321,58 +381,54 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
       };
 
       // ✅ Handle connection errors
-      eventSource.onerror = (error) => {
+      eventSource.onerror = async () => {
         console.error(`❌ [SSE] Connection error for ${symbol}`);
 
-        // ✅ CRITICAL: Close connection immediately to prevent auto-reconnect
-        if (eventSourceRef.current) {
-          eventSourceRef.current.close();
-          eventSourceRef.current = null;
+        closeEventSource();
+
+        const statusSnapshot = await fetchStatusFallback(symbol);
+        const mapped = mapStatusToProgress(statusSnapshot);
+        if (mapped && isMountedRef.current) {
+          setProgress(mapped);
         }
-        isConnectedRef.current = false;
 
-        // Check readyState
-        if (eventSource.readyState === EventSource.CLOSED) {
-          console.error(
-            `🔌 [SSE] Connection closed unexpectedly for ${symbol}`
-          );
+        if (!isMountedRef.current || !enabled) return;
 
-          // ✅ If connection closed while running, treat it as server restart
+        retryCountRef.current += 1;
+
+        if (retryCountRef.current > MAX_SSE_RETRIES) {
           setProgress((prev) => {
-            if (prev?.status === "running" || prev?.status === "waiting") {
-              console.log(
-                `🛑 [SSE] Server disconnected during optimization - showing cancelled state`
-              );
-              shouldStopReconnectRef.current = true; // ✅ Block reconnection permanently
-              return {
-                ...prev,
-                status: "cancelled",
-                reason: "server_restart",
-                message: "Server restarted. Please try again.",
-              };
+            if (!prev) return null;
+            if (prev.status === "completed" || prev.status === "cancelled") {
+              return prev;
             }
-            return null; // No progress to preserve
+            return {
+              ...prev,
+              status: "cancelled",
+              reason: "sse_disconnected",
+              message:
+                "Koneksi ke server terputus terlalu lama. Coba jalankan ulang optimization.",
+            };
           });
-        } else if (eventSource.readyState === EventSource.CONNECTING) {
-          console.log(`🔄 [SSE] Attempting reconnect - blocking it...`);
-
-          // ✅ Also show cancelled state during reconnection attempts
-          setProgress((prev) => {
-            if (prev?.status === "running" || prev?.status === "waiting") {
-              console.log(
-                `🛑 [SSE] Blocking reconnect - showing cancelled state`
-              );
-              shouldStopReconnectRef.current = true; // ✅ Block reconnection permanently
-              return {
-                ...prev,
-                status: "cancelled",
-                reason: "server_restart",
-                message: "Server restarted. Please try again.",
-              };
-            }
-            return null;
-          });
+          return;
         }
+
+        const retryDelayMs = Math.min(3000 * retryCountRef.current, 15000);
+        setProgress((prev) => ({
+          ...(prev || {
+            current: 0,
+            total: 390625,
+            percentage: 0,
+            bestROI: 0,
+          }),
+          status: "running",
+          etaFormatted: `Reconnecting in ${Math.ceil(retryDelayMs / 1000)}s...`,
+        }));
+
+        clearReconnectTimeout();
+        reconnectTimeoutRef.current = setTimeout(() => {
+          setReconnectNonce((v) => v + 1);
+        }, retryDelayMs);
       };
     } catch (err) {
       console.error(`❌ [SSE] Failed to create EventSource:`, err);
@@ -383,21 +439,13 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
     // ✅ Cleanup on unmount or symbol change
     return () => {
       console.log(`🔌 [SSE] Cleaning up connection for ${symbol}`);
+      isMountedRef.current = false;
 
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
-
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
-
-      isConnectedRef.current = false;
-      shouldStopReconnectRef.current = false; // ✅ Reset flag on cleanup
+      clearReconnectTimeout();
+      closeEventSource();
+      retryCountRef.current = 0;
     };
-  }, [symbol, enabled]); // ✅ Depend on both symbol AND enabled
+  }, [symbol, enabled, reconnectNonce]); // ✅ Depend on both symbol AND enabled
 
   return progress;
 };

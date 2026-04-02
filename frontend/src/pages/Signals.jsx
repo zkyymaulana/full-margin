@@ -5,7 +5,10 @@ import { useOptimizationContext } from "../contexts/OptimizationContext";
 import { useOptimizationEstimate } from "../hooks/useOptimization";
 import { useMemo, useState } from "react";
 import Swal from "sweetalert2";
-import { cancelOptimization } from "../services/api.service";
+import {
+  cancelOptimization,
+  getOptimizationStatus,
+} from "../services/api.service";
 
 // Import components
 import {
@@ -157,7 +160,7 @@ function SignalsPage() {
     const detailedParsed = parseIndicatorsDetailed(
       indicators,
       price,
-      finalWeights
+      finalWeights,
     );
 
     return {
@@ -222,7 +225,8 @@ function SignalsPage() {
       console.log("🔑 Starting optimization process...");
 
       const controller = new AbortController();
-      const quickCheckTimeout = setTimeout(() => controller.abort(), 500);
+      // Beri waktu backend untuk create job sebelum request di-abort.
+      const quickCheckTimeout = setTimeout(() => controller.abort(), 5000);
 
       let shouldOpenSSE = false;
 
@@ -238,7 +242,7 @@ function SignalsPage() {
               Authorization: `Bearer ${token}`,
             },
             signal: controller.signal,
-          }
+          },
         );
 
         clearTimeout(quickCheckTimeout);
@@ -264,7 +268,7 @@ function SignalsPage() {
           Swal.fire({
             title: "Already Optimized!",
             text: `${selectedSymbol} was last optimized on ${formattedDate}. ROI: ${data.performance?.roi?.toFixed(
-              2
+              2,
             )}%`,
             icon: "info",
           });
@@ -273,7 +277,16 @@ function SignalsPage() {
         }
       } catch (fetchError) {
         if (fetchError.name === "AbortError") {
-          shouldOpenSSE = true;
+          // Pastikan job benar-benar sudah terdaftar di backend.
+          try {
+            const status = await getOptimizationStatus(selectedSymbol);
+            shouldOpenSSE =
+              status?.success &&
+              ["running", "waiting", "completed"].includes(status.status);
+          } catch {
+            // Fallback: tetap buka SSE untuk mengambil status awal.
+            shouldOpenSSE = true;
+          }
         } else {
           throw fetchError;
         }
@@ -323,7 +336,7 @@ function SignalsPage() {
         try {
           setIsCancelling(true);
           console.log(
-            `🛑 Cancelling optimization for ${optimizationSymbol}...`
+            `🛑 Cancelling optimization for ${optimizationSymbol}...`,
           );
 
           // ✅ FIXED: Send cancel request to backend

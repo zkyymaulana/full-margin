@@ -37,6 +37,7 @@ import {
   getRunningJobs,
   clearAllJobs,
   addSSEClient,
+  removeSSEClient,
 } from "../services/multiIndicator/index.js";
 import { calculateCategoryScores } from "../utils/multiindicator-score.utils.js";
 import jwt from "jsonwebtoken";
@@ -70,7 +71,7 @@ export async function getOptimizationEstimateController(req, res) {
     const timeframe = (req.query.timeframe || "1h").toLowerCase();
 
     console.log(
-      `\n📊 [CONTROLLER] Getting estimate for ${symbol} (${timeframe})`
+      `\n📊 [CONTROLLER] Getting estimate for ${symbol} (${timeframe})`,
     );
 
     // Call service untuk get estimate
@@ -135,14 +136,16 @@ export async function streamOptimizationProgressController(req, res) {
     // ================================================================================
     // STEP 2: CREATE/GET JOB dan TAMBAHKAN CLIENT ke JOB
     // ================================================================================
-    // PENTING: Tambahkan SSE client ke job state
-    // Ini memungkinkan backend untuk broadcast ke client saat progress update
-    createJob(symbol);
+    // PENTING: Jangan overwrite job yang sudah berjalan
+    // Jika belum ada job, baru buat dengan status waiting.
+    if (!getJob(symbol)) {
+      createJob(symbol);
+    }
     addSSEClient(symbol, res); // ← ADD CLIENT KE JOB!
     const job = getJob(symbol);
 
     console.log(
-      `📡 [SSE] Client added to job for ${symbol}. Total clients: ${getSSEClients(symbol).size}`
+      `📡 [SSE] Client added to job for ${symbol}. Total clients: ${getSSEClients(symbol).size}`,
     );
 
     // ================================================================================
@@ -180,7 +183,7 @@ export async function streamOptimizationProgressController(req, res) {
     // STEP 4: Setup Heartbeat untuk Keep Connection Alive
     // ================================================================================
     // Kirim heartbeat setiap 30 detik untuk prevent timeout
-    const heartbeatInterval = setupHeartbeat(res, 30000);
+    const heartbeatInterval = setupHeartbeat(res, 15000);
 
     // ================================================================================
     // STEP 5: Handle Client Disconnect
@@ -188,6 +191,7 @@ export async function streamOptimizationProgressController(req, res) {
     req.on("close", () => {
       console.log(`📡 [SSE] Client disconnected for ${symbol}`);
       clearInterval(heartbeatInterval);
+      removeSSEClient(symbol, res);
       // Jangan hapus job, hanya disconnect client
       // Job state tetap ada untuk client lain yang mungkin masih connected
     });
@@ -195,10 +199,48 @@ export async function streamOptimizationProgressController(req, res) {
     req.on("error", (err) => {
       console.error(`📡 [SSE] Client error for ${symbol}:`, err.message);
       clearInterval(heartbeatInterval);
+      removeSSEClient(symbol, res);
     });
   } catch (err) {
     console.error(`❌ [SSE] Error in stream controller:`, err.message);
     res.status(401).json({
+      success: false,
+      message: err.message,
+    });
+  }
+}
+
+/**
+ * 📊 GET /api/multi-indicator/:symbol/status
+ *
+ * Status endpoint untuk fallback polling saat SSE reconnect gagal.
+ */
+export async function getOptimizationStatusController(req, res) {
+  try {
+    const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
+    const job = getJob(symbol);
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: `No optimization job found for ${symbol}`,
+        status: "not_found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      symbol,
+      status: job.status,
+      progress: job.progress || null,
+      result: job.result || null,
+      error: job.error || null,
+      startedAt: job.startedAt || null,
+      completedAt: job.completedAt || null,
+      hasClients: (job.sseClients?.size || 0) > 0,
+    });
+  } catch (err) {
+    return res.status(500).json({
       success: false,
       message: err.message,
     });
@@ -300,11 +342,22 @@ export async function optimizeIndicatorWeightsController(req, res) {
       req.body.force === true || req.query.force === "true";
 
     console.log(
-      `\n🚀 [CONTROLLER] Starting optimization for ${symbol} (${timeframe})`
+      `\n🚀 [CONTROLLER] Starting optimization for ${symbol} (${timeframe})`,
     );
 
     if (forceReoptimize) {
       console.log(`   🔄 Force reoptimization enabled`);
+    }
+
+    const existingJob = getJob(symbol);
+    if (existingJob?.status === "running") {
+      return res.status(202).json({
+        success: true,
+        message: `Optimization already running for ${symbol}`,
+        symbol,
+        timeframe,
+        running: true,
+      });
     }
 
     // ================================================================================
@@ -329,7 +382,7 @@ export async function optimizeIndicatorWeightsController(req, res) {
         // Broadcast ke SSE clients
         const clients = getSSEClients(symbol);
         console.log(
-          `📡 Broadcasting progress to ${clients.size} clients for ${symbol}`
+          `📡 Broadcasting progress to ${clients.size} clients for ${symbol}`,
         );
         broadcastEvent(clients, "progress", progressData);
       }
@@ -381,7 +434,7 @@ export async function optimizeIndicatorWeightsController(req, res) {
     // Calculate category scores
     const categoryScores = calculateCategoryScores(
       result.latest || {},
-      result.weights || {}
+      result.weights || {},
     );
 
     // Mark job as completed
@@ -394,7 +447,7 @@ export async function optimizeIndicatorWeightsController(req, res) {
     // Broadcast completion to SSE clients
     const clients = getSSEClients(symbol);
     console.log(
-      `📡 Broadcasting completion to ${clients.size} clients for ${symbol}`
+      `📡 Broadcasting completion to ${clients.size} clients for ${symbol}`,
     );
     broadcastEvent(clients, "completed", {
       success: true,
@@ -413,7 +466,7 @@ export async function optimizeIndicatorWeightsController(req, res) {
       () => {
         removeJob(symbol);
       },
-      5 * 60 * 1000
+      5 * 60 * 1000,
     );
 
     res.json({
@@ -443,7 +496,7 @@ export async function optimizeIndicatorWeightsController(req, res) {
       // Broadcast error ke SSE clients
       const clients = getSSEClients(errorSymbol);
       console.log(
-        `📡 Broadcasting error to ${clients.size} clients for ${errorSymbol}`
+        `📡 Broadcasting error to ${clients.size} clients for ${errorSymbol}`,
       );
       broadcastEvent(clients, "error", {
         message: err.message,
@@ -524,7 +577,7 @@ export async function backtestWithOptimizedWeightsController(req, res) {
     const timeframe = (req.query.timeframe || "1h").toLowerCase();
 
     console.log(
-      `\n📊 [CONTROLLER] Starting backtest for ${symbol} (${timeframe})`
+      `\n📊 [CONTROLLER] Starting backtest for ${symbol} (${timeframe})`,
     );
 
     // Call service untuk run backtest
@@ -582,6 +635,7 @@ process.on("SIGTERM", handleServerShutdown);
 
 export default {
   getOptimizationEstimateController,
+  getOptimizationStatusController,
   streamOptimizationProgressController,
   cancelOptimizationController,
   optimizeIndicatorWeightsController,

@@ -4,6 +4,7 @@ import {
   backtestWithOptimizedWeightsController,
   optimizeAllCoinsController,
   getOptimizationEstimateController,
+  getOptimizationStatusController,
   streamOptimizationProgressController,
   cancelOptimizationController,
 } from "../controllers/index.js";
@@ -18,18 +19,19 @@ router.get("/:symbol/optimize-stream", streamOptimizationProgressController);
 router.get(
   "/:symbol/estimate",
   authMiddleware,
-  getOptimizationEstimateController
+  getOptimizationEstimateController,
 );
+router.get("/:symbol/status", authMiddleware, getOptimizationStatusController);
 router.post(
   "/:symbol/optimize-weights",
   authMiddleware,
-  optimizeIndicatorWeightsController
+  optimizeIndicatorWeightsController,
 );
 router.get("/optimize-all", authMiddleware, optimizeAllCoinsController);
 router.get(
   "/:symbol/backtest",
   authMiddleware,
-  backtestWithOptimizedWeightsController
+  backtestWithOptimizedWeightsController,
 );
 router.post("/:symbol/cancel", authMiddleware, cancelOptimizationController);
 

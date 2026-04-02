@@ -39,7 +39,7 @@ apiClient.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // Response interceptor - handle 401 and 403 token errors
@@ -139,7 +139,7 @@ apiClient.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 // =====================================================
@@ -156,7 +156,7 @@ export const getMarketcapSymbols = async () => {
 export const fetchIndicator = async (
   symbol = "BTC-USD",
   mode = "latest",
-  timeframe = "1h"
+  timeframe = "1h",
 ) => {
   const { data } = await apiClient.get(`/indicator/${symbol}`, {
     params: { mode, timeframe },
@@ -168,7 +168,7 @@ export const fetchIndicator = async (
 // Keep for backward compatibility but not used anymore
 export const fetchMultiIndicator = async (symbol = "BTC-USD") => {
   console.warn(
-    "⚠️ fetchMultiIndicator is deprecated. Use fetchIndicator with mode=latest instead."
+    "⚠️ fetchMultiIndicator is deprecated. Use fetchIndicator with mode=latest instead.",
   );
   // Redirect to new endpoint
   return fetchIndicator(symbol, "latest", "1h");
@@ -188,7 +188,7 @@ export const fetchCandlesWithPagination = async (
   symbol = "BTC-USD",
   timeframe = "1h",
   page = 1,
-  limit = 1000
+  limit = 1000,
 ) => {
   const { data } = await apiClient.get(`/chart/${symbol}`, {
     params: { timeframe, page, limit },
@@ -246,7 +246,7 @@ export const fetchComparison = async (requestBody) => {
 export const fetchQuickComparison = async (
   symbol,
   preset = "balanced",
-  days = 30
+  days = 30,
 ) => {
   const { data } = await apiClient.post(
     "/comparison/quick",
@@ -257,7 +257,7 @@ export const fetchQuickComparison = async (
     },
     {
       timeout: 120000, // ✅ 2 minutes for backtesting analysis
-    }
+    },
   );
   return data;
 };
@@ -348,7 +348,7 @@ export const getUserTelegramInfo = async () => {
  */
 export const requestOptimization = async (
   symbol = "BTC-USD",
-  timeframe = "1h"
+  timeframe = "1h",
 ) => {
   const { data } = await apiClient.post(
     `/multiIndicator/${symbol}/optimize-weights`,
@@ -356,7 +356,7 @@ export const requestOptimization = async (
     {
       params: { timeframe },
       timeout: 7200000, // 🆕 2 hours (120 minutes) - untuk full exhaustive search
-    }
+    },
   );
   return data;
 };
@@ -370,7 +370,7 @@ export const requestOptimization = async (
  */
 export const forceReoptimization = async (
   symbol = "BTC-USD",
-  timeframe = "1h"
+  timeframe = "1h",
 ) => {
   const { data } = await apiClient.post(
     `/multiIndicator/${symbol}/optimize-weights`,
@@ -378,7 +378,7 @@ export const forceReoptimization = async (
     {
       params: { timeframe },
       timeout: 3600000, // 60 menit (1 jam) - untuk full exhaustive search
-    }
+    },
   );
   return data;
 };
@@ -392,10 +392,20 @@ export const forceReoptimization = async (
  */
 export const getOptimizationEstimate = async (
   symbol = "BTC-USD",
-  timeframe = "1h"
+  timeframe = "1h",
 ) => {
   const { data } = await apiClient.get(`/multiIndicator/${symbol}/estimate`, {
     params: { timeframe },
+    timeout: 10000,
+  });
+  return data;
+};
+
+/**
+ * Get optimization job status for fallback polling when SSE disconnects.
+ */
+export const getOptimizationStatus = async (symbol = "BTC-USD") => {
+  const { data } = await apiClient.get(`/multiIndicator/${symbol}/status`, {
     timeout: 10000,
   });
   return data;
