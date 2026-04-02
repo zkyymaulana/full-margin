@@ -10,6 +10,7 @@ import {
   autoOptimizeCoinsWithoutWeights,
 } from "../signals/signal-detection.service.js";
 import { prisma } from "../../lib/prisma.js";
+import { getRunningJobs } from "../multiIndicator/optimization-job.service.js";
 
 /* ============================================================
    🧠 Global Cache & Job Tracker
@@ -30,6 +31,10 @@ const jobStats = {
   historicalSyncCompleted: false,
 };
 
+function hasActiveOptimization() {
+  return getRunningJobs().length > 0;
+}
+
 /* ============================================================
    🚀 Start All Scheduler Jobs
 ============================================================ */
@@ -39,8 +44,7 @@ export async function startAllSchedulers() {
   try {
     await refreshSymbolsCache();
     const runStartupHistoricalCheck =
-      (process.env.RUN_HISTORICAL_CHECK_ON_STARTUP ??
-        (process.env.NODE_ENV === "production" ? "false" : "true")) === "true";
+      (process.env.RUN_HISTORICAL_CHECK_ON_STARTUP ?? "true") === "true";
 
     if (runStartupHistoricalCheck) {
       await checkAndSyncHistoricalData();
@@ -117,6 +121,14 @@ async function runMainSyncJob(isBackup = false) {
   const startTime = Date.now();
   jobStats.totalRuns++;
 
+  if (hasActiveOptimization()) {
+    jobStats.skippedRuns++;
+    console.warn(
+      `⏭️ ${isBackup ? "Backup" : "Main"} sync skipped: optimization is currently running`,
+    );
+    return;
+  }
+
   if (isMainSyncRunning) {
     jobStats.skippedRuns++;
     console.warn(
@@ -181,6 +193,13 @@ async function refreshSymbolsCache() {
 }
 
 async function weeklyOptimizationCheck() {
+  if (hasActiveOptimization()) {
+    console.warn(
+      "⏭️ Weekly optimization check skipped: optimization job is running",
+    );
+    return;
+  }
+
   if (!symbolsCache.length) await refreshSymbolsCache();
   await autoOptimizeCoinsWithoutWeights(symbolsCache);
 }
@@ -201,6 +220,11 @@ function logHealthCheck() {
    🕒 Historical Data Check
 ============================================================ */
 async function checkAndSyncHistoricalData() {
+  if (hasActiveOptimization()) {
+    console.warn("⏭️ Historical check skipped: optimization job is running");
+    return;
+  }
+
   if (!symbolsCache.length) await refreshSymbolsCache();
   console.log(
     `🔍 Checking historical data for ${symbolsCache.length} symbols...`,

@@ -33,6 +33,10 @@ const ALL_INDICATORS = [
   "StochasticRSI",
   "BollingerBands",
 ];
+const OPTIMIZATION_YIELD_EVERY = Math.max(
+  1,
+  Number(process.env.OPTIMIZATION_YIELD_EVERY || "10"),
+);
 
 function formatEta(seconds) {
   const safe = Math.max(0, Math.ceil(seconds || 0));
@@ -277,8 +281,8 @@ export async function optimizeIndicatorWeights(
 
   // 🔄 MAIN LOOP: Iterate through semua 5^8 kombinasi
   for (let i = 0; i < totalCombinations; i++) {
-    // ✅ Check cancellation VERY frequently (every 50 iterations)
-    if (i % 50 === 0) {
+    // ✅ Yield to event loop to reduce blocking and improve scheduler responsiveness.
+    if (i % OPTIMIZATION_YIELD_EVERY === 0) {
       // Yield ke event loop untuk allow cancel request diproses
       await new Promise((resolve) => setImmediate(resolve));
 
