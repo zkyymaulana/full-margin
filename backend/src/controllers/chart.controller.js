@@ -17,13 +17,16 @@ export async function getChart(req, res) {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
     const timeframe = req.query.timeframe || "1h";
     const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(5000, parseInt(req.query.limit) || 1000);
+    const limit = Math.min(
+      1000,
+      Math.max(100, parseInt(req.query.limit) || 500),
+    );
     const offset = (page - 1) * limit;
 
     // Get coin and timeframe from database
     const { coin, timeframeRecord } = await getCoinAndTimeframe(
       symbol,
-      timeframe
+      timeframe,
     );
 
     // Fetch candles
@@ -61,7 +64,7 @@ export async function getChart(req, res) {
       timeframeRecord.id,
       minTime,
       maxTime,
-      chartData.candles.length
+      chartData.candles.length,
     );
 
     // Merge candles with indicators

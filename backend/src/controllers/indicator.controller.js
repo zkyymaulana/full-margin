@@ -132,14 +132,14 @@ export async function getSignals(req, res) {
     // Get coinId and timeframeId
     const { coinId, timeframeId } = await getCoinAndTimeframeIds(
       symbol,
-      timeframe
+      timeframe,
     );
 
     // LATEST MODE - Return only latest signal
     if (mode === "latest") {
       const { indicator, weight, price } = await getLatestSignalData(
         coinId,
-        timeframeId
+        timeframeId,
       );
 
       const multiSignal = formatMultiSignalFromDB(indicator, weight?.weights);
@@ -172,9 +172,20 @@ export async function getSignals(req, res) {
     }
 
     // PAGINATED MODE - Return paginated data
-    const showAll = req.query.all === "true";
-    const limit = 1000;
+    const requestedShowAll = req.query.all === "true";
+    const allowAllMode = process.env.ALLOW_INDICATOR_ALL_MODE === "true";
+    const showAll = requestedShowAll && allowAllMode;
+    const limit = Math.min(
+      1000,
+      Math.max(100, parseInt(req.query.limit) || 500),
+    );
     const page = Math.max(1, parseInt(req.query.page) || 1);
+
+    if (requestedShowAll && !allowAllMode) {
+      console.warn(
+        `⏭️ showAll request ignored for ${symbol} (ALLOW_INDICATOR_ALL_MODE=false)`,
+      );
+    }
 
     const totalIndicators = await prisma.indicator.count({
       where: { coinId, timeframeId },
@@ -197,7 +208,7 @@ export async function getSignals(req, res) {
 
     // Organize data
     const priceMap = new Map(
-      candlePrices.map((c) => [Number(c.time), c.close])
+      candlePrices.map((c) => [Number(c.time), c.close]),
     );
     const organized = organizeIndicatorData(data, priceMap);
 
@@ -207,7 +218,7 @@ export async function getSignals(req, res) {
       latestWeight,
       priceMap,
       formatMultiSignalFromDB,
-      formatIndicatorStructure
+      formatIndicatorStructure,
     );
 
     // Build response
@@ -219,7 +230,7 @@ export async function getSignals(req, res) {
       page,
       totalPages,
       limit,
-      showAll
+      showAll,
     );
 
     res.json({

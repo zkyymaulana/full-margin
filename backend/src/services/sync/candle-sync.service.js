@@ -4,6 +4,35 @@ import { calculateAndSaveIndicators } from "../indicators/indicator.service.js";
 
 // Cache untuk tracking last update time per symbol
 const lastUpdateCache = new Map();
+const SYNC_CONCURRENCY = Math.max(
+  1,
+  Number(process.env.SYNC_CONCURRENCY || "2"),
+);
+
+async function runWithConcurrency(items, limit, worker) {
+  const results = new Array(items.length);
+  let currentIndex = 0;
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }).map(
+    async () => {
+      while (true) {
+        const index = currentIndex;
+        currentIndex += 1;
+        if (index >= items.length) break;
+
+        try {
+          const value = await worker(items[index], index);
+          results[index] = { status: "fulfilled", value };
+        } catch (reason) {
+          results[index] = { status: "rejected", reason };
+        }
+      }
+    },
+  );
+
+  await Promise.all(workers);
+  return results;
+}
 
 /**
  * Update listingDate for a coin based on earliest candle available in Coinbase
@@ -60,7 +89,7 @@ export async function updateListingDateFromCandles(symbol) {
       });
 
       console.log(
-        `📅 ${symbol}: listingDate set to ${listingDate.toISOString().split("T")[0]}`
+        `📅 ${symbol}: listingDate set to ${listingDate.toISOString().split("T")[0]}`,
       );
     }
 
@@ -68,7 +97,7 @@ export async function updateListingDateFromCandles(symbol) {
   } catch (error) {
     console.error(
       `❌ ${symbol}: Failed to update listingDate -`,
-      error.message
+      error.message,
     );
     return null;
   }
@@ -134,18 +163,21 @@ export async function updateAllListingDates() {
 
 export async function syncLatestCandles(symbols = []) {
   console.log(`🕐 Starting candle sync for ${symbols.length} symbols...`);
+  console.log(`⚙️ Sync concurrency: ${SYNC_CONCURRENCY}`);
   const start = Date.now();
 
   try {
-    const results = await Promise.allSettled(
-      symbols.map((symbol) => syncSymbolCandles(symbol))
+    const results = await runWithConcurrency(
+      symbols,
+      SYNC_CONCURRENCY,
+      (symbol) => syncSymbolCandles(symbol),
     );
 
     const successful = results.filter((r) => r.status === "fulfilled").length;
     const failed = results.filter((r) => r.status === "rejected").length;
 
     console.log(
-      `✅ Candle sync completed: ${successful} success, ${failed} failed (${Date.now() - start}ms)`
+      `✅ Candle sync completed: ${successful} success, ${failed} failed (${Date.now() - start}ms)`,
     );
     return { successful, failed, duration: Date.now() - start };
   } catch (error) {
@@ -289,7 +321,7 @@ export async function getActiveSymbols() {
     }
 
     console.log(
-      `✅ Found ${result.length} active symbols from database (listed before 2025-01-01)`
+      `✅ Found ${result.length} active symbols from database (listed before 2025-01-01)`,
     );
     return result;
   } catch (error) {
@@ -307,7 +339,7 @@ export function getCacheStatus() {
 
 export async function syncHistoricalData(
   symbols = [],
-  startDate = "2020-01-01"
+  startDate = "2020-01-01",
 ) {
   console.log(`📚 Starting FAST historical data sync from ${startDate}...`);
   console.log(`📊 Processing ${symbols.length} symbols...`);
@@ -389,7 +421,7 @@ export async function syncHistoricalData(
         }
 
         console.log(
-          `📥 Fetching from ${new Date(fetchStartTime).toISOString().split("T")[0]} onwards`
+          `📥 Fetching from ${new Date(fetchStartTime).toISOString().split("T")[0]} onwards`,
         );
       }
 
@@ -397,12 +429,12 @@ export async function syncHistoricalData(
       const candles = await fetchHistoricalCandles(
         symbol,
         fetchStartTime,
-        fetchEndTime
+        fetchEndTime,
       );
 
       if (candles.length === 0) {
         console.log(
-          `⚠️ No data available from API (pair may not have historical data)`
+          `⚠️ No data available from API (pair may not have historical data)`,
         );
         results.skipped++;
         continue;
@@ -458,7 +490,7 @@ export async function syncHistoricalData(
       // ✅ Handle 404 specifically (pair tidak ada historical data)
       if (error.response?.status === 404) {
         console.warn(
-          `⚠️ ${symbol}: Pair tidak memiliki historical data di Coinbase (404)`
+          `⚠️ ${symbol}: Pair tidak memiliki historical data di Coinbase (404)`,
         );
         results.skipped++;
         continue;

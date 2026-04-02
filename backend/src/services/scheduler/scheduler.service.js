@@ -18,11 +18,13 @@ const activeJobs = new Map();
 let symbolsCache = [];
 let symbolsCacheTime = 0;
 const SYMBOLS_CACHE_TTL = 5 * 60 * 1000; // 5 menit
+let isMainSyncRunning = false;
 
 const jobStats = {
   totalRuns: 0,
   successfulRuns: 0,
   failedRuns: 0,
+  skippedRuns: 0,
   lastRun: null,
   lastRunDuration: 0,
   historicalSyncCompleted: false,
@@ -36,7 +38,15 @@ export async function startAllSchedulers() {
 
   try {
     await refreshSymbolsCache();
-    await checkAndSyncHistoricalData();
+    const runStartupHistoricalCheck =
+      (process.env.RUN_HISTORICAL_CHECK_ON_STARTUP ??
+        (process.env.NODE_ENV === "production" ? "false" : "true")) === "true";
+
+    if (runStartupHistoricalCheck) {
+      await checkAndSyncHistoricalData();
+    } else {
+      console.log("⏭️ Startup historical check skipped by configuration");
+    }
 
     // Buat daftar job yang akan dijalankan
     const jobs = [
@@ -86,7 +96,7 @@ export async function startAllSchedulers() {
           console.log(`⏰ [${new Date().toISOString()}] ${desc}`);
           await task();
         },
-        { scheduled: false, timezone: "Asia/Jakarta" }
+        { scheduled: false, timezone: "Asia/Jakarta" },
       );
 
       job.start();
@@ -107,6 +117,16 @@ async function runMainSyncJob(isBackup = false) {
   const startTime = Date.now();
   jobStats.totalRuns++;
 
+  if (isMainSyncRunning) {
+    jobStats.skippedRuns++;
+    console.warn(
+      `⏭️ ${isBackup ? "Backup" : "Main"} sync skipped: previous sync still running`,
+    );
+    return;
+  }
+
+  isMainSyncRunning = true;
+
   try {
     // Refresh symbols cache jika expired
     if (
@@ -118,7 +138,7 @@ async function runMainSyncJob(isBackup = false) {
     if (!symbolsCache.length) throw new Error("No active symbols found");
 
     console.log(
-      `🎯 ${isBackup ? "Backup" : "Main"} sync for ${symbolsCache.length} symbols...`
+      `🎯 ${isBackup ? "Backup" : "Main"} sync for ${symbolsCache.length} symbols...`,
     );
 
     // 1️⃣ Sinkronisasi candle (indicators calculated automatically inside)
@@ -134,14 +154,16 @@ async function runMainSyncJob(isBackup = false) {
     jobStats.lastRun = new Date();
     jobStats.lastRunDuration = Date.now() - startTime;
     console.log(
-      `✅ ${isBackup ? "Backup" : "Main"} sync completed in ${jobStats.lastRunDuration}ms`
+      `✅ ${isBackup ? "Backup" : "Main"} sync completed in ${jobStats.lastRunDuration}ms`,
     );
   } catch (err) {
     jobStats.failedRuns++;
     console.error(
       `❌ ${isBackup ? "Backup" : "Main"} sync failed:`,
-      err.message
+      err.message,
     );
+  } finally {
+    isMainSyncRunning = false;
   }
 }
 
@@ -167,7 +189,7 @@ function logHealthCheck() {
   const { totalRuns, successfulRuns } = jobStats;
   const mem = process.memoryUsage().heapUsed / 1024 / 1024;
   console.log(
-    `💖 Health Check | Runs: ${totalRuns} | Success: ${((successfulRuns / totalRuns) * 100 || 0).toFixed(1)}% | Memory: ${mem.toFixed(1)}MB`
+    `💖 Health Check | Runs: ${totalRuns} | Success: ${((successfulRuns / totalRuns) * 100 || 0).toFixed(1)}% | Memory: ${mem.toFixed(1)}MB`,
   );
   if (mem > 500 && global.gc) {
     global.gc();
@@ -181,7 +203,7 @@ function logHealthCheck() {
 async function checkAndSyncHistoricalData() {
   if (!symbolsCache.length) await refreshSymbolsCache();
   console.log(
-    `🔍 Checking historical data for ${symbolsCache.length} symbols...`
+    `🔍 Checking historical data for ${symbolsCache.length} symbols...`,
   );
 
   const targetStart = process.env.CANDLE_START_DATE || "2020-01-01T00:00:00Z";
@@ -264,7 +286,7 @@ async function checkAndSyncHistoricalData() {
   // ✅ NEW: Calculate missing indicators ONE BY ONE (tidak sekaligus)
   if (missingIndicators.length) {
     console.log(
-      `📊 Calculating indicators for ${missingIndicators.length} symbols...`
+      `📊 Calculating indicators for ${missingIndicators.length} symbols...`,
     );
     console.log(`⏱️ This may take a while for large datasets...`);
 
@@ -272,7 +294,7 @@ async function checkAndSyncHistoricalData() {
       const { symbol, missing } = missingIndicators[i];
       try {
         console.log(
-          `\n[${i + 1}/${missingIndicators.length}] Processing ${symbol} (${missing.toLocaleString()} missing)...`
+          `\n[${i + 1}/${missingIndicators.length}] Processing ${symbol} (${missing.toLocaleString()} missing)...`,
         );
         await calculateAndSaveIndicators(symbol, "1h");
 
@@ -283,7 +305,7 @@ async function checkAndSyncHistoricalData() {
       } catch (err) {
         console.error(
           `❌ ${symbol}: Failed to calculate indicators -`,
-          err.message
+          err.message,
         );
         // Continue with next symbol instead of crashing
         continue;

@@ -13,6 +13,40 @@ import {
 import { calculateSignals } from "../signals/signalAnalyzer.js";
 import { calculateOverallSignal } from "../signals/overallAnalyzer.js";
 
+const ONE_HOUR_MS = 60 * 60 * 1000;
+const INDICATOR_WARMUP_CANDLES = Math.max(
+  60,
+  Number(process.env.INDICATOR_WARMUP_CANDLES || "250"),
+);
+
+async function getCandlesForIndicatorCalculation(
+  coinId,
+  timeframeId,
+  latestIndicatorTime,
+) {
+  if (!latestIndicatorTime) {
+    return prisma.candle.findMany({
+      where: { coinId, timeframeId },
+      orderBy: { time: "asc" },
+    });
+  }
+
+  const latest = Number(latestIndicatorTime);
+  const rangeStart = Math.max(
+    0,
+    latest - INDICATOR_WARMUP_CANDLES * ONE_HOUR_MS,
+  );
+
+  return prisma.candle.findMany({
+    where: {
+      coinId,
+      timeframeId,
+      time: { gte: BigInt(rangeStart) },
+    },
+    orderBy: { time: "asc" },
+  });
+}
+
 // === MAIN CALCULATION FUNCTION WITH BATCH PROCESSING ===
 export async function calculateAndSaveIndicators(symbol, timeframe = "1h") {
   // Get coinId and timeframeId first
@@ -36,35 +70,48 @@ export async function calculateAndSaveIndicators(symbol, timeframe = "1h") {
     return;
   }
 
-  const [candles, existing] = await Promise.all([
-    prisma.candle.findMany({
-      where: {
-        coinId: coin.id,
-        timeframeId: timeframeRecord.id,
-      },
-      orderBy: { time: "asc" },
-    }),
-    prisma.indicator.findMany({
-      where: {
-        coinId: coin.id,
-        timeframeId: timeframeRecord.id,
-      },
-      orderBy: { time: "asc" },
-    }),
-  ]);
+  const latestIndicator = await prisma.indicator.findFirst({
+    where: {
+      coinId: coin.id,
+      timeframeId: timeframeRecord.id,
+    },
+    orderBy: { time: "desc" },
+    select: { time: true },
+  });
+
+  const candles = await getCandlesForIndicatorCalculation(
+    coin.id,
+    timeframeRecord.id,
+    latestIndicator?.time,
+  );
 
   if (!candles.length) {
     console.log(`No candles found for ${symbol}.`);
     return;
   }
 
-  // Buat Set dari waktu indicator yang sudah ada untuk cek cepat
-  const existingTimes = new Set(existing.map((e) => Number(e.time)));
+  let existingTimes;
+  let missingCandles;
 
-  // Cari candle yang belum memiliki indikator
-  const missingCandles = candles.filter(
-    (c, idx) => idx >= 50 && !existingTimes.has(Number(c.time))
-  );
+  if (latestIndicator?.time) {
+    const latestIndicatorTime = Number(latestIndicator.time);
+    existingTimes = new Set([latestIndicatorTime]);
+    missingCandles = candles.filter(
+      (c, idx) => idx >= 50 && Number(c.time) > latestIndicatorTime,
+    );
+  } else {
+    const existing = await prisma.indicator.findMany({
+      where: {
+        coinId: coin.id,
+        timeframeId: timeframeRecord.id,
+      },
+      select: { time: true },
+    });
+    existingTimes = new Set(existing.map((e) => Number(e.time)));
+    missingCandles = candles.filter(
+      (c, idx) => idx >= 50 && !existingTimes.has(Number(c.time)),
+    );
+  }
 
   if (missingCandles.length === 0) {
     console.log(`✅ ${symbol}: All indicators up to date.`);
@@ -72,7 +119,7 @@ export async function calculateAndSaveIndicators(symbol, timeframe = "1h") {
   }
 
   console.log(
-    `${symbol}: Found ${missingCandles.length} candles without indicators`
+    `${symbol}: Found ${missingCandles.length} candles without indicators`,
   );
 
   // BATCH PROCESSING: Jika terlalu banyak, proses secara bertahap
@@ -85,7 +132,7 @@ export async function calculateAndSaveIndicators(symbol, timeframe = "1h") {
       candles,
       existingTimes,
       coin.id,
-      timeframeRecord.id
+      timeframeRecord.id,
     );
   }
 
@@ -96,7 +143,7 @@ export async function calculateAndSaveIndicators(symbol, timeframe = "1h") {
     candles,
     existingTimes,
     coin.id,
-    timeframeRecord.id
+    timeframeRecord.id,
   );
 }
 
@@ -107,7 +154,7 @@ async function calculateInBatches(
   candles,
   existingTimes,
   coinId,
-  timeframeId
+  timeframeId,
 ) {
   const start = Date.now();
 
@@ -150,7 +197,7 @@ async function calculateInBatches(
     const overallAnalysis = await calculateOverallSignalOptimized(
       signals,
       symbol,
-      timeframe
+      timeframe,
     );
 
     results.push({
@@ -179,7 +226,7 @@ async function calculateInBatches(
       });
       totalSaved += results.length;
       console.log(
-        `   💾 ${symbol}: Saved batch ${Math.floor(totalSaved / BATCH_SIZE)} (${totalSaved} total)`
+        `   💾 ${symbol}: Saved batch ${Math.floor(totalSaved / BATCH_SIZE)} (${totalSaved} total)`,
       );
       results.length = 0; // Clear array
     }
@@ -195,7 +242,7 @@ async function calculateInBatches(
   }
 
   console.log(
-    `✅ ${symbol}: ${totalSaved} indicators calculated and saved in ${((Date.now() - start) / 1000).toFixed(1)}s`
+    `✅ ${symbol}: ${totalSaved} indicators calculated and saved in ${((Date.now() - start) / 1000).toFixed(1)}s`,
   );
   return totalSaved;
 }
@@ -207,7 +254,7 @@ async function processIndicators(
   candles,
   existingTimes,
   coinId,
-  timeframeId
+  timeframeId,
 ) {
   const start = Date.now();
   const calculators = initializeCalculators();
@@ -254,7 +301,7 @@ async function processIndicators(
       const overallAnalysis = await calculateOverallSignal(
         signals,
         symbol,
-        timeframe
+        timeframe,
       );
 
       results.push({
@@ -283,11 +330,11 @@ async function processIndicators(
       skipDuplicates: true,
     });
     console.log(
-      `✅ ${symbol}: ${results.length} new indicators calculated and saved (${Date.now() - start}ms)`
+      `✅ ${symbol}: ${results.length} new indicators calculated and saved (${Date.now() - start}ms)`,
     );
   } else {
     console.log(
-      `✅ ${symbol}: No new indicators to save (${Date.now() - start}ms)`
+      `✅ ${symbol}: No new indicators to save (${Date.now() - start}ms)`,
     );
   }
   return results.length;
@@ -550,7 +597,7 @@ export async function getPaginatedIndicators(
   timeframeId,
   page,
   limit,
-  showAll
+  showAll,
 ) {
   const skip = (page - 1) * limit;
 
@@ -605,7 +652,7 @@ export async function getCandlePrices(
   timeframeId,
   page,
   limit,
-  showAll
+  showAll,
 ) {
   const skip = (page - 1) * limit;
 
@@ -687,7 +734,7 @@ export function buildIndicatorPagination(
   page,
   totalPages,
   limit,
-  showAll
+  showAll,
 ) {
   if (showAll) return null;
 
@@ -725,14 +772,14 @@ export function buildLatestSignal(
   latestWeight,
   priceMap,
   formatMultiSignalFromDB,
-  formatIndicatorStructure
+  formatIndicatorStructure,
 ) {
   if (!latestIndicator) return null;
 
   const latestPrice = priceMap.get(Number(latestIndicator.time)) ?? null;
   const multiSignal = formatMultiSignalFromDB(
     latestIndicator,
-    latestWeight?.weights
+    latestWeight?.weights,
   );
   const indicators = formatIndicatorStructure(latestIndicator);
 
@@ -769,7 +816,7 @@ export function buildResponseMetadata(organized, totalIndicators, showAll) {
   const rangeStart = formatDate(Number(organized[organized.length - 1]?.time));
   const rangeEnd = formatDate(Number(organized[0]?.time));
   const coveragePercent = ((organized.length / totalIndicators) * 100).toFixed(
-    1
+    1,
   );
 
   return {
@@ -788,7 +835,7 @@ export async function getPaginatedSignalData(
   timeframeId,
   page,
   limit,
-  showAll
+  showAll,
 ) {
   const [data, candlePrices, latestIndicator, latestWeight] = await Promise.all(
     [
@@ -802,7 +849,7 @@ export async function getPaginatedSignalData(
         where: { coinId, timeframeId },
         orderBy: { updatedAt: "desc" },
       }),
-    ]
+    ],
   );
 
   return {
