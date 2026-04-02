@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 
 export function OptimizationProgressCard({
   showEstimateProgress,
+  estimateData,
   progressData,
   selectedSymbol,
   onClose,
@@ -66,7 +67,7 @@ export function OptimizationProgressCard({
     if (isCompleted && lastRunningProgress) {
       // When completed, show the last running progress
       const candlesProcessed = Math.round(
-        (lastRunningProgress.percentage / 100) * lastRunningProgress.dataPoints
+        (lastRunningProgress.percentage / 100) * lastRunningProgress.dataPoints,
       );
       return {
         current: candlesProcessed,
@@ -78,7 +79,7 @@ export function OptimizationProgressCard({
     // When running, calculate current progress
     if (isRunning && progressData.dataPoints) {
       const candlesProcessed = Math.round(
-        (progressData.percentage / 100) * progressData.dataPoints
+        (progressData.percentage / 100) * progressData.dataPoints,
       );
       return {
         current: candlesProcessed,
@@ -135,10 +136,10 @@ export function OptimizationProgressCard({
             {isCompleted
               ? "Optimization Completed!"
               : isCancelled
-              ? "Optimization Cancelled"
-              : isWaiting
-              ? "Preparing Optimization..."
-              : "Optimizing Strategies..."}
+                ? "Optimization Cancelled"
+                : isWaiting
+                  ? "Preparing Optimization..."
+                  : "Optimizing Strategies..."}
           </h3>
           <p
             className={`text-xs md:text-sm ${
@@ -148,10 +149,10 @@ export function OptimizationProgressCard({
             {isCompleted
               ? `Successfully optimized ${selectedSymbol}`
               : isCancelled
-              ? progressData.reason === "server_restart"
-                ? "Server is restarting. Please try again."
-                : progressData.message || "Optimization was cancelled"
-              : `Running optimization for ${selectedSymbol}`}
+                ? progressData.reason === "server_restart"
+                  ? "Server is restarting. Please try again."
+                  : progressData.message || "Optimization was cancelled"
+                : `Running optimization for ${selectedSymbol}`}
           </p>
         </div>
 
@@ -247,8 +248,8 @@ export function OptimizationProgressCard({
                   <div
                     className={`h-full transition-all duration-500 ${
                       isCompleted
-                        ? "bg-gradient-to-r from-green-500 to-emerald-500"
-                        : "bg-gradient-to-r from-purple-500 to-blue-500"
+                        ? "bg-linear-to-r from-green-500 to-emerald-500"
+                        : "bg-linear-to-r from-purple-500 to-blue-500"
                     }`}
                     style={{
                       width: `${Math.max(displayProgress.percentage || 0, 5)}%`,
@@ -277,7 +278,11 @@ export function OptimizationProgressCard({
                   }`}
                 >
                   Estimated:{" "}
-                  <span className="font-bold">{progressData.etaFormatted}</span>
+                  <span className="font-bold">
+                    {progressData.etaFormatted ||
+                      estimateData?.estimate?.formatted ||
+                      "Calculating..."}
+                  </span>
                 </div>
               </div>
             )}

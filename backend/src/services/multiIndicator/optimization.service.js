@@ -23,12 +23,65 @@ import {
 const FIXED_START_EPOCH = Date.parse("2020-01-01T00:00:00Z");
 const FIXED_END_EPOCH = Date.parse("2025-01-01T00:00:00Z");
 
-function buildTrainingWindow() {
+const BENCHMARK_DATA_POINTS = 45893;
+const BENCHMARK_MINUTES = 78;
+
+function toEpochMs(value) {
+  if (!value) return null;
+  if (value instanceof Date) return value.getTime();
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function resolveTrainingWindow(listingDate) {
+  const listingEpoch = toEpochMs(listingDate);
+  const startEpoch = listingEpoch
+    ? Math.max(FIXED_START_EPOCH, listingEpoch)
+    : FIXED_START_EPOCH;
+
+  if (startEpoch > FIXED_END_EPOCH) {
+    throw new Error("Listing date is outside configured training window");
+  }
+
   return {
-    startEpoch: FIXED_START_EPOCH,
+    startEpoch,
     endEpoch: FIXED_END_EPOCH,
-    startISO: new Date(FIXED_START_EPOCH).toISOString(),
+    startISO: new Date(startEpoch).toISOString(),
     endISO: new Date(FIXED_END_EPOCH).toISOString(),
+  };
+}
+
+function estimateDuration(dataCount) {
+  const estimatedMinutes = Math.ceil(
+    (dataCount / BENCHMARK_DATA_POINTS) * BENCHMARK_MINUTES,
+  );
+  const estimatedSeconds = estimatedMinutes * 60;
+
+  const minSeconds = Math.floor(estimatedSeconds * 0.85);
+  const maxSeconds = Math.ceil(estimatedSeconds * 1.15);
+
+  const formatTime = (seconds) => {
+    if (seconds < 60) return `${seconds} detik`;
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return secs > 0 ? `${minutes} menit ${secs} detik` : `${minutes} menit`;
+  };
+
+  return {
+    estimatedSeconds,
+    estimatedMinutes,
+    estimatedRange: {
+      min: minSeconds,
+      max: maxSeconds,
+      minFormatted: formatTime(minSeconds),
+      maxFormatted: formatTime(maxSeconds),
+    },
+    formatted: formatTime(estimatedSeconds),
+    benchmarkInfo: {
+      benchmarkDataPoints: BENCHMARK_DATA_POINTS,
+      benchmarkMinutes: BENCHMARK_MINUTES,
+      scalingFactor: (dataCount / BENCHMARK_DATA_POINTS).toFixed(2),
+    },
   };
 }
 
@@ -54,7 +107,7 @@ export async function getOptimizationEstimate(symbol, timeframe) {
     const [coin, timeframeRecord] = await Promise.all([
       prisma.coin.findUnique({
         where: { symbol },
-        select: { id: true, name: true },
+        select: { id: true, name: true, listingDate: true },
       }),
       prisma.timeframe.findUnique({
         where: { timeframe },
@@ -70,17 +123,33 @@ export async function getOptimizationEstimate(symbol, timeframe) {
       throw new Error(`Timeframe ${timeframe} not found in database`);
     }
 
-    // Hitung jumlah data points yang tersedia
-    const dataCount = await prisma.indicator.count({
-      where: {
-        coinId: coin.id,
-        timeframeId: timeframeRecord.id,
-        time: {
-          gte: BigInt(FIXED_START_EPOCH),
-          lte: BigInt(FIXED_END_EPOCH),
+    const trainingWindow = resolveTrainingWindow(coin.listingDate);
+
+    // Gunakan basis data point yang sama dengan proses optimization runtime.
+    const [indicatorCount, candleCount] = await Promise.all([
+      prisma.indicator.count({
+        where: {
+          coinId: coin.id,
+          timeframeId: timeframeRecord.id,
+          time: {
+            gte: BigInt(trainingWindow.startEpoch),
+            lte: BigInt(trainingWindow.endEpoch),
+          },
         },
-      },
-    });
+      }),
+      prisma.candle.count({
+        where: {
+          coinId: coin.id,
+          timeframeId: timeframeRecord.id,
+          time: {
+            gte: BigInt(trainingWindow.startEpoch),
+            lte: BigInt(trainingWindow.endEpoch),
+          },
+        },
+      }),
+    ]);
+
+    const dataCount = Math.min(indicatorCount, candleCount);
 
     if (dataCount === 0) {
       throw new Error(
@@ -88,46 +157,14 @@ export async function getOptimizationEstimate(symbol, timeframe) {
       );
     }
 
-    // Formula estimasi berdasarkan benchmark real
-    const BENCHMARK_DATA_POINTS = 45893;
-    const BENCHMARK_MINUTES = 78;
+    const duration = estimateDuration(dataCount);
     const totalCombinations = 390625; // 5^8
-
-    // Linear scaling berdasarkan data points
-    const estimatedMinutes = Math.ceil(
-      (dataCount / BENCHMARK_DATA_POINTS) * BENCHMARK_MINUTES,
-    );
-    const estimatedSeconds = estimatedMinutes * 60;
-
-    // Range estimate (±15%)
-    const minSeconds = Math.floor(estimatedSeconds * 0.85);
-    const maxSeconds = Math.ceil(estimatedSeconds * 1.15);
-
-    const formatTime = (seconds) => {
-      if (seconds < 60) return `${seconds} detik`;
-      const minutes = Math.floor(seconds / 60);
-      const secs = seconds % 60;
-      return secs > 0 ? `${minutes} menit ${secs} detik` : `${minutes} menit`;
-    };
 
     return {
       dataPoints: dataCount,
       totalCombinations,
-      trainingWindow: buildTrainingWindow(),
-      estimatedSeconds,
-      estimatedMinutes,
-      estimatedRange: {
-        min: minSeconds,
-        max: maxSeconds,
-        minFormatted: formatTime(minSeconds),
-        maxFormatted: formatTime(maxSeconds),
-      },
-      formatted: formatTime(estimatedSeconds),
-      benchmarkInfo: {
-        benchmarkDataPoints: BENCHMARK_DATA_POINTS,
-        benchmarkMinutes: BENCHMARK_MINUTES,
-        scalingFactor: (dataCount / BENCHMARK_DATA_POINTS).toFixed(2),
-      },
+      trainingWindow,
+      ...duration,
       displayNote: `Testing ${totalCombinations.toLocaleString()} combinations on ${dataCount.toLocaleString()} candles`,
     };
   } catch (err) {
@@ -144,7 +181,7 @@ export async function getOptimizationEstimate(symbol, timeframe) {
  *
  * @private
  */
-async function prepareOptimizationData(coinId, timeframeId) {
+async function prepareOptimizationData(coinId, timeframeId, trainingWindow) {
   console.log(`🔧 Preparing data for optimization...`);
 
   const [indicators, candles] = await Promise.all([
@@ -153,8 +190,8 @@ async function prepareOptimizationData(coinId, timeframeId) {
         coinId,
         timeframeId,
         time: {
-          gte: BigInt(FIXED_START_EPOCH),
-          lte: BigInt(FIXED_END_EPOCH),
+          gte: BigInt(trainingWindow.startEpoch),
+          lte: BigInt(trainingWindow.endEpoch),
         },
       },
       orderBy: { time: "asc" },
@@ -164,8 +201,8 @@ async function prepareOptimizationData(coinId, timeframeId) {
         coinId,
         timeframeId,
         time: {
-          gte: BigInt(FIXED_START_EPOCH),
-          lte: BigInt(FIXED_END_EPOCH),
+          gte: BigInt(trainingWindow.startEpoch),
+          lte: BigInt(trainingWindow.endEpoch),
         },
       },
       orderBy: { time: "asc" },
@@ -201,7 +238,7 @@ async function prepareOptimizationData(coinId, timeframeId) {
 
   return {
     data,
-    trainingWindow: buildTrainingWindow(),
+    trainingWindow,
     effectiveRange,
   };
 }
@@ -237,7 +274,7 @@ export async function runOptimization(
     const [coin, timeframeRecord] = await Promise.all([
       prisma.coin.findUnique({
         where: { symbol },
-        select: { id: true },
+        select: { id: true, listingDate: true },
       }),
       prisma.timeframe.findUnique({
         where: { timeframe },
@@ -253,13 +290,15 @@ export async function runOptimization(
       throw new Error(`Timeframe ${timeframe} not found in database`);
     }
 
+    const trainingWindow = resolveTrainingWindow(coin.listingDate);
+
     // Check apakah optimization sudah ada
     const existingWeight = await prisma.indicatorWeight.findFirst({
       where: {
         coinId: coin.id,
         timeframeId: timeframeRecord.id,
-        startTrain: BigInt(FIXED_START_EPOCH),
-        endTrain: BigInt(FIXED_END_EPOCH),
+        startTrain: BigInt(trainingWindow.startEpoch),
+        endTrain: BigInt(trainingWindow.endEpoch),
       },
       orderBy: { updatedAt: "desc" },
     });
@@ -294,8 +333,10 @@ export async function runOptimization(
       const prepared = await prepareOptimizationData(
         coin.id,
         timeframeRecord.id,
+        trainingWindow,
       );
       const data = prepared.data;
+      const estimateInfo = estimateDuration(data.length);
 
       console.log(`🚀 Starting exhaustive search algorithm...`);
 
@@ -308,6 +349,7 @@ export async function runOptimization(
         {
           trainingWindow: prepared.trainingWindow,
           effectiveRange: prepared.effectiveRange,
+          initialEstimateSeconds: estimateInfo.estimatedSeconds,
         },
       );
 
@@ -328,8 +370,8 @@ export async function runOptimization(
           coinId_timeframeId_startTrain_endTrain: {
             coinId: coin.id,
             timeframeId: timeframeRecord.id,
-            startTrain: BigInt(FIXED_START_EPOCH),
-            endTrain: BigInt(FIXED_END_EPOCH),
+            startTrain: BigInt(trainingWindow.startEpoch),
+            endTrain: BigInt(trainingWindow.endEpoch),
           },
         },
         update: {
@@ -345,8 +387,8 @@ export async function runOptimization(
         create: {
           coinId: coin.id,
           timeframeId: timeframeRecord.id,
-          startTrain: BigInt(FIXED_START_EPOCH),
-          endTrain: BigInt(FIXED_END_EPOCH),
+          startTrain: BigInt(trainingWindow.startEpoch),
+          endTrain: BigInt(trainingWindow.endEpoch),
           weights: result.bestWeights,
           roi: result.performance.roi,
           winRate: result.performance.winRate,
@@ -430,7 +472,7 @@ export async function runBacktestWithOptimizedWeights(symbol, timeframe) {
     const [coin, timeframeRecord] = await Promise.all([
       prisma.coin.findUnique({
         where: { symbol },
-        select: { id: true },
+        select: { id: true, listingDate: true },
       }),
       prisma.timeframe.findUnique({
         where: { timeframe },
@@ -446,13 +488,15 @@ export async function runBacktestWithOptimizedWeights(symbol, timeframe) {
       throw new Error(`Timeframe ${timeframe} not found`);
     }
 
+    const trainingWindow = resolveTrainingWindow(coin.listingDate);
+
     // Find optimized weights
     const weights = await prisma.indicatorWeight.findFirst({
       where: {
         coinId: coin.id,
         timeframeId: timeframeRecord.id,
-        startTrain: BigInt(FIXED_START_EPOCH),
-        endTrain: BigInt(FIXED_END_EPOCH),
+        startTrain: BigInt(trainingWindow.startEpoch),
+        endTrain: BigInt(trainingWindow.endEpoch),
       },
       orderBy: { updatedAt: "desc" },
     });
@@ -464,7 +508,12 @@ export async function runBacktestWithOptimizedWeights(symbol, timeframe) {
     }
 
     // Prepare data
-    const data = await prepareOptimizationData(coin.id, timeframeRecord.id);
+    const prepared = await prepareOptimizationData(
+      coin.id,
+      timeframeRecord.id,
+      trainingWindow,
+    );
+    const data = prepared.data;
 
     console.log(`📊 Running backtest dengan optimized weights...`);
 
@@ -508,7 +557,7 @@ export async function optimizeAllCoins(timeframe) {
     const coins = await prisma.coin.findMany({
       orderBy: { rank: "asc" },
       take: 20,
-      select: { id: true, symbol: true },
+      select: { id: true, symbol: true, listingDate: true },
     });
 
     if (!coins.length) {
@@ -539,12 +588,13 @@ export async function optimizeAllCoins(timeframe) {
         console.log(`${progress} 📊 Optimizing ${symbol}...`);
 
         // Check existing weights
+        const trainingWindow = resolveTrainingWindow(coin.listingDate);
         const existingWeight = await prisma.indicatorWeight.findFirst({
           where: {
             coinId: coin.id,
             timeframeId: timeframeRecord.id,
-            startTrain: BigInt(FIXED_START_EPOCH),
-            endTrain: BigInt(FIXED_END_EPOCH),
+            startTrain: BigInt(trainingWindow.startEpoch),
+            endTrain: BigInt(trainingWindow.endEpoch),
           },
           orderBy: { updatedAt: "desc" },
         });
@@ -568,18 +618,34 @@ export async function optimizeAllCoins(timeframe) {
         }
 
         // Prepare data
-        const data = await prepareOptimizationData(coin.id, timeframeRecord.id);
+        const prepared = await prepareOptimizationData(
+          coin.id,
+          timeframeRecord.id,
+          trainingWindow,
+        );
+        const data = prepared.data;
 
         // Run optimization
-        const result = await optimizeIndicatorWeights(data, symbol);
+        const estimateInfo = estimateDuration(data.length);
+        const result = await optimizeIndicatorWeights(
+          data,
+          symbol,
+          null,
+          null,
+          {
+            trainingWindow,
+            effectiveRange: prepared.effectiveRange,
+            initialEstimateSeconds: estimateInfo.estimatedSeconds,
+          },
+        );
 
         // Save to database
         await prisma.indicatorWeight.create({
           data: {
             coinId: coin.id,
             timeframeId: timeframeRecord.id,
-            startTrain: BigInt(FIXED_START_EPOCH),
-            endTrain: BigInt(FIXED_END_EPOCH),
+            startTrain: BigInt(trainingWindow.startEpoch),
+            endTrain: BigInt(trainingWindow.endEpoch),
             weights: result.bestWeights,
             roi: result.performance.roi,
             winRate: result.performance.winRate,

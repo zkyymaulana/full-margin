@@ -34,6 +34,13 @@ const ALL_INDICATORS = [
   "BollingerBands",
 ];
 
+function formatEta(seconds) {
+  const safe = Math.max(0, Math.ceil(seconds || 0));
+  if (safe >= 3600) return `${(safe / 3600).toFixed(1)}h`;
+  if (safe >= 60) return `${(safe / 60).toFixed(1)}m`;
+  return `${safe}s`;
+}
+
 /**
  * 🧮 Precompute semua indicator signals untuk entire dataset
  *
@@ -247,6 +254,7 @@ export async function optimizeIndicatorWeights(
     start: new Date(Number(data[0].time)).toISOString(),
     end: new Date(Number(data[data.length - 1].time)).toISOString(),
   };
+  const initialEstimateSeconds = Number(options.initialEstimateSeconds || 0);
 
   console.log(`\n🔍 Full Exhaustive Search: ${symbol}`);
   console.log(`📊 Dataset: ${data.length} candles`);
@@ -321,7 +329,15 @@ export async function optimizeIndicatorWeights(
 
       const progress = ((currentCandleIndex / totalCandles) * 100).toFixed(1);
       const elapsed = (performance.now() - startTime) / 1000;
-      const eta = (elapsed / (i + 1)) * totalCombinations - elapsed;
+      const runtimeEtaSeconds =
+        (elapsed / (i + 1)) * totalCombinations - elapsed;
+      const baselineEtaSeconds = Math.max(0, initialEstimateSeconds - elapsed);
+      const useBaseline =
+        initialEstimateSeconds > 0 &&
+        i + 1 < Math.floor(totalCombinations * 0.05);
+      const selectedEtaSeconds = useBaseline
+        ? baselineEtaSeconds
+        : Math.max(0, runtimeEtaSeconds);
 
       const progressData = {
         tested: currentCandleIndex,
@@ -329,14 +345,14 @@ export async function optimizeIndicatorWeights(
         dataPoints: data.length,
         percentage: parseFloat(progress),
         bestROI: parseFloat(best.roi.toFixed(2)),
-        etaSeconds: Math.ceil(eta),
-        eta: eta > 60 ? `${(eta / 60).toFixed(1)}m` : `${eta.toFixed(0)}s`,
+        etaSeconds: Math.ceil(selectedEtaSeconds),
+        eta: formatEta(selectedEtaSeconds),
         etaFormatted:
-          eta > 3600
-            ? `${(eta / 3600).toFixed(1)} hours`
-            : eta > 60
-              ? `${(eta / 60).toFixed(1)} minutes`
-              : `${eta.toFixed(0)} seconds`,
+          selectedEtaSeconds > 3600
+            ? `${(selectedEtaSeconds / 3600).toFixed(1)} hours`
+            : selectedEtaSeconds > 60
+              ? `${(selectedEtaSeconds / 60).toFixed(1)} minutes`
+              : `${Math.ceil(selectedEtaSeconds)} seconds`,
         datasetRange: {
           start: trainingWindow.startISO,
           end: trainingWindow.endISO,
