@@ -13,7 +13,7 @@ export function cleanTopCoinData(coins = []) {
         isFinite(c.price) &&
         isFinite(c.marketCap) &&
         c.price > 0 &&
-        c.marketCap > 0
+        c.marketCap > 0,
     )
     .map((c) => ({
       rank: c.rank,
@@ -23,6 +23,7 @@ export function cleanTopCoinData(coins = []) {
       marketCap: Number(c.marketCap.toFixed(2)),
       volume24h: c.volume24h ? Number(c.volume24h.toFixed(2)) : 0,
       listingDate: c.listingDate || null, // ✅ Tambahkan listingDate
+      cmcListingDate: c.cmcListingDate || null,
     }))
     .sort((a, b) => a.rank - b.rank);
 }
@@ -89,7 +90,7 @@ export function cleanCandleData(candles = []) {
         c.volume >= 0 &&
         c.low <= c.high &&
         c.open > 0 &&
-        c.close > 0
+        c.close > 0,
     )
     .map((c) => ({
       time: Math.floor(c.time),

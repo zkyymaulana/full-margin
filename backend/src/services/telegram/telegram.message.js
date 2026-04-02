@@ -154,16 +154,25 @@ export function formatTelegramSignalMessage({
   // Emoji sinyal (sesuai aturan sebelumnya)
   const signalEmoji = signal === "buy" ? "🟢" : signal === "sell" ? "🔴" : "⚪";
 
-  const percent = Math.abs(strength * 100).toFixed(0);
-  const direction = strength > 0 ? "BUY" : strength < 0 ? "SELL" : "NEUTRAL";
+  // Normalize strength display so sign always follows signal direction.
+  const absoluteStrength = Math.abs(strength || 0);
+  const displayStrength =
+    signal === "sell"
+      ? -absoluteStrength
+      : signal === "buy"
+        ? absoluteStrength
+        : 0;
+  const percent = Math.abs(displayStrength * 100).toFixed(0);
+  const direction =
+    signal === "sell" ? "SELL" : signal === "buy" ? "BUY" : "NEUTRAL";
 
   // Susunan pesan (Markdown) harus sama
   const message = `${signalEmoji} *${signalLabel.toUpperCase()}* ${signalEmoji}
 
-🪙 ${symbol}
+💲 ${symbol}
 • *Price:* ${formatCurrency(price)}
 • *Score:* ${finalScore >= 0 ? "+" : ""}${finalScore.toFixed(2)}
-• *Strength:* ${strength >= 0 ? "+" : ""}${strength.toFixed(2)} (${percent}% ${direction})
+• *Strength:* ${percent}% ${direction}
 • *Timeframe:* ${timeframe}
 • *Time:* ${dateStr}, ${timeStr}
 

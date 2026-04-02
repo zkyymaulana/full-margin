@@ -23,7 +23,7 @@ export async function fetchLastCandle(symbol) {
   const now = new Date();
   const end = now.toISOString();
   const start = new Date(
-    now.getTime() - GRANULARITY_SECONDS * 1000
+    now.getTime() - GRANULARITY_SECONDS * 1000,
   ).toISOString();
 
   const { data } = await axios.get(
@@ -31,7 +31,7 @@ export async function fetchLastCandle(symbol) {
     {
       params: { start, end, granularity: GRANULARITY_SECONDS },
       timeout: API_TIMEOUT,
-    }
+    },
   );
 
   if (!data?.length) return null;
@@ -88,7 +88,7 @@ export async function fetchPairs() {
     return new Set(
       data
         .filter((p) => p.status === "online" && !p.trading_disabled)
-        .map((p) => p.id.toUpperCase())
+        .map((p) => p.id.toUpperCase()),
     );
   } catch (err) {
     console.error("Gagal mengambil pair Coinbase");
@@ -104,37 +104,55 @@ export async function fetchPairs() {
  */
 export async function fetchEarliestCandle(symbol) {
   try {
-    const years = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024];
+    const startYear = 2016;
+    const currentYear = new Date().getUTCFullYear();
+    const years = Array.from(
+      { length: currentYear - startYear + 1 },
+      (_, idx) => startYear + idx,
+    );
+    const MAX_BUCKETS = 300;
+    const WINDOW_MS = (MAX_BUCKETS - 1) * GRANULARITY_SECONDS * 1000;
 
     for (const year of years) {
       try {
-        const startDate = new Date(`${year}-01-01T00:00:00.000Z`);
-        const endDate = new Date(`${year}-12-31T23:59:59.000Z`);
+        const yearStartMs = Date.UTC(year, 0, 1, 0, 0, 0);
+        const yearEndMs = Date.UTC(year + 1, 0, 1, 0, 0, 0);
 
-        const { data } = await axios.get(
-          `${COINBASE_API}/products/${symbol}/candles`,
-          {
-            params: {
-              start: startDate.toISOString(),
-              end: endDate.toISOString(),
-              granularity: 3600, // 1 hour
+        for (
+          let windowStartMs = yearStartMs;
+          windowStartMs < yearEndMs;
+          windowStartMs += WINDOW_MS
+        ) {
+          const startDate = new Date(windowStartMs);
+          const endDate = new Date(
+            Math.min(windowStartMs + WINDOW_MS, yearEndMs),
+          );
+
+          const { data } = await axios.get(
+            `${COINBASE_API}/products/${symbol}/candles`,
+            {
+              params: {
+                start: startDate.toISOString(),
+                end: endDate.toISOString(),
+                granularity: GRANULARITY_SECONDS,
+              },
+              timeout: API_TIMEOUT,
             },
-            timeout: API_TIMEOUT,
+          );
+
+          if (data && data.length > 0) {
+            const sorted = data.sort((a, b) => a[0] - b[0]);
+            const earliest = sorted[0];
+
+            return {
+              time: earliest[0] * 1000,
+              low: earliest[1],
+              high: earliest[2],
+              open: earliest[3],
+              close: earliest[4],
+              volume: earliest[5],
+            };
           }
-        );
-
-        if (data && data.length > 0) {
-          const sorted = data.sort((a, b) => a[0] - b[0]);
-          const earliest = sorted[0];
-
-          return {
-            time: earliest[0] * 1000,
-            low: earliest[1],
-            high: earliest[2],
-            open: earliest[3],
-            close: earliest[4],
-            volume: earliest[5],
-          };
         }
       } catch (err) {
         if (err.response?.status === 404) {
@@ -149,7 +167,7 @@ export async function fetchEarliestCandle(symbol) {
   } catch (err) {
     console.error(
       `❌ Error fetching earliest candle for ${symbol}:`,
-      err.message
+      err.message,
     );
     return null;
   }
