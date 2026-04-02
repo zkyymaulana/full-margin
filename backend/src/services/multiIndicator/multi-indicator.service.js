@@ -232,27 +232,36 @@ export async function optimizeIndicatorWeights(
   data,
   symbol = "BTC-USD",
   onProgress = null,
-  checkCancel = null
+  checkCancel = null,
+  options = {},
 ) {
   const startTime = performance.now();
   const totalCombinations = Math.pow(5, 8);
   const totalCandles = data.length;
 
-  // 📅 Extract dataset date range
-  const datasetStartDate = new Date(Number(data[0].time)).toISOString();
-  const datasetEndDate = new Date(
-    Number(data[data.length - 1].time)
-  ).toISOString();
+  const trainingWindow = options.trainingWindow || {
+    startISO: new Date(Number(data[0].time)).toISOString(),
+    endISO: new Date(Number(data[data.length - 1].time)).toISOString(),
+  };
+  const effectiveRange = options.effectiveRange || {
+    start: new Date(Number(data[0].time)).toISOString(),
+    end: new Date(Number(data[data.length - 1].time)).toISOString(),
+  };
 
   console.log(`\n🔍 Full Exhaustive Search: ${symbol}`);
   console.log(`📊 Dataset: ${data.length} candles`);
-  console.log(`📅 Range: ${datasetStartDate} → ${datasetEndDate}`);
+  console.log(
+    `📅 Training Window: ${trainingWindow.startISO} → ${trainingWindow.endISO}`,
+  );
+  console.log(
+    `📎 Effective Data: ${effectiveRange.start} → ${effectiveRange.end}`,
+  );
   console.log(`🧮 Combinations: ${totalCombinations.toLocaleString()}`);
 
   // 🧮 Precompute semua indicators SEKALI untuk speed
   const cache = computeAllIndicators(data);
   console.log(
-    `✅ Precomputed in ${((performance.now() - startTime) / 1000).toFixed(2)}s\n`
+    `✅ Precomputed in ${((performance.now() - startTime) / 1000).toFixed(2)}s\n`,
   );
 
   let best = null;
@@ -269,7 +278,7 @@ export async function optimizeIndicatorWeights(
         const shouldCancel = checkCancel();
         if (shouldCancel) {
           console.log(
-            `\n🛑 Optimization cancelled at ${i + 1}/${totalCombinations} combinations`
+            `\n🛑 Optimization cancelled at ${i + 1}/${totalCombinations} combinations`,
           );
           return {
             success: false,
@@ -294,7 +303,7 @@ export async function optimizeIndicatorWeights(
 
     // Simulate progress (candle index untuk progress visualization)
     currentCandleIndex = Math.floor(
-      ((i + 1) / totalCombinations) * totalCandles
+      ((i + 1) / totalCombinations) * totalCandles,
     );
 
     // 📊 Send progress update setiap 1000 kombinasi
@@ -329,8 +338,12 @@ export async function optimizeIndicatorWeights(
               ? `${(eta / 60).toFixed(1)} minutes`
               : `${eta.toFixed(0)} seconds`,
         datasetRange: {
-          start: datasetStartDate,
-          end: datasetEndDate,
+          start: trainingWindow.startISO,
+          end: trainingWindow.endISO,
+        },
+        effectiveRange: {
+          start: effectiveRange.start,
+          end: effectiveRange.end,
         },
       };
 
@@ -338,7 +351,7 @@ export async function optimizeIndicatorWeights(
       if ((i + 1) % 10000 === 0 || i === totalCombinations - 1) {
         console.log(
           `   Candle ${currentCandleIndex.toLocaleString()}/${totalCandles.toLocaleString()} (${progress}%) | ` +
-            `Best ROI: ${best.roi.toFixed(2)}% | ETA: ${progressData.eta}`
+            `Best ROI: ${best.roi.toFixed(2)}% | ETA: ${progressData.eta}`,
         );
       }
 
@@ -356,7 +369,7 @@ export async function optimizeIndicatorWeights(
   const totalTime = (performance.now() - startTime) / 1000;
   console.log(`\n✅ Completed in ${totalTime.toFixed(2)}s`);
   console.log(
-    `🏆 Best: ROI ${best.roi.toFixed(2)}% | WinRate ${best.winRate.toFixed(2)}% | MDD ${best.maxDrawdown.toFixed(2)}%`
+    `🏆 Best: ROI ${best.roi.toFixed(2)}% | WinRate ${best.winRate.toFixed(2)}% | MDD ${best.maxDrawdown.toFixed(2)}%`,
   );
 
   return {
@@ -375,8 +388,12 @@ export async function optimizeIndicatorWeights(
     totalCombinationsTested: totalCombinations,
     dataPoints: data.length,
     datasetRange: {
-      start: datasetStartDate,
-      end: datasetEndDate,
+      start: trainingWindow.startISO,
+      end: trainingWindow.endISO,
+    },
+    effectiveRange: {
+      start: effectiveRange.start,
+      end: effectiveRange.end,
     },
     executionTimeSeconds: +totalTime.toFixed(2),
   };
@@ -396,7 +413,7 @@ export async function optimizeIndicatorWeights(
 export async function backtestWithWeights(
   data,
   weights = {},
-  { fastMode = false, threshold = 0 } = {}
+  { fastMode = false, threshold = 0 } = {},
 ) {
   if (!data?.length) throw new Error("Data historis kosong");
 
@@ -413,26 +430,26 @@ export async function backtestWithWeights(
   ];
 
   const missingIndicators = requiredIndicators.filter(
-    (ind) => !weights.hasOwnProperty(ind)
+    (ind) => !weights.hasOwnProperty(ind),
   );
 
   if (missingIndicators.length > 0) {
     throw new Error(
       `❌ WEIGHTS NOT FOUND: Missing weights for indicators: ${missingIndicators.join(", ")}. ` +
-        `Please run optimization first.`
+        `Please run optimization first.`,
     );
   }
 
   // ✅ Validate weights are dalam range [0-4]
   const invalidWeights = Object.entries(weights).filter(
-    ([_, w]) => w < 0 || w > 4
+    ([_, w]) => w < 0 || w > 4,
   );
 
   if (invalidWeights.length > 0) {
     throw new Error(
       `❌ INVALID WEIGHTS: Weights harus dalam range [0-4]. Invalid: ${invalidWeights
         .map(([k, v]) => `${k}=${v}`)
-        .join(", ")}`
+        .join(", ")}`,
     );
   }
 
@@ -449,7 +466,7 @@ export async function backtestWithWeights(
   console.log(`✅ Backtest Complete`);
   console.log(`   ROI: ${result.roi.toFixed(2)}%`);
   console.log(
-    `   Win Rate: ${result.winRate.toFixed(2)}% (${result.wins}/${result.trades})`
+    `   Win Rate: ${result.winRate.toFixed(2)}% (${result.wins}/${result.trades})`,
   );
   console.log(`   Max Drawdown: ${result.maxDrawdown.toFixed(2)}%`);
   console.log(`   Trades: ${result.trades}\n`);

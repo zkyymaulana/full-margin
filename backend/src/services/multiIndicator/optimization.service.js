@@ -23,6 +23,15 @@ import {
 const FIXED_START_EPOCH = Date.parse("2020-01-01T00:00:00Z");
 const FIXED_END_EPOCH = Date.parse("2025-01-01T00:00:00Z");
 
+function buildTrainingWindow() {
+  return {
+    startEpoch: FIXED_START_EPOCH,
+    endEpoch: FIXED_END_EPOCH,
+    startISO: new Date(FIXED_START_EPOCH).toISOString(),
+    endISO: new Date(FIXED_END_EPOCH).toISOString(),
+  };
+}
+
 /**
  * 📊 Dapatkan estimasi waktu optimization
  *
@@ -38,7 +47,7 @@ const FIXED_END_EPOCH = Date.parse("2025-01-01T00:00:00Z");
 export async function getOptimizationEstimate(symbol, timeframe) {
   try {
     console.log(
-      `📊 Calculating optimization estimate for ${symbol} (${timeframe})`
+      `📊 Calculating optimization estimate for ${symbol} (${timeframe})`,
     );
 
     // Lookup coin dan timeframe dari database
@@ -68,14 +77,14 @@ export async function getOptimizationEstimate(symbol, timeframe) {
         timeframeId: timeframeRecord.id,
         time: {
           gte: BigInt(FIXED_START_EPOCH),
-          lt: BigInt(FIXED_END_EPOCH),
+          lte: BigInt(FIXED_END_EPOCH),
         },
       },
     });
 
     if (dataCount === 0) {
       throw new Error(
-        `No data available for ${symbol} in specified time range`
+        `No data available for ${symbol} in specified time range`,
       );
     }
 
@@ -86,7 +95,7 @@ export async function getOptimizationEstimate(symbol, timeframe) {
 
     // Linear scaling berdasarkan data points
     const estimatedMinutes = Math.ceil(
-      (dataCount / BENCHMARK_DATA_POINTS) * BENCHMARK_MINUTES
+      (dataCount / BENCHMARK_DATA_POINTS) * BENCHMARK_MINUTES,
     );
     const estimatedSeconds = estimatedMinutes * 60;
 
@@ -104,6 +113,7 @@ export async function getOptimizationEstimate(symbol, timeframe) {
     return {
       dataPoints: dataCount,
       totalCombinations,
+      trainingWindow: buildTrainingWindow(),
       estimatedSeconds,
       estimatedMinutes,
       estimatedRange: {
@@ -144,7 +154,7 @@ async function prepareOptimizationData(coinId, timeframeId) {
         timeframeId,
         time: {
           gte: BigInt(FIXED_START_EPOCH),
-          lt: BigInt(FIXED_END_EPOCH),
+          lte: BigInt(FIXED_END_EPOCH),
         },
       },
       orderBy: { time: "asc" },
@@ -155,7 +165,7 @@ async function prepareOptimizationData(coinId, timeframeId) {
         timeframeId,
         time: {
           gte: BigInt(FIXED_START_EPOCH),
-          lt: BigInt(FIXED_END_EPOCH),
+          lte: BigInt(FIXED_END_EPOCH),
         },
       },
       orderBy: { time: "asc" },
@@ -175,12 +185,25 @@ async function prepareOptimizationData(coinId, timeframeId) {
 
   if (data.length < 100) {
     throw new Error(
-      `Data tidak cukup untuk optimasi (${data.length}/100 minimum)`
+      `Data tidak cukup untuk optimasi (${data.length}/100 minimum)`,
     );
   }
 
+  const effectiveRange = {
+    start: new Date(Number(data[0].time)).toISOString(),
+    end: new Date(Number(data[data.length - 1].time)).toISOString(),
+  };
+
   console.log(`✅ Data prepared: ${data.length} merged data points`);
-  return data;
+  console.log(
+    `ℹ️ Effective data coverage: ${effectiveRange.start} → ${effectiveRange.end}`,
+  );
+
+  return {
+    data,
+    trainingWindow: buildTrainingWindow(),
+    effectiveRange,
+  };
 }
 
 /**
@@ -200,7 +223,7 @@ async function prepareOptimizationData(coinId, timeframeId) {
 export async function runOptimization(
   symbol,
   timeframe,
-  { forceReoptimize = false, onProgress = null, checkCancel = null } = {}
+  { forceReoptimize = false, onProgress = null, checkCancel = null } = {},
 ) {
   const startTime = Date.now();
 
@@ -247,7 +270,7 @@ export async function runOptimization(
     if (existingWeight && !forceReoptimize) {
       console.log(`⏩ Optimization already exists for ${symbol}`);
       console.log(
-        `   ROI: ${existingWeight.roi.toFixed(2)}%, WinRate: ${existingWeight.winRate.toFixed(2)}%`
+        `   ROI: ${existingWeight.roi.toFixed(2)}%, WinRate: ${existingWeight.winRate.toFixed(2)}%`,
       );
 
       performanceData = {
@@ -268,7 +291,11 @@ export async function runOptimization(
       }
 
       // Prepare data
-      const data = await prepareOptimizationData(coin.id, timeframeRecord.id);
+      const prepared = await prepareOptimizationData(
+        coin.id,
+        timeframeRecord.id,
+      );
+      const data = prepared.data;
 
       console.log(`🚀 Starting exhaustive search algorithm...`);
 
@@ -277,7 +304,11 @@ export async function runOptimization(
         data,
         symbol,
         onProgress,
-        checkCancel
+        checkCancel,
+        {
+          trainingWindow: prepared.trainingWindow,
+          effectiveRange: prepared.effectiveRange,
+        },
       );
 
       // Handle cancellation
@@ -428,7 +459,7 @@ export async function runBacktestWithOptimizedWeights(symbol, timeframe) {
 
     if (!weights) {
       throw new Error(
-        "No optimized weights found. Please run optimization first."
+        "No optimized weights found. Please run optimization first.",
       );
     }
 
@@ -520,7 +551,7 @@ export async function optimizeAllCoins(timeframe) {
 
         if (existingWeight) {
           console.log(
-            `${progress} ⏭️ ${symbol} already optimized, skipping...`
+            `${progress} ⏭️ ${symbol} already optimized, skipping...`,
           );
           results.push({
             symbol,
@@ -570,12 +601,12 @@ export async function optimizeAllCoins(timeframe) {
 
         successCount++;
         console.log(
-          `${progress} ✅ ${symbol} → ROI: ${result.performance.roi.toFixed(2)}%`
+          `${progress} ✅ ${symbol} → ROI: ${result.performance.roi.toFixed(2)}%`,
         );
       } catch (err) {
         console.error(
           `${progress} ❌ Error optimizing ${symbol}:`,
-          err.message
+          err.message,
         );
         results.push({
           symbol,
