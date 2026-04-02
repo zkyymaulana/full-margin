@@ -1,9 +1,9 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import axios from "axios";
 
 const SymbolContext = createContext();
 
 const STORAGE_KEY = "selectedSymbol";
+const DEFAULT_SYMBOL = "BTC-USD";
 
 const isValidSymbol = (symbol) => {
   if (!symbol || typeof symbol !== "string") return false;
@@ -12,47 +12,26 @@ const isValidSymbol = (symbol) => {
 };
 
 export function SymbolProvider({ children }) {
-  const [selectedSymbol, setSelectedSymbol] = useState(null);
+  const [selectedSymbol, setSelectedSymbol] = useState(DEFAULT_SYMBOL);
   const [isLoading, setIsLoading] = useState(true);
 
-  // ✅ Fetch default symbol dari database (coin rank #1)
+  // ✅ Default first login selalu BTC-USD agar konsisten
   useEffect(() => {
-    async function fetchDefaultSymbol() {
-      try {
-        const stored = localStorage.getItem(STORAGE_KEY);
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
 
-        // Jika ada di localStorage dan valid, gunakan itu
-        if (stored && isValidSymbol(stored)) {
-          setSelectedSymbol(stored);
-          setIsLoading(false);
-          return;
-        }
-
-        // ✅ Ambil coin rank #1 dari database
-        const API_BASE_URL =
-          import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
-        const response = await axios.get(`${API_BASE_URL}/api/marketcap/live`);
-
-        if (response.data?.success && response.data?.data?.length > 0) {
-          // Ambil coin rank #1 (biasanya Bitcoin)
-          const topCoin = response.data.data[0];
-          const defaultSymbol = topCoin.symbol;
-
-          console.log("✅ Default symbol from database:", defaultSymbol);
-          setSelectedSymbol(defaultSymbol);
-        } else {
-          console.warn("⚠️ No symbols found in database");
-          setSelectedSymbol(null);
-        }
-      } catch (error) {
-        console.error("❌ Error fetching default symbol:", error.message);
-        setSelectedSymbol(null);
-      } finally {
-        setIsLoading(false);
+      // Jika ada di localStorage dan valid, gunakan itu
+      if (stored && isValidSymbol(stored)) {
+        setSelectedSymbol(stored);
+      } else {
+        setSelectedSymbol(DEFAULT_SYMBOL);
       }
+    } catch (error) {
+      console.error("❌ Error reading symbol from localStorage:", error);
+      setSelectedSymbol(DEFAULT_SYMBOL);
+    } finally {
+      setIsLoading(false);
     }
-
-    fetchDefaultSymbol();
   }, []);
 
   useEffect(() => {
@@ -78,21 +57,13 @@ export function SymbolProvider({ children }) {
 
   const resetSymbol = async () => {
     try {
-      // ✅ Reset ke coin rank #1 dari database
-      const API_BASE_URL =
-        import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
-      const response = await axios.get(`${API_BASE_URL}/api/marketcap/live`);
-
-      if (response.data?.success && response.data?.data?.length > 0) {
-        const topCoin = response.data.data[0];
-        setSelectedSymbol(topCoin.symbol);
-      }
-
+      // ✅ Reset ke default tetap
+      setSelectedSymbol(DEFAULT_SYMBOL);
       localStorage.removeItem(STORAGE_KEY);
-      console.log("🗑️ Symbol reset to database default");
+      console.log("🗑️ Symbol reset to default:", DEFAULT_SYMBOL);
     } catch (error) {
       console.error("❌ Error resetting symbol:", error);
-      setSelectedSymbol(null);
+      setSelectedSymbol(DEFAULT_SYMBOL);
     }
   };
 
