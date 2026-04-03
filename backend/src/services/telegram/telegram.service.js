@@ -11,7 +11,7 @@ import {
  * -------------------------------------------------
  * Tujuan: Orchestrator utama notifikasi Telegram.
  * - Mengatur alur pengiriman sinyal (multi-indicator) ke user
- * - Mengelola signal change detection via DATABASE (persistent)
+ * - Mengelola pengiriman notifikasi sinyal ke user yang eligible
  * - Berinteraksi dengan database untuk mencari user yang eligible
  * - Memanggil modul broadcast untuk pengiriman ke Telegram API
  *
@@ -69,10 +69,8 @@ async function updateSignalCacheDB(symbol, cacheType, signal) {
  * - Broadcast ke semua user yang telegramEnabled
  * - Menggunakan DATABASE cache untuk signal change detection
  *
- * 🎯 SIGNAL CHANGE DETECTION (Dashboard-like):
- * - Hanya kirim notifikasi ketika signal BERUBAH
- * - BUY → BUY → BUY = no notification
- * - BUY → SELL = notification sent ✅
+ * 🎯 PENGIRIMAN SINYAL:
+ * - Semua sinyal hasil deteksi dikirim ke penerima yang eligible
  */
 export async function sendMultiIndicatorSignal({
   symbol,
@@ -85,20 +83,7 @@ export async function sendMultiIndicatorSignal({
   performance,
   timeframe = "1h",
 }) {
-  // ✅ DATABASE CACHE: Check last signal from DB
-  const lastSignal = await getLastSignalFromDB(symbol, "broadcast");
-
-  // Skip jika signal sama dengan sebelumnya (prevent spam)
-  if (lastSignal === signal) {
-    console.log(
-      `⏭️ [${symbol}] Signal unchanged (${signal}), skipping broadcast`,
-    );
-    return { success: false, reason: "signal_unchanged", signal };
-  }
-
-  console.log(
-    `🔔 [${symbol}] Signal changed: ${lastSignal || "none"} → ${signal}`,
-  );
+  console.log(`🔔 [${symbol}] Sending broadcast signal: ${signal}`);
 
   // ✅ VALIDATION: Jika neutral, strength harus 0
   if (signal === "neutral" && strength !== 0) {
@@ -343,16 +328,13 @@ Time: ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}
  * Mengirim sinyal ke user yang mem-watch koin tertentu.
  *
  * Alur:
- * 1) Check signal change dari DATABASE (skip jika sama)
- * 2) Ambil watchers via watchlist service
- * 3) Filter yang telegramEnabled & punya chatId
- * 4) Format pesan dengan formatter yang sama
- * 5) Kirim satu per satu dengan delay (anti rate limit)
+ * 1) Ambil watchers via watchlist service
+ * 2) Filter yang telegramEnabled & punya chatId
+ * 3) Format pesan dengan formatter yang sama
+ * 4) Kirim satu per satu dengan delay (anti rate limit)
  *
- * 🎯 SIGNAL CHANGE DETECTION (Dashboard-like):
- * - Hanya kirim notifikasi ketika signal BERUBAH
- * - BUY → BUY → BUY = no notification
- * - BUY → SELL = notification sent ✅
+ * 🎯 PENGIRIMAN SINYAL:
+ * - Semua sinyal hasil deteksi dikirim ke watcher yang eligible
  */
 export async function sendSignalToWatchers({
   coinId,
@@ -373,20 +355,7 @@ export async function sendSignalToWatchers({
   timeframe = "1h",
 }) {
   try {
-    // ✅ DATABASE CACHE: Check last signal from DB
-    const lastSignal = await getLastSignalFromDB(symbol, "watchlist");
-
-    // Skip jika signal sama dengan sebelumnya (prevent spam)
-    if (lastSignal === signal) {
-      console.log(
-        `⏭️ [${symbol}] Signal unchanged (${signal}), skipping notification`,
-      );
-      return { success: false, reason: "signal_unchanged", signal };
-    }
-
-    console.log(
-      `🔔 [${symbol}] Signal changed: ${lastSignal || "none"} → ${signal}`,
-    );
+    console.log(`🔔 [${symbol}] Sending watchlist signal: ${signal}`);
 
     const watchers = await getWatchersForCoin(coinId);
 
