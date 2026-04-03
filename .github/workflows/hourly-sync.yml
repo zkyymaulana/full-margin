@@ -2,13 +2,24 @@ name: Hourly Sync Trigger
 
 on:
   schedule:
-    - cron: "15 * * * *"
+    - cron: "*/10 * * * *"
   workflow_dispatch:
 
 jobs:
   trigger-hourly-sync:
     runs-on: ubuntu-latest
     steps:
+      - name: Guard scheduled minute
+        if: github.event_name == 'schedule'
+        run: |
+          minute=$(date -u +%M)
+          echo "Current UTC minute: $minute"
+
+          if [ "$minute" != "59" ]; then
+            echo "Skip run: only execute at minute 59 for schedule trigger"
+            exit 0
+          fi
+
       - name: Trigger backend hourly sync
         env:
           BACKEND_CRON_URL: ${{ secrets.BACKEND_CRON_URL }}
