@@ -3,7 +3,6 @@ import {
   formatPercent,
   formatCurrency,
   formatNumber,
-  formatRatio,
   getROIColor,
 } from "../utils";
 
@@ -22,8 +21,8 @@ export function OptimizedHighROIResults({ displayData }) {
       <div
         className={`p-4 md:p-6 border-b ${
           isDarkMode
-            ? "bg-gradient-to-r from-green-900/20 to-blue-900/20 border-gray-700"
-            : "bg-gradient-to-r from-green-50 to-blue-50 border-gray-200"
+            ? "bg-linear-to-r from-green-900/20 to-blue-900/20 border-gray-700"
+            : "bg-linear-to-r from-green-50 to-blue-50 border-gray-200"
         }`}
       >
         <h3
@@ -115,9 +114,20 @@ export function OptimizedHighROIResults({ displayData }) {
                     </span>
                   )}
                 </div>
-                <span className={`text-lg font-bold ${getROIColor(data.roi)}`}>
-                  {formatPercent(data.roi)}
-                </span>
+                <div className="text-right">
+                  <div
+                    className={`text-[11px] uppercase tracking-wide ${
+                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                    }`}
+                  >
+                    ROI
+                  </div>
+                  <span
+                    className={`text-lg font-bold ${getROIColor(data.roi)}`}
+                  >
+                    {formatPercent(data.roi)}
+                  </span>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-x-4 gap-y-2">
@@ -161,21 +171,6 @@ export function OptimizedHighROIResults({ displayData }) {
                   value={formatRatio(data.sharpeRatio)}
                   isDarkMode={isDarkMode}
                 />
-                <MetricCell
-                  label="Sortino"
-                  value={formatRatio(data.sortinoRatio)}
-                  isDarkMode={isDarkMode}
-                />
-                <MetricCell
-                  label="Avg Trade"
-                  value={formatCurrency(data.avgTrade)}
-                  isDarkMode={isDarkMode}
-                />
-                <MetricCell
-                  label="Profit Factor"
-                  value={formatRatio(data.profitFactor)}
-                  isDarkMode={isDarkMode}
-                />
               </div>
             </div>
           ),
@@ -208,13 +203,22 @@ export function OptimizedHighROIResults({ displayData }) {
                   Optimized
                 </span>
               </div>
-              <span
-                className={`text-lg font-bold ${getROIColor(
-                  displayData.comparisonHighROI.multi.roi,
-                )}`}
-              >
-                {formatPercent(displayData.comparisonHighROI.multi.roi)}
-              </span>
+              <div className="text-right">
+                <div
+                  className={`text-[11px] uppercase tracking-wide ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
+                  ROI
+                </div>
+                <span
+                  className={`text-lg font-bold ${getROIColor(
+                    displayData.comparisonHighROI.multi.roi,
+                  )}`}
+                >
+                  {formatPercent(displayData.comparisonHighROI.multi.roi)}
+                </span>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-x-4 gap-y-2">
@@ -265,27 +269,6 @@ export function OptimizedHighROIResults({ displayData }) {
                 label="Sharpe"
                 value={formatRatio(
                   displayData.comparisonHighROI.multi.sharpeRatio,
-                )}
-                isDarkMode={isDarkMode}
-              />
-              <MetricCell
-                label="Sortino"
-                value={formatRatio(
-                  displayData.comparisonHighROI.multi.sortinoRatio,
-                )}
-                isDarkMode={isDarkMode}
-              />
-              <MetricCell
-                label="Avg Trade"
-                value={formatCurrency(
-                  displayData.comparisonHighROI.multi.avgTrade,
-                )}
-                isDarkMode={isDarkMode}
-              />
-              <MetricCell
-                label="Profit Factor"
-                value={formatRatio(
-                  displayData.comparisonHighROI.multi.profitFactor,
                 )}
                 isDarkMode={isDarkMode}
               />
@@ -345,41 +328,6 @@ export function OptimizedHighROIResults({ displayData }) {
                   }`}
                 >
                   Annualized Return
-                </th>
-                <th
-                  className={`text-right py-3 px-4 text-sm font-semibold whitespace-nowrap ${
-                    isDarkMode ? "text-gray-300" : "text-gray-700"
-                  }`}
-                >
-                  Max Drawdown
-                </th>
-                <th
-                  className={`text-right py-3 px-4 text-sm font-semibold whitespace-nowrap ${
-                    isDarkMode ? "text-gray-300" : "text-gray-700"
-                  }`}
-                >
-                  Sharpe
-                </th>
-                <th
-                  className={`text-right py-3 px-4 text-sm font-semibold whitespace-nowrap ${
-                    isDarkMode ? "text-gray-300" : "text-gray-700"
-                  }`}
-                >
-                  Sortino
-                </th>
-                <th
-                  className={`text-right py-3 px-4 text-sm font-semibold whitespace-nowrap ${
-                    isDarkMode ? "text-gray-300" : "text-gray-700"
-                  }`}
-                >
-                  Avg Trade
-                </th>
-                <th
-                  className={`text-right py-3 px-4 text-sm font-semibold whitespace-nowrap ${
-                    isDarkMode ? "text-gray-300" : "text-gray-700"
-                  }`}
-                >
-                  Profit Factor
                 </th>
               </tr>
             </thead>
@@ -455,49 +403,6 @@ export function OptimizedHighROIResults({ displayData }) {
                       {data.annualizedReturn
                         ? formatPercent(data.annualizedReturn)
                         : "N/A"}
-                    </td>
-                    <td className="py-3 px-4 text-right font-mono text-sm text-red-600">
-                      {formatPercent(data.maxDrawdown)}
-                    </td>
-                    <td
-                      className={`py-3 px-4 text-right font-mono text-sm ${
-                        data.sharpeRatio > 1
-                          ? "text-green-600"
-                          : data.sharpeRatio > 0
-                            ? isDarkMode
-                              ? "text-gray-300"
-                              : "text-gray-700"
-                            : "text-red-600"
-                      }`}
-                    >
-                      {formatRatio(data.sharpeRatio)}
-                    </td>
-                    <td
-                      className={`py-3 px-4 text-right font-mono text-sm ${
-                        data.sortinoRatio > 1
-                          ? "text-green-600"
-                          : data.sortinoRatio > 0
-                            ? isDarkMode
-                              ? "text-gray-300"
-                              : "text-gray-700"
-                            : "text-red-600"
-                      }`}
-                    >
-                      {formatRatio(data.sortinoRatio)}
-                    </td>
-                    <td
-                      className={`py-3 px-4 text-right font-mono text-sm ${
-                        isDarkMode ? "text-gray-300" : "text-gray-700"
-                      }`}
-                    >
-                      {formatCurrency(data.avgTrade)}
-                    </td>
-                    <td
-                      className={`py-3 px-4 text-right font-mono text-sm ${
-                        isDarkMode ? "text-gray-300" : "text-gray-700"
-                      }`}
-                    >
-                      {formatRatio(data.profitFactor)}
                     </td>
                   </tr>
                 ),
@@ -578,59 +483,6 @@ export function OptimizedHighROIResults({ displayData }) {
                           displayData.comparisonHighROI.multi.annualizedReturn,
                         )
                       : "N/A"}
-                  </td>
-                  <td className="py-3 px-4 text-right font-mono text-sm text-red-600">
-                    {formatPercent(
-                      displayData.comparisonHighROI.multi.maxDrawdown,
-                    )}
-                  </td>
-                  <td
-                    className={`py-3 px-4 text-right font-mono text-sm ${
-                      displayData.comparisonHighROI.multi.sharpeRatio > 1
-                        ? "text-green-600"
-                        : displayData.comparisonHighROI.multi.sharpeRatio > 0
-                          ? isDarkMode
-                            ? "text-gray-300"
-                            : "text-gray-700"
-                          : "text-red-600"
-                    }`}
-                  >
-                    {formatRatio(
-                      displayData.comparisonHighROI.multi.sharpeRatio,
-                    )}
-                  </td>
-                  <td
-                    className={`py-3 px-4 text-right font-mono text-sm ${
-                      displayData.comparisonHighROI.multi.sortinoRatio > 1
-                        ? "text-green-600"
-                        : displayData.comparisonHighROI.multi.sortinoRatio > 0
-                          ? isDarkMode
-                            ? "text-gray-300"
-                            : "text-gray-700"
-                          : "text-red-600"
-                    }`}
-                  >
-                    {formatRatio(
-                      displayData.comparisonHighROI.multi.sortinoRatio,
-                    )}
-                  </td>
-                  <td
-                    className={`py-3 px-4 text-right font-mono text-sm ${
-                      isDarkMode ? "text-gray-300" : "text-gray-700"
-                    }`}
-                  >
-                    {formatCurrency(
-                      displayData.comparisonHighROI.multi.avgTrade,
-                    )}
-                  </td>
-                  <td
-                    className={`py-3 px-4 text-right font-mono text-sm ${
-                      isDarkMode ? "text-gray-300" : "text-gray-700"
-                    }`}
-                  >
-                    {formatRatio(
-                      displayData.comparisonHighROI.multi.profitFactor,
-                    )}
                   </td>
                 </tr>
               )}
