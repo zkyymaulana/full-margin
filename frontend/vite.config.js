@@ -10,7 +10,13 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       injectRegister: "auto",
-      includeAssets: ["images/logo.svg", "images/meta-icon.svg"],
+      includeAssets: [
+        "images/logo.svg",
+        "images/meta-icon.svg",
+        "images/icon-180.png",
+        "images/icon-192.png",
+        "images/icon-512.png",
+      ],
       manifest: {
         id: "/",
         name: "Crypto Analyze",
@@ -25,15 +31,15 @@ export default defineConfig({
         start_url: "/",
         icons: [
           {
-            src: "/images/meta-icon.svg",
+            src: "/images/icon-192.png",
             sizes: "192x192",
-            type: "image/svg+xml",
+            type: "image/png",
             purpose: "any",
           },
           {
-            src: "/images/logo.svg",
+            src: "/images/icon-512.png",
             sizes: "512x512",
-            type: "image/svg+xml",
+            type: "image/png",
             purpose: "any maskable",
           },
         ],
