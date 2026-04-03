@@ -1,5 +1,19 @@
-export { default as WatchlistStar } from "./WatchlistStar";
-export { default as MarketStatsCards } from "./MarketStatsCards";
-export { default as MarketFilters } from "./MarketFilters";
-export { default as CoinCard } from "./CoinCard";
-export { default as CoinTable } from "./CoinTable";
+export {
+  WatchlistStar, // Tombol bintang untuk watchlist coin
+} from "./WatchlistStar";
+
+export {
+  MarketStatsCards, // Kartu statistik market global
+} from "./MarketStatsCards";
+
+export {
+  MarketFilters, // Filter pencarian/sort market
+} from "./MarketFilters";
+
+export {
+  CoinCard, // Kartu ringkas data coin
+} from "./CoinCard";
+
+export {
+  CoinTable, // Tabel daftar coin market
+} from "./CoinTable";

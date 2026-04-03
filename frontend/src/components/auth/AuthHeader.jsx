@@ -1,6 +1,7 @@
 import { useDarkMode } from "../../contexts/DarkModeContext";
 
-export default function AuthHeader({ title, subtitle }) {
+// AuthHeader: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+export function AuthHeader({ title, subtitle }) {
   const { isDarkMode } = useDarkMode();
 
   return (
@@ -25,3 +26,5 @@ export default function AuthHeader({ title, subtitle }) {
     </div>
   );
 }
+
+export default AuthHeader;

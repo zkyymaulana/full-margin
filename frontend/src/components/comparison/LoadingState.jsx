@@ -1,6 +1,7 @@
 import { useDarkMode } from "../../contexts/DarkModeContext";
 import { FiSearch } from "react-icons/fi";
 
+// LoadingState: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 export function LoadingState({
   isLoading,
   isPending,

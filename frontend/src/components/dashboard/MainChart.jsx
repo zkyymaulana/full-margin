@@ -133,6 +133,7 @@ const useSafeTradingViewLogoRemoval = () => {
  * Main Chart Component
  * Displays candlestick chart with overlay indicators (SMA, EMA, Bollinger, PSAR)
  */
+// MainChart: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 function MainChart({
   chartRef,
   seriesRef,
@@ -639,4 +640,5 @@ function MainChart({
   );
 }
 
+export { MainChart };
 export default MainChart;

@@ -12,6 +12,7 @@ import {
   ChangePasswordForm,
 } from "../components/profile";
 
+// Halaman profil: kelola data akun, avatar, dan perubahan password.
 function ProfilePage() {
   const { data: profileData, isLoading } = useUserProfile();
   const { mutate: updateProfile, isLoading: isUpdating } = useUpdateProfile();
@@ -20,7 +21,7 @@ function ProfilePage() {
 
   const user = profileData?.data || {};
 
-  // Form states
+  // State form profil + password.
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -31,20 +32,20 @@ function ProfilePage() {
 
   const fileInputRef = useRef(null);
 
-  // Update form when user data loads
+  // Isi form saat data profil berhasil dimuat.
   useEffect(() => {
     if (user.name) setName(user.name);
     if (user.email) setEmail(user.email);
   }, [user.name, user.email]);
 
-  // Check if profile has changes
+  // Cek apakah ada perubahan profil yang perlu disimpan.
   const hasProfileChanges = useMemo(() => {
     const nameChanged = name !== user.name && name.trim() !== "";
     const hasNewAvatar = avatarBase64 !== null;
     return nameChanged || hasNewAvatar;
   }, [name, user.name, avatarBase64]);
 
-  // Check if password fields are filled
+  // Cek apakah form password sudah terisi lengkap.
   const hasPasswordInput = useMemo(() => {
     return (
       currentPassword.trim() !== "" &&
@@ -53,11 +54,11 @@ function ProfilePage() {
     );
   }, [currentPassword, newPassword, confirmPassword]);
 
-  // Handle avatar file selection
+  // Handle upload avatar dan siapkan preview base64.
   const handleAvatarChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Preview
+      // Buat preview gambar sebelum dikirim ke backend.
       const reader = new FileReader();
       reader.onloadend = () => {
         setAvatarPreview(reader.result);
@@ -67,19 +68,21 @@ function ProfilePage() {
     }
   };
 
-  // Handle profile update (name, email, avatar)
+  // Handle update data profil (nama/avatar).
   const handleUpdateProfile = (e) => {
     e.preventDefault();
 
     const updateData = {
-      email: user.email, // Email tetap sama
+      // Email dipertahankan dari backend.
+      email: user.email,
     };
 
-    // Add name if changed
+    // Tambahkan field nama hanya jika berubah.
     if (name && name !== user.name) {
       updateData.name = name;
     }
 
+    // Tambahkan avatar jika user memilih file baru.
     if (avatarBase64) {
       updateData.avatarBase64 = avatarBase64;
     }
@@ -92,13 +95,13 @@ function ProfilePage() {
       },
       onError: (error) => {
         showErrorToast(
-          error.response?.data?.message || "Failed to update profile"
+          error.response?.data?.message || "Failed to update profile",
         );
       },
     });
   };
 
-  // Handle password change
+  // Handle perubahan password dengan validasi dasar.
   const handleChangePassword = (e) => {
     e.preventDefault();
 
@@ -127,12 +130,13 @@ function ProfilePage() {
       },
       onError: (error) => {
         showErrorToast(
-          error.response?.data?.message || "Failed to change password"
+          error.response?.data?.message || "Failed to change password",
         );
       },
     });
   };
 
+  // Logout dengan konfirmasi terlebih dahulu.
   const handleLogout = async () => {
     const confirmed = await confirmLogout();
     if (confirmed) {
@@ -218,4 +222,5 @@ function ProfilePage() {
   );
 }
 
+export { ProfilePage };
 export default ProfilePage;

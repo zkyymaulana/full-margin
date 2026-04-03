@@ -9,6 +9,7 @@ import { FiBarChart2 } from "react-icons/fi";
  * Indicator Toggle Panel Component
  * Allows users to toggle technical indicators on/off
  */
+// IndicatorTogglePanel: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 function IndicatorTogglePanel({ activeIndicators, onToggle }) {
   const { isDarkMode } = useDarkMode();
   const availableIndicators = [...overlayIndicators, ...oscillatorIndicators];
@@ -68,4 +69,5 @@ function IndicatorTogglePanel({ activeIndicators, onToggle }) {
   );
 }
 
+export { IndicatorTogglePanel };
 export default IndicatorTogglePanel;

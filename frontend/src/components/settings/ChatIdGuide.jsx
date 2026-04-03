@@ -1,6 +1,7 @@
 import { FiChevronDown } from "react-icons/fi";
 
-export default function ChatIdGuide({
+// ChatIdGuide: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+export function ChatIdGuide({
   isChatGuideOpen,
   setIsChatGuideOpen,
   t,
@@ -92,3 +93,5 @@ export default function ChatIdGuide({
     </div>
   );
 }
+
+export default ChatIdGuide;

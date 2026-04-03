@@ -1,7 +1,21 @@
-export { default as SettingsHeader } from "./SettingsHeader";
-export { default as PreferencesCard } from "./PreferencesCard";
-export { default as TelegramSettingsCard } from "./TelegramSettingsCard";
-export { default as WatchlistStatus } from "./WatchlistStatus";
-export { default as ChatIdGuide } from "./ChatIdGuide";
-export { default as TechStackCard } from "./TechStackCard";
-export { default as AboutCard } from "./AboutCard";
+export {
+  SettingsHeader, // Header halaman pengaturan
+} from "./SettingsHeader";
+export {
+  PreferencesCard, // Kartu preferensi aplikasi
+} from "./PreferencesCard";
+export {
+  TelegramSettingsCard, // Kartu pengaturan integrasi Telegram
+} from "./TelegramSettingsCard";
+export {
+  WatchlistStatus, // Status sinkronisasi watchlist
+} from "./WatchlistStatus";
+export {
+  ChatIdGuide, // Panduan mendapatkan Chat ID Telegram
+} from "./ChatIdGuide";
+export {
+  TechStackCard, // Informasi teknologi yang digunakan
+} from "./TechStackCard";
+export {
+  AboutCard, // Informasi umum aplikasi
+} from "./AboutCard";

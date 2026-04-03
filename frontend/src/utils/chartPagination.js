@@ -1,36 +1,36 @@
 /**
- * Chart Pagination Utilities
- * Helper functions untuk infinite scroll pagination pada Lightweight Charts
+ * Utilitas pagination chart.
+ * Kumpulan helper untuk infinite scroll pada Lightweight Charts.
  */
 
 /**
- * Merge dan sort data candles dari multiple pages
- * Menghindari duplikasi berdasarkan time
+ * Gabungkan data candle lama dan baru lalu urutkan berdasarkan waktu.
  */
 export const mergeCandlesData = (existingData, newData) => {
-  // Buat Set dari existing times untuk cek duplikasi
-  const existingTimes = new Set(existingData.map(d => d.time));
-  
-  // Filter data baru yang belum ada
-  const uniqueNewData = newData.filter(d => !existingTimes.has(d.time));
-  
-  // Gabungkan dan sort berdasarkan time (ascending)
+  // Gunakan Set agar pengecekan duplikasi timestamp cepat.
+  const existingTimes = new Set(existingData.map((d) => d.time));
+
+  // Ambil hanya data baru yang belum pernah ada.
+  const uniqueNewData = newData.filter((d) => !existingTimes.has(d.time));
+
+  // Gabungkan lalu urutkan ascending (lama ke baru).
   const merged = [...existingData, ...uniqueNewData];
   merged.sort((a, b) => {
-    const timeA = typeof a.time === 'bigint' ? Number(a.time) : a.time;
-    const timeB = typeof b.time === 'bigint' ? Number(b.time) : b.time;
+    const timeA = typeof a.time === "bigint" ? Number(a.time) : a.time;
+    const timeB = typeof b.time === "bigint" ? Number(b.time) : b.time;
     return timeA - timeB;
   });
-  
+
   return merged;
 };
 
 /**
- * Transform candle data untuk Lightweight Charts format
+ * Ubah format candle API ke format yang dibaca Lightweight Charts.
  */
 export const transformCandleData = (candles) => {
-  return candles.map(d => ({
-    time: Number(d.time) / 1000, // Convert to seconds
+  return candles.map((d) => ({
+    // Library chart memakai satuan detik, bukan milidetik.
+    time: Number(d.time) / 1000,
     open: Number(d.open),
     high: Number(d.high),
     low: Number(d.low),
@@ -39,37 +39,37 @@ export const transformCandleData = (candles) => {
 };
 
 /**
- * Cek apakah user scroll mendekati edge kiri chart (older data)
+ * Cek apakah viewport mendekati sisi kiri (data lebih lama).
  */
 export const isNearLeftEdge = (visibleRange, dataRange, threshold = 0.1) => {
   if (!visibleRange || !dataRange) return false;
-  
+
   const { from } = visibleRange;
   const { minTime } = dataRange;
-  
+
   const totalRange = dataRange.maxTime - minTime;
   const distanceFromStart = from - minTime;
-  
+
   return distanceFromStart < totalRange * threshold;
 };
 
 /**
- * Cek apakah user scroll mendekati edge kanan chart (newer data)
+ * Cek apakah viewport mendekati sisi kanan (data lebih baru).
  */
 export const isNearRightEdge = (visibleRange, dataRange, threshold = 0.1) => {
   if (!visibleRange || !dataRange) return false;
-  
+
   const { to } = visibleRange;
   const { maxTime } = dataRange;
-  
+
   const totalRange = maxTime - dataRange.minTime;
   const distanceFromEnd = maxTime - to;
-  
+
   return distanceFromEnd < totalRange * threshold;
 };
 
 /**
- * Debounce function untuk limit fetch calls
+ * Debounce untuk membatasi pemanggilan fetch beruntun.
  */
 export const debounce = (func, delay) => {
   let timeoutId;
@@ -80,44 +80,50 @@ export const debounce = (func, delay) => {
 };
 
 /**
- * Calculate visible range after adding new data
- * Preserve user's current view position
+ * Hitung range tampilan setelah data baru ditambahkan.
+ * Posisi view saat ini dipertahankan agar pengalaman scroll stabil.
  */
-export const calculatePreservedRange = (currentRange, oldDataLength, newDataLength, isLoadingOlder) => {
+export const calculatePreservedRange = (
+  currentRange,
+  oldDataLength,
+  newDataLength,
+  isLoadingOlder,
+) => {
   if (!currentRange) return null;
-  
+
   const { from, to } = currentRange;
   const visibleDuration = to - from;
-  
+
   if (isLoadingOlder) {
-    // Data ditambahkan di awal (older), shift range
+    // Data lama ditambah di awal, range tetap dipertahankan.
     const addedDataPoints = newDataLength - oldDataLength;
     return {
       from: from,
-      to: to
+      to: to,
     };
   } else {
-    // Data ditambahkan di akhir (newer), keep current position
+    // Data baru ditambah di akhir, posisi view tetap.
     return {
       from: from,
-      to: to
+      to: to,
     };
   }
 };
 
 /**
- * Get data range (min and max time) from candles
+ * Ambil rentang waktu minimum dan maksimum dari data candle.
  */
 export const getDataRange = (candles) => {
   if (!candles || candles.length === 0) return null;
-  
-  const times = candles.map(c => {
-    const time = typeof c.time === 'bigint' ? Number(c.time) : c.time;
-    return time / 1000; // Convert to seconds for chart
+
+  const times = candles.map((c) => {
+    const time = typeof c.time === "bigint" ? Number(c.time) : c.time;
+    // Konversi ke detik agar sesuai satuan time scale chart.
+    return time / 1000;
   });
-  
+
   return {
     minTime: Math.min(...times),
-    maxTime: Math.max(...times)
+    maxTime: Math.max(...times),
   };
 };

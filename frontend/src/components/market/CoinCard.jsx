@@ -2,7 +2,8 @@ import { FiTrendingUp, FiTrendingDown } from "react-icons/fi";
 import WatchlistStar from "./WatchlistStar";
 import { formatPrice, formatMarketCap } from "../../utils/formatters";
 
-export default function CoinCard({
+// CoinCard: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+export function CoinCard({
   coin,
   index,
   isDarkMode,
@@ -130,3 +131,5 @@ export default function CoinCard({
     </div>
   );
 }
+
+export default CoinCard;

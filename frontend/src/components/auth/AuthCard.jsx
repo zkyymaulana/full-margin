@@ -1,6 +1,7 @@
 import { useDarkMode } from "../../contexts/DarkModeContext";
 
-export default function AuthCard({ children }) {
+// AuthCard: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+export function AuthCard({ children }) {
   const { isDarkMode } = useDarkMode();
 
   return (
@@ -13,3 +14,5 @@ export default function AuthCard({ children }) {
     </div>
   );
 }
+
+export default AuthCard;

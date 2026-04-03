@@ -1,5 +1,6 @@
 import { useDarkMode } from "../../contexts/DarkModeContext";
 
+// ErrorDisplay: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 export function ErrorDisplay({ error, isLoading, isPending }) {
   const { isDarkMode } = useDarkMode();
 

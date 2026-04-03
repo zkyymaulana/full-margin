@@ -1,6 +1,7 @@
 import { FiInfo, FiSettings } from "react-icons/fi";
 import { formatPrice } from "../../utils/indicatorParser";
 
+// SignalsHeader: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 function SignalsHeader({
   selectedSymbol,
   methodology,
@@ -127,4 +128,5 @@ function SignalsHeader({
   );
 }
 
+export { SignalsHeader };
 export default SignalsHeader;

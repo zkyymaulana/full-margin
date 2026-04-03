@@ -6,6 +6,7 @@ import { useForceReoptimization } from "../../hooks/useOptimization";
 import { getOptimizationEstimate } from "../../services/api.service";
 import { formatPercent, formatRatio } from "../../utils/indicatorParser";
 
+// BacktestPanel: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 function BacktestPanel({ performance, bestCombo, isDarkMode }) {
   const { selectedSymbol } = useSymbol();
   const queryClient = useQueryClient();
@@ -591,4 +592,5 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
   );
 }
 
+export { BacktestPanel };
 export default BacktestPanel;

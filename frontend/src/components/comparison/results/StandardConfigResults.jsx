@@ -7,6 +7,7 @@ import {
 } from "../utils";
 import { FiBarChart2 } from "react-icons/fi";
 
+// StandardConfigResults: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 export function StandardConfigResults({ displayData }) {
   const { isDarkMode } = useDarkMode();
 

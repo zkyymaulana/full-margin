@@ -1,6 +1,7 @@
 import { useDarkMode } from "../../contexts/DarkModeContext";
 import { useSymbol } from "../../contexts/SymbolContext";
 
+// DateRangeSelector: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 export function DateRangeSelector({
   startDate,
   endDate,

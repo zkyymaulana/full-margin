@@ -1,5 +1,15 @@
-export { default as BacktestPanel } from "./BacktestPanel";
-export { default as CategorySummaryCard } from "./CategorySummaryCard";
-export { default as IndicatorTable } from "./IndicatorTable";
-export { default as MultiIndicatorPanel } from "./MultiIndicatorPanel";
-export { default as SignalsHeader } from "./SignalsHeader";
+export {
+  BacktestPanel, // Panel hasil backtest utama
+} from "./BacktestPanel";
+export {
+  CategorySummaryCard, // Ringkasan indikator per kategori
+} from "./CategorySummaryCard";
+export {
+  IndicatorTable, // Tabel detail sinyal indikator
+} from "./IndicatorTable";
+export {
+  MultiIndicatorPanel, // Panel multi-indikator dan kombinasi
+} from "./MultiIndicatorPanel";
+export {
+  SignalsHeader, // Header halaman sinyal
+} from "./SignalsHeader";

@@ -2,7 +2,8 @@ import { FiDollarSign, FiBarChart2, FiTarget } from "react-icons/fi";
 import { SiBitcoin } from "react-icons/si";
 import { formatMarketCap } from "../../utils/formatters";
 
-export default function MarketStatsCards({ summary, timestamp }) {
+// MarketStatsCards: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+export function MarketStatsCards({ summary, timestamp }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
       <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg md:rounded-xl shadow-lg p-4 md:p-6 text-white">
@@ -65,3 +66,5 @@ export default function MarketStatsCards({ summary, timestamp }) {
     </div>
   );
 }
+
+export default MarketStatsCards;

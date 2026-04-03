@@ -1,6 +1,7 @@
 import { FiSearch } from "react-icons/fi";
 
-export default function MarketFilters({
+// MarketFilters: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+export function MarketFilters({
   filter,
   setFilter,
   searchQuery,
@@ -55,3 +56,5 @@ export default function MarketFilters({
     </div>
   );
 }
+
+export default MarketFilters;

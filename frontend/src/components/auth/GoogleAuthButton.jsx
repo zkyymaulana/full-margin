@@ -1,7 +1,8 @@
 import { GoogleLogin } from "@react-oauth/google";
 import { useDarkMode } from "../../contexts/DarkModeContext";
 
-export default function GoogleAuthButton({ onSuccess, onError, text }) {
+// GoogleAuthButton: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+export function GoogleAuthButton({ onSuccess, onError, text }) {
   const { isDarkMode } = useDarkMode();
 
   return (
@@ -18,3 +19,5 @@ export default function GoogleAuthButton({ onSuccess, onError, text }) {
     </div>
   );
 }
+
+export default GoogleAuthButton;

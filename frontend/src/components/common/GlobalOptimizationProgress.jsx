@@ -4,6 +4,7 @@ import { useOptimizationEstimate } from "../../hooks/useOptimization";
 import { cancelOptimization } from "../../services/api.service";
 import { useState } from "react";
 
+// GlobalOptimizationProgress: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 export function GlobalOptimizationProgress() {
   const {
     isOptimizationActive,

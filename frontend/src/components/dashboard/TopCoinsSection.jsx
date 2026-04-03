@@ -7,6 +7,7 @@ import { FaCoins } from "react-icons/fa6";
  * Top Coins Section Component
  * Displays top 5 cryptocurrencies with live prices
  */
+// TopCoinsSection: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 function TopCoinsSection({ topCoins }) {
   const { isDarkMode } = useDarkMode();
 
@@ -163,4 +164,5 @@ function TopCoinsSection({ topCoins }) {
   );
 }
 
+export { TopCoinsSection };
 export default TopCoinsSection;

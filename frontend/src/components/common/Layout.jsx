@@ -4,6 +4,7 @@ import Sidebar from "./Sidebar";
 import Footer from "./Footer";
 import { useDarkMode } from "../../contexts/DarkModeContext";
 
+// Layout: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 function Layout() {
   const { isDarkMode } = useDarkMode();
 
@@ -32,4 +33,5 @@ function Layout() {
   );
 }
 
+export { Layout };
 export default Layout;

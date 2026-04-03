@@ -17,6 +17,7 @@ import {
   CoinTable,
 } from "../components/market";
 
+// Halaman market cap: menampilkan statistik market dan daftar coin interaktif.
 function MarketCapPage() {
   const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -27,8 +28,13 @@ function MarketCapPage() {
   const { setSelectedSymbol } = useSymbol();
   const navigate = useNavigate();
 
-  const { isWatched, toggleWatchlist, refetch: refetchWatchlist } = useWatchlist();
+  const {
+    isWatched,
+    toggleWatchlist,
+    refetch: refetchWatchlist,
+  } = useWatchlist();
 
+  // Pilih coin lalu arahkan user ke dashboard dengan simbol terpilih.
   const handleCoinClick = (symbol) => {
     console.log("🎯 Coin selected:", symbol);
     setSelectedSymbol(symbol);
@@ -46,19 +52,23 @@ function MarketCapPage() {
     }, 800);
   };
 
+  // Tampilkan seluruh coin yang sudah lolos filter.
   const handleLoadMore = () => {
     setVisibleCount(allCoins.length);
   };
 
+  // Reset jumlah item saat filter/search berubah.
   const resetVisibleCount = () => {
     setVisibleCount(10);
   };
 
+  // Update filter market aktif.
   const handleFilterChange = (newFilter) => {
     setFilter(newFilter);
     resetVisibleCount();
   };
 
+  // Update keyword pencarian coin.
   const handleSearchChange = (query) => {
     setSearchQuery(query);
     resetVisibleCount();
@@ -102,6 +112,7 @@ function MarketCapPage() {
   };
   const timestamp = data?.timestamp || new Date().toISOString();
 
+  // Terapkan filter + search ke daftar coin.
   const filteredCoins = allCoins.filter((coin) => {
     const matchesSearch =
       coin.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -116,6 +127,7 @@ function MarketCapPage() {
     return true;
   });
 
+  // Tentukan data yang benar-benar ditampilkan ke UI.
   const displayedCoins = filteredCoins.slice(0, visibleCount);
   const showLoadMore = visibleCount < filteredCoins.length;
 
@@ -274,4 +286,5 @@ function MarketCapPage() {
   );
 }
 
+export { MarketCapPage };
 export default MarketCapPage;

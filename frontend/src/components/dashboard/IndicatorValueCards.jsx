@@ -6,6 +6,7 @@ import { useState } from "react";
  * InfoTooltip Component
  * Reusable tooltip component for indicator explanations
  */
+// InfoTooltip: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 function InfoTooltip({ title, content }) {
   const { isDarkMode } = useDarkMode();
   const [isVisible, setIsVisible] = useState(false);
@@ -196,6 +197,7 @@ const indicatorExplanations = {
  * ✅ SAFE: Validate all signals with safeSignal()
  * ✅ NEW: Added educational tooltips
  */
+// IndicatorValueCards: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 function IndicatorValueCards({ latestCandle, activeIndicators }) {
   const { isDarkMode } = useDarkMode();
 
@@ -521,7 +523,7 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
           <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
             <div
               className={`px-3 py-1.5 rounded-lg text-center text-xs font-semibold uppercase ${getSignalBg(
-                card.signal
+                card.signal,
               )} ${getSignalColor(card.signal)}`}
             >
               {card.signal}
@@ -533,4 +535,5 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
   );
 }
 
+export { IndicatorValueCards };
 export default IndicatorValueCards;

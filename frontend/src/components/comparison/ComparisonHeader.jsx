@@ -1,5 +1,6 @@
 import { useDarkMode } from "../../contexts/DarkModeContext";
 
+// ComparisonHeader: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 export function ComparisonHeader() {
   const { isDarkMode } = useDarkMode();
 

@@ -1,4 +1,5 @@
-export default function ProfileCard({
+// ProfileCard: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+export function ProfileCard({
   user,
   isDarkMode,
   avatarPreview,
@@ -106,3 +107,5 @@ export default function ProfileCard({
     </div>
   );
 }
+
+export default ProfileCard;

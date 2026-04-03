@@ -24,6 +24,7 @@ const renderSignalIcon = (iconType, isDarkMode) => {
   }
 };
 
+// IndicatorTable: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 function IndicatorTable({ allIndicators, isDarkMode }) {
   if (allIndicators.length === 0) return null;
 
@@ -194,4 +195,5 @@ function IndicatorTable({ allIndicators, isDarkMode }) {
   );
 }
 
+export { IndicatorTable };
 export default IndicatorTable;

@@ -7,7 +7,8 @@ import {
   formatMarketCap,
 } from "../../utils/formatters";
 
-export default function CoinTable({
+// CoinTable: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+export function CoinTable({
   coins,
   isDarkMode,
   onClick,
@@ -366,3 +367,5 @@ export default function CoinTable({
     </div>
   );
 }
+
+export default CoinTable;

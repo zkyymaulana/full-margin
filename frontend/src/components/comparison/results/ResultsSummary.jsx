@@ -2,6 +2,7 @@ import { useDarkMode } from "../../../contexts/DarkModeContext";
 import { formatPercent, getROIColor } from "../utils";
 import { FiAward, FiAlertTriangle } from "react-icons/fi";
 
+// ResultsSummary: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 export function ResultsSummary({ displayData }) {
   const { isDarkMode } = useDarkMode();
 

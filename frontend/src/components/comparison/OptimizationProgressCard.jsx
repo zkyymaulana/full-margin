@@ -2,6 +2,7 @@ import { useDarkMode } from "../../contexts/DarkModeContext";
 import { FiSettings, FiClock, FiCheckCircle, FiX } from "react-icons/fi";
 import { useState, useEffect } from "react";
 
+// OptimizationProgressCard: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 export function OptimizationProgressCard({
   showEstimateProgress,
   estimateData,

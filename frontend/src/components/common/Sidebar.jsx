@@ -9,6 +9,7 @@ import { getUserProfile } from "../../services/api.service";
 import { FiBarChart2, FiTrendingUp, FiSliders } from "react-icons/fi";
 import { FaCoins } from "react-icons/fa6";
 
+// Sidebar: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 function Sidebar() {
   const { mutate: logout } = useLogout();
   const { isDarkMode } = useDarkMode();
@@ -218,4 +219,5 @@ function Sidebar() {
   );
 }
 
+export { Sidebar };
 export default Sidebar;

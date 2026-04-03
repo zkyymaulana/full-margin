@@ -2,6 +2,7 @@ import { useDarkMode } from "../../contexts/DarkModeContext";
 import { DateRangeSelector } from "./DateRangeSelector";
 import { ActionButtons } from "./ActionButtons";
 
+// BacktestParametersForm: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 export function BacktestParametersForm({
   startDate,
   endDate,

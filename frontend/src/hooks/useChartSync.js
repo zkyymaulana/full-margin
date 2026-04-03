@@ -1,18 +1,9 @@
 import { useRef, useCallback } from "react";
 
-/**
- * 🎯 TradingView Lightweight Charts Synchronization Hook
- * Synchronizes time range (pan/zoom) and crosshair across multiple charts
- *
- * Features:
- * ✅ Pan/Zoom sync (main chart → indicator charts)
- * ✅ Crosshair sync (bidirectional)
- * ✅ Timestamp tooltip on hover
- * ✅ Prevents circular sync loops
- */
+// Hook sinkronisasi antar chart (pan/zoom + crosshair + tooltip waktu).
 export const useChartSync = () => {
-  // ✅ Simpan referensi chart mana yang sedang jadi "source" sync
-  // null = tidak ada sync berjalan
+  // Simpan chart yang sedang menjadi sumber sinkronisasi.
+  // Nilai null berarti tidak ada proses sinkronisasi aktif.
   const syncSourceRef = useRef(null);
   const crosshairSyncRef = useRef(false);
   const crosshairUnsubscribersRef = useRef({});
@@ -20,7 +11,7 @@ export const useChartSync = () => {
   const allCandlesDataRef = useRef([]);
   const currentVisibleRangeRef = useRef(null);
 
-  // 🔧 Format timestamp untuk tooltip
+  // Format timestamp agar tooltip mudah dibaca user Indonesia.
   const formatTimestamp = useCallback((time) => {
     if (!time) return "";
 
@@ -35,7 +26,7 @@ export const useChartSync = () => {
     });
   }, []);
 
-  // 🎯 Crosshair sync
+  // Sinkronkan posisi crosshair dari chart sumber ke chart target.
   const syncCrosshair = useCallback((sourceChart, targetCharts, param) => {
     if (crosshairSyncRef.current) return;
     crosshairSyncRef.current = true;
@@ -45,7 +36,7 @@ export const useChartSync = () => {
         if (!chart || chart === sourceChart) return;
         try {
           if (param && param.time !== undefined && param.point) {
-            // Use setCrosshairPosition with first available series
+            // Ambil series pertama sebagai referensi posisi crosshair.
             const allSeries = chart.series ? chart.series() : [];
             if (allSeries.length > 0) {
               const priceEntry =
@@ -65,7 +56,7 @@ export const useChartSync = () => {
             chart.clearCrosshairPosition();
           }
         } catch (e) {
-          // ignore disposed chart errors
+          // Abaikan error chart yang sudah dispose.
         }
       });
     } finally {
@@ -73,7 +64,7 @@ export const useChartSync = () => {
     }
   }, []);
 
-  // 🎯 Setup crosshair sync + timestamp tooltip
+  // Pasang listener crosshair dan tooltip timestamp untuk satu chart.
   const setupCrosshairSync = useCallback(
     (chart, allCharts, chartType) => {
       if (!chart) return null;
@@ -135,16 +126,16 @@ export const useChartSync = () => {
         const chartElement = chart.chartElement?.();
         if (chartElement) {
           const tooltip = chartElement.querySelector(
-            ".chart-timestamp-tooltip"
+            ".chart-timestamp-tooltip",
           );
           if (tooltip) tooltip.remove();
         }
       };
     },
-    [syncCrosshair, formatTimestamp]
+    [syncCrosshair, formatTimestamp],
   );
 
-  // 🎯 Setup full chart sync (range + crosshair)
+  // Pasang sinkronisasi lengkap: visible range dan crosshair.
   const setupChartSync = useCallback(
     (chart, allCharts, chartType = "unknown") => {
       if (!chart) return null;
@@ -155,13 +146,12 @@ export const useChartSync = () => {
       const otherCharts = allCharts.filter((c) => c !== chart);
       let isDisposed = false;
 
-      // ✅ Subscribe to logical range — use requestAnimationFrame to batch rapid events
+      // Subscribe perubahan logical range lalu dorong ke chart lain.
       const unsubscribeLogicalRange =
         timeScale.subscribeVisibleLogicalRangeChange(() => {
           if (isDisposed) return;
 
-          // ✅ Jika ada chart lain yang sedang jadi source, abaikan event ini
-          // (ini adalah event "balik" yang terpicu dari setVisibleLogicalRange)
+          // Jika chart lain sedang menjadi source, abaikan event balik ini.
           if (
             syncSourceRef.current !== null &&
             syncSourceRef.current !== chart
@@ -169,7 +159,7 @@ export const useChartSync = () => {
             return;
           }
 
-          // ✅ Tandai chart ini sebagai source
+          // Tandai chart ini sebagai sumber sinkronisasi.
           syncSourceRef.current = chart;
 
           try {
@@ -179,8 +169,7 @@ export const useChartSync = () => {
             const visibleRange = timeScale.getVisibleRange();
             if (visibleRange) currentVisibleRangeRef.current = visibleRange;
 
-            // ✅ Langsung sync — TANPA requestAnimationFrame
-            // RAF menyebabkan delay yang memungkinkan event balik lolos
+            // Sinkronkan langsung tanpa RAF agar mencegah loop event balik.
             otherCharts.forEach((target) => {
               if (!target || typeof target.timeScale !== "function") return;
               try {
@@ -192,7 +181,7 @@ export const useChartSync = () => {
               }
             });
           } finally {
-            // ✅ Reset source setelah semua target selesai di-set
+            // Reset source setelah sinkronisasi selesai.
             syncSourceRef.current = null;
           }
         });
@@ -200,13 +189,13 @@ export const useChartSync = () => {
       const unsubscribeCrosshair = setupCrosshairSync(
         chart,
         allCharts,
-        chartType
+        chartType,
       );
 
       return () => {
         console.log(`[ChartSync] Cleaning up sync for "${chartType}" chart`);
         isDisposed = true;
-        // Pastikan flag source bersih jika chart ini adalah source saat di-cleanup
+        // Pastikan source dibersihkan saat chart dibongkar.
         if (syncSourceRef.current === chart) syncSourceRef.current = null;
 
         try {
@@ -221,7 +210,7 @@ export const useChartSync = () => {
         }
       };
     },
-    [setupCrosshairSync]
+    [setupCrosshairSync],
   );
 
   return {
@@ -229,6 +218,7 @@ export const useChartSync = () => {
     setupCrosshairSync,
     dataRangeRef,
     allCandlesDataRef,
-    currentVisibleRangeRef, // 🆕 Add to return for backward compatibility
+    // Tetap diexpose untuk kompatibilitas dengan pemakaian lama.
+    currentVisibleRangeRef,
   };
 };

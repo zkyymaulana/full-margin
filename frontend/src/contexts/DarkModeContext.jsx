@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect } from "react";
 
 const DarkModeContext = createContext();
 
+// Hook helper untuk mengakses state dark mode.
 export const useDarkMode = () => {
   const context = useContext(DarkModeContext);
   if (!context) {
@@ -12,13 +13,13 @@ export const useDarkMode = () => {
 
 export const DarkModeProvider = ({ children }) => {
   const [isDarkMode, setIsDarkMode] = useState(() => {
-    // Check localStorage first
+    // Prioritas 1: baca preferensi yang pernah disimpan user.
     const saved = localStorage.getItem("darkMode");
     if (saved !== null) {
       return saved === "true";
     }
 
-    // Fallback to system preference
+    // Prioritas 2: fallback ke preferensi sistem operasi/browser.
     if (window.matchMedia) {
       return window.matchMedia("(prefers-color-scheme: dark)").matches;
     }
@@ -26,7 +27,7 @@ export const DarkModeProvider = ({ children }) => {
     return false;
   });
 
-  // Apply dark mode class to document
+  // Terapkan class tema ke root dokumen setiap state berubah.
   useEffect(() => {
     const root = document.documentElement;
 
@@ -36,20 +37,22 @@ export const DarkModeProvider = ({ children }) => {
       root.classList.remove("dark");
     }
 
-    // Save to localStorage
+    // Simpan preferensi agar persisten saat reload.
     localStorage.setItem("darkMode", isDarkMode.toString());
 
-    // Update meta theme color
+    // Update meta theme-color untuk browser mobile.
     updateMetaThemeColor(isDarkMode ? "#111827" : "#ffffff");
 
-    // Debug log
+    // Log sederhana untuk bantu debugging tema.
     console.log(`🎨 Dark Mode: ${isDarkMode ? "ON 🌙" : "OFF ☀️"}`);
   }, [isDarkMode]);
 
+  // Toggle status dark mode.
   const toggleDarkMode = () => {
     setIsDarkMode((prev) => !prev);
   };
 
+  // Pastikan elemen meta theme-color selalu tersedia.
   const updateMetaThemeColor = (color) => {
     let meta = document.querySelector('meta[name="theme-color"]');
     if (!meta) {

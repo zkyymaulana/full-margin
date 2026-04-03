@@ -13,6 +13,7 @@ import IndicatorValueCards from "../components/dashboard/IndicatorValueCards";
 import OHLCVCard from "../components/dashboard/OHLCVCard";
 import TopCoinsSection from "../components/dashboard/TopCoinsSection";
 
+// Halaman dashboard: menampilkan chart utama, oscillator, indikator, dan top coin.
 function DashboardPage() {
   const { selectedSymbol } = useSymbol();
   const { isDarkMode } = useDarkMode();
@@ -21,17 +22,17 @@ function DashboardPage() {
   const [allCandlesData, setAllCandlesData] = useState([]);
   const [hoveredCandle, setHoveredCandle] = useState(null);
 
-  // Chart refs
+  // Referensi chart dipakai untuk sinkronisasi, update data, dan pagination.
   const chartRef = useRef(null);
   const seriesRef = useRef(null);
   const oscillatorChartsRef = useRef({});
   const syncCleanupRef = useRef(null);
 
-  // Custom hooks
+  // Hook custom untuk sinkronisasi chart dan infinite scroll candle.
   const chartSync = useChartSync();
   const pagination = useChartPagination(allCandlesData, setAllCandlesData);
 
-  // Fetch data
+  // Ambil data candle halaman pertama untuk simbol + timeframe aktif.
   const { data: candlesData, isLoading: candlesLoading } = useQuery({
     queryKey: ["candles", selectedSymbol, timeframe],
     queryFn: () =>
@@ -45,17 +46,18 @@ function DashboardPage() {
 
   const { data: marketCapData } = useMarketCapLive();
 
-  // Initialize data - RESET state when new data arrives
+  // Inisialisasi data candle setiap kali response API terbaru datang.
   useEffect(() => {
     if (candlesData?.success && candlesData.data?.length) {
       console.log("🔄 [DATA REFRESH] New candles data received from API");
       console.log(`📊 Total candles: ${candlesData.data.length}`);
 
-      // ✅ FORCE RESET state to clear old data
-      setAllCandlesData([]); // Clear first
+      // Bersihkan state dulu untuk mencegah data lama tertinggal.
+      setAllCandlesData([]);
 
       setTimeout(() => {
-        setAllCandlesData(candlesData.data); // Then set new data
+        // Isi ulang dengan data baru dari backend.
+        setAllCandlesData(candlesData.data);
         console.log("✅ [STATE RESET] allCandlesData updated with fresh data");
 
         // Debug: Log first candle's multiSignal
@@ -71,13 +73,13 @@ function DashboardPage() {
     }
   }, [candlesData]);
 
-  // Setup pagination listener
+  // Pasang listener pagination agar scroll kiri bisa memuat data historis.
   useEffect(() => {
     if (!chartRef.current || !seriesRef.current) return;
 
     const cleanup = pagination.setupPaginationListener(
       chartRef.current,
-      seriesRef.current
+      seriesRef.current,
     );
 
     return () => {
@@ -88,7 +90,7 @@ function DashboardPage() {
     };
   }, [pagination.setupPaginationListener]);
 
-  // Update chart data range
+  // Sinkronkan data series utama setiap isi allCandlesData berubah.
   useEffect(() => {
     if (!seriesRef.current || !allCandlesData.length) return;
 
@@ -111,7 +113,7 @@ function DashboardPage() {
       };
     }
 
-    // Fit content only for initial load
+    // Fit content hanya saat load awal agar posisi user tidak sering ter-reset.
     if (
       chartRef.current &&
       allCandlesData.length === candlesData?.data?.length
@@ -124,9 +126,9 @@ function DashboardPage() {
     }
   }, [allCandlesData, candlesData?.data?.length]);
 
-  // 🎯 Fungsi untuk (re)setup semua sync — dipanggil kapanpun chart berubah
+  // Setup ulang sinkronisasi seluruh chart (main + oscillator).
   const setupAllSync = useCallback(() => {
-    // Cleanup sync lama dulu
+    // Hentikan sinkronisasi lama sebelum membuat yang baru.
     if (syncCleanupRef.current) {
       syncCleanupRef.current();
       syncCleanupRef.current = null;
@@ -137,7 +139,8 @@ function DashboardPage() {
       ...Object.values(oscillatorChartsRef.current),
     ].filter(Boolean);
 
-    if (allCharts.length < 2) return; // butuh minimal main + 1 oscillator
+    // Sinkronisasi butuh minimal 2 chart.
+    if (allCharts.length < 2) return;
 
     console.log(`[ChartSync] Setup sync for ${allCharts.length} charts`);
 
@@ -161,12 +164,12 @@ function DashboardPage() {
     console.log("[ChartSync] ✅ Sync setup complete!");
   }, [chartSync]);
 
-  // 🎯 Callback dari OscillatorCharts — dipanggil tepat saat chart baru siap
+  // Callback saat chart oscillator selesai dibuat.
   const handleChartReady = useCallback(
     (chartKey, chart) => {
       console.log(`[ChartSync] Chart ready: ${chartKey}`);
 
-      // 1️⃣ Langsung apply logical range main chart ke chart baru
+      // Samakan visible range chart baru dengan main chart.
       if (chartRef.current) {
         try {
           const logicalRange = chartRef.current
@@ -180,23 +183,23 @@ function DashboardPage() {
         }
       }
 
-      // 2️⃣ Re-setup semua sync agar chart baru masuk ke jaringan sync
+      // Re-setup sync agar chart baru ikut tersinkron.
       setupAllSync();
     },
-    [setupAllSync]
+    [setupAllSync],
   );
 
-  // 🎯 CENTRALIZED CHART SYNC SETUP — hanya re-run saat activeIndicators berubah
+  // Setup sinkronisasi terpusat, dijalankan saat indikator aktif berubah.
   useEffect(() => {
     // Saat indikator di-toggle OFF (chart dihapus), re-setup sync
     // Saat indikator di-toggle ON, handleChartReady yang akan setup
     const oscillatorIds = ["rsi", "stochastic", "stochasticRsi", "macd"];
     const hasActiveOscillators = activeIndicators.some((id) =>
-      oscillatorIds.includes(id)
+      oscillatorIds.includes(id),
     );
 
     if (!hasActiveOscillators) {
-      // Semua oscillator off — cleanup sync
+      // Saat semua oscillator off, cleanup sync agar ringan.
       if (syncCleanupRef.current) {
         syncCleanupRef.current();
         syncCleanupRef.current = null;
@@ -204,12 +207,12 @@ function DashboardPage() {
       return;
     }
 
-    // Ada oscillator aktif — re-setup dengan delay kecil untuk handle chart removal
+    // Delay kecil membantu saat transisi chart add/remove.
     const t = setTimeout(() => setupAllSync(), 50);
     return () => clearTimeout(t);
   }, [activeIndicators, setupAllSync]);
 
-  // Cleanup saat unmount
+  // Cleanup akhir saat halaman unmount.
   useEffect(() => {
     return () => {
       if (syncCleanupRef.current) {
@@ -219,22 +222,22 @@ function DashboardPage() {
     };
   }, []);
 
-  // Toggle indicator
+  // Toggle indikator overlay/oscillator yang aktif.
   const toggleIndicator = (indicatorId) => {
     setActiveIndicators((prev) =>
       prev.includes(indicatorId)
         ? prev.filter((id) => id !== indicatorId)
-        : [...prev, indicatorId]
+        : [...prev, indicatorId],
     );
   };
 
-  // Get latest candle
+  // Ambil candle terbaru untuk OHLCV dan kartu indikator.
   const latestCandle =
     candlesData?.success && candlesData.data?.length > 0
       ? candlesData.data[0]
       : null;
 
-  // Get top coins
+  // Ambil 5 coin teratas dari data market cap live.
   const topCoins = marketCapData?.success ? marketCapData.data.slice(0, 5) : [];
 
   const timeframes = [{ value: "1h", label: "1h" }];
@@ -290,8 +293,8 @@ function DashboardPage() {
                         ? "bg-blue-900 text-blue-300"
                         : "bg-blue-100 text-blue-600"
                       : isDarkMode
-                      ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
                   {tf.label}
@@ -362,4 +365,5 @@ function DashboardPage() {
   );
 }
 
+export { DashboardPage };
 export default DashboardPage;

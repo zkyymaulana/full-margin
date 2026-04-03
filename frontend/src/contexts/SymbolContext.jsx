@@ -5,9 +5,10 @@ const SymbolContext = createContext();
 const STORAGE_KEY = "selectedSymbol";
 const DEFAULT_SYMBOL = "BTC-USD";
 
+// Validasi format simbol pair, contoh: BTC-USD.
 const isValidSymbol = (symbol) => {
   if (!symbol || typeof symbol !== "string") return false;
-  // Format: XXX-USD atau XXX-EUR (misal: BTC-USD, ETH-USD)
+  // Format umum: XXX-USD, ETH-USD, dan variasi pair lain.
   return /^[A-Z0-9]+-[A-Z]+$/.test(symbol);
 };
 
@@ -15,12 +16,12 @@ export function SymbolProvider({ children }) {
   const [selectedSymbol, setSelectedSymbol] = useState(DEFAULT_SYMBOL);
   const [isLoading, setIsLoading] = useState(true);
 
-  // ✅ Default first login selalu BTC-USD agar konsisten
+  // Inisialisasi simbol dari localStorage; fallback ke default bila tidak valid.
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
 
-      // Jika ada di localStorage dan valid, gunakan itu
+      // Jika nilai tersimpan valid, gunakan nilai tersebut.
       if (stored && isValidSymbol(stored)) {
         setSelectedSymbol(stored);
       } else {
@@ -37,6 +38,7 @@ export function SymbolProvider({ children }) {
   useEffect(() => {
     try {
       if (selectedSymbol && isValidSymbol(selectedSymbol)) {
+        // Simpan simbol aktif agar konsisten antar halaman/reload.
         localStorage.setItem(STORAGE_KEY, selectedSymbol);
         console.log("💾 Saved symbol to localStorage:", selectedSymbol);
       }
@@ -45,19 +47,21 @@ export function SymbolProvider({ children }) {
     }
   }, [selectedSymbol]);
 
+  // Update simbol aktif dari UI.
   const updateSelectedSymbol = (newSymbol) => {
     if (isValidSymbol(newSymbol)) {
       setSelectedSymbol(newSymbol);
     } else {
       console.error("❌ Invalid symbol format:", newSymbol);
-      // Tetap set, tapi log warning
+      // Perilaku lama dipertahankan: tetap set meskipun format tidak valid.
       setSelectedSymbol(newSymbol);
     }
   };
 
+  // Reset simbol ke default dan bersihkan penyimpanan lokal.
   const resetSymbol = async () => {
     try {
-      // ✅ Reset ke default tetap
+      // Selalu reset ke simbol default.
       setSelectedSymbol(DEFAULT_SYMBOL);
       localStorage.removeItem(STORAGE_KEY);
       console.log("🗑️ Symbol reset to default:", DEFAULT_SYMBOL);
@@ -67,6 +71,7 @@ export function SymbolProvider({ children }) {
     }
   };
 
+  // Value context yang dikonsumsi komponen turunan.
   const value = {
     selectedSymbol,
     setSelectedSymbol: updateSelectedSymbol,

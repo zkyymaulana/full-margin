@@ -1,4 +1,5 @@
-export default function SettingsHeader({ t }) {
+// SettingsHeader: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+export function SettingsHeader({ t }) {
   return (
     <div>
       <h1
@@ -20,3 +21,5 @@ export default function SettingsHeader({ t }) {
     </div>
   );
 }
+
+export default SettingsHeader;

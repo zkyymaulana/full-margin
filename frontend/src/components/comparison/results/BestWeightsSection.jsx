@@ -1,5 +1,6 @@
 import { useDarkMode } from "../../../contexts/DarkModeContext";
 
+// BestWeightsSection: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 export function BestWeightsSection({ displayData }) {
   const { isDarkMode } = useDarkMode();
 

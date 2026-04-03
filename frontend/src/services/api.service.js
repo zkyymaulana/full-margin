@@ -1,24 +1,11 @@
-/**
- * API Service Module - React version with Axios
- * Centralized API management
- */
+// Modul service API frontend berbasis Axios.
+// Semua request HTTP dikumpulkan di sini agar pemakaian di komponen lebih rapi.
 import axios from "axios";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-// =====================================================
-// 🔧 AXIOS CONFIGURATION
-// =====================================================
-
-/**
- * Global Axios Instance with Extended Timeout
- *
- * Default timeout: 120000ms (2 minutes)
- * Suitable for heavy backend processes like backtesting and analysis
- *
- * Per-request timeout override example:
- * apiClient.get('/endpoint', { timeout: 60000 })
- */
+// Konfigurasi instance Axios global.
+// Timeout default dibuat panjang karena ada proses backend yang berat (analisis/backtest).
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 120000,
@@ -28,7 +15,7 @@ const apiClient = axios.create({
   },
 });
 
-// Request interceptor - add auth token
+// Interceptor request: sisipkan token auth bila tersedia.
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("authToken");
@@ -42,37 +29,37 @@ apiClient.interceptors.request.use(
   },
 );
 
-// Response interceptor - handle 401 and 403 token errors
+// Interceptor response: tangani error token (401/403) secara terpusat.
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    // ✅ Handle network errors dan timeout tanpa log spam
+    // Tangani error jaringan/timeout tanpa membanjiri log.
     if (!error.response) {
-      // Network error, timeout, atau server tidak response
+      // Kondisi: jaringan putus, timeout, atau server tidak merespons.
       if (error.code === "ECONNABORTED") {
-        // Timeout - silent, biarkan caller yang handle
+        // Timeout dibiarkan ditangani caller agar UI bisa menentukan respons.
         return Promise.reject(error);
       }
       if (error.message === "Network Error") {
         console.error("🌐 Network Error: Server tidak dapat dijangkau");
         return Promise.reject(error);
       }
-      // Error lain tanpa response (e.g., request canceled)
+      // Error lain tanpa response (contoh: request dibatalkan).
       return Promise.reject(error);
     }
 
-    // ✅ Hanya log jika ada response
+    // Log detail hanya jika server memberi response.
     const status = error.response.status;
     const errorMessage = error.response.data?.message || "";
     const errorSuccess = error.response.data?.success;
 
     console.log("🔍 API Error intercepted:", status, errorMessage);
 
-    // Handle 401 Unauthorized OR 403 Forbidden (token errors)
+    // Tangani 401/403 yang berkaitan dengan token.
     if (status === 401 || status === 403) {
       console.log(`🚨 ${status} Error detected:`, errorMessage);
 
-      // Check if error is related to invalid or expired token
+      // Deteksi berbagai pesan error token tidak valid/kadaluarsa.
       const isTokenError =
         errorSuccess === false &&
         (errorMessage.includes("Token tidak valid") ||
@@ -89,7 +76,7 @@ apiClient.interceptors.response.use(
         console.log("🔒 Token invalid or expired. Logging out...");
         console.log("🧹 Clearing localStorage...");
 
-        // Clear all auth data immediately
+        // Hapus data autentikasi lokal agar sesi benar-benar bersih.
         localStorage.removeItem("authToken");
         localStorage.removeItem("userId");
         localStorage.removeItem("userEmail");
@@ -99,7 +86,7 @@ apiClient.interceptors.response.use(
 
         console.log("✅ localStorage cleared");
 
-        // Show notification
+        // Tampilkan notifikasi singkat sebelum redirect.
         const toastElement = document.createElement("div");
         toastElement.className =
           "fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-[9999] flex items-center gap-2 animate-pulse";
@@ -113,12 +100,12 @@ apiClient.interceptors.response.use(
 
         console.log("🔄 Redirecting to login page in 1 second...");
 
-        // Force redirect to login immediately
+        // Redirect paksa ke halaman login.
         setTimeout(() => {
           toastElement.remove();
           console.log("🚀 Executing redirect now...");
 
-          // Multiple redirect methods to ensure it works
+          // Gunakan fallback redirect untuk berjaga-jaga jika metode pertama gagal.
           if (window.location.pathname !== "/login") {
             window.location.href = "/login";
 
@@ -129,7 +116,7 @@ apiClient.interceptors.response.use(
           }
         }, 1000);
 
-        // Prevent further API calls
+        // Tandai error sudah ditangani agar alur atas bisa mengenali status ini.
         return Promise.reject({
           ...error,
           handled: true,
@@ -142,17 +129,17 @@ apiClient.interceptors.response.use(
   },
 );
 
-// =====================================================
-// 📊 API METHODS
-// =====================================================
+// ==============================
+// API Methods - Market & Chart
+// ==============================
 
-// Marketcap symbols (for search dropdown)
+// Ambil daftar simbol marketcap untuk dropdown pencarian.
 export const getMarketcapSymbols = async () => {
   const { data } = await apiClient.get("/marketcap/symbol");
   return data?.symbols || [];
 };
 
-// Indicator (single) - Unified endpoint with mode support
+// Ambil data indikator dari endpoint terpadu (mendukung mode latest/paginated).
 export const fetchIndicator = async (
   symbol = "BTC-USD",
   mode = "latest",
@@ -164,17 +151,16 @@ export const fetchIndicator = async (
   return data;
 };
 
-// ❌ DEPRECATED: Multi-indicator (replaced by fetchIndicator with mode=latest)
-// Keep for backward compatibility but not used anymore
+// Deprecated: dipertahankan untuk kompatibilitas impor lama.
 export const fetchMultiIndicator = async (symbol = "BTC-USD") => {
   console.warn(
     "⚠️ fetchMultiIndicator is deprecated. Use fetchIndicator with mode=latest instead.",
   );
-  // Redirect to new endpoint
+  // Alihkan ke endpoint baru agar perilaku tetap konsisten.
   return fetchIndicator(symbol, "latest", "1h");
 };
 
-// Candlestick data
+// Ambil data candlestick standar.
 export const fetchCandles = async (symbol = "BTC-USD", timeframe = "1h") => {
   const { data } = await apiClient.get(`/chart/${symbol}`, {
     params: { timeframe },
@@ -183,7 +169,7 @@ export const fetchCandles = async (symbol = "BTC-USD", timeframe = "1h") => {
   return data;
 };
 
-// Candlestick data with pagination support
+// Ambil data candlestick dengan dukungan pagination.
 export const fetchCandlesWithPagination = async (
   symbol = "BTC-USD",
   timeframe = "1h",
@@ -197,27 +183,23 @@ export const fetchCandlesWithPagination = async (
   return data;
 };
 
-// Fetch candles by full URL (for pagination next/prev)
+// Ambil data candle dari URL pagination full (next/prev).
 export const fetchCandlesByUrl = async (url, signal = null) => {
-  // ✅ FIX: Remove base URL to work with apiClient
-  // Full URL example: http://localhost:8000/api/chart/BTC-USD?page=2&limit=1000
-  // We need: /chart/BTC-USD?page=2&limit=1000
+  // apiClient sudah punya baseURL, jadi URL absolut harus dipotong ke path relatif.
 
-  // Parse the URL
+  // Parse URL penuh dari pagination response backend.
   const parsedUrl = new URL(url);
 
-  // Get the path without '/api' prefix
-  // Example: /api/chart/BTC-USD → /chart/BTC-USD
+  // Hapus prefix /api agar cocok dengan baseURL apiClient.
   const pathWithoutApi = parsedUrl.pathname.replace("/api", "");
 
-  // Get query parameters
-  // Example: ?page=2&limit=1000
+  // Ambil query string (page, limit, dll).
   const queryString = parsedUrl.search;
 
-  // Combine path + query
+  // Gabungkan path dan query menjadi endpoint final.
   const finalPath = pathWithoutApi + queryString;
 
-  // Make request with auth token (automatically added by apiClient)
+  // Token auth ditambahkan otomatis oleh interceptor request.
   const { data } = await apiClient.get(finalPath, {
     timeout: 10000,
     signal, // ✅ Support AbortController signal
@@ -226,7 +208,7 @@ export const fetchCandlesByUrl = async (url, signal = null) => {
   return data;
 };
 
-// Marketcap live - always fetch 20 coins
+// Ambil marketcap live (default 20 coin dari backend).
 export const fetchMarketCapLive = async () => {
   const { data } = await apiClient.get("/marketcap/live", {
     timeout: 60000,
@@ -234,7 +216,7 @@ export const fetchMarketCapLive = async () => {
   return data;
 };
 
-// Comparison (custom body) - Heavy process requiring extended timeout
+// Jalankan comparison custom body (proses berat, timeout panjang).
 export const fetchComparison = async (requestBody) => {
   const { data } = await apiClient.post("/comparison/compare", requestBody, {
     timeout: 120000, // ✅ 2 minutes for backtesting analysis
@@ -242,7 +224,7 @@ export const fetchComparison = async (requestBody) => {
   return data;
 };
 
-// Quick comparison (preset) - Heavy process requiring extended timeout
+// Jalankan quick comparison berbasis preset (proses berat, timeout panjang).
 export const fetchQuickComparison = async (
   symbol,
   preset = "balanced",
@@ -262,13 +244,13 @@ export const fetchQuickComparison = async (
   return data;
 };
 
-// Auth - Login
+// Login pengguna.
 export const login = async (email, password) => {
   const { data } = await apiClient.post("/auth/login", { email, password });
   return data;
 };
 
-// Auth - Register
+// Registrasi pengguna.
 export const register = async (email, password, name) => {
   const { data } = await apiClient.post("/auth/register", {
     email,
@@ -278,74 +260,69 @@ export const register = async (email, password, name) => {
   return data;
 };
 
-// Auth - Logout
+// Logout sesi aktif.
 export const logout = async () => {
   const { data } = await apiClient.post("/auth/logout");
   return data;
 };
 
-// User Profile - Get profile
+// Ambil profil user yang sedang login.
 export const getUserProfile = async () => {
   const { data } = await apiClient.get("/user/profile");
   return data;
 };
 
-// User Profile - Update profile
+// Perbarui data profil user.
 export const updateUserProfile = async (profileData) => {
   const { data } = await apiClient.put("/user/profile", profileData);
   return data;
 };
 
-// User Profile - Change password
+// Ganti password user.
 export const changeUserPassword = async (passwordData) => {
   const { data } = await apiClient.put("/user/profile", passwordData);
   return data;
 };
 
-// =====================================================
-// 📱 TELEGRAM API METHODS
-// =====================================================
+// ============================
+// API Methods - Telegram
+// ============================
 
-// Get Telegram configuration
+// Ambil konfigurasi telegram user.
 export const getTelegramConfig = async () => {
   const { data } = await apiClient.get("/telegram/config");
   return data;
 };
 
-// Toggle Telegram notifications
+// Aktif/nonaktif notifikasi telegram.
 export const toggleTelegram = async (enabled) => {
   const { data } = await apiClient.post("/telegram/toggle", { enabled });
   return data;
 };
 
-// Test Telegram connection
+// Uji koneksi telegram.
 export const testTelegramConnection = async () => {
   const { data } = await apiClient.get("/telegram/test");
   return data;
 };
 
-// ✅ NEW: Update user Telegram settings (Multi-User)
+// Perbarui pengaturan telegram per user.
 export const updateUserTelegramSettings = async (userId, settings) => {
   const { data } = await apiClient.patch(`/user/${userId}/telegram`, settings);
   return data;
 };
 
-// ✅ NEW: Get user profile with Telegram info
+// Ambil profil user termasuk info telegram.
 export const getUserTelegramInfo = async () => {
   const { data } = await apiClient.get("/user/profile");
   return data;
 };
 
-// =====================================================
-// 🔄 MULTI-INDICATOR OPTIMIZATION API
-// =====================================================
+// =========================================
+// API Methods - Multi-Indicator Optimization
+// =========================================
 
-/**
- * Request Multi-Indicator Optimization (Auto-detect: Full vs Incremental)
- * Trigger optimization for a specific symbol and timeframe
- * - If no existing weights → Run FULL exhaustive search
- * - If existing weights → Run INCREMENTAL local search
- */
+// Minta proses optimasi bobot indikator (full/incremental dipilih backend).
 export const requestOptimization = async (
   symbol = "BTC-USD",
   timeframe = "1h",
@@ -355,19 +332,13 @@ export const requestOptimization = async (
     {},
     {
       params: { timeframe },
-      timeout: 7200000, // 🆕 2 hours (120 minutes) - untuk full exhaustive search
+      timeout: 7200000, // 2 jam: antisipasi proses exhaustive yang panjang.
     },
   );
   return data;
 };
 
-/**
- * Force Reoptimization (Full Exhaustive Search)
- * Trigger FULL optimization even if weights already exist
- * @param {string} symbol - Trading symbol (e.g., "BTC-USD")
- * @param {string} timeframe - Timeframe (default: "1h")
- * @returns {Promise} Optimization result
- */
+// Paksa re-optimasi penuh meskipun bobot sebelumnya sudah ada.
 export const forceReoptimization = async (
   symbol = "BTC-USD",
   timeframe = "1h",
@@ -377,19 +348,13 @@ export const forceReoptimization = async (
     { force: true },
     {
       params: { timeframe },
-      timeout: 3600000, // 60 menit (1 jam) - untuk full exhaustive search
+      timeout: 3600000, // 60 menit untuk mode full.
     },
   );
   return data;
 };
 
-/**
- * Get Optimization Time Estimate
- * Get estimated time for optimization based on data points
- * @param {string} symbol - Trading symbol (e.g., "BTC-USD")
- * @param {string} timeframe - Timeframe (default: "1h")
- * @returns {Promise} Estimate data
- */
+// Ambil estimasi waktu optimasi untuk simbol dan timeframe tertentu.
 export const getOptimizationEstimate = async (
   symbol = "BTC-USD",
   timeframe = "1h",
@@ -401,9 +366,7 @@ export const getOptimizationEstimate = async (
   return data;
 };
 
-/**
- * Get optimization job status for fallback polling when SSE disconnects.
- */
+// Ambil status job optimasi untuk fallback polling saat SSE terputus.
 export const getOptimizationStatus = async (symbol = "BTC-USD") => {
   const { data } = await apiClient.get(`/multiIndicator/${symbol}/status`, {
     timeout: 10000,
@@ -411,31 +374,29 @@ export const getOptimizationStatus = async (symbol = "BTC-USD") => {
   return data;
 };
 
-/**
- * 🆕 Cancel optimization
- */
+// Batalkan job optimasi yang sedang berjalan.
 export const cancelOptimization = async (symbol) => {
   const { data } = await apiClient.post(`/multiIndicator/${symbol}/cancel`);
   return data;
 };
 
-// =====================================================
-// ⭐ WATCHLIST API METHODS
-// =====================================================
+// ============================
+// API Methods - Watchlist
+// ============================
 
-// Get current user's watchlist
+// Ambil watchlist milik user saat ini.
 export const getWatchlist = async () => {
   const { data } = await apiClient.get("/watchlist");
   return data;
 };
 
-// Add a coin to the watchlist
+// Tambahkan coin ke watchlist.
 export const addToWatchlist = async (coinId) => {
   const { data } = await apiClient.post("/watchlist", { coinId });
   return data;
 };
 
-// Remove a coin from the watchlist
+// Hapus coin dari watchlist.
 export const removeFromWatchlist = async (coinId) => {
   const { data } = await apiClient.delete(`/watchlist/${coinId}`);
   return data;

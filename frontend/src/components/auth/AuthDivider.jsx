@@ -1,6 +1,7 @@
 import { useDarkMode } from "../../contexts/DarkModeContext";
 
-export default function AuthDivider({ text }) {
+// AuthDivider: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+export function AuthDivider({ text }) {
   const { isDarkMode } = useDarkMode();
 
   return (
@@ -24,3 +25,5 @@ export default function AuthDivider({ text }) {
     </div>
   );
 }
+
+export default AuthDivider;

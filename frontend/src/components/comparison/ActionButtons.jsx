@@ -1,6 +1,7 @@
 import { useDarkMode } from "../../contexts/DarkModeContext";
 import { FiSearch } from "react-icons/fi";
 
+// ActionButtons: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 export function ActionButtons({ handleCompare, isLoading, isPending }) {
   const { isDarkMode } = useDarkMode();
 

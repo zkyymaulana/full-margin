@@ -15,6 +15,7 @@ import {
   AuthFooterLink,
 } from "../components/auth";
 
+// Halaman register: pendaftaran akun baru via form atau Google.
 function Register() {
   const [formData, setFormData] = useState({
     name: "",
@@ -27,6 +28,7 @@ function Register() {
   const { mutate: register, isLoading } = useRegister();
   const { isDarkMode, toggleDarkMode } = useDarkMode();
 
+  // Handle perubahan field form register.
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -34,16 +36,17 @@ function Register() {
     });
   };
 
+  // Handle submit register dengan validasi dasar.
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Validate passwords match
+    // Validasi kecocokan password dan konfirmasi.
     if (formData.password !== formData.confirmPassword) {
       showErrorToast("Passwords do not match!");
       return;
     }
 
-    // Validate password length
+    // Validasi panjang minimum password.
     if (formData.password.length < 6) {
       showErrorToast("Password must be at least 6 characters long!");
       return;
@@ -62,13 +65,14 @@ function Register() {
         onError: (error) => {
           showErrorToast(
             error?.response?.data?.message ||
-              "Registration failed. Please try again."
+              "Registration failed. Please try again.",
           );
         },
-      }
+      },
     );
   };
 
+  // Handle callback sukses dari Google OAuth.
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
       const response = await fetch("http://localhost:8000/api/auth/google", {
@@ -99,6 +103,7 @@ function Register() {
     }
   };
 
+  // Handle callback gagal dari Google OAuth.
   const handleGoogleError = () => {
     showErrorToast("Google registration failed. Please try again.");
   };
@@ -275,4 +280,5 @@ function Register() {
   );
 }
 
+export { Register };
 export default Register;

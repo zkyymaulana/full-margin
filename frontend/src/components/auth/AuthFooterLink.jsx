@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import { useDarkMode } from "../../contexts/DarkModeContext";
 
-export default function AuthFooterLink({ text, linkText, to }) {
+// AuthFooterLink: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+export function AuthFooterLink({ text, linkText, to }) {
   const { isDarkMode } = useDarkMode();
 
   return (
@@ -24,3 +25,5 @@ export default function AuthFooterLink({ text, linkText, to }) {
     </div>
   );
 }
+
+export default AuthFooterLink;

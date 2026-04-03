@@ -3,7 +3,8 @@ import WatchlistStatus from "./WatchlistStatus";
 import ChatIdGuide from "./ChatIdGuide";
 import PreferencesCard from "./PreferencesCard";
 
-export default function TelegramSettingsCard({
+// TelegramSettingsCard: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+export function TelegramSettingsCard({
   t,
   cardClass,
   isDarkMode,
@@ -221,3 +222,5 @@ export default function TelegramSettingsCard({
     </div>
   );
 }
+
+export default TelegramSettingsCard;

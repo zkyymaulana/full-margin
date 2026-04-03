@@ -1,4 +1,5 @@
-export default function ChangePasswordForm({
+// ChangePasswordForm: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+export function ChangePasswordForm({
   isDarkMode,
   currentPassword,
   setCurrentPassword,
@@ -122,3 +123,5 @@ export default function ChangePasswordForm({
     </div>
   );
 }
+
+export default ChangePasswordForm;

@@ -1,3 +1,4 @@
+// CategorySummaryCard: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 function CategorySummaryCard({ title, indicators, isDarkMode, icon }) {
   return (
     <div
@@ -82,4 +83,5 @@ function CategorySummaryCard({ title, indicators, isDarkMode, icon }) {
   );
 }
 
+export { CategorySummaryCard };
 export default CategorySummaryCard;

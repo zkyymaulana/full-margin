@@ -1,23 +1,21 @@
-/**
- * Hooks for Marketcap data using TanStack Query
- */
+// Kumpulan hook data marketcap.
 import { useQuery } from "@tanstack/react-query";
 import {
   fetchMarketCapLive,
   getMarketcapSymbols,
 } from "../services/api.service";
 
-// Get live marketcap data - always fetch 20 coins
+// Ambil data marketcap live (20 coin dari backend).
 export const useMarketCapLive = () => {
   return useQuery({
     queryKey: ["marketcap", "live"],
     queryFn: () => fetchMarketCapLive(),
-    refetchInterval: 3000, // Refresh every 3 seconds
+    refetchInterval: 3000, // Refresh tiap 3 detik.
     staleTime: 2000,
   });
 };
 
-// ✅ Get marketcap summary (global stats - always 20 coins)
+// Ambil ringkasan marketcap global dari payload live.
 export const useMarketCapSummary = () => {
   return useQuery({
     queryKey: ["marketcap", "summary"],
@@ -38,11 +36,11 @@ export const useMarketCapSummary = () => {
   });
 };
 
-// Get marketcap symbols for search
+// Ambil simbol marketcap untuk kebutuhan pencarian/autocomplete.
 export const useMarketcapSymbols = () => {
   return useQuery({
     queryKey: ["marketcap", "symbols"],
     queryFn: getMarketcapSymbols,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000, // Cache 5 menit.
   });
 };

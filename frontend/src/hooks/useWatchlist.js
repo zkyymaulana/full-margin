@@ -7,25 +7,19 @@ import {
   removeFromWatchlist,
 } from "../services/api.service";
 
-/**
- * useWatchlist – manages the current user's coin watchlist.
- *
- * Returns:
- *   watchlist        – array of coinIds currently in the watchlist
- *   isWatched(id)    – returns true if the coin is in the watchlist
- *   toggleWatchlist  – add or remove a coin (optimistic UI)
- *   loading          – true while the initial fetch is in progress
- *   refetch          – manually trigger a refresh
- */
+// Hook untuk mengelola watchlist coin milik user saat ini.
 export function useWatchlist() {
-  const [watchlist, setWatchlist] = useState([]); // array of coinIds (numbers)
+  // Simpan daftar coinId yang ada di watchlist user.
+  const [watchlist, setWatchlist] = useState([]);
   const [loading, setLoading] = useState(true);
-  const isFetching = useRef(false); // Prevent concurrent fetches
-  const queryClient = useQueryClient(); // ✅ For React Query cache invalidation
+  // Flag ini mencegah request fetch berjalan bersamaan.
+  const isFetching = useRef(false);
+  // Dipakai untuk invalidasi cache React Query setelah update watchlist.
+  const queryClient = useQueryClient();
 
-  // ── fetch watchlist ──────────────────────────────────────────────────────
+  // Ambil watchlist dari server.
   const fetchWatchlist = useCallback(async (showLoading = true) => {
-    // Prevent concurrent requests
+    // Cegah request paralel agar state tidak balapan.
     if (isFetching.current) return;
     isFetching.current = true;
 
@@ -34,29 +28,31 @@ export function useWatchlist() {
     try {
       const res = await getWatchlist();
       if (res?.data) {
+        // Backend mengembalikan object, kita ambil coinId saja.
         const coinIds = res.data.map((e) => e.coinId);
         setWatchlist(coinIds);
         console.log("✅ Watchlist refreshed:", coinIds);
       }
     } catch (err) {
       console.error("Failed to load watchlist:", err);
-      // Don't show error toast on initial load or background refresh
+      // Error fetch di-log saja agar tidak mengganggu UX dengan toast berlebih.
     } finally {
       setLoading(false);
       isFetching.current = false;
     }
   }, []);
 
-  // ── initial load ─────────────────────────────────────────────────────────
+  // Muat data awal saat hook pertama kali dipakai.
   useEffect(() => {
     fetchWatchlist(true);
   }, [fetchWatchlist]);
 
-  // ── auto-refresh on window focus ─────────────────────────────────────────
+  // Auto-refresh saat jendela fokus / tab kembali aktif.
   useEffect(() => {
     const handleFocus = () => {
       console.log("🔄 Window focused, refreshing watchlist...");
-      fetchWatchlist(false); // Silent refresh without showing loading state
+      // Refresh senyap tanpa menampilkan loading utama.
+      fetchWatchlist(false);
     };
 
     const handleVisibilityChange = () => {
@@ -75,20 +71,20 @@ export function useWatchlist() {
     };
   }, [fetchWatchlist]);
 
-  // ── helpers ───────────────────────────────────────────────────────────────
+  // Helper untuk cek apakah coin sudah ada di watchlist.
   const isWatched = useCallback(
     (coinId) => watchlist.includes(coinId),
-    [watchlist]
+    [watchlist],
   );
 
-  // ── toggle ────────────────────────────────────────────────────────────────
+  // Toggle add/remove watchlist dengan optimistic update.
   const toggleWatchlist = useCallback(
     async (coinId) => {
       const alreadyWatched = watchlist.includes(coinId);
 
-      // Optimistic update
+      // Optimistic update: UI diperbarui dulu sebelum response server datang.
       setWatchlist((prev) =>
-        alreadyWatched ? prev.filter((id) => id !== coinId) : [...prev, coinId]
+        alreadyWatched ? prev.filter((id) => id !== coinId) : [...prev, coinId],
       );
 
       try {
@@ -100,19 +96,18 @@ export function useWatchlist() {
           toast.success(res?.message || "Added to watchlist.");
         }
 
-        // ✅ FORCE SYNC: Refresh from server after successful toggle
-        // This ensures UI always matches backend reality
+        // Force sync dari server untuk memastikan UI sama dengan data backend.
         setTimeout(() => {
           fetchWatchlist(false);
-          // ✅ Invalidate React Query cache (for Settings page)
+          // Invalidasi cache terkait watchlist (misal dipakai halaman Settings).
           queryClient.invalidateQueries({ queryKey: ["watchlist"] });
         }, 500);
       } catch (err) {
-        // Roll back on failure
+        // Rollback optimistic update jika request gagal.
         setWatchlist((prev) =>
           alreadyWatched
             ? [...prev, coinId]
-            : prev.filter((id) => id !== coinId)
+            : prev.filter((id) => id !== coinId),
         );
         const errMsg =
           err?.response?.data?.message ||
@@ -121,7 +116,7 @@ export function useWatchlist() {
         console.error("Watchlist toggle error:", err);
       }
     },
-    [watchlist, fetchWatchlist]
+    [watchlist, fetchWatchlist],
   );
 
   return {
@@ -129,6 +124,7 @@ export function useWatchlist() {
     isWatched,
     toggleWatchlist,
     loading,
-    refetch: fetchWatchlist, // ✅ Expose refetch for manual refresh
+    // Expose refetch untuk kebutuhan refresh manual dari komponen.
+    refetch: fetchWatchlist,
   };
 }

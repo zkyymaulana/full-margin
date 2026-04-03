@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useDarkMode } from "../../contexts/DarkModeContext";
 
-export default function PasswordInput({
+// PasswordInput: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+export function PasswordInput({
   id,
   name,
   value,
@@ -91,3 +92,5 @@ export default function PasswordInput({
     </div>
   );
 }
+
+export default PasswordInput;

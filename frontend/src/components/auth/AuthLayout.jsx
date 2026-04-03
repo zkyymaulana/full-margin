@@ -1,7 +1,8 @@
 import { useDarkMode } from "../../contexts/DarkModeContext";
 import { HiMoon, HiSun } from "react-icons/hi";
 
-export default function AuthLayout({ children }) {
+// AuthLayout: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+export function AuthLayout({ children }) {
   const { isDarkMode, toggleDarkMode } = useDarkMode();
 
   return (
@@ -32,3 +33,5 @@ export default function AuthLayout({ children }) {
     </div>
   );
 }
+
+export default AuthLayout;

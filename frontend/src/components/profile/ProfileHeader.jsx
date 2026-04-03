@@ -1,4 +1,5 @@
-export default function ProfileHeader({ isDarkMode }) {
+// ProfileHeader: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+export function ProfileHeader({ isDarkMode }) {
   return (
     <div>
       <h1
@@ -14,3 +15,5 @@ export default function ProfileHeader({ isDarkMode }) {
     </div>
   );
 }
+
+export default ProfileHeader;

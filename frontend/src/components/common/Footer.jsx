@@ -1,5 +1,6 @@
 import { useDarkMode } from "../../contexts/DarkModeContext";
 
+// Footer: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 function Footer() {
   const { isDarkMode } = useDarkMode();
 
@@ -20,4 +21,5 @@ function Footer() {
   );
 }
 
+export { Footer };
 export default Footer;

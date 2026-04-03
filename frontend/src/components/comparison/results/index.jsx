@@ -3,6 +3,7 @@ import { BestWeightsSection } from "./BestWeightsSection";
 import { StandardConfigResults } from "./StandardConfigResults";
 import { OptimizedHighROIResults } from "./OptimizedHighROIResults";
 
+// ComparisonResults: gabungkan seluruh blok hasil comparison dalam satu wrapper.
 export function ComparisonResults({ displayData }) {
   return (
     <>

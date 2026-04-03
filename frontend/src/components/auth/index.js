@@ -1,7 +1,27 @@
-export { default as AuthLayout } from "./AuthLayout";
-export { default as AuthCard } from "./AuthCard";
-export { default as AuthHeader } from "./AuthHeader";
-export { default as PasswordInput } from "./PasswordInput";
-export { default as GoogleAuthButton } from "./GoogleAuthButton";
-export { default as AuthDivider } from "./AuthDivider";
-export { default as AuthFooterLink } from "./AuthFooterLink";
+export {
+  AuthLayout, // Layout utama halaman autentikasi
+} from "./AuthLayout";
+
+export {
+  AuthCard, // Kartu konten form login/register
+} from "./AuthCard";
+
+export {
+  AuthHeader, // Header judul dan subjudul autentikasi
+} from "./AuthHeader";
+
+export {
+  PasswordInput, // Input password dengan toggle tampil/sembunyi
+} from "./PasswordInput";
+
+export {
+  GoogleAuthButton, // Tombol login via Google
+} from "./GoogleAuthButton";
+
+export {
+  AuthDivider, // Pemisah visual antar bagian form
+} from "./AuthDivider";
+
+export {
+  AuthFooterLink, // Link footer untuk pindah halaman auth
+} from "./AuthFooterLink";

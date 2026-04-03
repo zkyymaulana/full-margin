@@ -5,6 +5,7 @@ import { formatPrice, formatVolume } from "../../utils/chartConfig";
  * OHLCV Card Component
  * Displays Open, High, Low, Close, Volume data for the latest candle
  */
+// OHLCVCard: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 function OHLCVCard({ latestCandle }) {
   const { isDarkMode } = useDarkMode();
 
@@ -119,4 +120,5 @@ function OHLCVCard({ latestCandle }) {
   );
 }
 
+export { OHLCVCard };
 export default OHLCVCard;

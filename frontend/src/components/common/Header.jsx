@@ -9,6 +9,7 @@ import { useDarkMode } from "../../contexts/DarkModeContext";
 import { useSidebar } from "../../contexts/SidebarContext";
 import { FiSearch } from "react-icons/fi";
 
+// Header: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 function Header() {
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -39,6 +40,7 @@ function Header() {
 
   // Close dropdown when clicking outside
   useEffect(() => {
+// handleClickOutside: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsDropdownOpen(false);
@@ -548,4 +550,5 @@ function Header() {
   );
 }
 
+export { Header };
 export default Header;

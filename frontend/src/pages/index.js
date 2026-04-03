@@ -1,9 +1,35 @@
-export { default as ComparisonPage } from "./Comparison";
-export { default as Dashboard } from "./Dashboard";
-export { default as Login } from "./Login";
-export { default as MarketCapPage } from "./MarketCap";
-export { default as Profile } from "./Profile";
-export { default as Register } from "./Register";
-export { default as SettingsPage } from "./Settings";
-export { default as SignalsPage } from "./Signals";
-export { default as Unauthorized } from "./Unauthorized";
+export {
+  ComparisonPage, // Halaman comparison strategi
+} from "./Comparison";
+
+export {
+  DashboardPage as Dashboard, // Halaman dashboard utama
+} from "./Dashboard";
+
+export {
+  LoginPage as Login, // Halaman login user
+} from "./Login";
+
+export {
+  MarketCapPage, // Halaman market cap dan daftar coin
+} from "./MarketCap";
+
+export {
+  ProfilePage as Profile, // Halaman profil user
+} from "./Profile";
+
+export {
+  Register, // Halaman registrasi user
+} from "./Register";
+
+export {
+  SettingsPage, // Halaman pengaturan aplikasi
+} from "./Settings";
+
+export {
+  SignalsPage, // Halaman sinyal indikator
+} from "./Signals";
+
+export {
+  Unauthorized, // Halaman akses tidak diizinkan
+} from "./Unauthorized";

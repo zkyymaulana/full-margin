@@ -1,11 +1,7 @@
 import { useRef, useCallback, useState } from "react";
 import { fetchCandlesByUrl } from "../services/api.service";
 
-/**
- * Custom hook for infinite scroll pagination in charts
- * Handles loading more historical data when scrolling left
- * ✅ OPTIMIZED: URL dedup, AbortController, preload, smart guards
- */
+// Hook pagination chart untuk memuat data historis saat user scroll ke kiri.
 export const useChartPagination = (allCandlesData, setAllCandlesData) => {
   const isLoadingMoreRef = useRef(false);
   const hasMoreDataRef = useRef(true);
@@ -16,10 +12,10 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
   const abortControllerRef = useRef(null);
   const fetchLockRef = useRef(false);
 
-  // ✅ NEW: URL deduplication - track fetched URLs
+  // Simpan URL yang sudah pernah diambil agar tidak request berulang.
   const fetchedUrlsRef = useRef(new Set());
 
-  // ✅ NEW: Track last visible range to detect significant changes
+  // Simpan visible range terakhir untuk mendeteksi perubahan yang signifikan.
   const lastVisibleRangeRef = useRef(null);
 
   const [pageInfo, setPageInfo] = useState({
@@ -31,28 +27,27 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
     hasMore: true,
   });
 
-  // Merge candles data without duplicates
-  // ✅ OPTIMIZED: Assume backend data is sorted, avoid full array sort
+  // Gabungkan data lama dan baru tanpa duplikasi timestamp.
+  // Backend diasumsikan sudah terurut sehingga tidak perlu sort ulang penuh.
   const mergeCandlesData = useCallback((existingData, newData) => {
     const existingTimes = new Set(existingData.map((d) => d.time.toString()));
     const uniqueNewData = newData.filter(
-      (d) => !existingTimes.has(d.time.toString())
+      (d) => !existingTimes.has(d.time.toString()),
     );
 
-    // ✅ OPTIMIZATION: Prepend without sorting (backend already sorted descending)
+    // Tambahkan data baru di depan karena pagination bergerak ke data lebih lama.
     const merged = [...uniqueNewData, ...existingData];
 
     console.log(
-      `📦 [MERGE] Added ${uniqueNewData.length} new candles (total: ${merged.length})`
+      `📦 [MERGE] Added ${uniqueNewData.length} new candles (total: ${merged.length})`,
     );
     return merged;
   }, []);
 
-  // Fetch more data for pagination
-  // ✅ OPTIMIZED: AbortController, URL dedup, hard lock, smart debounce
+  // Muat halaman data berikutnya untuk pagination chart.
   const fetchMoreData = useCallback(
     async (chartRef) => {
-      // ✅ HARD LOCK: Prevent multiple simultaneous requests
+      // Hard lock mencegah request paralel yang bisa membuat data dobel.
       if (fetchLockRef.current) {
         console.log("🔒 [HARD LOCK] Fetch already in progress, skipping");
         return;
@@ -66,36 +61,36 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
         return;
       }
 
-      // ✅ URL DEDUPLICATION: Skip if already fetched
+      // Lewati request jika URL ini sudah pernah berhasil diambil.
       if (fetchedUrlsRef.current.has(nextUrlRef.current)) {
         console.log(
-          `⏭️ [DEDUP] URL already fetched, skipping: ${nextUrlRef.current}`
+          `⏭️ [DEDUP] URL already fetched, skipping: ${nextUrlRef.current}`,
         );
         return;
       }
 
-      // ✅ DEBOUNCE: Minimum 600ms between fetches
+      // Jeda minimal antar request untuk menghindari spam API.
       const now = Date.now();
       if (now - lastFetchTimeRef.current < 600) {
         console.log(
-          `⏸️ [DEBOUNCE] Too soon (${now - lastFetchTimeRef.current}ms < 600ms)`
+          `⏸️ [DEBOUNCE] Too soon (${now - lastFetchTimeRef.current}ms < 600ms)`,
         );
         return;
       }
 
-      // ✅ Set hard lock & loading state
+      // Aktifkan lock + loading sebelum request dimulai.
       fetchLockRef.current = true;
       isLoadingMoreRef.current = true;
       lastFetchTimeRef.current = now;
       setPageInfo((prev) => ({ ...prev, isLoading: true }));
 
-      // ✅ Cancel previous request if exists
+      // Batalkan request sebelumnya jika masih berjalan.
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
         console.log("❌ [ABORT] Cancelled previous fetch request");
       }
 
-      // ✅ Create new AbortController
+      // Buat AbortController baru untuk request saat ini.
       abortControllerRef.current = new AbortController();
 
       console.log(`🔄 [FETCH] Loading: ${nextUrlRef.current}`);
@@ -108,15 +103,15 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
 
         const response = await fetchCandlesByUrl(
           nextUrlRef.current,
-          abortControllerRef.current.signal
+          abortControllerRef.current.signal,
         );
 
         if (response?.success && response.data?.length > 0) {
           console.log(
-            `✅ [FETCH] Got ${response.data.length} candles (Page ${response.page}/${response.totalPages})`
+            `✅ [FETCH] Got ${response.data.length} candles (Page ${response.page}/${response.totalPages})`,
           );
 
-          // ✅ Mark URL as fetched
+          // Catat URL ini sebagai sudah diproses.
           fetchedUrlsRef.current.add(nextUrlRef.current);
 
           if (chartRef.current) {
@@ -128,7 +123,7 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
           const mergedData = mergeCandlesData(allCandlesData, response.data);
           const addedBars = mergedData.length - prevTotal;
 
-          // ✅ OPTIMIZATION: Only update state if data actually changed
+          // Update state hanya jika ada penambahan bar baru.
           if (addedBars > 0) {
             setAllCandlesData(mergedData);
 
@@ -186,7 +181,7 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
           }));
         }
       } catch (error) {
-        // ✅ Ignore abort errors
+        // Error abort dianggap normal saat request lama dibatalkan.
         if (error.name === "AbortError") {
           console.log("⚠️ [ABORT] Fetch aborted");
         } else {
@@ -194,17 +189,16 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
         }
         setPageInfo((prev) => ({ ...prev, isLoading: false }));
       } finally {
-        // ✅ Release locks
+        // Lepaskan lock agar request berikutnya bisa berjalan.
         isLoadingMoreRef.current = false;
         fetchLockRef.current = false;
         abortControllerRef.current = null;
       }
     },
-    [allCandlesData, mergeCandlesData, setAllCandlesData]
+    [allCandlesData, mergeCandlesData, setAllCandlesData],
   );
 
-  // Setup pagination listener
-  // ✅ OPTIMIZED: Preload at 120 bars, smart range detection
+  // Pasang listener perubahan visible range untuk memicu preload otomatis.
   const setupPaginationListener = useCallback(
     (chart, series) => {
       if (!chart) return;
@@ -219,19 +213,19 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
             const logicalRange = chart.timeScale().getVisibleLogicalRange();
             if (!logicalRange) return;
 
-            // ✅ SMART GUARD: Only trigger if range changed significantly
+            // Guard: abaikan perubahan kecil agar tidak terlalu sering fetch.
             if (lastVisibleRangeRef.current) {
               const rangeDiff = Math.abs(
-                logicalRange.from - lastVisibleRangeRef.current.from
+                logicalRange.from - lastVisibleRangeRef.current.from,
               );
 
-              // Skip if range change is too small (< 5 bars)
+              // Abaikan jika perubahan kurang dari 5 bar.
               if (rangeDiff < 5) {
                 return;
               }
             }
 
-            // ✅ Update last visible range
+            // Simpan visible range terbaru.
             lastVisibleRangeRef.current = logicalRange;
 
             const barsInfo = series.barsInLogicalRange(logicalRange);
@@ -239,21 +233,21 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
 
             const barsBefore = Math.max(0, Math.ceil(logicalRange.from));
 
-            // ✅ PRELOAD: Trigger at 120 bars (earlier than before)
+            // Preload lebih awal saat sisa bar kiri kurang dari 120.
             if (
               barsBefore < 120 &&
               hasMoreDataRef.current &&
               !isLoadingMoreRef.current
             ) {
               console.log(
-                `📍 [SCROLL] Bars before visible: ${barsBefore} → Preloading...`
+                `📍 [SCROLL] Bars before visible: ${barsBefore} → Preloading...`,
               );
               fetchMoreData(chart);
             }
           } catch (error) {
             console.error("Error in visible range handler:", error);
           }
-        }, 150); // 150ms debounce
+        }, 150); // Debounce 150ms agar event scroll rapat tetap stabil.
       };
 
       visibleRangeSubscriptionRef.current = chart
@@ -267,16 +261,16 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
         }
       };
     },
-    [fetchMoreData]
+    [fetchMoreData],
   );
 
-  // Initialize pagination
+  // Inisialisasi metadata pagination dari response awal.
   const initializePagination = useCallback((response) => {
     if (response?.pagination) {
       nextUrlRef.current = response.pagination.next?.url || null;
       hasMoreDataRef.current = response.pagination.next?.url != null;
 
-      // ✅ Reset fetched URLs on new symbol/data
+      // Reset cache URL saat simbol/data berganti.
       fetchedUrlsRef.current.clear();
       lastVisibleRangeRef.current = null;
 
@@ -290,7 +284,7 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
       });
 
       console.log(
-        `🎯 [INIT] Pagination ready (Page ${response.page}/${response.totalPages})`
+        `🎯 [INIT] Pagination ready (Page ${response.page}/${response.totalPages})`,
       );
     }
   }, []);

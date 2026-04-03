@@ -1,4 +1,5 @@
-export default function TechStackCard({ t, cardClass }) {
+// TechStackCard: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+export function TechStackCard({ t, cardClass }) {
   return (
     <div className={cardClass}>
       <div className="p-4 md:p-6">
@@ -46,3 +47,5 @@ export default function TechStackCard({ t, cardClass }) {
     </div>
   );
 }
+
+export default TechStackCard;

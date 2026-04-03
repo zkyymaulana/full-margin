@@ -15,6 +15,7 @@ import {
 // Import results components
 import { ComparisonResults } from "../components/comparison/results";
 
+// Halaman comparison: mengatur alur input tanggal, eksekusi compare, dan render hasil.
 function ComparisonPage() {
   const { selectedSymbol } = useSymbol();
   const { isDarkMode } = useDarkMode();
@@ -23,6 +24,7 @@ function ComparisonPage() {
   // Track simbol yang sedang aktif saat comparison dijalankan
   const comparedSymbolRef = useRef(null);
 
+  // Ubah objek Date menjadi format YYYY-MM-DD untuk input date.
   const formatDate = (date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -50,7 +52,7 @@ function ComparisonPage() {
   // ✅ Reset semua hasil saat simbol berubah
   useEffect(() => {
     console.log(
-      `[Comparison] Symbol changed → ${selectedSymbol}, resetting results`
+      `[Comparison] Symbol changed → ${selectedSymbol}, resetting results`,
     );
     setDisplayData(null);
     resetComparison();
@@ -64,17 +66,18 @@ function ComparisonPage() {
 
     if (comparedSymbolRef.current !== selectedSymbol) {
       console.warn(
-        `[Comparison] Ignoring stale result — result is for "${comparedSymbolRef.current}", current symbol is "${selectedSymbol}"`
+        `[Comparison] Ignoring stale result — result is for "${comparedSymbolRef.current}", current symbol is "${selectedSymbol}"`,
       );
       return;
     }
 
     console.log(
-      `[Comparison] ✅ Result accepted for symbol: ${selectedSymbol}`
+      `[Comparison] ✅ Result accepted for symbol: ${selectedSymbol}`,
     );
     setDisplayData(comparisonData);
   }, [comparisonData]);
 
+  // Jalankan comparison berdasarkan simbol aktif dan rentang tanggal.
   const handleCompare = () => {
     if (!startDate || !endDate) {
       alert("Please select start and end date");
@@ -85,7 +88,8 @@ function ComparisonPage() {
     comparedSymbolRef.current = selectedSymbol;
     console.log(`[Comparison] Running comparison for: ${selectedSymbol}`);
 
-    setDisplayData(null); // Reset tampilan sebelum request baru
+    // Reset hasil lama agar UI hanya menampilkan hasil terbaru.
+    setDisplayData(null);
     compare({ symbol: selectedSymbol, startDate, endDate });
   };
 
@@ -120,4 +124,5 @@ function ComparisonPage() {
   );
 }
 
+export { ComparisonPage };
 export default ComparisonPage;

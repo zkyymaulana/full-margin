@@ -16,6 +16,7 @@ import { useAuth } from "../../hooks/useAuth";
  * - Loading state saat checking auth
  * - Menyimpan intended destination untuk redirect setelah login
  */
+// ProtectedRoute: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 function ProtectedRoute({ children }) {
   const { isAuthenticated, user } = useAuth();
   const location = useLocation();
@@ -51,4 +52,5 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+export { ProtectedRoute };
 export default ProtectedRoute;

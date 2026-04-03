@@ -1,18 +1,18 @@
 import Swal from "sweetalert2";
 import { toast } from "react-toastify";
 
-// Helper to check if dark mode is enabled
+// Cek status dark mode dari localStorage agar tema popup konsisten.
 const isDarkMode = () => {
   return localStorage.getItem("darkMode") === "true";
 };
 
-// =====================================================
-// 🎨 SweetAlert2 Helpers (untuk konfirmasi)
-// =====================================================
+// Kumpulan helper SweetAlert2 untuk dialog konfirmasi.
 
 export const confirmLogout = async () => {
+  // Baca preferensi mode warna untuk menyesuaikan style popup.
   const darkMode = isDarkMode();
 
+  // Tampilkan dialog konfirmasi logout dan tunggu aksi user.
   const result = await Swal.fire({
     title: "Logout Confirmation",
     text: "Are you sure you want to logout?",
@@ -31,12 +31,14 @@ export const confirmLogout = async () => {
       popup: darkMode ? "dark-mode-popup" : "",
     },
   });
+  // Kembalikan true jika user menekan tombol konfirmasi.
   return result.isConfirmed;
 };
 
 export const confirmDelete = async (itemName = "this item") => {
   const darkMode = isDarkMode();
 
+  // Dialog ini dipakai untuk aksi penghapusan yang bersifat kritis.
   const result = await Swal.fire({
     title: "Are you sure?",
     text: `You won't be able to revert ${itemName}!`,
@@ -61,10 +63,11 @@ export const confirmDelete = async (itemName = "this item") => {
 export const confirmAction = async (
   title,
   text,
-  confirmText = "Yes, proceed"
+  confirmText = "Yes, proceed",
 ) => {
   const darkMode = isDarkMode();
 
+  // Dialog generik yang bisa dipakai ulang untuk berbagai aksi.
   const result = await Swal.fire({
     title,
     text,
@@ -86,11 +89,10 @@ export const confirmAction = async (
   return result.isConfirmed;
 };
 
-// =====================================================
-// 🔔 Toast Helpers (untuk notifikasi singkat)
-// =====================================================
+// Kumpulan helper toast untuk notifikasi singkat non-blocking.
 
 export const showSuccessToast = (message) => {
+  // Toast sukses memakai durasi standar agar cepat hilang.
   toast.success(message, {
     position: "top-right",
     autoClose: 3000,
@@ -102,6 +104,7 @@ export const showSuccessToast = (message) => {
 };
 
 export const showErrorToast = (message) => {
+  // Toast error dibuat sedikit lebih lama agar pesan terbaca jelas.
   toast.error(message, {
     position: "top-right",
     autoClose: 4000,
@@ -113,6 +116,7 @@ export const showErrorToast = (message) => {
 };
 
 export const showInfoToast = (message) => {
+  // Toast informasi untuk status netral.
   toast.info(message, {
     position: "top-right",
     autoClose: 3000,
@@ -124,6 +128,7 @@ export const showInfoToast = (message) => {
 };
 
 export const showWarningToast = (message) => {
+  // Toast peringatan untuk kondisi yang perlu perhatian user.
   toast.warning(message, {
     position: "top-right",
     autoClose: 3000,
@@ -134,6 +139,7 @@ export const showWarningToast = (message) => {
   });
 };
 
+// Default export tetap dipertahankan agar kompatibel dengan impor lama.
 export default {
   confirmLogout,
   confirmDelete,

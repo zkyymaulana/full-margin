@@ -130,6 +130,7 @@ const useSafeTradingViewLogoRemoval = () => {
  * Oscillator Charts Component
  * Displays RSI, Stochastic, Stochastic RSI, and MACD charts
  */
+// OscillatorCharts: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 function OscillatorCharts({
   activeIndicators,
   allCandlesData,
@@ -530,4 +531,5 @@ function OscillatorCharts({
   );
 }
 
+export { OscillatorCharts };
 export default OscillatorCharts;

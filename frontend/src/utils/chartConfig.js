@@ -1,13 +1,15 @@
 /**
- * Chart configuration utilities
- * Provides shared options for Lightweight Charts
+ * Utilitas konfigurasi chart.
+ * Menyediakan opsi bersama untuk komponen Lightweight Charts.
  */
 
+// Bangun konfigurasi dasar chart (main chart atau chart oscillator).
 export const getBaseChartOptions = (
   isDarkMode,
   height,
-  isMainChart = false
+  isMainChart = false,
 ) => ({
+  // Width di-set 0 agar mengikuti ukuran container saat resize.
   width: 0,
   height: height,
   layout: {
@@ -84,19 +86,22 @@ export const getBaseChartOptions = (
     },
   },
   overlayPriceScales: {},
+  // Main chart biasanya menyembunyikan time scale bawah.
   timeScale: getTimeScaleOptions(isMainChart ? false : true),
   localization: {
-    // ✅ Format untuk crosshair label bawah (HANYA saat crosshair aktif)
+    // Format label waktu yang muncul saat crosshair aktif.
     timeFormatter: (businessDayOrTimestamp) => {
       if (
         typeof businessDayOrTimestamp === "object" &&
         businessDayOrTimestamp.year
       ) {
+        // Format untuk tipe businessDay (year, month, day).
         const { year, month, day } = businessDayOrTimestamp;
         const date = new Date(year, month - 1, day);
         const monthName = date.toLocaleString("en-US", { month: "short" });
         return `${String(day).padStart(2, "0")} ${monthName} ${year}, 00:00`;
       } else if (typeof businessDayOrTimestamp === "number") {
+        // Format untuk timestamp unix (detik).
         const date = new Date(businessDayOrTimestamp * 1000);
         const day = String(date.getDate()).padStart(2, "0");
         const month = date.toLocaleString("en-US", { month: "short" });
@@ -113,8 +118,10 @@ export const getBaseChartOptions = (
   },
 });
 
+// Konfigurasi khusus untuk skala waktu di bagian bawah chart.
 export const getTimeScaleOptions = (showTimeScale = true) => ({
-  timeVisible: false, // ❌ Jangan tampilkan jam di time scale bawah
+  // Jam disembunyikan agar tampilan lebih bersih untuk mode ini.
+  timeVisible: false,
   secondsVisible: false,
   rightOffset: 20,
   barSpacing: 8,
@@ -128,7 +135,7 @@ export const getTimeScaleOptions = (showTimeScale = true) => ({
   visible: true,
 });
 
-// Available indicators configuration
+// Daftar indikator overlay yang bisa dipilih user.
 export const overlayIndicators = [
   {
     id: "sma",
@@ -163,6 +170,7 @@ export const overlayIndicators = [
   },
 ];
 
+// Daftar indikator oscillator yang ditampilkan di panel terpisah.
 export const oscillatorIndicators = [
   { id: "rsi", label: "RSI (14)", color: "#FF6D00", type: "rsi" },
   { id: "macd", label: "MACD (12, 26, 9)", color: "#00C853", type: "macd" },
@@ -180,7 +188,7 @@ export const oscillatorIndicators = [
   },
 ];
 
-// Helper functions
+// Ambil nilai indikator utama dari satu candle untuk tipe tertentu.
 export const getIndicatorValue = (candle, type) => {
   if (!candle.indicators) return null;
 
@@ -199,6 +207,7 @@ export const getIndicatorValue = (candle, type) => {
   }
 };
 
+// Ambil nilai indikator berdasarkan period (misalnya SMA20, EMA50).
 export const getIndicatorValueByPeriod = (candle, type, period) => {
   if (!candle.indicators) return null;
 
@@ -212,7 +221,7 @@ export const getIndicatorValueByPeriod = (candle, type, period) => {
   }
 };
 
-// Format utilities
+// Format harga agar ramah dibaca di UI.
 export const formatPrice = (price) => {
   if (!price && price !== 0) return "N/A";
   if (price >= 1000) return `$${(price / 1000).toFixed(2)}K`;
@@ -220,11 +229,13 @@ export const formatPrice = (price) => {
   return `$${price.toFixed(6)}`;
 };
 
+// Format angka umum dengan 2 desimal.
 export const formatNumber = (num) => {
   if (!num && num !== 0) return "N/A";
   return num.toFixed(2);
 };
 
+// Format volume ke notasi K, M, B.
 export const formatVolume = (volume) => {
   if (!volume && volume !== 0) return "N/A";
   if (volume >= 1000000000) return `${(volume / 1000000000).toFixed(2)}B`;
@@ -233,7 +244,7 @@ export const formatVolume = (volume) => {
   return volume.toFixed(2);
 };
 
-// ✅ Series options to hide corner tooltip (black box)
+// Opsi series agar label sudut bawaan chart tidak mengganggu tampilan.
 export const getCleanSeriesOptions = () => ({
   priceLineVisible: false,
   lastValueVisible: false,

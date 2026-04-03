@@ -1,13 +1,11 @@
-/**
- * Hooks for Candlestick chart data using TanStack Query
- */
+// Kumpulan hook untuk data candlestick.
 import { useQuery } from "@tanstack/react-query";
 import {
   fetchCandles,
   fetchCandlesWithPagination,
 } from "../services/api.service";
 
-// Get candlestick data
+// Ambil data candle dasar untuk chart utama.
 export const useCandles = (symbol = "BTC-USD", timeframe = "1h") => {
   return useQuery({
     queryKey: ["candles", symbol, timeframe],
@@ -17,18 +15,19 @@ export const useCandles = (symbol = "BTC-USD", timeframe = "1h") => {
   });
 };
 
-// Get candlestick data with pagination (untuk infinite scroll)
+// Ambil data candle dengan pagination (dipakai infinite scroll).
 export const useCandlesPaginated = (
   symbol = "BTC-USD",
   timeframe = "1h",
   page = 1,
-  limit = 1000
+  limit = 1000,
 ) => {
   return useQuery({
     queryKey: ["candles-paginated", symbol, timeframe, page],
     queryFn: () => fetchCandlesWithPagination(symbol, timeframe, page, limit),
-    staleTime: 60000, // 1 minute
+    staleTime: 60000, // Data dianggap fresh selama 1 menit.
     enabled: !!symbol && !!timeframe,
-    keepPreviousData: true, // Keep previous data while fetching new page
+    // Pertahankan data page sebelumnya agar UI tidak "kedip" saat page baru dimuat.
+    keepPreviousData: true,
   });
 };

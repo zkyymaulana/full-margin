@@ -1,4 +1,5 @@
-export default function EditProfileForm({
+// EditProfileForm: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+export function EditProfileForm({
   isDarkMode,
   name,
   setName,
@@ -127,3 +128,5 @@ export default function EditProfileForm({
     </div>
   );
 }
+
+export default EditProfileForm;

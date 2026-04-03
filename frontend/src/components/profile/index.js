@@ -1,4 +1,12 @@
-export { default as ProfileHeader } from "./ProfileHeader";
-export { default as ProfileCard } from "./ProfileCard";
-export { default as EditProfileForm } from "./EditProfileForm";
-export { default as ChangePasswordForm } from "./ChangePasswordForm";
+export {
+  ProfileHeader, // Header halaman profil user
+} from "./ProfileHeader";
+export {
+  ProfileCard, // Kartu ringkasan profil user
+} from "./ProfileCard";
+export {
+  EditProfileForm, // Form edit data profil
+} from "./EditProfileForm";
+export {
+  ChangePasswordForm, // Form ubah password akun
+} from "./ChangePasswordForm";

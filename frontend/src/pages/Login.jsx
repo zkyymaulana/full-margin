@@ -13,12 +13,14 @@ import {
   AuthFooterLink,
 } from "../components/auth";
 
+// Halaman login: autentikasi email/password atau Google.
 function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { mutate: login, isLoading } = useLogin();
   const { isDarkMode } = useDarkMode();
 
+  // Handle submit login form standar.
   const handleSubmit = (e) => {
     e.preventDefault();
     login(
@@ -29,13 +31,14 @@ function LoginPage() {
         },
         onError: (error) => {
           showErrorToast(
-            error?.response?.data?.message || "Login failed. Please try again."
+            error?.response?.data?.message || "Login failed. Please try again.",
           );
         },
-      }
+      },
     );
   };
 
+  // Handle callback sukses dari Google OAuth.
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
       // TODO: Send credential to backend for verification
@@ -48,7 +51,7 @@ function LoginPage() {
       const data = await response.json();
 
       if (data.success) {
-        // Save to localStorage
+        // Simpan sesi user setelah verifikasi backend sukses.
         localStorage.setItem("authToken", data.token);
         localStorage.setItem("userId", data.user.id);
         localStorage.setItem("userEmail", data.user.email);
@@ -68,6 +71,7 @@ function LoginPage() {
     }
   };
 
+  // Handle callback gagal dari Google OAuth.
   const handleGoogleError = () => {
     showErrorToast("Google login failed. Please try again.");
   };
@@ -188,4 +192,5 @@ function LoginPage() {
   );
 }
 
+export { LoginPage };
 export default LoginPage;

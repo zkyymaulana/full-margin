@@ -1,7 +1,8 @@
 import { FiStar } from "react-icons/fi";
 import { AiFillStar } from "react-icons/ai";
 
-export default function WatchlistStar({
+// WatchlistStar: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+export function WatchlistStar({
   coinId,
   isWatched,
   onToggle,
@@ -30,3 +31,5 @@ export default function WatchlistStar({
     </button>
   );
 }
+
+export default WatchlistStar;

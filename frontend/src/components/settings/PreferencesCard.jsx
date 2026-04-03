@@ -1,4 +1,5 @@
-export default function PreferencesCard({ isDarkMode, toggleDarkMode, t }) {
+// PreferencesCard: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+export function PreferencesCard({ isDarkMode, toggleDarkMode, t }) {
   return (
     <div
       className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 md:p-4 rounded-lg ${t(
@@ -41,3 +42,5 @@ export default function PreferencesCard({ isDarkMode, toggleDarkMode, t }) {
     </div>
   );
 }
+
+export default PreferencesCard;

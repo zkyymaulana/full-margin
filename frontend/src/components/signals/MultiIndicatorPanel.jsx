@@ -8,6 +8,7 @@ import {
 } from "react-icons/fi";
 import { formatNumber } from "../../utils/indicatorParser";
 
+// MultiIndicatorPanel: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 function MultiIndicatorPanel({
   multiSignalData, // ✅ Full object from backend
   categoryScores: categoryScoresFromParent, // ✅ Legacy support (deprecated)
@@ -375,4 +376,5 @@ function MultiIndicatorPanel({
   );
 }
 
+export { MultiIndicatorPanel };
 export default MultiIndicatorPanel;

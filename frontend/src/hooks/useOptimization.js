@@ -1,19 +1,17 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import api, { requestOptimization } from "../services/api.service";
+import api, {
+  forceReoptimization,
+  requestOptimization,
+} from "../services/api.service";
 import { useState, useEffect, useRef } from "react";
 
 const MAX_SSE_RETRIES = 8;
 
-/**
- * Custom Hook: useOptimization
- *
- * Handles incremental optimization request
- * Supports loading state, success/error handling
- */
+// Hook untuk menjalankan optimasi bobot indikator.
 export function useOptimization() {
   return useMutation({
     mutationFn: async ({ symbol, timeframe = "1h" }) => {
-      // ✅ Use requestOptimization from api.service (has 2 hour timeout)
+      // Panggil service optimasi dengan timeout panjang dari API layer.
       return await requestOptimization(symbol, timeframe);
     },
     onSuccess: (data) => {
@@ -21,7 +19,7 @@ export function useOptimization() {
     },
     onError: (error) => {
       console.error("❌ Optimization failed:", error);
-      // ✅ Log detailed error information
+      // Log error detail untuk mempermudah debugging.
       if (error.response) {
         console.error("📄 Error Response:", {
           status: error.response.status,
@@ -37,12 +35,7 @@ export function useOptimization() {
   });
 }
 
-/**
- * Custom Hook: useForceReoptimization
- *
- * Handles FORCE reoptimization (Full Exhaustive Search)
- * Even if weights already exist in database
- */
+// Hook untuk memaksa re-optimasi full meskipun bobot lama sudah ada.
 export function useForceReoptimization() {
   return useMutation({
     mutationFn: ({ symbol, timeframe = "1h" }) =>
@@ -56,14 +49,7 @@ export function useForceReoptimization() {
   });
 }
 
-/**
- * 🆕 Custom Hook: useOptimizationEstimate
- *
- * Get time estimate for optimization before running it
- * @param {string} symbol - Trading symbol
- * @param {string} timeframe - Timeframe (default: "1h")
- * @param {boolean} enabled - Whether to fetch estimate
- */
+// Hook untuk mengambil estimasi durasi optimasi sebelum proses dijalankan.
 export function useOptimizationEstimate(
   symbol,
   timeframe = "1h",
@@ -78,22 +64,14 @@ export function useOptimizationEstimate(
       return response.data;
     },
     enabled: enabled && !!symbol,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 5 * 60 * 1000, // Data estimasi dianggap fresh 5 menit.
+    cacheTime: 10 * 60 * 1000, // Simpan cache estimasi 10 menit.
     retry: 2,
   });
 }
 
-/**
- * 🆕 SSE-Driven Progress Tracking Hook
- *
- * This hook tracks optimization progress using Server-Sent Events (SSE).
- * SSE connection only opens when explicitly enabled.
- *
- * @param {string} symbol - Trading symbol (e.g., "ETH-USD")
- * @param {boolean} enabled - Whether to open SSE connection (default: false)
- * @returns {Object|null} Progress state or null
- */
+// Hook pemantauan progres optimasi berbasis Server-Sent Events (SSE).
+// Koneksi SSE hanya aktif jika `enabled` bernilai true.
 export const useOptimizationProgress = (symbol, enabled = false) => {
   const [progress, setProgress] = useState(null);
   const [reconnectNonce, setReconnectNonce] = useState(0);
@@ -102,7 +80,8 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
   const reconnectTimeoutRef = useRef(null);
   const retryCountRef = useRef(0);
   const isMountedRef = useRef(true);
-  const manualCloseRef = useRef(false); // ✅ NEW: Flag to track manual close
+  // Menandai koneksi ditutup manual agar state bisa dibersihkan dengan benar.
+  const manualCloseRef = useRef(false);
 
   const clearReconnectTimeout = () => {
     if (reconnectTimeoutRef.current) {
@@ -184,11 +163,11 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
   useEffect(() => {
     isMountedRef.current = true;
 
-    // ✅ Only open connection if enabled AND symbol exists
+    // Buka koneksi hanya jika fitur aktif dan simbol tersedia.
     if (!enabled || !symbol) {
       console.log(`⏹️ [SSE] Connection disabled or no symbol provided`);
 
-      // ✅ Clear progress when disabled (e.g., user clicked Close button)
+      // Saat dinonaktifkan manual, progres dibersihkan agar UI kembali netral.
       if (manualCloseRef.current) {
         console.log(`🧹 [SSE] Clearing progress after manual close`);
         setProgress(null);
@@ -202,7 +181,7 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
       return;
     }
 
-    // ✅ Prevent duplicate connections - STRICT CHECK
+    // Cegah duplikasi koneksi SSE untuk simbol yang sama.
     if (isConnectedRef.current && eventSourceRef.current) {
       console.log(
         `⚠️ [SSE] Already connected for ${symbol}, skipping duplicate connection`,
@@ -210,17 +189,17 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
       return;
     }
 
-    // ✅ Clear any pending reconnect
+    // Batalkan jadwal reconnect lama sebelum membuat koneksi baru.
     clearReconnectTimeout();
 
-    // ✅ Get auth token
+    // Ambil token auth untuk akses endpoint stream.
     const token = localStorage.getItem("authToken");
     if (!token) {
       console.error(`❌ [SSE] No auth token found`);
       return;
     }
 
-    // ✅ Open SSE connection
+    // Bangun URL SSE lalu buka koneksi EventSource.
     const sseUrl = `${
       import.meta.env.VITE_API_BASE_URL
     }/multiIndicator/${symbol}/optimize-stream?token=${encodeURIComponent(
@@ -233,15 +212,15 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
       eventSourceRef.current = eventSource;
       isConnectedRef.current = true;
 
-      // ✅ Connection opened successfully
+      // Event saat koneksi berhasil dibuka.
       eventSource.onopen = () => {
         console.log(`✅ [SSE] Connection opened for ${symbol}`);
         retryCountRef.current = 0;
       };
 
-      // ✅ CRITICAL: Handle ALL messages (SSE messages without event name)
+      // Tangani semua pesan SSE (termasuk pesan default tanpa nama event).
       eventSource.onmessage = (event) => {
-        // Skip heartbeat
+        // Abaikan heartbeat agar tidak mengganggu logika progres.
         if (
           !event.data ||
           event.data.trim() === "" ||
@@ -256,15 +235,15 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
 
           console.log(`📨 [SSE] Received: ${eventType}`, data);
 
-          // ✅ Handle based on event type
+          // Proses payload berdasarkan jenis event.
           switch (eventType) {
             case "status":
-              // Informational only - set waiting state
+              // Event status bersifat informasi, set tampilan menunggu.
               console.log(
                 `ℹ️ [SSE] Status: ${data.status} - ${data.message || ""}`,
               );
 
-              // ✅ ALWAYS set waiting state when receiving status event
+              // Selalu set state waiting saat menerima event status.
               setProgress({
                 current: 0,
                 total: 390625,
@@ -283,7 +262,7 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
                 datasetRange: data.datasetRange,
               });
 
-              // Initialize running state with dataset info
+              // Inisialisasi state running + metadata dataset.
               setProgress({
                 current: 0,
                 total: data.totalCombinations || 390625,
@@ -291,13 +270,13 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
                 bestROI: 0,
                 etaFormatted: "Starting...",
                 status: "running",
-                dataPoints: data.dataPoints, // ✅ Add dataset size
-                datasetRange: data.datasetRange, // ✅ Add date range
+                dataPoints: data.dataPoints,
+                datasetRange: data.datasetRange,
               });
               break;
 
             case "progress":
-              // ✅ Update progress state
+              // Update state progres dari payload terbaru.
               const {
                 tested,
                 total,
@@ -317,11 +296,12 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
                 etaSeconds: etaSeconds,
                 etaFormatted: eta,
                 status: "running",
-                dataPoints: dataPoints || prev?.dataPoints, // ✅ Preserve from start event
-                datasetRange: datasetRange || prev?.datasetRange, // ✅ Preserve from start event
+                // Pertahankan metadata awal jika payload progress tidak mengirim ulang.
+                dataPoints: dataPoints || prev?.dataPoints,
+                datasetRange: datasetRange || prev?.datasetRange,
               }));
 
-              // Log milestone (every 10%)
+              // Log milestone setiap 10% untuk membantu monitoring.
               if (percentage % 10 === 0 || tested === total) {
                 console.log(
                   `📈 [SSE] Progress: ${tested}/${total} (${percentage}%) | Best: ${bestROI}% | ETA: ${eta}`,
@@ -332,10 +312,10 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
             case "cancelled":
               console.log(`🛑 [SSE] Optimization cancelled:`, data);
 
-              // ✅ NO MODAL - Just clean up silently
-              setProgress(null); // Clear progress immediately
+              // Tidak tampilkan modal; langsung bersihkan state progres.
+              setProgress(null);
 
-              // Close connection immediately
+              // Tutup koneksi secepatnya agar tidak ada event lanjutan.
               if (eventSourceRef.current) {
                 eventSourceRef.current.close();
                 eventSourceRef.current = null;
@@ -346,7 +326,7 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
             case "completed":
               console.log(`✅ [SSE] Optimization completed:`, data);
 
-              // Set final state
+              // Set state final selesai.
               setProgress({
                 current: data.performance?.totalCombinations || 390625,
                 total: data.performance?.totalCombinations || 390625,
@@ -356,7 +336,7 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
                 status: "completed",
               });
 
-              // Clear progress after 3 seconds and close connection
+              // Bersihkan progres 3 detik setelah selesai.
               setTimeout(() => {
                 console.log(`🧹 [SSE] Cleaning up after completion`);
                 setProgress(null);
@@ -367,7 +347,7 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
             case "error":
               console.error(`❌ [SSE] Backend error:`, data.message);
 
-              // Clear progress and close connection
+              // Saat error backend, progres dihentikan lalu koneksi ditutup.
               setProgress(null);
               closeEventSource();
               break;
@@ -380,7 +360,7 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
         }
       };
 
-      // ✅ Handle connection errors
+      // Tangani error koneksi SSE (termasuk strategi reconnect).
       eventSource.onerror = async () => {
         console.error(`❌ [SSE] Connection error for ${symbol}`);
 
@@ -436,7 +416,7 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
       eventSourceRef.current = null;
     }
 
-    // ✅ Cleanup on unmount or symbol change
+    // Cleanup saat komponen unmount atau simbol berubah.
     return () => {
       console.log(`🔌 [SSE] Cleaning up connection for ${symbol}`);
       isMountedRef.current = false;
@@ -445,7 +425,7 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
       closeEventSource();
       retryCountRef.current = 0;
     };
-  }, [symbol, enabled, reconnectNonce]); // ✅ Depend on both symbol AND enabled
+  }, [symbol, enabled, reconnectNonce]);
 
   return progress;
 };

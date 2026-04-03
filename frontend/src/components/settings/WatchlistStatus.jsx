@@ -1,7 +1,8 @@
 import { FiList, FiAlertTriangle, FiPlusCircle } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 
-export default function WatchlistStatus({
+// WatchlistStatus: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+export function WatchlistStatus({
   watchlistCount,
   watchlistLoading,
   watchlistSymbols,
@@ -129,3 +130,5 @@ export default function WatchlistStatus({
     </div>
   );
 }
+
+export default WatchlistStatus;

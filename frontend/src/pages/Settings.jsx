@@ -18,6 +18,7 @@ import {
   AboutCard,
 } from "../components/settings";
 
+// Halaman settings: kelola preferensi, integrasi Telegram, dan info aplikasi.
 function SettingsPage() {
   const { user } = useAuth();
   const { isDarkMode, toggleDarkMode } = useDarkMode();
@@ -45,6 +46,7 @@ function SettingsPage() {
     refetchInterval: 30000,
   });
 
+  // Sinkronkan state chat id ketika profil user berubah.
   useEffect(() => {
     if (userProfile?.data?.telegramChatId) {
       setTelegramChatId(userProfile.data.telegramChatId);
@@ -67,6 +69,7 @@ function SettingsPage() {
   const userTelegramChatId = userProfile?.data?.telegramChatId || null;
   const isUserConfigured = !!userTelegramChatId;
 
+  // Mutation terpusat untuk update setting Telegram user.
   const updateTelegramMutation = useMutation({
     mutationFn: ({ userId, settings }) =>
       updateUserTelegramSettings(userId, settings),
@@ -77,12 +80,13 @@ function SettingsPage() {
     },
     onError: (error) => {
       toast.error(
-        error.response?.data?.message || "Failed to save Telegram settings"
+        error.response?.data?.message || "Failed to save Telegram settings",
       );
       setIsSavingTelegram(false);
     },
   });
 
+  // Simpan chat id Telegram setelah validasi input.
   const handleSaveTelegramSettings = () => {
     if (!telegramChatId || telegramChatId.trim() === "") {
       toast.error("Please enter your Telegram Chat ID");
@@ -103,6 +107,7 @@ function SettingsPage() {
     });
   };
 
+  // Aktif/nonaktif notifikasi Telegram user.
   const handleTelegramToggle = () => {
     const currentEnabled = userProfile?.data?.telegramEnabled || false;
     const hasChatId = userProfile?.data?.telegramChatId;
@@ -114,7 +119,7 @@ function SettingsPage() {
       }
       if (watchlistCount === 0) {
         toast.error(
-          "Add coins to your watchlist before enabling notifications."
+          "Add coins to your watchlist before enabling notifications.",
         );
         return;
       }
@@ -131,6 +136,7 @@ function SettingsPage() {
     });
   };
 
+  // Kirim pesan tes untuk memastikan koneksi Telegram berjalan.
   const handleTestConnection = async () => {
     if (!userTelegramChatId) {
       toast.warning("Please save your Telegram Chat ID first!");
@@ -138,7 +144,7 @@ function SettingsPage() {
     }
     if (!userTelegramEnabled) {
       toast.error(
-        "Enable Telegram notifications before testing the connection."
+        "Enable Telegram notifications before testing the connection.",
       );
       return;
     }
@@ -157,9 +163,11 @@ function SettingsPage() {
     }
   };
 
+  // Kelas utilitas agar style card konsisten di seluruh section settings.
   const card = `rounded-xl shadow-sm ${
     isDarkMode ? "bg-gray-800 shadow-lg" : "bg-white"
   }`;
+  // Helper warna teks sederhana sesuai mode tema.
   const t = (dark, light) => (isDarkMode ? dark : light);
 
   return (
@@ -197,4 +205,5 @@ function SettingsPage() {
   );
 }
 
+export { SettingsPage };
 export default SettingsPage;

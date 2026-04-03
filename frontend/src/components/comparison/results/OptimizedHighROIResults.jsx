@@ -6,6 +6,7 @@ import {
   getROIColor,
 } from "../utils";
 
+// OptimizedHighROIResults: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 export function OptimizedHighROIResults({ displayData }) {
   const { isDarkMode } = useDarkMode();
 
