@@ -171,6 +171,22 @@ th {
    Components Layer
    ========================= */
 @layer components {
+  .comparison-date-input {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+  }
+
+  .comparison-date-input::-webkit-date-and-time-value {
+    text-align: left;
+  }
+
+  .comparison-date-input::-webkit-calendar-picker-indicator {
+    opacity: 0.9;
+  }
+
   /* Card Components - Shadow Only, No Border */
   .card {
     @apply bg-white;

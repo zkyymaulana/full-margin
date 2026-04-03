@@ -37,7 +37,7 @@ export function DateRangeSelector({
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mb-3 md:mb-4">
-        <div>
+        <div className="min-w-0">
           <label
             className={`block text-xs md:text-sm font-medium mb-1.5 md:mb-2 ${
               isDarkMode ? "text-gray-300" : "text-gray-700"
@@ -59,7 +59,7 @@ export function DateRangeSelector({
           </p>
         </div>
 
-        <div>
+        <div className="min-w-0">
           <label
             className={`block text-xs md:text-sm font-medium mb-1.5 md:mb-2 ${
               isDarkMode ? "text-gray-300" : "text-gray-700"
@@ -71,7 +71,7 @@ export function DateRangeSelector({
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+            className={`comparison-date-input w-full max-w-full min-w-0 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
               isDarkMode
                 ? "bg-gray-700 border-gray-600 text-white [color-scheme:dark]"
                 : "border-gray-300 [color-scheme:light]"
@@ -79,7 +79,7 @@ export function DateRangeSelector({
           />
         </div>
 
-        <div>
+        <div className="min-w-0">
           <label
             className={`block text-xs md:text-sm font-medium mb-1.5 md:mb-2 ${
               isDarkMode ? "text-gray-300" : "text-gray-700"
@@ -91,7 +91,7 @@ export function DateRangeSelector({
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+            className={`comparison-date-input w-full max-w-full min-w-0 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
               isDarkMode
                 ? "bg-gray-700 border-gray-600 text-white [color-scheme:dark]"
                 : "border-gray-300 [color-scheme:light]"

@@ -105,7 +105,7 @@ export function StandardConfigResults({ displayData }) {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                   <div>
                     <div
                       className={`text-xs ${
@@ -144,6 +144,36 @@ export function StandardConfigResults({ displayData }) {
                         isDarkMode ? "text-gray-400" : "text-gray-500"
                       }`}
                     >
+                      Final Capital
+                    </div>
+                    <div
+                      className={`text-sm font-mono font-semibold ${
+                        data.finalCapital >= 10000
+                          ? "text-green-600"
+                          : "text-red-600"
+                      }`}
+                    >
+                      {formatCurrency(data.finalCapital)}
+                    </div>
+                  </div>
+                  <div>
+                    <div
+                      className={`text-xs ${
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
+                      Max Drawdown
+                    </div>
+                    <div className="text-sm font-mono font-semibold text-red-600">
+                      {formatPercent(data.maxDrawdown)}
+                    </div>
+                  </div>
+                  <div>
+                    <div
+                      className={`text-xs ${
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
                       Sharpe
                     </div>
                     <div
@@ -151,19 +181,73 @@ export function StandardConfigResults({ displayData }) {
                         data.sharpeRatio > 1
                           ? "text-green-600"
                           : data.sharpeRatio > 0
-                          ? isDarkMode
-                            ? "text-gray-300"
-                            : "text-gray-700"
-                          : "text-red-600"
+                            ? isDarkMode
+                              ? "text-gray-300"
+                              : "text-gray-700"
+                            : "text-red-600"
                       }`}
                     >
                       {formatRatio(data.sharpeRatio)}
                     </div>
                   </div>
+                  <div>
+                    <div
+                      className={`text-xs ${
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
+                      Sortino
+                    </div>
+                    <div
+                      className={`text-sm font-mono font-semibold ${
+                        data.sortinoRatio > 1
+                          ? "text-green-600"
+                          : data.sortinoRatio > 0
+                            ? isDarkMode
+                              ? "text-gray-300"
+                              : "text-gray-700"
+                            : "text-red-600"
+                      }`}
+                    >
+                      {formatRatio(data.sortinoRatio)}
+                    </div>
+                  </div>
+                  <div>
+                    <div
+                      className={`text-xs ${
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
+                      Avg Trade
+                    </div>
+                    <div
+                      className={`text-sm font-mono font-semibold ${
+                        isDarkMode ? "text-white" : "text-gray-900"
+                      }`}
+                    >
+                      {formatCurrency(data.avgTrade)}
+                    </div>
+                  </div>
+                  <div>
+                    <div
+                      className={`text-xs ${
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
+                      Profit Factor
+                    </div>
+                    <div
+                      className={`text-sm font-mono font-semibold ${
+                        isDarkMode ? "text-white" : "text-gray-900"
+                      }`}
+                    >
+                      {formatRatio(data.profitFactor)}
+                    </div>
+                  </div>
                 </div>
               </div>
             );
-          }
+          },
         )}
 
         {/* Multi Strategy Card */}
@@ -209,14 +293,14 @@ export function StandardConfigResults({ displayData }) {
               </div>
               <span
                 className={`text-lg font-bold ${getROIColor(
-                  displayData.comparison.multi.roi
+                  displayData.comparison.multi.roi,
                 )}`}
               >
                 {formatPercent(displayData.comparison.multi.roi)}
               </span>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
               <div>
                 <div
                   className={`text-xs ${
@@ -255,6 +339,36 @@ export function StandardConfigResults({ displayData }) {
                     isDarkMode ? "text-gray-400" : "text-gray-500"
                   }`}
                 >
+                  Final Capital
+                </div>
+                <div
+                  className={`text-sm font-mono font-semibold ${
+                    displayData.comparison.multi.finalCapital >= 10000
+                      ? "text-green-600"
+                      : "text-red-600"
+                  }`}
+                >
+                  {formatCurrency(displayData.comparison.multi.finalCapital)}
+                </div>
+              </div>
+              <div>
+                <div
+                  className={`text-xs ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
+                  Max Drawdown
+                </div>
+                <div className="text-sm font-mono font-semibold text-red-600">
+                  {formatPercent(displayData.comparison.multi.maxDrawdown)}
+                </div>
+              </div>
+              <div>
+                <div
+                  className={`text-xs ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
                   Sharpe
                 </div>
                 <div
@@ -262,13 +376,67 @@ export function StandardConfigResults({ displayData }) {
                     displayData.comparison.multi.sharpeRatio > 1
                       ? "text-green-600"
                       : displayData.comparison.multi.sharpeRatio > 0
-                      ? isDarkMode
-                        ? "text-gray-300"
-                        : "text-gray-700"
-                      : "text-red-600"
+                        ? isDarkMode
+                          ? "text-gray-300"
+                          : "text-gray-700"
+                        : "text-red-600"
                   }`}
                 >
                   {formatRatio(displayData.comparison.multi.sharpeRatio)}
+                </div>
+              </div>
+              <div>
+                <div
+                  className={`text-xs ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
+                  Sortino
+                </div>
+                <div
+                  className={`text-sm font-mono font-semibold ${
+                    displayData.comparison.multi.sortinoRatio > 1
+                      ? "text-green-600"
+                      : displayData.comparison.multi.sortinoRatio > 0
+                        ? isDarkMode
+                          ? "text-gray-300"
+                          : "text-gray-700"
+                        : "text-red-600"
+                  }`}
+                >
+                  {formatRatio(displayData.comparison.multi.sortinoRatio)}
+                </div>
+              </div>
+              <div>
+                <div
+                  className={`text-xs ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
+                  Avg Trade
+                </div>
+                <div
+                  className={`text-sm font-mono font-semibold ${
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  }`}
+                >
+                  {formatCurrency(displayData.comparison.multi.avgTrade)}
+                </div>
+              </div>
+              <div>
+                <div
+                  className={`text-xs ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
+                  Profit Factor
+                </div>
+                <div
+                  className={`text-sm font-mono font-semibold ${
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  }`}
+                >
+                  {formatRatio(displayData.comparison.multi.profitFactor)}
                 </div>
               </div>
             </div>
@@ -307,14 +475,14 @@ export function StandardConfigResults({ displayData }) {
               </div>
               <span
                 className={`text-lg font-bold ${getROIColor(
-                  displayData.comparison.voting.roi
+                  displayData.comparison.voting.roi,
                 )}`}
               >
                 {formatPercent(displayData.comparison.voting.roi)}
               </span>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
               <div>
                 <div
                   className={`text-xs ${
@@ -353,6 +521,36 @@ export function StandardConfigResults({ displayData }) {
                     isDarkMode ? "text-gray-400" : "text-gray-500"
                   }`}
                 >
+                  Final Capital
+                </div>
+                <div
+                  className={`text-sm font-mono font-semibold ${
+                    displayData.comparison.voting.finalCapital >= 10000
+                      ? "text-green-600"
+                      : "text-red-600"
+                  }`}
+                >
+                  {formatCurrency(displayData.comparison.voting.finalCapital)}
+                </div>
+              </div>
+              <div>
+                <div
+                  className={`text-xs ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
+                  Max Drawdown
+                </div>
+                <div className="text-sm font-mono font-semibold text-red-600">
+                  {formatPercent(displayData.comparison.voting.maxDrawdown)}
+                </div>
+              </div>
+              <div>
+                <div
+                  className={`text-xs ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
                   Sharpe
                 </div>
                 <div
@@ -360,13 +558,67 @@ export function StandardConfigResults({ displayData }) {
                     displayData.comparison.voting.sharpeRatio > 1
                       ? "text-green-600"
                       : displayData.comparison.voting.sharpeRatio > 0
-                      ? isDarkMode
-                        ? "text-gray-300"
-                        : "text-gray-700"
-                      : "text-red-600"
+                        ? isDarkMode
+                          ? "text-gray-300"
+                          : "text-gray-700"
+                        : "text-red-600"
                   }`}
                 >
                   {formatRatio(displayData.comparison.voting.sharpeRatio)}
+                </div>
+              </div>
+              <div>
+                <div
+                  className={`text-xs ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
+                  Sortino
+                </div>
+                <div
+                  className={`text-sm font-mono font-semibold ${
+                    displayData.comparison.voting.sortinoRatio > 1
+                      ? "text-green-600"
+                      : displayData.comparison.voting.sortinoRatio > 0
+                        ? isDarkMode
+                          ? "text-gray-300"
+                          : "text-gray-700"
+                        : "text-red-600"
+                  }`}
+                >
+                  {formatRatio(displayData.comparison.voting.sortinoRatio)}
+                </div>
+              </div>
+              <div>
+                <div
+                  className={`text-xs ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
+                  Avg Trade
+                </div>
+                <div
+                  className={`text-sm font-mono font-semibold ${
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  }`}
+                >
+                  {formatCurrency(displayData.comparison.voting.avgTrade)}
+                </div>
+              </div>
+              <div>
+                <div
+                  className={`text-xs ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
+                  Profit Factor
+                </div>
+                <div
+                  className={`text-sm font-mono font-semibold ${
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  }`}
+                >
+                  {formatRatio(displayData.comparison.voting.profitFactor)}
                 </div>
               </div>
             </div>
@@ -432,6 +684,27 @@ export function StandardConfigResults({ displayData }) {
                   }`}
                 >
                   Sharpe Ratio
+                </th>
+                <th
+                  className={`text-right py-3 px-4 text-sm font-semibold whitespace-nowrap ${
+                    isDarkMode ? "text-gray-300" : "text-gray-700"
+                  }`}
+                >
+                  Sortino Ratio
+                </th>
+                <th
+                  className={`text-right py-3 px-4 text-sm font-semibold whitespace-nowrap ${
+                    isDarkMode ? "text-gray-300" : "text-gray-700"
+                  }`}
+                >
+                  Avg Trade
+                </th>
+                <th
+                  className={`text-right py-3 px-4 text-sm font-semibold whitespace-nowrap ${
+                    isDarkMode ? "text-gray-300" : "text-gray-700"
+                  }`}
+                >
+                  Profit Factor
                 </th>
               </tr>
             </thead>
@@ -523,17 +796,44 @@ export function StandardConfigResults({ displayData }) {
                           data.sharpeRatio > 1
                             ? "text-green-600"
                             : data.sharpeRatio > 0
-                            ? isDarkMode
-                              ? "text-gray-300"
-                              : "text-gray-700"
-                            : "text-red-600"
+                              ? isDarkMode
+                                ? "text-gray-300"
+                                : "text-gray-700"
+                              : "text-red-600"
                         }`}
                       >
                         {formatRatio(data.sharpeRatio)}
                       </td>
+                      <td
+                        className={`py-3 px-4 text-right font-mono text-sm ${
+                          data.sortinoRatio > 1
+                            ? "text-green-600"
+                            : data.sortinoRatio > 0
+                              ? isDarkMode
+                                ? "text-gray-300"
+                                : "text-gray-700"
+                              : "text-red-600"
+                        }`}
+                      >
+                        {formatRatio(data.sortinoRatio)}
+                      </td>
+                      <td
+                        className={`py-3 px-4 text-right font-mono text-sm ${
+                          isDarkMode ? "text-gray-300" : "text-gray-700"
+                        }`}
+                      >
+                        {formatCurrency(data.avgTrade)}
+                      </td>
+                      <td
+                        className={`py-3 px-4 text-right font-mono text-sm ${
+                          isDarkMode ? "text-gray-300" : "text-gray-700"
+                        }`}
+                      >
+                        {formatRatio(data.profitFactor)}
+                      </td>
                     </tr>
                   );
-                }
+                },
               )}
               {/* Multi Strategy Row */}
               {displayData.comparison?.multi && (
@@ -578,7 +878,7 @@ export function StandardConfigResults({ displayData }) {
                   <td className="py-3 px-4 text-right">
                     <span
                       className={`font-bold ${getROIColor(
-                        displayData.comparison.multi.roi
+                        displayData.comparison.multi.roi,
                       )}`}
                     >
                       {formatPercent(displayData.comparison.multi.roi)}
@@ -607,7 +907,7 @@ export function StandardConfigResults({ displayData }) {
                       }`}
                     >
                       {formatCurrency(
-                        displayData.comparison.multi.finalCapital
+                        displayData.comparison.multi.finalCapital,
                       )}
                     </span>
                   </td>
@@ -619,13 +919,40 @@ export function StandardConfigResults({ displayData }) {
                       displayData.comparison.multi.sharpeRatio > 1
                         ? "text-green-600"
                         : displayData.comparison.multi.sharpeRatio > 0
-                        ? isDarkMode
-                          ? "text-gray-300"
-                          : "text-gray-700"
-                        : "text-red-600"
+                          ? isDarkMode
+                            ? "text-gray-300"
+                            : "text-gray-700"
+                          : "text-red-600"
                     }`}
                   >
                     {formatRatio(displayData.comparison.multi.sharpeRatio)}
+                  </td>
+                  <td
+                    className={`py-3 px-4 text-right font-mono text-sm ${
+                      displayData.comparison.multi.sortinoRatio > 1
+                        ? "text-green-600"
+                        : displayData.comparison.multi.sortinoRatio > 0
+                          ? isDarkMode
+                            ? "text-gray-300"
+                            : "text-gray-700"
+                          : "text-red-600"
+                    }`}
+                  >
+                    {formatRatio(displayData.comparison.multi.sortinoRatio)}
+                  </td>
+                  <td
+                    className={`py-3 px-4 text-right font-mono text-sm ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
+                    {formatCurrency(displayData.comparison.multi.avgTrade)}
+                  </td>
+                  <td
+                    className={`py-3 px-4 text-right font-mono text-sm ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
+                    {formatRatio(displayData.comparison.multi.profitFactor)}
                   </td>
                 </tr>
               )}
@@ -663,7 +990,7 @@ export function StandardConfigResults({ displayData }) {
                   <td className="py-3 px-4 text-right">
                     <span
                       className={`font-bold ${getROIColor(
-                        displayData.comparison.voting.roi
+                        displayData.comparison.voting.roi,
                       )}`}
                     >
                       {formatPercent(displayData.comparison.voting.roi)}
@@ -692,7 +1019,7 @@ export function StandardConfigResults({ displayData }) {
                       }`}
                     >
                       {formatCurrency(
-                        displayData.comparison.voting.finalCapital
+                        displayData.comparison.voting.finalCapital,
                       )}
                     </span>
                   </td>
@@ -704,13 +1031,40 @@ export function StandardConfigResults({ displayData }) {
                       displayData.comparison.voting.sharpeRatio > 1
                         ? "text-green-600"
                         : displayData.comparison.voting.sharpeRatio > 0
-                        ? isDarkMode
-                          ? "text-gray-300"
-                          : "text-gray-700"
-                        : "text-red-600"
+                          ? isDarkMode
+                            ? "text-gray-300"
+                            : "text-gray-700"
+                          : "text-red-600"
                     }`}
                   >
                     {formatRatio(displayData.comparison.voting.sharpeRatio)}
+                  </td>
+                  <td
+                    className={`py-3 px-4 text-right font-mono text-sm ${
+                      displayData.comparison.voting.sortinoRatio > 1
+                        ? "text-green-600"
+                        : displayData.comparison.voting.sortinoRatio > 0
+                          ? isDarkMode
+                            ? "text-gray-300"
+                            : "text-gray-700"
+                          : "text-red-600"
+                    }`}
+                  >
+                    {formatRatio(displayData.comparison.voting.sortinoRatio)}
+                  </td>
+                  <td
+                    className={`py-3 px-4 text-right font-mono text-sm ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
+                    {formatCurrency(displayData.comparison.voting.avgTrade)}
+                  </td>
+                  <td
+                    className={`py-3 px-4 text-right font-mono text-sm ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
+                    {formatRatio(displayData.comparison.voting.profitFactor)}
                   </td>
                 </tr>
               )}
