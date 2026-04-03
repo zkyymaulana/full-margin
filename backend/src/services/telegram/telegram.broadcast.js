@@ -12,15 +12,19 @@ import axios from "axios";
 import { prisma } from "../../lib/prisma.js";
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_ENABLED =
-  process.env.TELEGRAM_ENABLED === "true" ||
-  process.env.TELEGRAM_ENABLED === true;
+
+function isTelegramEnabled() {
+  return (
+    process.env.TELEGRAM_ENABLED === "true" ||
+    process.env.TELEGRAM_ENABLED === true
+  );
+}
 
 // Log konfigurasi (tetap sama, hanya pindah file)
 console.log(`📱 Telegram Configuration:`);
-console.log(`   Enabled: ${TELEGRAM_ENABLED}`);
+console.log(`   Enabled: ${isTelegramEnabled()}`);
 console.log(
-  `   Bot Token: ${TELEGRAM_BOT_TOKEN ? "✅ Configured" : "❌ Missing"}`
+  `   Bot Token: ${TELEGRAM_BOT_TOKEN ? "✅ Configured" : "❌ Missing"}`,
 );
 console.log(`   Mode: Multi-Indicator Only`);
 
@@ -41,7 +45,7 @@ export async function sendTelegramMessage(message, chatId, options = {}) {
     return { success: false, reason: "no_chat_id" };
   }
 
-  if (!TELEGRAM_ENABLED) {
+  if (!isTelegramEnabled()) {
     console.log("⚠️ Telegram notifications disabled (TELEGRAM_ENABLED=false)");
     return { success: false, reason: "disabled" };
   }
@@ -132,7 +136,7 @@ export async function broadcastTelegram(message, options = {}) {
         const result = await sendTelegramMessage(
           message,
           user.telegramChatId,
-          options
+          options,
         );
 
         if (result.success) {
@@ -162,7 +166,7 @@ export async function broadcastTelegram(message, options = {}) {
     }
 
     console.log(
-      `✅ Broadcast completed: ${results.sent} sent, ${results.failed} failed`
+      `✅ Broadcast completed: ${results.sent} sent, ${results.failed} failed`,
     );
 
     return {

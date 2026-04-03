@@ -97,21 +97,19 @@ export async function sendMultiIndicatorSignal({
   // Skip jika signal sama dengan sebelumnya (prevent spam)
   if (lastSignal === signal) {
     console.log(
-      `⏭️ [${symbol}] Signal unchanged (${signal}), skipping broadcast`
+      `⏭️ [${symbol}] Signal unchanged (${signal}), skipping broadcast`,
     );
     return { success: false, reason: "signal_unchanged", signal };
   }
 
-  // Update database cache untuk signal baru
-  await updateSignalCacheDB(symbol, "broadcast", signal);
   console.log(
-    `🔔 [${symbol}] Signal changed: ${lastSignal || "none"} → ${signal}`
+    `🔔 [${symbol}] Signal changed: ${lastSignal || "none"} → ${signal}`,
   );
 
   // ✅ VALIDATION: Jika neutral, strength harus 0
   if (signal === "neutral" && strength !== 0) {
     console.warn(
-      `⚠️ [Telegram] MISMATCH: neutral with strength ${strength} → forcing to 0`
+      `⚠️ [Telegram] MISMATCH: neutral with strength ${strength} → forcing to 0`,
     );
     strength = 0;
   }
@@ -181,7 +179,7 @@ export async function sendMultiIndicatorSignal({
     for (const user of enabledUsers) {
       const result = await sendTelegramMessage(
         message.trim(),
-        user.telegramChatId
+        user.telegramChatId,
       );
 
       if (result.success) {
@@ -200,8 +198,16 @@ export async function sendMultiIndicatorSignal({
     }
 
     console.log(
-      `✅ Multi-indicator signal broadcast: ${results.sent} sent, ${results.failed} failed`
+      `✅ Multi-indicator signal broadcast: ${results.sent} sent, ${results.failed} failed`,
     );
+
+    if (results.sent > 0) {
+      await updateSignalCacheDB(symbol, "broadcast", signal);
+    } else {
+      console.warn(
+        `⚠️ [${symbol}] Broadcast failed to all recipients, cache not updated`,
+      );
+    }
 
     return {
       success: true,
@@ -212,7 +218,7 @@ export async function sendMultiIndicatorSignal({
   } catch (error) {
     console.error(
       "❌ Error broadcasting multi-indicator signal:",
-      error.message
+      error.message,
     );
     return { success: false, reason: "broadcast_error", error: error.message };
   }
@@ -227,7 +233,7 @@ export async function sendMultiIndicatorSignal({
 export async function sendDailySummary(symbols) {
   const summaryLines = symbols.map(
     (s) =>
-      `• ${s.symbol}: ${s.signal === "buy" ? "🟢" : s.signal === "sell" ? "🔴" : "⚪"} ${s.signal.toUpperCase()} at $${s.price}`
+      `• ${s.symbol}: ${s.signal === "buy" ? "🟢" : s.signal === "sell" ? "🔴" : "⚪"} ${s.signal.toUpperCase()} at $${s.price}`,
   );
 
   const message = `
@@ -388,15 +394,13 @@ export async function sendSignalToWatchers({
     // Skip jika signal sama dengan sebelumnya (prevent spam)
     if (lastSignal === signal) {
       console.log(
-        `⏭️ [${symbol}] Signal unchanged (${signal}), skipping notification`
+        `⏭️ [${symbol}] Signal unchanged (${signal}), skipping notification`,
       );
       return { success: false, reason: "signal_unchanged", signal };
     }
 
-    // Update database cache untuk signal baru
-    await updateSignalCacheDB(symbol, "watchlist", signal);
     console.log(
-      `🔔 [${symbol}] Signal changed: ${lastSignal || "none"} → ${signal}`
+      `🔔 [${symbol}] Signal changed: ${lastSignal || "none"} → ${signal}`,
     );
 
     const watchers = await getWatchersForCoin(coinId);
@@ -407,7 +411,7 @@ export async function sendSignalToWatchers({
     }
 
     const eligibleWatchers = watchers.filter(
-      (w) => w.user.telegramEnabled && w.user.telegramChatId
+      (w) => w.user.telegramEnabled && w.user.telegramChatId,
     );
 
     if (!eligibleWatchers.length) {
@@ -441,7 +445,7 @@ export async function sendSignalToWatchers({
     for (const watcher of eligibleWatchers) {
       const result = await sendTelegramMessage(
         message.trim(),
-        watcher.user.telegramChatId
+        watcher.user.telegramChatId,
       );
       if (result.success) {
         results.sent++;
@@ -457,8 +461,16 @@ export async function sendSignalToWatchers({
     }
 
     console.log(
-      `✅ Watchlist signal sent for ${symbol}: ${results.sent}/${eligibleWatchers.length} watchers notified`
+      `✅ Watchlist signal sent for ${symbol}: ${results.sent}/${eligibleWatchers.length} watchers notified`,
     );
+
+    if (results.sent > 0) {
+      await updateSignalCacheDB(symbol, "watchlist", signal);
+    } else {
+      console.warn(
+        `⚠️ [${symbol}] No successful watchlist sends, cache not updated`,
+      );
+    }
 
     return {
       success: true,
