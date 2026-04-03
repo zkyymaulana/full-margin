@@ -32,6 +32,10 @@ function getEnvBool(name, defaultValue = false) {
   return raw.toLowerCase() === "true";
 }
 
+const STARTUP_SYNC_DELAY_MS = Number(
+  process.env.STARTUP_SYNC_DELAY_MS || "1500",
+);
+
 let isMainSyncRunning = false;
 
 const jobStats = {
@@ -134,6 +138,20 @@ export async function startAllSchedulers() {
       activeJobs.set(name, job);
       console.log(`✅ ${desc}`);
     });
+
+    if (getEnvBool("RUN_MAIN_SYNC_ON_STARTUP", false)) {
+      console.log(
+        `⚡ Startup main sync enabled. Running once in ${STARTUP_SYNC_DELAY_MS}ms...`,
+      );
+      setTimeout(
+        () => {
+          runMainSyncJob(false).catch((err) => {
+            console.error("❌ Startup main sync failed:", err.message);
+          });
+        },
+        Math.max(0, STARTUP_SYNC_DELAY_MS),
+      );
+    }
 
     console.log("✅ All schedulers started successfully!");
   } catch (err) {
