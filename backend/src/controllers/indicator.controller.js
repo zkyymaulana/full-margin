@@ -11,34 +11,15 @@ import {
   buildResponseMetadata,
 } from "../services/indicators/indicator.service.js";
 
-/**
- * 🎯 FORMAT MULTI-SIGNAL FROM DATABASE (REFACTORED)
- * ================================================================
- * SESUAI PROPOSAL SKRIPSI - Menggunakan Single Source of Truth
- *
- * PENTING:
- * - FinalScore dan signalStrength SUDAH tersimpan di database
- * - Fungsi ini hanya mem-FORMAT untuk display/UI
- * - TIDAK melakukan perhitungan ulang (konsistensi data)
- * - Menggunakan multi-level threshold untuk label
- *
- * Signal Classification:
- * - finalScore >= 0.6  → STRONG BUY 🟢🟢
- * - finalScore > 0     → BUY 🟢
- * - finalScore == 0    → NEUTRAL ⚪
- * - finalScore < 0     → SELL 🔴
- * - finalScore <= -0.6 → STRONG SELL 🔴🔴
- * ================================================================
- */
+// Format data multi-signal dari database untuk kebutuhan response API.
 function formatMultiSignalFromDB(ind, weights = null) {
   if (!ind) return null;
 
-  // ✅ Ambil langsung dari database (NO RECALCULATION)
+  // Ambil nilai final langsung dari database tanpa hitung ulang.
   const finalScore = ind.finalScore ?? 0;
   const strength = ind.signalStrength ?? 0;
 
-  // 🎯 SIGNAL CLASSIFICATION (MULTI-LEVEL THRESHOLD)
-  // Threshold yang sama dengan calculateMultiIndicatorScore()
+  // Kelaskan sinyal berdasarkan threshold skor akhir.
   let signal = "neutral";
   let signalLabel = "NEUTRAL";
   let signalEmoji = "⚪";
@@ -63,14 +44,13 @@ function formatMultiSignalFromDB(ind, weights = null) {
     signalLabel = "SELL";
     signalEmoji = "🔴";
   } else {
-    // finalScore === 0
+    // Kondisi ini berlaku saat finalScore = 0.
     signal = "neutral";
     signalLabel = "NEUTRAL";
     signalEmoji = "⚪";
   }
 
-  // 🎯 CALCULATE WEIGHTED CATEGORY SCORES
-  // Kontribusi masing-masing kategori terhadap finalScore
+  // Hitung kontribusi kategori jika bobot tersedia.
   let categoryScores = { trend: 0, momentum: 0, volatility: 0 };
 
   if (weights) {
@@ -82,20 +62,20 @@ function formatMultiSignalFromDB(ind, weights = null) {
       return 0;
     };
 
-    // WEIGHTED Trend category (SMA + EMA + PSAR)
+    // Kategori trend: SMA + EMA + PSAR.
     const trendScore =
       signalToScore(ind.smaSignal) * (weights.SMA || 0) +
       signalToScore(ind.emaSignal) * (weights.EMA || 0) +
       signalToScore(ind.psarSignal) * (weights.PSAR || 0);
 
-    // WEIGHTED Momentum category (RSI + MACD + Stochastic + StochasticRSI)
+    // Kategori momentum: RSI + MACD + Stochastic + StochasticRSI.
     const momentumScore =
       signalToScore(ind.rsiSignal) * (weights.RSI || 0) +
       signalToScore(ind.macdSignal) * (weights.MACD || 0) +
       signalToScore(ind.stochSignal) * (weights.Stochastic || 0) +
       signalToScore(ind.stochRsiSignal) * (weights.StochasticRSI || 0);
 
-    // WEIGHTED Volatility category (BollingerBands)
+    // Kategori volatility: Bollinger Bands.
     const volatilityScore =
       signalToScore(ind.bbSignal) * (weights.BollingerBands || 0);
 
@@ -107,19 +87,17 @@ function formatMultiSignalFromDB(ind, weights = null) {
   }
 
   return {
-    signal, // 'buy'/'sell'/'neutral'/'strong_buy'/'strong_sell'
-    strength: parseFloat(strength.toFixed(3)), // Confidence level [0, 1]
-    finalScore: parseFloat(finalScore.toFixed(3)), // Normalized score [-1, +1]
-    signalLabel, // 'BUY'/'SELL'/'STRONG BUY'/etc
-    signalEmoji, // Visual indicator
-    categoryScores, // Breakdown per kategori
-    source: "db", // Data source indicator
+    signal,
+    strength: parseFloat(strength.toFixed(3)),
+    finalScore: parseFloat(finalScore.toFixed(3)),
+    signalLabel,
+    signalEmoji,
+    categoryScores,
+    source: "db",
   };
 }
 
-/* ===========================================================
-  GET INDICATORS API — Support mode=latest & mode=paginated
-=========================================================== */
+// Ambil data sinyal indikator dengan mode latest atau paginated.
 export async function getSignals(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
@@ -129,13 +107,13 @@ export async function getSignals(req, res) {
     console.log(`Fetching indicators for ${symbol} (mode: ${mode})`);
     const startTime = Date.now();
 
-    // Get coinId and timeframeId
+    // Ambil coinId dan timeframeId untuk query database.
     const { coinId, timeframeId } = await getCoinAndTimeframeIds(
       symbol,
       timeframe,
     );
 
-    // LATEST MODE - Return only latest signal
+    // Mode latest: kirim hanya sinyal terbaru.
     if (mode === "latest") {
       const { indicator, weight, price } = await getLatestSignalData(
         coinId,
@@ -171,7 +149,7 @@ export async function getSignals(req, res) {
       });
     }
 
-    // PAGINATED MODE - Return paginated data
+    // Mode paginated: kirim data per halaman.
     const requestedShowAll = req.query.all === "true";
     const allowAllMode = process.env.ALLOW_INDICATOR_ALL_MODE === "true";
     const showAll = requestedShowAll && allowAllMode;
@@ -198,7 +176,7 @@ export async function getSignals(req, res) {
       });
     }
 
-    // Fetch all data in parallel (single service call)
+    // Ambil data utama dalam satu pemanggilan service.
     const {
       indicators: data,
       prices: candlePrices,
@@ -206,13 +184,13 @@ export async function getSignals(req, res) {
       latestWeight,
     } = await getPaginatedSignalData(coinId, timeframeId, page, limit, showAll);
 
-    // Organize data
+    // Susun data indikator agar siap dipakai frontend.
     const priceMap = new Map(
       candlePrices.map((c) => [Number(c.time), c.close]),
     );
     const organized = organizeIndicatorData(data, priceMap);
 
-    // Build latest signal (using service function)
+    // Bentuk sinyal terbaru untuk panel ringkasan.
     const latestSignal = buildLatestSignal(
       latestIndicator,
       latestWeight,
@@ -221,7 +199,7 @@ export async function getSignals(req, res) {
       formatIndicatorStructure,
     );
 
-    // Build response
+    // Bentuk metadata dan pagination response.
     const processingTime = Date.now() - startTime;
     const totalPages = showAll ? 1 : Math.ceil(totalIndicators / limit);
     const metadata = buildResponseMetadata(organized, totalIndicators, showAll);

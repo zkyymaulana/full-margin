@@ -1,58 +1,34 @@
 // src/lib/prisma.js
 import { PrismaClient } from "@prisma/client";
 
-/**
- * 🧩 Prisma Client Setup
- * - Reuses instance in dev mode to prevent connection leaks (Next.js/Hot reload)
- * - Adds optional query logging for debugging
- * - Fixes BigInt serialization issue in JSON responses
- */
-
 const globalForPrisma = globalThis;
 
-/**
- * 🧠 Global BigInt Fix
- * JSON.stringify() tidak tahu cara meng-serialize BigInt.
- * Dengan ini, semua BigInt otomatis diubah ke string agar tidak error saat res.json().
- */
-if (!BigInt.prototype.toJSON) {
-  BigInt.prototype.toJSON = function () {
-    // Convert to string (bukan Number untuk mencegah overflow)
-    return this.toString();
-  };
+// Tambahkan serializer global agar BigInt aman saat dikirim sebagai JSON.
+function registerBigIntSerializer() {
+  if (!BigInt.prototype.toJSON) {
+    BigInt.prototype.toJSON = function () {
+      // Gunakan string agar tidak terjadi overflow angka besar.
+      return this.toString();
+    };
+  }
 }
 
-/**
- * 🚀 Prisma Client initialization with connection pool configuration
- */
-export const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient({
-    log: ["error", "warn"], // tampilkan hanya error dan warning
-    errorFormat: "pretty", // tampilkan format error yang lebih rapi
-    // ✅ Connection pool configuration to prevent timeout
+// Buat instance PrismaClient dengan konfigurasi logging standar backend.
+function createPrismaClient() {
+  return new PrismaClient({
+    log: ["error", "warn"],
+    errorFormat: "pretty",
     datasources: {
       db: {
         url: process.env.DATABASE_URL,
       },
     },
   });
+}
 
-// ✅ Configure connection pool timeout (10 minutes instead of default 60 seconds)
-prisma.$connect().catch((err) => {
-  console.error("❌ Failed to connect to database:", err.message);
-  process.exit(1);
-});
-
-/**
- * 🧰 Reuse Prisma instance in development (Hot Reload Safe)
- * Kalau tidak, akan muncul error “PrismaClient is already running”
- */
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-
-  // Optional: enable detailed query logging (aktifkan lewat .env)
-  prisma.$on("query", (e) => {
+// Aktifkan query logging detail saat DEBUG_QUERIES=true.
+function registerDebugQueryLogging(client) {
+  client.$on("query", (e) => {
     if (process.env.DEBUG_QUERIES === "true") {
       console.log("🧾 Query:", e.query);
       console.log("🧩 Params:", e.params);
@@ -62,8 +38,19 @@ if (process.env.NODE_ENV !== "production") {
   });
 }
 
-/**
- * ✅ Example usage:
- * import { prisma } from "../lib/prisma.js";
- * const users = await prisma.user.findMany();
- */
+registerBigIntSerializer();
+
+// Reuse instance pada mode development agar tidak membuat banyak koneksi.
+export const prisma = globalForPrisma.prisma || createPrismaClient();
+
+// Coba koneksi lebih awal supaya kegagalan DB terlihat saat startup.
+prisma.$connect().catch((err) => {
+  console.error("❌ Failed to connect to database:", err.message);
+  process.exit(1);
+});
+
+// Simpan instance global saat development (hot reload safe).
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+  registerDebugQueryLogging(prisma);
+}

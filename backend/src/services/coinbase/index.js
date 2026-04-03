@@ -1,7 +1,10 @@
 /**
  * File: src/services/coinbase/index.js
  * -------------------------------------------------
- * Tujuan: Barrel export untuk service Coinbase (historical candles, dll).
+ * Tujuan: Satu pintu export untuk service Coinbase.
  */
 
-export * from "./coinbase.service.js";
+export {
+  fetchHistoricalCandles, // Ambil candle historis dari API Coinbase
+  fetchEarliestCandle, // Ambil candle paling awal untuk listing date
+} from "./coinbase.service.js";

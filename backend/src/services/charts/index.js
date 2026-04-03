@@ -20,8 +20,7 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-// ✅ Export dari chart.service.js
-// Fungsi-fungsi untuk query dan simpan candle data
+// Export dari chart.service.js untuk query dan simpan candle data.
 export {
   getLastCandleTime, // Ambil waktu candle terakhir
   getCandleCount, // Hitung total candle
@@ -30,8 +29,7 @@ export {
   saveCandlesToDB, // Simpan candle baru ke database
 } from "./chart.service.js";
 
-// ✅ Export dari chart.data.js
-// Fungsi-fungsi untuk database retrieval dan data merging
+// Export dari chart.data.js untuk data retrieval dan proses merge.
 export {
   getCoinAndTimeframe, // Ambil coin & timeframe records
   getLatestWeights, // Ambil bobot indikator optimal
@@ -39,15 +37,13 @@ export {
   mergeChartData, // Merge candle dengan indicator
 } from "./chart.data.js";
 
-// ✅ Export dari chart.indicator.js
-// Fungsi-fungsi untuk formatting dan signal calculation
+// Export dari chart.indicator.js untuk formatting indikator dan sinyal.
 export {
   formatIndicators, // Format individual indicators
   formatMultiSignalFromDB, // Format multi-signal dengan weights
 } from "./chart.indicator.js";
 
-// ✅ Export dari chart.metadata.js
-// Fungsi-fungsi untuk statistics dan pagination
+// Export dari chart.metadata.js untuk metadata statistik dan pagination.
 export {
   calculateMetadata, // Hitung metadata statistik
   buildPagination, // Build pagination URLs

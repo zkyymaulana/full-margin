@@ -48,8 +48,6 @@ function formatEta(seconds) {
 /**
  * 🧮 Precompute semua indicator signals untuk entire dataset
  *
- * @param {Array} data - Array of candle objects dengan indicator values
- * @returns {Array} Array dengan precomputed signals untuk setiap candle
  *
  * Preprocessing ini dilakukan SEKALI saja di awal optimization.
  * Hasilnya di-cache untuk iterasi yang lebih cepat saat testing kombinasi.
@@ -78,9 +76,6 @@ function computeAllIndicators(data) {
 /**
  * 🎲 Generate weight combination dari index
  *
- * @param {number} index - Index dalam range 0-390624 (5^8 - 1)
- * @param {Array} indicators - Daftar indicator names
- * @returns {Object} Object dengan weights {SMA: 2, EMA: 1, ...}
  *
  * Algoritma:
  * Setiap indicator punya 5 level weight: [0, 1, 2, 3, 4]
@@ -111,9 +106,6 @@ function getWeightCombination(index, indicators) {
 /**
  * ⚡ Fast backtest menggunakan precomputed indicators
  *
- * @param {Array} cache - Precomputed indicators dari computeAllIndicators()
- * @param {Object} weights - Weight object {SMA: 2, EMA: 1, ...}
- * @returns {Object} Backtest result {roi, winRate, trades, maxDrawdown, ...}
  *
  * Strategi Trading (Rule-Based DSS):
  * 1. Hitung weighted score dari semua indicator signals
@@ -220,11 +212,6 @@ function backtestWithWeightsCached(cache, weights) {
 /**
  * 🎯 FULL EXHAUSTIVE OPTIMIZATION (5^8 = 390,625 kombinasi)
  *
- * @param {Array} data - Array of candle objects dengan indicator data
- * @param {string} symbol - Cryptocurrency symbol (e.g., "BTC-USD")
- * @param {Function} onProgress - Callback untuk progress updates
- * @param {Function} checkCancel - Callback untuk check cancel status
- * @returns {Promise<Object>} Optimization result dengan best weights dan performance
  *
  * Workflow:
  * 1. Precompute semua indicator signals SEKALI
@@ -422,10 +409,6 @@ export async function optimizeIndicatorWeights(
 /**
  * 📊 Backtest dengan weights yang sudah dioptimalkan
  *
- * @param {Array} data - Array of candle objects
- * @param {Object} weights - Optimized weights {SMA: 2, EMA: 1, ...}
- * @param {Object} options - Options {fastMode, threshold}
- * @returns {Promise<Object>} Backtest result
  *
  * Ini adalah wrapper untuk backtestWithWeightsCached.
  * Melakukan validation weights dan mengembalikan hasil dengan format yang sesuai.

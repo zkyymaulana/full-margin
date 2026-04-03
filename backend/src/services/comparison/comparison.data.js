@@ -31,22 +31,8 @@ import { prisma } from "../../lib/prisma.js";
  * 2. Map semua indicator records dengan matching close price
  * 3. Filter records yang tidak ada close price-nya
  *
- * @param {Object[]} indicators - Array indicator records dari database
- * @param {number} indicators[].time - Timestamp indicator
- * @param {Object} indicators[].sma - SMA values (20, 50, etc)
- * @param {Object} indicators[].ema - EMA values (20, 50, etc)
- * @param {number} indicators[].rsi - RSI value
- * @param {Object} indicators[].macd - MACD values (line, signal, histogram)
- * @param {Object} indicators[].bollingerBands - BB values (upper, middle, lower)
- * @param {Object} indicators[].stochastic - Stochastic values (%K, %D)
- * @param {Object} indicators[].stochasticRsi - Stochastic RSI values
- * @param {number} indicators[].psar - PSAR value
  *
- * @param {Object[]} candles - Array candle records dari database
- * @param {number} candles[].time - Timestamp candle (BigInt)
- * @param {number} candles[].close - Close price untuk periode
  *
- * @returns {Object[]} Merged data dengan format: {...indicator, close: price}
  */
 function mergeIndicatorsWithCandles(indicators, candles) {
   // ✅ Create map untuk O(1) lookup: time → close price
@@ -76,14 +62,7 @@ function mergeIndicatorsWithCandles(indicators, candles) {
  * ✅ UPDATED: Always use latest optimization by updatedAt DESC
  * Ini memastikan kita selalu menggunakan hasil optimasi terbaru
  *
- * @param {string} symbol - Symbol cryptocurrency (e.g., "BTC-USD")
- * @param {string} timeframe - Timeframe (e.g., "1h")
  *
- * @returns {Object} Object dengan weights dan metadata
- * @returns {Object} weights - Bobot untuk setiap indicator (SMA, EMA, RSI, etc)
- * @returns {string} source - Sumber bobot ("latest_optimization" atau "default")
- * @returns {Date} optimizedAt - Waktu optimization (jika ada)
- * @returns {Object} performance - Performa dari optimization (jika ada)
  */
 async function getBestWeights(symbol, timeframe) {
   // ✅ Get coin ID dari database
@@ -174,7 +153,6 @@ async function getBestWeights(symbol, timeframe) {
  * 7. StochasticRSI (Combination RSI + Stochastic)
  * 8. PSAR (Parabolic SAR)
  *
- * @returns {Object} Object dengan semua indicators set ke weight 1.0
  */
 function defaultWeights() {
   const keys = [

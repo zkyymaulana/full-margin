@@ -2,6 +2,7 @@
 // Mengukur posisi harga penutupan relatif terhadap rentang harga tertinggi dan terendah.
 import { createRollingWindow } from "../../utils/rollingWindow.js";
 
+// Buat kalkulator Stochastic Oscillator (%K dan %D).
 export function createStochasticCalculator(kPeriod = 14, dPeriod = 3) {
   const highWindow = createRollingWindow(kPeriod);
   const lowWindow = createRollingWindow(kPeriod);

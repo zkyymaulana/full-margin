@@ -1,7 +1,12 @@
 /**
  * File: src/services/watchlist/index.js
  * -------------------------------------------------
- * Tujuan: Barrel export untuk modul watchlist.
+ * Tujuan: Satu pintu export untuk modul watchlist.
  */
 
-export * from "./watchlist.service.js";
+export {
+  getWatchlist, // Ambil daftar watchlist user
+  addToWatchlist, // Tambah coin ke watchlist user
+  removeFromWatchlist, // Hapus coin dari watchlist user
+  getWatchersForCoin, // Ambil user yang memantau coin tertentu
+} from "./watchlist.service.js";

@@ -88,9 +88,6 @@ function estimateDuration(dataCount) {
 /**
  * 📊 Dapatkan estimasi waktu optimization
  *
- * @param {string} symbol - Cryptocurrency symbol
- * @param {string} timeframe - Timeframe (e.g., "1h", "4h")
- * @returns {Promise<Object>} Estimation data
  *
  * Menggunakan formula linear scaling berdasarkan benchmark:
  * - Benchmark: 45,893 data points = 78 menit
@@ -246,10 +243,6 @@ async function prepareOptimizationData(coinId, timeframeId, trainingWindow) {
 /**
  * 🚀 Jalankan optimization untuk single cryptocurrency
  *
- * @param {string} symbol - Cryptocurrency symbol
- * @param {string} timeframe - Timeframe
- * @param {Object} options - Options {forceReoptimize, onProgress, checkCancel}
- * @returns {Promise<Object>} Optimization result
  *
  * Workflow:
  * 1. Check apakah optimization sudah ada
@@ -460,9 +453,6 @@ export async function runOptimization(
 /**
  * 📊 Jalankan backtest dengan weights yang sudah dioptimalkan
  *
- * @param {string} symbol - Cryptocurrency symbol
- * @param {string} timeframe - Timeframe
- * @returns {Promise<Object>} Backtest result
  */
 export async function runBacktestWithOptimizedWeights(symbol, timeframe) {
   try {
@@ -546,8 +536,6 @@ export async function runBacktestWithOptimizedWeights(symbol, timeframe) {
 /**
  * 🔄 Optimize semua top 20 coins
  *
- * @param {string} timeframe - Timeframe
- * @returns {Promise<Object>} Summary hasil optimization untuk semua coins
  */
 export async function optimizeAllCoins(timeframe) {
   try {

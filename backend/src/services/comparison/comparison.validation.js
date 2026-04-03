@@ -34,16 +34,7 @@
  * 5. Check date range tidak terlalu lama (max 1 tahun)
  * 6. Check date range tidak terlalu pendek (min 7 hari)
  *
- * @param {Object} params - Parameter object dari request
- * @param {string} params.symbol - Cryptocurrency symbol (e.g., "BTC-USD")
- * @param {string} params.startDate - Start date (ISO 8601 format)
- * @param {string} params.endDate - End date (ISO 8601 format)
  *
- * @returns {Object} Validation result
- * @returns {boolean} isValid - Whether validation passed
- * @returns {Object} error - Error object (jika validation failed)
- * @returns {string} error.message - Error message
- * @returns {string} error.example - Example format yang benar
  *
  * @example
  * // ✅ Valid request
@@ -190,14 +181,7 @@ function validateComparisonParams({ symbol, startDate, endDate }) {
  * 3. Processing errors (backtest fail, calculation error)
  * 4. System errors (unknown/unexpected errors)
  *
- * @param {Error} error - Error object dari try-catch
  *
- * @returns {Object} Error response
- * @returns {number} statusCode - HTTP status code
- * @returns {Object} response - Response object
- * @returns {boolean} response.success - Always false
- * @returns {string} response.message - Error message
- * @returns {string} response.type - Error type untuk debugging
  *
  * @example
  * try {

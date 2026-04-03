@@ -85,10 +85,6 @@ export function makeSignalFuncs({ rsiLow = 30, rsiHigh = 70 } = {}) {
 
 /**
  * 🧠 Jalankan backtest inti (logika transaksi)
- * @param {Array} data - Array of candle data with indicators
- * @param {String} indicatorName - Name of indicator to backtest
- * @param {Object} funcs - Signal functions (optional if using stored signals)
- * @param {Boolean} useStoredSignals - Use pre-calculated signals from database
  */
 export function runBacktestCore(
   data,

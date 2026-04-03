@@ -26,13 +26,9 @@
  * • Time Range: start dan end time dalam format yang readable
  *
  * Parameter:
- * @param {Array} merged - Array of merged candle+indicator objects
  *   Struktur: { time, multiSignal: { signal }, ... }
- * @param {number} minTime - Start time dalam milidetik (untuk display format)
- * @param {number} maxTime - End time dalam milidetik (untuk display format)
  *
  * Return:
- * @returns {object} Metadata object dengan struktur:
  *   {
  *     coverage: "100/500",              // "dengan_indicator/total"
  *     coveragePercent: "100.0%",        // Persentase data coverage
@@ -110,15 +106,9 @@ export function calculateMetadata(merged, minTime, maxTime) {
  * reconstruct URL secara manual.
  *
  * Parameter:
- * @param {object} req - Express request object
  *   Dipakai untuk: protocol, host, baseUrl, path
- * @param {number} page - Current page number (1-indexed)
- * @param {number} totalPages - Total jumlah halaman
- * @param {number} limit - Jumlah candle per halaman
- * @param {string} timeframe - Timeframe query param (e.g., "1h")
  *
  * Return:
- * @returns {object} Pagination object dengan struktur:
  *   {
  *     next: {
  *       page: 2,

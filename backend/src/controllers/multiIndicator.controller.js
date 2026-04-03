@@ -1,21 +1,5 @@
-/**
- * 🎮 Controller Multi-Indicator
- * ================================================================
- * Thin controller layer yang hanya menangani HTTP requests/responses.
- *
- * Tanggung Jawab:
- * - Parse request parameters
- * - Validate input
- * - Call service functions
- * - Return JSON responses
- *
- * TIDAK BOLEH MENGANDUNG:
- * - Business logic
- * - Database queries (gunakan service)
- * - Algorithm logic (gunakan service)
- * - Job state management (gunakan service)
- * ================================================================
- */
+// Controller Multi-Indicator: fokus pada HTTP request/response.
+// Business logic tetap dijalankan di service.
 
 import {
   getOptimizationEstimate,
@@ -42,10 +26,7 @@ import {
 import { calculateCategoryScores } from "../utils/multiindicator-score.utils.js";
 import jwt from "jsonwebtoken";
 
-/**
- * 🔐 Middleware: Verify JWT token untuk SSE endpoints
- * SSE tidak support HTTP headers, jadi token dipass via query parameter
- */
+// Verifikasi token JWT untuk endpoint SSE (token dikirim via query).
 async function verifySSEToken(token) {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -55,16 +36,7 @@ async function verifySSEToken(token) {
   }
 }
 
-/**
- * 📊 GET /api/multi-indicator/:symbol/estimate
- *
- * Dapatkan estimasi waktu optimization untuk symbol tertentu.
- *
- * Query parameters:
- * - timeframe: "1h" (default), "4h", "1d", etc.
- *
- * Response: {estimate, dataPoints, totalCombinations, ...}
- */
+// Ambil estimasi waktu optimasi untuk satu simbol.
 export async function getOptimizationEstimateController(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
@@ -74,7 +46,7 @@ export async function getOptimizationEstimateController(req, res) {
       `\n📊 [CONTROLLER] Getting estimate for ${symbol} (${timeframe})`,
     );
 
-    // Call service untuk get estimate
+    // Delegasikan perhitungan estimasi ke service.
     const estimate = await getOptimizationEstimate(symbol, timeframe);
 
     res.json({
@@ -92,30 +64,13 @@ export async function getOptimizationEstimateController(req, res) {
   }
 }
 
-/**
- * 📡 GET /api/multi-indicator/:symbol/stream?token=JWT_TOKEN
- *
- * SSE endpoint untuk streaming optimization progress.
- *
- * Clients connect ke endpoint ini dan menerima real-time updates:
- * - start: Optimization dimulai
- * - progress: Progress update setiap 1000 kombinasi
- * - completed: Optimization selesai
- * - cancelled: Optimization dibatalkan
- * - error: Error terjadi
- *
- * Query parameters:
- * - token: JWT authentication token (REQUIRED)
- * - timeframe: "1h" (default)
- *
- * Response: Server-Sent Events stream
- */
+// Stream progress optimasi via SSE agar frontend menerima update realtime.
 export async function streamOptimizationProgressController(req, res) {
   const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
   const token = req.query.token;
 
   try {
-    // ✅ Verify JWT token dari query parameter
+    // Verifikasi token user sebelum membuka koneksi SSE.
     if (!token) {
       res.status(401).json({
         success: false,
@@ -127,17 +82,11 @@ export async function streamOptimizationProgressController(req, res) {
     const user = await verifySSEToken(token);
     console.log(`📡 [SSE] Authenticated user: ${user.email} for ${symbol}`);
 
-    // ================================================================================
-    // STEP 1: Setup SSE Response Headers
-    // ================================================================================
+    // Langkah 1: siapkan header SSE.
     setupSSE(res);
     console.log(`📡 [SSE] SSE headers configured for ${symbol}`);
 
-    // ================================================================================
-    // STEP 2: CREATE/GET JOB dan TAMBAHKAN CLIENT ke JOB
-    // ================================================================================
-    // PENTING: Jangan overwrite job yang sudah berjalan
-    // Jika belum ada job, baru buat dengan status waiting.
+    // Langkah 2: ambil/buat job lalu daftarkan client ke job.
     if (!getJob(symbol)) {
       createJob(symbol);
     }
@@ -148,29 +97,26 @@ export async function streamOptimizationProgressController(req, res) {
       `📡 [SSE] Client added to job for ${symbol}. Total clients: ${getSSEClients(symbol).size}`,
     );
 
-    // ================================================================================
-    // STEP 3: SEND CURRENT JOB STATE ke CLIENT
-    // ================================================================================
-    // Jika job sedang running, kirim current progress
+    // Langkah 3: kirim status job saat ini ke client yang baru connect.
     if (job?.status === "running" && job?.progress) {
       console.log(`📡 [SSE] Job running, sending current progress`);
       sendEvent(res, "progress", job.progress);
     }
-    // Jika job sudah completed, kirim hasil
+    // Jika job sudah selesai, kirim hasil lalu tutup stream.
     else if (job?.status === "completed" && job?.result) {
       console.log(`📡 [SSE] Job completed, sending result`);
       sendEvent(res, "completed", job.result);
       res.end();
       return;
     }
-    // Jika ada error, kirim error message
+    // Jika job error, kirim pesan error lalu tutup stream.
     else if (job?.status === "error" && job?.error) {
       console.log(`📡 [SSE] Job error, sending error message`);
       sendEvent(res, "error", { message: job.error });
       res.end();
       return;
     }
-    // Otherwise, kirim status waiting
+    // Selain kondisi di atas, kirim status menunggu.
     else {
       console.log(`📡 [SSE] Job waiting, sending status message`);
       sendEvent(res, "status", {
@@ -179,21 +125,15 @@ export async function streamOptimizationProgressController(req, res) {
       });
     }
 
-    // ================================================================================
-    // STEP 4: Setup Heartbeat untuk Keep Connection Alive
-    // ================================================================================
-    // Kirim heartbeat setiap 30 detik untuk prevent timeout
+    // Langkah 4: heartbeat berkala agar koneksi SSE tidak timeout.
     const heartbeatInterval = setupHeartbeat(res, 15000);
 
-    // ================================================================================
-    // STEP 5: Handle Client Disconnect
-    // ================================================================================
+    // Langkah 5: bersihkan resource ketika client disconnect.
     req.on("close", () => {
       console.log(`📡 [SSE] Client disconnected for ${symbol}`);
       clearInterval(heartbeatInterval);
       removeSSEClient(symbol, res);
-      // Jangan hapus job, hanya disconnect client
-      // Job state tetap ada untuk client lain yang mungkin masih connected
+      // Job tidak dihapus karena bisa masih dipakai client lain.
     });
 
     req.on("error", (err) => {
@@ -210,11 +150,7 @@ export async function streamOptimizationProgressController(req, res) {
   }
 }
 
-/**
- * 📊 GET /api/multi-indicator/:symbol/status
- *
- * Status endpoint untuk fallback polling saat SSE reconnect gagal.
- */
+// Ambil status job optimasi sebagai fallback saat SSE tidak tersedia.
 export async function getOptimizationStatusController(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
@@ -247,20 +183,14 @@ export async function getOptimizationStatusController(req, res) {
   }
 }
 
-/**
- * 🛑 POST /api/multi-indicator/:symbol/cancel
- *
- * Cancel optimization yang sedang berjalan.
- *
- * Response: {success: true, message: "..."}
- */
+// Batalkan proses optimasi yang sedang berjalan.
 export async function cancelOptimizationController(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
 
     console.log(`🛑 [CONTROLLER] Cancel request for ${symbol}`);
 
-    // Cancel job via job service
+    // Cek job aktif sebelum proses pembatalan.
     const job = getJob(symbol);
 
     if (!job) {
@@ -277,22 +207,22 @@ export async function cancelOptimizationController(req, res) {
       });
     }
 
-    // Mark as cancelled
+    // Tandai job sebagai cancelled.
     cancelJob(symbol);
 
-    // Broadcast cancellation ke semua SSE clients
+    // Kirim event pembatalan ke semua client SSE.
     const clients = getSSEClients(symbol);
     broadcastEvent(clients, "cancelled", {
       message: "Optimization cancelled by user",
       symbol,
     });
 
-    // Close SSE connections
+    // Tutup koneksi SSE secara bertahap.
     setTimeout(() => {
       closeAllSSE(clients);
     }, 1000);
 
-    // Clean up job setelah 1 menit
+    // Hapus job dari memori setelah jeda singkat.
     setTimeout(() => {
       removeJob(symbol);
     }, 60 * 1000);
@@ -310,30 +240,7 @@ export async function cancelOptimizationController(req, res) {
   }
 }
 
-/**
- * 🚀 POST /api/multi-indicator/:symbol/optimize-weights
- *
- * Jalankan optimization untuk cryptocurrency symbol tertentu.
- *
- * Query parameters:
- * - timeframe: "1h" (default)
- * - force: "true" untuk force reoptimization
- *
- * Body:
- * - force: boolean (alternative ke query parameter)
- *
- * Response:
- * {
- *   success: true,
- *   symbol: "BTC-USD",
- *   timeframe: "1h",
- *   lastOptimized: ISO datetime,
- *   performance: {roi, winRate, maxDrawdown, ...},
- *   weights: {SMA: 2, EMA: 1, ...},
- *   categoryScores: {trend, momentum, volatility},
- *   latest: {time, open, high, low, close, volume}
- * }
- */
+// Jalankan optimasi bobot indikator untuk simbol tertentu.
 export async function optimizeIndicatorWeightsController(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
@@ -360,11 +267,7 @@ export async function optimizeIndicatorWeightsController(req, res) {
       });
     }
 
-    // ================================================================================
-    // STEP 1: CREATE JOB & MARK STATUS = "running" IMMEDIATELY
-    // ================================================================================
-    // PENTING: Update status ke "running" SEBELUM optimization dimulai
-    // Ini memastikan SSE clients dapat connect dan ditambahkan ke job
+    // Langkah 1: buat job dan set status running sebelum optimasi dimulai.
     createJob(symbol);
     updateJob(symbol, {
       status: "running",
@@ -372,14 +275,14 @@ export async function optimizeIndicatorWeightsController(req, res) {
     });
     console.log(`✅ Job created for ${symbol} - status: running`);
 
-    // Setup callbacks untuk progress tracking
+    // Callback progress untuk update status job dan broadcast SSE.
     const onProgress = (progressData) => {
       const job = getJob(symbol);
       if (job) {
         job.progress = progressData;
         updateJob(symbol, { progress: progressData });
 
-        // Broadcast ke SSE clients
+        // Broadcast progress ke semua client SSE yang terhubung.
         const clients = getSSEClients(symbol);
         console.log(
           `📡 Broadcasting progress to ${clients.size} clients for ${symbol}`,
@@ -392,11 +295,7 @@ export async function optimizeIndicatorWeightsController(req, res) {
       return isCancelRequested(symbol);
     };
 
-    // ================================================================================
-    // STEP 2: CALL SERVICE - OPTIMIZATION DIMULAI
-    // ================================================================================
-    // Call service untuk run optimization
-    // Pada tahap ini, SSE clients sudah bisa connect karena job status = "running"
+    // Langkah 2: jalankan service optimasi utama.
     console.log(`🔄 Starting optimization service for ${symbol}...`);
     const result = await runOptimization(symbol, timeframe, {
       forceReoptimize,
@@ -405,9 +304,7 @@ export async function optimizeIndicatorWeightsController(req, res) {
     });
 
     if (result.cancelled) {
-      // ================================================================================
-      // CANCELLED: Broadcast cancellation dan cleanup
-      // ================================================================================
+      // Jika dibatalkan: broadcast event cancelled dan cleanup.
       console.log(`🛑 Optimization cancelled for ${symbol}`);
       const clients = getSSEClients(symbol);
       broadcastEvent(clients, "cancelled", {
@@ -426,25 +323,23 @@ export async function optimizeIndicatorWeightsController(req, res) {
       return res.status(200).json(result);
     }
 
-    // ================================================================================
-    // STEP 3: COMPLETED - Broadcast hasil dan cleanup
-    // ================================================================================
+    // Langkah 3: jika selesai, simpan hasil lalu broadcast ke client.
     console.log(`✅ Optimization completed for ${symbol}`);
 
-    // Calculate category scores
+    // Hitung skor kategori untuk ringkasan hasil.
     const categoryScores = calculateCategoryScores(
       result.latest || {},
       result.weights || {},
     );
 
-    // Mark job as completed
+    // Ubah status job menjadi completed.
     updateJob(symbol, {
       status: "completed",
       result,
       completedAt: new Date().toISOString(),
     });
 
-    // Broadcast completion to SSE clients
+    // Broadcast hasil akhir ke client SSE.
     const clients = getSSEClients(symbol);
     console.log(
       `📡 Broadcasting completion to ${clients.size} clients for ${symbol}`,
@@ -456,12 +351,12 @@ export async function optimizeIndicatorWeightsController(req, res) {
       categoryScores,
     });
 
-    // Close SSE connections setelah 1 detik
+    // Tutup koneksi SSE setelah hasil dikirim.
     setTimeout(() => {
       closeAllSSE(clients);
     }, 1000);
 
-    // Clean up job setelah 5 menit
+    // Hapus job dari memori setelah beberapa menit.
     setTimeout(
       () => {
         removeJob(symbol);
@@ -482,9 +377,7 @@ export async function optimizeIndicatorWeightsController(req, res) {
   } catch (err) {
     console.error("❌ Error in optimization:", err.message);
 
-    // ================================================================================
-    // ERROR HANDLING: Broadcast error dan cleanup
-    // ================================================================================
+    // Jika gagal: ubah status job ke error, broadcast, lalu cleanup.
     const errorSymbol = (req.params.symbol || "BTC-USD").toUpperCase();
     const job = getJob(errorSymbol);
     if (job) {
@@ -493,7 +386,7 @@ export async function optimizeIndicatorWeightsController(req, res) {
         error: err.message,
       });
 
-      // Broadcast error ke SSE clients
+      // Kirim error ke client SSE.
       const clients = getSSEClients(errorSymbol);
       console.log(
         `📡 Broadcasting error to ${clients.size} clients for ${errorSymbol}`,
@@ -503,7 +396,7 @@ export async function optimizeIndicatorWeightsController(req, res) {
       });
       closeAllSSE(clients);
 
-      // Clean up
+      // Hapus job dari memori setelah jeda singkat.
       setTimeout(() => {
         removeJob(errorSymbol);
       }, 60 * 1000);
@@ -516,32 +409,14 @@ export async function optimizeIndicatorWeightsController(req, res) {
   }
 }
 
-/**
- * 🔄 POST /api/multi-indicator/optimize-all
- *
- * Optimize semua top 20 coins dalam satu batch job.
- *
- * Query parameters:
- * - timeframe: "1h" (default)
- *
- * Response:
- * {
- *   success: true,
- *   message: "Optimasi selesai (...)",
- *   count: 20,
- *   successCount: 15,
- *   skippedCount: 3,
- *   failedCount: 2,
- *   results: [...]
- * }
- */
+// Jalankan optimasi massal untuk semua top coin.
 export async function optimizeAllCoinsController(req, res) {
   try {
     const timeframe = (req.query.timeframe || "1h").toLowerCase();
 
     console.log(`\n🔄 [CONTROLLER] Starting batch optimization for all coins`);
 
-    // Call service untuk optimize semua coins
+    // Delegasikan optimasi massal ke service.
     const result = await optimizeAllCoins(timeframe);
 
     res.json(result);
@@ -554,23 +429,7 @@ export async function optimizeAllCoinsController(req, res) {
   }
 }
 
-/**
- * 📊 POST /api/multi-indicator/:symbol/backtest
- *
- * Jalankan backtest dengan weights yang sudah dioptimalkan.
- *
- * Query parameters:
- * - timeframe: "1h" (default)
- *
- * Response:
- * {
- *   success: true,
- *   symbol: "BTC-USD",
- *   performance: {roi, winRate, maxDrawdown, ...},
- *   weights: {...},
- *   totalData: 45893
- * }
- */
+// Jalankan backtest menggunakan bobot yang sudah dioptimasi.
 export async function backtestWithOptimizedWeightsController(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
@@ -580,7 +439,7 @@ export async function backtestWithOptimizedWeightsController(req, res) {
       `\n📊 [CONTROLLER] Starting backtest for ${symbol} (${timeframe})`,
     );
 
-    // Call service untuk run backtest
+    // Jalankan backtest melalui service.
     const result = await runBacktestWithOptimizedWeights(symbol, timeframe);
 
     res.json(result);
@@ -593,15 +452,11 @@ export async function backtestWithOptimizedWeightsController(req, res) {
   }
 }
 
-/**
- * 🛑 Server Shutdown Handler
- *
- * Graceful shutdown: Cancel all running optimizations dan close SSE connections
- */
+// Tangani graceful shutdown agar job berjalan berhenti dengan aman.
 function handleServerShutdown() {
   console.log("\n🛑 Server shutting down, cancelling all optimizations...");
 
-  // Broadcast shutdown to all running jobs
+  // Kirim event shutdown ke semua job yang masih berjalan.
   const runningJobs = getRunningJobs();
   for (const job of runningJobs) {
     console.log(`📡 Broadcasting shutdown for ${job.symbol}`);
@@ -613,23 +468,23 @@ function handleServerShutdown() {
       symbol: job.symbol,
     });
 
-    // Close connections
+    // Tutup koneksi SSE yang tersisa.
     setTimeout(() => {
       closeAllSSE(job.sseClients);
     }, 500);
   }
 
-  // Clear all jobs
+  // Bersihkan seluruh data job dari memori.
   clearAllJobs();
 
-  // Exit
+  // Keluar dari proses setelah cleanup selesai.
   setTimeout(() => {
     console.log("👋 Goodbye!");
     process.exit(0);
   }, 1000);
 }
 
-// Setup shutdown handlers
+// Daftarkan handler shutdown untuk SIGINT dan SIGTERM.
 process.on("SIGINT", handleServerShutdown);
 process.on("SIGTERM", handleServerShutdown);
 

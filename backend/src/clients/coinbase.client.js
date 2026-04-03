@@ -1,5 +1,4 @@
-// src/clients/coinbase.client.js
-// request HTTP ke API Coinbase
+// Client HTTP untuk akses API Coinbase.
 import axios from "axios";
 import dotenv from "dotenv";
 
@@ -10,32 +9,18 @@ const COINBASE_API =
 const API_TIMEOUT = parseInt(process.env.API_TIMEOUT || "10000", 10);
 const GRANULARITY_SECONDS = 3600; // 1 jam
 
-export async function fetchCoinbasePairs() {
-  const { data } = await axios.get(`${COINBASE_API}/products`, {
-    timeout: API_TIMEOUT,
-  });
-  return data
-    .filter((p) => p.status === "online" && !p.trading_disabled)
-    .map((p) => p.id.toUpperCase());
+// Bangun rentang waktu 1 candle terakhir berdasarkan waktu saat ini.
+function buildLatestCandleRange(now) {
+  return {
+    end: now.toISOString(),
+    start: new Date(now.getTime() - GRANULARITY_SECONDS * 1000).toISOString(),
+  };
 }
 
-export async function fetchLastCandle(symbol) {
-  const now = new Date();
-  const end = now.toISOString();
-  const start = new Date(
-    now.getTime() - GRANULARITY_SECONDS * 1000,
-  ).toISOString();
+// Ubah array candle Coinbase menjadi objek yang lebih mudah dipakai.
+function mapCoinbaseCandle(candleRow) {
+  const [time, low, high, open, close, volume] = candleRow;
 
-  const { data } = await axios.get(
-    `${COINBASE_API}/products/${symbol}/candles`,
-    {
-      params: { start, end, granularity: GRANULARITY_SECONDS },
-      timeout: API_TIMEOUT,
-    },
-  );
-
-  if (!data?.length) return null;
-  const [time, low, high, open, close, volume] = data[0];
   return {
     time: new Date(time * 1000).toISOString(),
     open,
@@ -46,16 +31,37 @@ export async function fetchLastCandle(symbol) {
   };
 }
 
-/**
- * Ambil ticker + stats dari Coinbase untuk kebutuhan service.
- *
- * Catatan:
- * - Hanya melakukan HTTP request dan mengembalikan data mentah.
- * - Parsing / data cleaning tetap dilakukan di service.
- *
- * @param {string} symbol
- * @returns {Promise<{ticker:any, stats:any} | null>} Data ticker dan stats mentah, atau null jika gagal.
- */
+// Ambil semua pair aktif dari Coinbase dalam bentuk array string.
+export async function fetchCoinbasePairs() {
+  const { data } = await axios.get(`${COINBASE_API}/products`, {
+    timeout: API_TIMEOUT,
+  });
+
+  return data
+    .filter((p) => p.status === "online" && !p.trading_disabled)
+    .map((p) => p.id.toUpperCase());
+}
+
+// Ambil candle terbaru untuk satu pair.
+export async function fetchLastCandle(symbol) {
+  const now = new Date();
+  const { start, end } = buildLatestCandleRange(now);
+
+  const { data } = await axios.get(
+    `${COINBASE_API}/products/${symbol}/candles`,
+    {
+      params: { start, end, granularity: GRANULARITY_SECONDS },
+      timeout: API_TIMEOUT,
+    },
+  );
+
+  if (!data?.length) return null;
+
+  // Coinbase mengembalikan array candle, lalu kita ubah jadi object terstruktur.
+  return mapCoinbaseCandle(data[0]);
+}
+
+// Ambil data ticker dan stats mentah untuk satu pair.
 export async function fetchTicker(symbol) {
   try {
     const [tickerRes, statsRes] = await Promise.all([
@@ -74,11 +80,7 @@ export async function fetchTicker(symbol) {
   }
 }
 
-/**
- * Ambil semua pair aktif dari Coinbase.
- *
- * @returns {Promise<Set<string>>} Set berisi pair yang online dan tidak trading_disabled.
- */
+// Ambil semua pair aktif dari Coinbase dalam bentuk Set.
 export async function fetchPairs() {
   try {
     const { data } = await axios.get(`${COINBASE_API}/products`, {
@@ -91,17 +93,13 @@ export async function fetchPairs() {
         .map((p) => p.id.toUpperCase()),
     );
   } catch (err) {
+    // Kembalikan Set kosong agar caller tetap aman melanjutkan flow.
     console.error("Gagal mengambil pair Coinbase");
     return new Set();
   }
 }
 
-/**
- * Ambil 1 candle pertama (earliest) untuk menentukan listing date.
- *
- * @param {string} symbol - Trading pair symbol (e.g., "BTC-USD")
- * @returns {Promise<Object|null>} Candle paling awal atau null jika tidak ada data.
- */
+// Ambil candle paling awal yang tersedia untuk membantu menentukan listing date.
 export async function fetchEarliestCandle(symbol) {
   try {
     const startYear = 2016;
@@ -158,17 +156,14 @@ export async function fetchEarliestCandle(symbol) {
         if (err.response?.status === 404) {
           continue;
         }
-        console.warn(`  ⚠️ Error checking ${year}:`, err.message);
+        console.warn(`Error checking ${year}:`, err.message);
         continue;
       }
     }
 
     return null;
   } catch (err) {
-    console.error(
-      `❌ Error fetching earliest candle for ${symbol}:`,
-      err.message,
-    );
+    console.error(`Error fetching earliest candle for ${symbol}:`, err.message);
     return null;
   }
 }

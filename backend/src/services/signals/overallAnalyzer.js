@@ -17,21 +17,17 @@
  * - finalScore < 0     → SELL
  * - finalScore <= -0.6 → STRONG_SELL
  *
- * @param {Object} signals - Individual indicator signals from database
- * @param {String} symbol - Coin symbol (e.g., "BTC-USD")
- * @param {String} timeframe - Timeframe (e.g., "1h")
- * @param {Object} cachedWeights - Optional pre-loaded weights to avoid DB query
- * @returns {Promise<Object>} { overallSignal, signalStrength, finalScore }
  */
 
 // ✅ Import core algorithm tanpa alias
 import { calculateMultiIndicatorScore } from "../../utils/indicator.utils.js";
 
+// Hitung sinyal overall berbobot dari sinyal indikator individual.
 export async function calculateOverallSignal(
   signals,
   symbol,
   timeframe,
-  cachedWeights = null
+  cachedWeights = null,
 ) {
   // ✅ Use cached weights if provided (for batch processing)
   if (cachedWeights) {

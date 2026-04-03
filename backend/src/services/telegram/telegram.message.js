@@ -12,8 +12,6 @@
 /**
  * Interpretasi skor trend menjadi teks yang mudah dibaca.
  *
- * @param {number} score - Skor trend.
- * @returns {string} Deskripsi kondisi trend.
  */
 export function interpretTrendScore(score) {
   if (score >= 3) return "Very Strong Uptrend";
@@ -28,8 +26,6 @@ export function interpretTrendScore(score) {
 /**
  * Interpretasi skor momentum menjadi teks yang mudah dibaca.
  *
- * @param {number} score - Skor momentum.
- * @returns {string} Deskripsi kondisi momentum.
  */
 export function interpretMomentumScore(score) {
   if (score >= 4) return "Extreme Bullish Momentum";
@@ -44,8 +40,6 @@ export function interpretMomentumScore(score) {
 /**
  * Interpretasi skor volatility menjadi teks yang mudah dibaca.
  *
- * @param {number} score - Skor volatility.
- * @returns {string} Deskripsi kondisi volatility.
  */
 export function interpretVolatilityScore(score) {
   if (score >= 2) return "High Volatility (Bullish)";
@@ -62,9 +56,6 @@ export function interpretVolatilityScore(score) {
  * - Faktor dominan dipilih berdasarkan nilai absolut (trend>=1, momentum>=1, volatility>=0.5)
  * - Bias mengikuti arah signal (buy/sell/neutral)
  *
- * @param {{trend:number, momentum:number, volatility:number}} categoryScores
- * @param {string} signal - "buy" | "sell" | "neutral"
- * @returns {string} Insight ringkas untuk pesan Telegram.
  */
 export function generateInsight(categoryScores, signal) {
   const { trend, momentum, volatility } = categoryScores;
@@ -103,8 +94,6 @@ export function generateInsight(categoryScores, signal) {
  * - Format Markdown dan susunan pesan harus sama persis seperti sebelumnya.
  * - Fungsi ini hanya bertugas membuat string pesan (tanpa mengirim).
  *
- * @param {object} params
- * @returns {string} Pesan Telegram siap dikirim.
  */
 export function formatTelegramSignalMessage({
   symbol,

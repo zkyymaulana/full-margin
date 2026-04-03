@@ -4,9 +4,10 @@ import {
   handleComparisonError,
 } from "../services/comparison/index.js";
 
+// Bandingkan performa beberapa strategi indikator dalam rentang waktu tertentu.
 export const compareIndicators = async (req, res) => {
   try {
-    // Validate request parameters using service function
+    // Validasi input request sebelum proses perbandingan.
     const validation = validateComparisonParams(req.body);
 
     if (!validation.isValid) {
@@ -18,23 +19,24 @@ export const compareIndicators = async (req, res) => {
 
     const { symbol, startDate, endDate, threshold = 0 } = req.body;
 
-    // Call service layer (pure business logic)
+    // Jalankan business logic perbandingan di service layer.
     const result = await compareStrategies(
       symbol,
       startDate,
       endDate,
-      threshold
+      threshold,
     );
 
-    // Handle service response
+    // Jika service gagal menemukan data, kirim status not found.
     if (!result.success) {
       return res.status(404).json(result);
     }
 
-    // Return successful response
+    // Response sukses langsung mengembalikan payload dari service.
+    // Kirim hasil perbandingan jika sukses.
     return res.status(200).json(result);
   } catch (error) {
-    // Handle errors using centralized error handler
+    // Gunakan error handler terpusat agar response konsisten.
     const { statusCode, response } = handleComparisonError(error);
     return res.status(statusCode).json(response);
   }

@@ -31,12 +31,6 @@ console.log(`   Mode: Multi-Indicator Only`);
 /**
  * Mengirim pesan ke Telegram (wajib menyertakan chatId).
  *
- * @param {string} message - Pesan yang akan dikirim.
- * @param {string} chatId - Telegram Chat ID tujuan (wajib).
- * @param {object} [options] - Opsi tambahan.
- * @param {string} [options.parseMode] - Default: "Markdown".
- * @param {boolean} [options.disablePreview] - Default: true (kecuali di-set false pada caller).
- * @returns {Promise<{success:boolean, messageId?:number, reason?:string, error?:any}>}
  */
 export async function sendTelegramMessage(message, chatId, options = {}) {
   // WAJIB: chatId harus ada, tidak ada fallback
@@ -91,9 +85,6 @@ export async function sendTelegramMessage(message, chatId, options = {}) {
  * 2) Kirim pesan satu per satu
  * 3) Tambah delay kecil untuk menghindari rate limiting dari Telegram
  *
- * @param {string} message - Pesan broadcast.
- * @param {object} [options] - Opsi yang diteruskan ke sendTelegramMessage.
- * @returns {Promise<object>} Hasil broadcast (jumlah sent/failed/total/errors).
  */
 export async function broadcastTelegram(message, options = {}) {
   try {
@@ -188,13 +179,6 @@ export async function broadcastTelegram(message, options = {}) {
 /**
  * Broadcast sinyal trading ke semua user (Multi-Indicator Only).
  *
- * @param {object} params
- * @param {string} params.symbol
- * @param {string} params.signal
- * @param {number} params.price
- * @param {string} [params.type] - Default: "multi" (dipertahankan)
- * @param {object} [params.details]
- * @returns {Promise<object>} Hasil broadcast.
  */
 export async function broadcastTradingSignal({
   symbol,

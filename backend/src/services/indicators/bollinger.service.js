@@ -3,6 +3,7 @@
 import { createRollingWindow } from "../../utils/rollingWindow.js";
 import { createSMACalculator } from "./sma.service.js";
 
+// Buat kalkulator Bollinger Bands untuk menghitung upper/middle/lower band.
 export function createBollingerBandsCalculator(period = 20, multiplier = 2) {
   const sma = createSMACalculator(period);
   const window = createRollingWindow(period);

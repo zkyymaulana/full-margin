@@ -18,24 +18,8 @@
 
 import { prisma } from "../../lib/prisma.js";
 
-/**
- * ⏰ Ambil waktu candle terakhir untuk symbol
- *
- * ────────────────────────────────────────────────────────────
- * Tujuan:
- * Mengambil timestamp candle terakhir untuk symbol tertentu.
- * Digunakan untuk incremental sync - ambil data baru hanya dari
- * waktu terakhir sampai sekarang, bukan re-sync semua data.
- *
- * Parameter:
- * @param {string} symbol - Cryptocurrency symbol (e.g., "BTC-USD")
- *
- * Return:
- * @returns {number|null} Timestamp candle terakhir dalam milidetik (BigInt)
- *                        atau null jika belum ada candle untuk symbol ini
- *
- * ────────────────────────────────────────────────────────────
- */
+// Ambil timestamp candle terakhir untuk satu simbol.
+// Fungsi ini dipakai untuk sinkronisasi incremental agar tidak re-sync dari awal.
 export async function getLastCandleTime(symbol) {
   try {
     // ✅ Query candle terakhir untuk symbol ini
@@ -55,25 +39,7 @@ export async function getLastCandleTime(symbol) {
   }
 }
 
-/**
- * 🔢 Hitung total candle yang tersimpan untuk symbol tertentu
- *
- * ────────────────────────────────────────────────────────────
- * Tujuan:
- * Menghitung jumlah total candle untuk symbol dan timeframe tertentu.
- * Digunakan untuk:
- * • Pagination (berapa banyak halaman)
- * • Metadata (total data points dalam dataset)
- * • Coverage check (untuk auto-recalculation indicator)
- *
- * Parameter:
- * @param {string} symbol - Cryptocurrency symbol (e.g., "BTC-USD")
- *
- * Return:
- * @returns {number} Total jumlah candle untuk symbol ini dengan timeframe "1h"
- *
- * ────────────────────────────────────────────────────────────
- */
+// Hitung total candle pada timeframe 1h untuk simbol tertentu.
 export async function getCandleCount(symbol) {
   try {
     // ✅ Query count candle untuk symbol + timeframe "1h"
@@ -89,39 +55,7 @@ export async function getCandleCount(symbol) {
   }
 }
 
-/**
- * 📊 Ambil candle dari DB dengan pagination (oldest first)
- *
- * ────────────────────────────────────────────────────────────
- * Tujuan:
- * Mengambil candle data dengan pagination, diurutkan dari
- * waktu terlama ke terbaru (ascending). Berguna untuk analisis
- * historical data yang membutuhkan urutan kronologis.
- *
- * Parameter:
- * @param {string} symbol - Cryptocurrency symbol (e.g., "BTC-USD")
- * @param {number} limit - Jumlah candle per halaman (default: 500)
- * @param {number} offset - Skip berapa banyak candle (untuk pagination)
- *
- * Return:
- * @returns {object} Object dengan struktur:
- *   {
- *     total: 5000,                  // Total candle untuk symbol ini
- *     candles: [
- *       {
- *         time: "1234567890000",    // BigInt dari database, as string
- *         open: 45000.50,
- *         high: 45500.00,
- *         low: 44800.25,
- *         close: 45300.75,
- *         volume: 125000.00
- *       },
- *       ...
- *     ]
- *   }
- *
- * ────────────────────────────────────────────────────────────
- */
+// Ambil data candle dengan urutan waktu lama ke baru (oldest first).
 export async function getChartData(symbol, limit = 500, offset = 0) {
   // ✅ Ambil total count terlebih dahulu
   const total = await getCandleCount(symbol);
@@ -159,39 +93,7 @@ export async function getChartData(symbol, limit = 500, offset = 0) {
   };
 }
 
-/**
- * 📊 Ambil candle dari DB dengan pagination (newest first)
- *
- * ────────────────────────────────────────────────────────────
- * Tujuan:
- * Mengambil candle data dengan pagination, diurutkan dari
- * waktu terbaru ke terlama (descending). Default untuk chart display
- * di frontend karena users biasanya ingin lihat data terbaru dulu.
- *
- * Parameter:
- * @param {string} symbol - Cryptocurrency symbol (e.g., "BTC-USD")
- * @param {number} limit - Jumlah candle per halaman (default: 1000)
- * @param {number} offset - Skip berapa banyak candle (untuk pagination)
- *
- * Return:
- * @returns {object} Object dengan struktur:
- *   {
- *     total: 5000,                  // Total candle untuk symbol ini
- *     candles: [
- *       {
- *         time: "1234567890000",    // BigInt dari database, as string
- *         open: 45000.50,
- *         high: 45500.00,
- *         low: 44800.25,
- *         close: 45300.75,
- *         volume: 125000.00
- *       },
- *       ...
- *     ]
- *   }
- *
- * ────────────────────────────────────────────────────────────
- */
+// Ambil data candle dengan urutan terbaru ke lama (newest first).
 export async function getChartDataNewest(symbol, limit = 1000, offset = 0) {
   // ✅ Ambil total count terlebih dahulu
   const total = await getCandleCount(symbol);
@@ -229,39 +131,7 @@ export async function getChartDataNewest(symbol, limit = 1000, offset = 0) {
   };
 }
 
-/**
- * 💾 Simpan candles ke DB (dipakai scheduler otomatis)
- *
- * ────────────────────────────────────────────────────────────
- * Tujuan:
- * Menyimpan batch candle baru ke database dari scheduler atau
- * API call. Menggunakan createMany dengan skipDuplicates untuk
- * menghindari duplicate entries jika ada overlap waktu.
- *
- * Parameter:
- * @param {string} symbol - Cryptocurrency symbol (e.g., "BTC-USD")
- * @param {number} coinId - ID coin dari database
- * @param {Array} candles - Array of candle objects dari API dengan struktur:
- *   [
- *     { time: 1234567890000, open: 45000, high: 45500, low: 44800, close: 45300, volume: 125000 },
- *     ...
- *   ]
- *
- * Return:
- * @returns {object} Result object dengan struktur:
- *   {
- *     success: true,              // true jika berhasil
- *     count: 100,                 // Jumlah candle yang disimpan
- *     message: "..." (opsional)   // Error message jika gagal
- *   }
- *
- * Error handling:
- * • Tangani jika array candles kosong
- * • Tangani jika timeframe "1h" tidak ada di database
- * • Log error tapi jangan throw (scheduler harus tetap berjalan)
- *
- * ────────────────────────────────────────────────────────────
- */
+// Simpan batch candle baru ke database dengan skipDuplicates.
 export async function saveCandlesToDB(symbol, coinId, candles) {
   try {
     // ✅ Validasi - candle array harus tidak kosong

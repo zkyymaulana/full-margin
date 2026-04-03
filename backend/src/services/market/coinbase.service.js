@@ -13,10 +13,8 @@ import { fetchTicker as fetchTickerClient } from "../../clients/coinbase.client.
  * Ambil data harga dan OHLC dari Coinbase.
  *
  * Parameter:
- * @param {string} symbol - Pair (contoh: "BTC-USD")
  *
  * Return:
- * @returns {Promise<object|null>} Data ticker yang sudah dibersihkan (cleanTickerData), atau null jika gagal.
  */
 export async function fetchTicker(symbol) {
   try {

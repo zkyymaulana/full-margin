@@ -29,9 +29,7 @@
  *
  * Formula: mean = Σ(xi) / n
  *
- * @param {number[]} values - Array of numbers
  *
- * @returns {number} Mean value
  *
  * @example
  * mean([1, 2, 3, 4, 5]) // Returns 3
@@ -52,9 +50,7 @@ function mean(values) {
  *
  * Formula: stddev = √(Σ(xi - mean)² / n)
  *
- * @param {number[]} values - Array of numbers
  *
- * @returns {number} Standard deviation
  *
  * @example
  * stddev([1, 2, 3, 4, 5]) // Returns ~1.414
@@ -89,9 +85,7 @@ function stddev(values) {
  * - > 3.0 = Excellent
  * - < 0 = Negative return
  *
- * @param {number[]} returns - Array of period returns (%)
  *
- * @returns {number} Sharpe Ratio (annualized)
  *
  * @example
  * sharpe([1, 1.5, 0.8, 2.1, 1.2]) // Returns ~2.34 (annualized)
@@ -136,9 +130,7 @@ function calcSharpe(returns) {
  * - > 3.0 = Excellent
  * - Lebih tinggi dari Sharpe = Strategy lebih baik di upside
  *
- * @param {number[]} returns - Array of period returns (%)
  *
- * @returns {number} Sortino Ratio (annualized)
  *
  * @example
  * sortino([1, 1.5, 0.8, 2.1, 1.2]) // Returns higher than Sharpe
@@ -183,9 +175,7 @@ function calcSortino(returns) {
  *
  * Formula: return[i] = ((equity[i] - equity[i-1]) / equity[i-1]) * 100
  *
- * @param {number[]} equityCurve - Array of capital values (starting dari 100)
  *
- * @returns {number[]} Array of period returns (%)
  *
  * @example
  * calculateReturns([100, 101, 103, 102, 105])
@@ -229,9 +219,7 @@ function calculateReturns(equityCurve) {
  * Equity curve: [100, 110, 105, 120, 90, 95]
  * Peak pada 120, terbang ke 90 = drawdown = (90-120)/120 = -25%
  *
- * @param {number[]} values - Array of equity/price values
  *
- * @returns {number} Maximum Drawdown (%)
  *
  * @example
  * calcMaxDrawdown([100, 110, 105, 120, 90, 95]) // Returns -25
@@ -284,19 +272,7 @@ function calcMaxDrawdown(values) {
  * - avgTrade: Average $ per trade
  * - profitFactor: Total wins / Total losses ratio
  *
- * @param {Object} backtest - Backtest result object
- * @param {number} backtest.roi - ROI value
- * @param {number} backtest.finalCapital - Final capital value
- * @param {number} backtest.winRate - Win rate percentage
- * @param {number} backtest.maxDrawdown - Max drawdown percentage
- * @param {number} backtest.trades - Number of trades
- * @param {number[]} backtest.equityCurve - Optional: equity progression
- * @param {number} backtest.sharpeRatio - Optional: Sharpe ratio (dari backtest)
- * @param {number} backtest.sortinoRatio - Optional: Sortino ratio (dari backtest)
- * @param {number} backtest.avgTrade - Optional: average per trade
- * @param {number} backtest.profitFactor - Optional: profit factor
  *
- * @returns {Object} Formatted result object dengan consistent precision
  *
  * @example
  * formatResult({

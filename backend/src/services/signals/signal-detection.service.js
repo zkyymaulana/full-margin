@@ -30,9 +30,10 @@ import { fetchLatestIndicatorData } from "../../utils/db.utils.js";
 /* =========================================================
    🎯 MULTI INDICATOR SIGNAL DETECTION (REFACTORED)
 ========================================================= */
+// Deteksi sinyal multi-indikator untuk satu simbol lalu kirim notifikasi watcher.
 export async function detectAndNotifyMultiIndicatorSignals(
   symbol,
-  timeframe = "1h"
+  timeframe = "1h",
 ) {
   try {
     console.log(`🎯 Detecting multi-indicator signals for ${symbol}...`);
@@ -70,7 +71,7 @@ export async function detectAndNotifyMultiIndicatorSignals(
 
     const { indicator, prevIndicator, candle } = await fetchLatestIndicatorData(
       symbol,
-      timeframe
+      timeframe,
     );
     if (!indicator || !candle) return { success: false, reason: "no_data" };
 
@@ -84,7 +85,7 @@ export async function detectAndNotifyMultiIndicatorSignals(
     // Returns: { finalScore, strength, signal, signalLabel, normalized }
     const weightedResult = calculateMultiIndicatorScore(
       signals,
-      latestWeights.weights
+      latestWeights.weights,
     );
 
     const { finalScore, strength, signal, signalLabel } = weightedResult;
@@ -132,7 +133,7 @@ export async function detectAndNotifyMultiIndicatorSignals(
     // Kirim semua sinyal (NEUTRAL, BUY, SELL) ke watchlist users
 
     console.log(
-      `${signal === "neutral" ? "⚪" : signal.includes("buy") ? "🟢" : "🔴"} ${symbol} ${signalLabel} | finalScore: ${finalScore.toFixed(3)}`
+      `${signal === "neutral" ? "⚪" : signal.includes("buy") ? "🟢" : "🔴"} ${symbol} ${signalLabel} | finalScore: ${finalScore.toFixed(3)}`,
     );
 
     // 🔔 SEND TELEGRAM NOTIFICATION — only to users who watch this coin
@@ -161,7 +162,7 @@ export async function detectAndNotifyMultiIndicatorSignals(
 
     if (result.success) {
       console.log(
-        `✅ ${symbol} ${signalLabel} | finalScore: ${finalScore.toFixed(3)} | strength: ${strength.toFixed(3)} | notified: ${result.sent}/${result.eligible ?? result.total} watchers`
+        `✅ ${symbol} ${signalLabel} | finalScore: ${finalScore.toFixed(3)} | strength: ${strength.toFixed(3)} | notified: ${result.sent}/${result.eligible ?? result.total} watchers`,
       );
     }
 
@@ -176,7 +177,7 @@ export async function detectAndNotifyMultiIndicatorSignals(
   } catch (err) {
     console.error(
       `❌ Error detecting multi-indicator signals for ${symbol}:`,
-      err.message
+      err.message,
     );
     return { success: false, error: err.message };
   }
@@ -185,12 +186,13 @@ export async function detectAndNotifyMultiIndicatorSignals(
 /* =========================================================
    🔄 DETECT SIGNALS FOR ALL SYMBOLS (MULTI-INDICATOR ONLY)
 ========================================================= */
+// Jalankan deteksi sinyal multi-indikator untuk banyak simbol secara berurutan.
 export async function detectAndNotifyAllSymbols(symbols, mode = "multi") {
   // Force mode to always be "multi"
   mode = "multi";
 
   console.log(
-    `🔄 Detecting multi-indicator signals for ${symbols.length} symbols...`
+    `🔄 Detecting multi-indicator signals for ${symbols.length} symbols...`,
   );
 
   const results = {
@@ -218,9 +220,10 @@ export async function detectAndNotifyAllSymbols(symbols, mode = "multi") {
 /* =========================================================
    🧠 CHECK & OPTIMIZE WEIGHTLESS COINS
 ========================================================= */
+// Cek coin yang belum punya bobot optimasi dan tandai untuk diproses.
 export async function autoOptimizeCoinsWithoutWeights(
   symbols,
-  timeframe = "1h"
+  timeframe = "1h",
 ) {
   // Get timeframe ID once
   const timeframeRecord = await prisma.timeframe.findUnique({

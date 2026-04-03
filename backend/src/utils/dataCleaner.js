@@ -1,31 +1,38 @@
 // src/utils/dataCleaner.js
 /** Membersihkan data top coin dari CoinMarketCap */
 export function cleanTopCoinData(coins = []) {
+  // Validasi awal agar fungsi aman menerima input kosong.
   if (!Array.isArray(coins) || coins.length === 0) return [];
 
-  return coins
-    .filter(
-      (c) =>
-        c &&
-        typeof c.symbol === "string" &&
-        Number.isInteger(c.rank) &&
-        c.rank > 0 &&
-        isFinite(c.price) &&
-        isFinite(c.marketCap) &&
-        c.price > 0 &&
-        c.marketCap > 0,
-    )
-    .map((c) => ({
-      rank: c.rank,
-      name: c.name || "",
-      symbol: c.symbol.toUpperCase(),
-      price: Number(c.price.toFixed(2)),
-      marketCap: Number(c.marketCap.toFixed(2)),
-      volume24h: c.volume24h ? Number(c.volume24h.toFixed(2)) : 0,
-      listingDate: c.listingDate || null, // ✅ Tambahkan listingDate
-      cmcListingDate: c.cmcListingDate || null,
-    }))
-    .sort((a, b) => a.rank - b.rank);
+  // Filter hanya data coin yang valid lalu normalisasi format field.
+  return (
+    coins
+      .filter(
+        (c) =>
+          c &&
+          typeof c.symbol === "string" &&
+          Number.isInteger(c.rank) &&
+          c.rank > 0 &&
+          isFinite(c.price) &&
+          isFinite(c.marketCap) &&
+          c.price > 0 &&
+          c.marketCap > 0,
+      )
+      .map((c) => ({
+        rank: c.rank,
+        name: c.name || "",
+        symbol: c.symbol.toUpperCase(),
+        // Batasi desimal agar ukuran payload tetap efisien.
+        price: Number(c.price.toFixed(2)),
+        marketCap: Number(c.marketCap.toFixed(2)),
+        volume24h: c.volume24h ? Number(c.volume24h.toFixed(2)) : 0,
+        // Pertahankan metadata tanggal listing bila tersedia.
+        listingDate: c.listingDate || null,
+        cmcListingDate: c.cmcListingDate || null,
+      }))
+      // Urutkan berdasarkan rank agar konsisten saat dipakai service.
+      .sort((a, b) => a.rank - b.rank)
+  );
 }
 
 /**
@@ -34,6 +41,7 @@ export function cleanTopCoinData(coins = []) {
 export function cleanTickerData(data) {
   if (!data) return null;
 
+  // Ambil field penting yang akan dipakai downstream service.
   const { symbol, price, volume, high, low, open, time } = data;
 
   // Validasi: Tolak hanya jika null, NaN, atau negatif
@@ -58,6 +66,7 @@ export function cleanTickerData(data) {
     return null;
   }
 
+  // Validasi relasi harga dasar agar data tidak anomali.
   // Validasi logika harga (low tidak boleh lebih besar dari high)
   if (low > high) return null;
 
@@ -78,6 +87,7 @@ export function cleanTickerData(data) {
 export function cleanCandleData(candles = []) {
   if (!Array.isArray(candles) || candles.length === 0) return [];
 
+  // Filter candle rusak, rapikan presisi angka, lalu urutkan berdasarkan waktu.
   return candles
     .filter(
       (c) =>
@@ -107,6 +117,7 @@ export function cleanCandleData(candles = []) {
 export function removeDuplicateCandles(candles = []) {
   if (!Array.isArray(candles) || candles.length === 0) return [];
 
+  // Set dipakai untuk melacak timestamp yang sudah pernah lewat.
   const seen = new Set();
   return candles.filter((candle) => {
     if (seen.has(candle.time)) return false;

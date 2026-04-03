@@ -17,8 +17,6 @@ const optimizationJobs = new Map();
 
 /**
  * 🆕 Buat job baru untuk simbol tertentu
- * @param {string} symbol - Simbol cryptocurrency (e.g., "BTC-USD")
- * @returns {Object} Job state yang baru dibuat
  */
 export function createJob(symbol) {
   const job = {
@@ -40,8 +38,6 @@ export function createJob(symbol) {
 
 /**
  * 📍 Dapatkan job state untuk simbol tertentu
- * @param {string} symbol - Simbol cryptocurrency
- * @returns {Object|null} Job state atau null jika tidak ada
  */
 export function getJob(symbol) {
   return optimizationJobs.get(symbol) || null;
@@ -49,9 +45,6 @@ export function getJob(symbol) {
 
 /**
  * 🔄 Update job state dengan data baru
- * @param {string} symbol - Simbol cryptocurrency
- * @param {Object} updates - Data yang akan diupdate
- * @returns {Object} Job state yang sudah diupdate
  */
 export function updateJob(symbol, updates) {
   const job = optimizationJobs.get(symbol);
@@ -69,8 +62,6 @@ export function updateJob(symbol, updates) {
 
 /**
  * ➕ Tambahkan SSE client ke job
- * @param {string} symbol - Simbol cryptocurrency
- * @param {Object} client - Response object dari Express
  */
 export function addSSEClient(symbol, client) {
   let job = optimizationJobs.get(symbol);
@@ -94,8 +85,6 @@ export function addSSEClient(symbol, client) {
 
 /**
  * ➖ Hapus SSE client dari job
- * @param {string} symbol - Simbol cryptocurrency
- * @param {Object} client - Response object dari Express
  */
 export function removeSSEClient(symbol, client) {
   const job = optimizationJobs.get(symbol);
@@ -117,8 +106,6 @@ export function removeSSEClient(symbol, client) {
 
 /**
  * 🛑 Tandai job untuk dibatalkan
- * @param {string} symbol - Simbol cryptocurrency
- * @returns {boolean} true jika berhasil, false jika job tidak ada
  */
 export function cancelJob(symbol) {
   const job = optimizationJobs.get(symbol);
@@ -138,8 +125,6 @@ export function cancelJob(symbol) {
 
 /**
  * ✅ Check apakah job sudah diminta untuk dibatalkan
- * @param {string} symbol - Simbol cryptocurrency
- * @returns {boolean} true jika cancel diminta, false sebaliknya
  */
 export function isCancelRequested(symbol) {
   const job = optimizationJobs.get(symbol);
@@ -148,8 +133,6 @@ export function isCancelRequested(symbol) {
 
 /**
  * 🧹 Hapus job dari state management
- * @param {string} symbol - Simbol cryptocurrency
- * @returns {boolean} true jika berhasil dihapus, false jika tidak ada
  */
 export function removeJob(symbol) {
   const exists = optimizationJobs.has(symbol);
@@ -164,8 +147,6 @@ export function removeJob(symbol) {
 
 /**
  * 📊 Dapatkan semua SSE clients untuk job tertentu
- * @param {string} symbol - Simbol cryptocurrency
- * @returns {Set} Set dari SSE clients atau empty set
  */
 export function getSSEClients(symbol) {
   const job = optimizationJobs.get(symbol);
@@ -174,7 +155,6 @@ export function getSSEClients(symbol) {
 
 /**
  * 🔍 Dapatkan semua jobs yang sedang running
- * @returns {Array} Array dari job objects yang status-nya "running"
  */
 export function getRunningJobs() {
   return Array.from(optimizationJobs.values()).filter(

@@ -74,43 +74,43 @@ import {
 // 🎯 Main Orchestration
 // ─────────────────────────────────────────────────────────────
 export {
-  compareStrategies, // Main function: Compare 3 strategies (single, multi, voting)
+  compareStrategies, // Fungsi utama untuk membandingkan 3 strategi
 };
 
 // ─────────────────────────────────────────────────────────────
 // ✅ Validation & Error Handling
 // ─────────────────────────────────────────────────────────────
 export {
-  validateComparisonParams, // Validate request parameters
-  handleComparisonError, // Centralized error handler
+  validateComparisonParams, // Validasi parameter request perbandingan
+  handleComparisonError, // Handler error terpusat untuk comparison
 };
 
 // ─────────────────────────────────────────────────────────────
 // 📊 Metrics & Financial Calculations
 // ─────────────────────────────────────────────────────────────
 export {
-  mean, // Calculate arithmetic mean
-  stddev, // Calculate standard deviation
-  calcSharpe, // Calculate Sharpe Ratio
-  calcSortino, // Calculate Sortino Ratio
-  calculateReturns, // Calculate returns from equity curve
-  calcMaxDrawdown, // Calculate maximum drawdown
-  formatResult, // Format backtest results
+  mean, // Hitung rata-rata aritmatika
+  stddev, // Hitung standar deviasi
+  calcSharpe, // Hitung rasio Sharpe
+  calcSortino, // Hitung rasio Sortino
+  calculateReturns, // Hitung return dari equity curve
+  calcMaxDrawdown, // Hitung drawdown maksimum
+  formatResult, // Format hasil backtest agar rapi
 };
 
 // ─────────────────────────────────────────────────────────────
 // 🗳️ Voting Strategy
 // ─────────────────────────────────────────────────────────────
 export {
-  votingSignal, // Generate voting signal from indicators
-  backtestVotingStrategy, // Backtest voting strategy
+  votingSignal, // Buat sinyal voting dari banyak indikator
+  backtestVotingStrategy, // Backtest strategi voting indikator
 };
 
 // ─────────────────────────────────────────────────────────────
 // 📥 Data Loading & Merging
 // ─────────────────────────────────────────────────────────────
 export {
-  mergeIndicatorsWithCandles, // Merge indicator and candle data
-  getBestWeights, // Get optimal weights from database or default
-  defaultWeights, // Default weights constant
+  mergeIndicatorsWithCandles, // Gabungkan data indikator dan candle
+  getBestWeights, // Ambil bobot terbaik dari DB atau default
+  defaultWeights, // Konstanta bobot default
 };

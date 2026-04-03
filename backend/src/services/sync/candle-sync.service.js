@@ -38,6 +38,7 @@ async function runWithConcurrency(items, limit, worker) {
  * Update listingDate for a coin based on earliest candle available in Coinbase
  * This should be called after historical data sync to set accurate listing dates
  */
+// Perbarui listing date satu simbol berdasarkan candle paling awal di database.
 export async function updateListingDateFromCandles(symbol) {
   try {
     const coin = await prisma.coin.findUnique({
@@ -107,6 +108,7 @@ export async function updateListingDateFromCandles(symbol) {
  * Update listing dates for all coins that have candles but no listingDate
  * This is useful for bulk updates after initial sync
  */
+// Perbarui listing date untuk semua coin yang relevan secara massal.
 export async function updateAllListingDates() {
   console.log(`📅 Updating listing dates for all coins...`);
 
@@ -161,6 +163,7 @@ export async function updateAllListingDates() {
   }
 }
 
+// Sinkronisasi candle terbaru untuk kumpulan simbol.
 export async function syncLatestCandles(symbols = []) {
   console.log(`🕐 Starting candle sync for ${symbols.length} symbols...`);
   console.log(`⚙️ Sync concurrency: ${SYNC_CONCURRENCY}`);
@@ -292,6 +295,7 @@ async function syncSymbolCandles(symbol) {
   }
 }
 
+// Ambil daftar simbol aktif yang memenuhi kriteria analisis.
 export async function getActiveSymbols() {
   try {
     if (!prisma) {
@@ -330,6 +334,7 @@ export async function getActiveSymbols() {
   }
 }
 
+// Tampilkan status cache sinkronisasi candle di memori.
 export function getCacheStatus() {
   return {
     totalSymbols: lastUpdateCache.size,
@@ -337,6 +342,7 @@ export function getCacheStatus() {
   };
 }
 
+// Sinkronisasi data historis candle untuk simbol yang dipilih.
 export async function syncHistoricalData(
   symbols = [],
   startDate = "2020-01-01",

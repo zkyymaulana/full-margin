@@ -29,11 +29,8 @@ import { prisma } from "../../lib/prisma.js";
  * untuk mendapatkan IDs yang diperlukan untuk query selanjutnya.
  *
  * Parameter:
- * @param {string} symbol - Cryptocurrency symbol (e.g., "BTC-USD")
- * @param {string} timeframe - Timeframe string (e.g., "1h", "4h", "1d")
  *
  * Return:
- * @returns {object} Object dengan struktur:
  *   {
  *     coin: {
  *       id: 1,
@@ -88,11 +85,8 @@ export async function getCoinAndTimeframe(symbol, timeframe) {
  * memberikan kontribusi berbeda untuk setiap indicator.
  *
  * Parameter:
- * @param {number} coinId - ID coin dari database
- * @param {number} timeframeId - ID timeframe dari database
  *
  * Return:
- * @returns {object|null} Weights object atau null jika tidak ada.
  *   Format weights:
  *   {
  *     SMA: 0.15,
@@ -130,16 +124,8 @@ export async function getLatestWeights(coinId, timeframeId) {
  * (terutama di awal dataset ketika rolling window masih pendek).
  *
  * Parameter:
- * @param {string} symbol - Cryptocurrency symbol
- * @param {string} timeframe - Timeframe string
- * @param {number} coinId - ID coin
- * @param {number} timeframeId - ID timeframe
- * @param {number} minTime - Start time range (milliseconds)
- * @param {number} maxTime - End time range (milliseconds)
- * @param {number} expectedCount - Expected jumlah indicator
  *
  * Return:
- * @returns {Array} Array of indicator records dari database
  *
  * Logic:
  * 1. Query indicator dari database untuk time range
@@ -211,12 +197,8 @@ export async function getIndicatorsForTimeRange(
  * yang sesuai dengan timestamp-nya.
  *
  * Parameter:
- * @param {Array} candles - Array of candle objects dari database
- * @param {Array} indicators - Array of indicator objects dari database
- * @param {object} weights - Weights untuk multi-signal calculation
  *
  * Return:
- * @returns {Array} Array of merged objects dengan struktur:
  *   [
  *     {
  *       time: "1234567890000",
@@ -277,10 +259,8 @@ export function mergeChartData(candles, indicators, weights) {
  * indicator values flat, kami reorganize menjadi struktur nested.
  *
  * Parameter:
- * @param {object} ind - Indicator record dari database
  *
  * Return:
- * @returns {object} Formatted indicators dengan struktur:
  *   {
  *     sma: { 20: 45000, 50: 44500, signal: "buy" },
  *     ema: { 20: 45100, 50: 44600, signal: "buy" },
@@ -350,11 +330,8 @@ function formatIndicators(ind) {
  * yang lebih akurat.
  *
  * Parameter:
- * @param {object|null} ind - Indicator record dari database (bisa null)
- * @param {object|null} weights - Weights untuk category score calculation
  *
  * Return:
- * @returns {object|null} Formatted multi-signal atau null jika ind null
  *   {
  *     signal: "buy",                  // "buy" | "sell" | "neutral"
  *     strength: 0.750,               // 0.0 - 1.0, confidence level

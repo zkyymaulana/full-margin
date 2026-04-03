@@ -23,9 +23,6 @@ import {
 
 /**
  * 🔍 Get last signal from database cache
- * @param {string} symbol - e.g., "BTC-USD"
- * @param {string} cacheType - "watchlist" or "broadcast"
- * @returns {Promise<string|null>} Last signal or null
  */
 async function getLastSignalFromDB(symbol, cacheType) {
   try {
@@ -43,9 +40,6 @@ async function getLastSignalFromDB(symbol, cacheType) {
 
 /**
  * 💾 Update signal cache in database
- * @param {string} symbol - e.g., "BTC-USD"
- * @param {string} cacheType - "watchlist" or "broadcast"
- * @param {string} signal - "buy", "sell", or "neutral"
  */
 async function updateSignalCacheDB(symbol, cacheType, signal) {
   try {
@@ -227,8 +221,6 @@ export async function sendMultiIndicatorSignal({
 /**
  * Kirim ringkasan harian ke semua user yang mengaktifkan Telegram.
  *
- * @param {Array<{symbol:string, signal:string, price:number}>} symbols
- * @returns {Promise<object>} Hasil broadcast.
  */
 export async function sendDailySummary(symbols) {
   const summaryLines = symbols.map(
@@ -251,9 +243,6 @@ ${summaryLines.join("\n")}
 /**
  * Kirim notifikasi error/warning ke semua admin (menggunakan broadcast umum).
  *
- * @param {Error} error
- * @param {string} [context] - Informasi konteks error.
- * @returns {Promise<object>} Hasil broadcast.
  */
 export async function sendErrorNotification(error, context = "") {
   const message = `
@@ -277,8 +266,6 @@ Error: ${error.message}
  * - Jika sinyal sama muncul lagi, notifikasi akan di-skip
  * - Persistent across server restarts
  *
- * @param {string|null} [symbol] - Jika diisi, hanya cache untuk symbol itu yang dibersihkan.
- * @returns {Promise<void>}
  */
 export async function clearSignalCache(symbol = null) {
   try {
@@ -300,7 +287,6 @@ export async function clearSignalCache(symbol = null) {
 
 /**
  * Get cache status dari DATABASE untuk debugging
- * @returns {Promise<Object>} Cache statistics
  */
 export async function getSignalCacheStatus() {
   try {
@@ -339,7 +325,6 @@ export async function getSignalCacheStatus() {
 /**
  * Test koneksi Telegram dengan cara broadcast pesan test.
  *
- * @returns {Promise<object>} Hasil broadcast.
  */
 export async function testTelegramConnection() {
   const message = `

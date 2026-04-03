@@ -10,10 +10,10 @@ import {
 } from "../services/charts/chartdata.service.js";
 import { getCoinLiveDetail } from "../services/market/index.js";
 
-// Controller utama untuk endpoint chart
-// Mengembalikan data candlestick + indikator + multi-signal dari database
+// Ambil data chart lengkap (candlestick, indikator, metadata, dan data live market).
 export async function getChart(req, res) {
   try {
+    // Parsing parameter dasar dari request.
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
     const timeframe = req.query.timeframe || "1h";
     const page = Math.max(1, parseInt(req.query.page) || 1);
@@ -23,13 +23,13 @@ export async function getChart(req, res) {
     );
     const offset = (page - 1) * limit;
 
-    // Get coin and timeframe from database
+    // Validasi coin dan timeframe dari database.
     const { coin, timeframeRecord } = await getCoinAndTimeframe(
       symbol,
       timeframe,
     );
 
-    // Fetch candles
+    // Ambil candle terbaru berdasarkan halaman yang diminta.
     const chartData = await getChartDataNewest(symbol, limit, offset);
     if (!chartData.candles.length) {
       return res.json({
@@ -48,15 +48,15 @@ export async function getChart(req, res) {
       });
     }
 
-    // Get time range
+    // Hitung rentang waktu data untuk query indikator.
     const times = chartData.candles.map((c) => Number(c.time));
     const minTime = Math.min(...times);
     const maxTime = Math.max(...times);
 
-    // Get latest weights for multi-signal calculation
+    // Ambil bobot indikator terbaru untuk hitung multi-signal.
     const weights = await getLatestWeights(coin.id, timeframeRecord.id);
 
-    // Get or recalculate indicators
+    // Ambil indikator pada rentang waktu yang sama dengan candle.
     const indicators = await getIndicatorsForTimeRange(
       symbol,
       timeframe,
@@ -67,20 +67,20 @@ export async function getChart(req, res) {
       chartData.candles.length,
     );
 
-    // Merge candles with indicators
+    // Gabungkan candle dan indikator agar mudah dipakai frontend.
     const merged = mergeChartData(chartData.candles, indicators, weights);
 
-    // Calculate metadata
+    // Bentuk metadata ringkas untuk kebutuhan info tambahan.
     const metadata = calculateMetadata(merged, minTime, maxTime);
 
-    // Build pagination
+    // Bentuk pagination response.
     const totalPages = Math.ceil(chartData.total / limit);
     const pagination = buildPagination(req, page, totalPages, limit, timeframe);
 
-    // Get live market data
+    // Tambahkan data live market terbaru.
     const live = await getCoinLiveDetail(symbol);
 
-    // Send response
+    // Kirim response final ke client.
     return res.json({
       success: true,
       symbol,

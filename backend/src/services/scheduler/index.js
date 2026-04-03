@@ -1,7 +1,11 @@
 /**
  * File: src/services/scheduler/index.js
  * -------------------------------------------------
- * Tujuan: Barrel export untuk modul scheduler.
+ * Tujuan: Satu pintu export untuk modul scheduler.
  */
 
-export * from "./scheduler.service.js";
+export {
+  startAllSchedulers, // Menyalakan seluruh scheduler otomatis
+  stopAllSchedulers, // Menghentikan seluruh scheduler
+  getSchedulerStatus, // Mengambil status scheduler saat ini
+} from "./scheduler.service.js";

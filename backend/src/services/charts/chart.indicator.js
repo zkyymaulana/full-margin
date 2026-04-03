@@ -26,14 +26,12 @@
  * berdasarkan kategori (trend, momentum, volatility).
  *
  * Parameter:
- * @param {object} ind - Indicator object dari database dengan fields:
  *   sma20, sma50, smaSignal, ema20, ema50, emaSignal, rsi, rsiSignal,
  *   macd, macdSignalLine, macdHist, macdSignal, bbUpper, bbMiddle, bbLower,
  *   bbSignal, stochK, stochD, stochSignal, stochRsiK, stochRsiD,
  *   stochRsiSignal, psar, psarSignal
  *
  * Return:
- * @returns {object} Formatted indicators dengan struktur:
  *   {
  *     sma: { 20, 50, signal },
  *     ema: { 20, 50, signal },
@@ -125,12 +123,9 @@ export function formatIndicators(ind) {
  *    - Volatility: BollingerBands
  *
  * Parameter:
- * @param {object|null} ind - Indicator object dari database, atau null
- * @param {object|null} weights - Bobot indikator { SMA, EMA, RSI, MACD, ... }
  *                                atau null jika belum dioptimalkan
  *
  * Return:
- * @returns {object|null} Multi-signal object dengan struktur:
  *   {
  *     signal: "buy" | "sell" | "neutral",
  *     strength: 0-1 (signal confidence),

@@ -7,6 +7,7 @@ import {
   updateUserTelegramSettings,
 } from "../services/user/profile.service.js";
 
+// Ambil profil user yang sedang login.
 export async function getProfile(req, res) {
   try {
     const userId = req.user?.id;
@@ -20,6 +21,7 @@ export async function getProfile(req, res) {
   }
 }
 
+// Perbarui data profil user yang sedang login.
 export async function updateProfile(req, res) {
   try {
     const userId = req.user?.id;
@@ -33,26 +35,23 @@ export async function updateProfile(req, res) {
   }
 }
 
-/**
- * Update Telegram Settings untuk User
- * PATCH /api/users/:id/telegram
- */
+// Perbarui pengaturan Telegram milik user tertentu.
 export async function updateTelegramSettings(req, res) {
   try {
     const userId = parseInt(req.params.id);
     const authUserId = req.user?.id;
     const { telegramChatId, telegramEnabled } = req.body;
 
-    // Validate authorization using service function
+    // Pastikan user hanya bisa mengubah data miliknya sendiri.
     validateUserAuthorization(userId, authUserId);
 
-    // Validate input using service function
+    // Validasi format input Telegram.
     validateTelegramInput(telegramChatId, telegramEnabled);
 
-    // Build update data using service function
+    // Bentuk payload update sesuai field yang valid.
     const updateData = buildTelegramUpdateData(telegramChatId, telegramEnabled);
 
-    // Update user using service function
+    // Simpan perubahan ke database lewat service.
     const updatedUser = await updateUserTelegramSettings(userId, updateData);
 
     return res.json({
@@ -61,7 +60,7 @@ export async function updateTelegramSettings(req, res) {
       data: updatedUser,
     });
   } catch (err) {
-    // Handle specific error types
+    // Tentukan status code berdasarkan jenis error.
     const statusCode = err.message.includes("Forbidden")
       ? 403
       : err.message.includes("must be")

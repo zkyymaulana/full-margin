@@ -4,6 +4,7 @@ import { generateToken } from "../../utils/jwt.js";
 
 const prisma = new PrismaClient();
 
+// Registrasi user baru dan kembalikan token login.
 export async function registerService(email, password, name) {
   // Validasi input
   if (!email || !password || !name) {
@@ -14,7 +15,7 @@ export async function registerService(email, password, name) {
   const nameTrimmed = String(name).trim();
   const passwordStr = String(password);
 
-  // Validasi format
+  // Validasi format nama dan password minimum.
   if (nameTrimmed.length < 2) {
     throw new Error("Nama minimal 2 karakter");
   }
@@ -32,7 +33,7 @@ export async function registerService(email, password, name) {
     throw new Error("Email sudah terdaftar");
   }
 
-  // Hash password
+  // Hash password sebelum disimpan agar tidak tersimpan dalam bentuk plain text.
   const passwordHash = await bcrypt.hash(passwordStr, 10);
 
   // Buat user baru
@@ -53,13 +54,17 @@ export async function registerService(email, password, name) {
   return { token: generateToken(user), user };
 }
 
+// Login user, update lastLogin, lalu kembalikan token.
 export async function loginService(email, password) {
+  // Cari user berdasarkan email.
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) throw new Error("User tidak ditemukan");
 
+  // Verifikasi password dengan hash di database.
   if (!(await bcrypt.compare(password, user.passwordHash)))
     throw new Error("Password salah");
 
+  // Jalankan update lastLogin dan pencatatan auth log secara paralel.
   await Promise.all([
     prisma.user.update({
       where: { id: user.id },
@@ -73,6 +78,7 @@ export async function loginService(email, password) {
   return { token: generateToken(user), user };
 }
 
+// Logout user dengan mencatat event logout pada auth log.
 export async function logoutService(userId) {
   await prisma.authLog.create({
     data: { userId, action: "logout" },

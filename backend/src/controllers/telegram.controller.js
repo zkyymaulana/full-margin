@@ -13,9 +13,7 @@ import {
 import { prisma } from "../lib/prisma.js";
 import axios from "axios";
 
-/**
- * Test Telegram connection
- */
+// Menguji koneksi bot Telegram dan memastikan bot bisa mengirim pesan.
 export async function testTelegramController(req, res) {
   try {
     const result = await testTelegramConnection();
@@ -35,11 +33,10 @@ export async function testTelegramController(req, res) {
   }
 }
 
-/**
- * Test multi-indicator signal detection
- */
+// Menjalankan test deteksi multi-indikator untuk satu simbol.
 export async function testMultiSignalController(req, res) {
   try {
+    // Gunakan symbol dari params, fallback ke BTC-USD jika tidak ada.
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
 
     const result = await detectAndNotifyMultiIndicatorSignals(symbol);
@@ -57,16 +54,14 @@ export async function testMultiSignalController(req, res) {
   }
 }
 
-/**
- * Test all symbols signal detection (Multi Indicator Only)
- */
+// Menjalankan test deteksi sinyal untuk banyak simbol sekaligus.
 export async function testAllSignalsController(req, res) {
   try {
-    // ✅ Ambil symbols dari database, bukan hardcode
+    // Ambil simbol dari request, atau fallback ke database jika kosong.
     let symbols = req.body.symbols;
 
     if (!symbols || symbols.length === 0) {
-      // Ambil dari database jika tidak ada di request body
+      // Jika tidak ada simbol di request, ambil top coin dari database.
       const coins = await prisma.coin.findMany({
         where: {
           rank: { not: null },
@@ -87,7 +82,7 @@ export async function testAllSignalsController(req, res) {
       }
     }
 
-    // Always use multi mode
+    // Mode deteksi dipaksa ke multi sesuai flow aplikasi.
     const result = await detectAndNotifyAllSymbols(symbols, "multi");
 
     return res.json({
@@ -104,11 +99,10 @@ export async function testAllSignalsController(req, res) {
   }
 }
 
-/**
- * Clear signal cache
- */
+// Menghapus cache sinyal untuk satu simbol atau semua simbol.
 export async function clearCacheController(req, res) {
   try {
+    // Jika symbol kosong, cache semua simbol akan dihapus.
     const symbol = req.query.symbol;
 
     clearSignalCache(symbol);
@@ -127,9 +121,7 @@ export async function clearCacheController(req, res) {
   }
 }
 
-/**
- * Get Telegram configuration status
- */
+// Mengambil status konfigurasi Telegram pada server.
 export async function getTelegramConfigController(req, res) {
   try {
     const config = {
@@ -150,11 +142,10 @@ export async function getTelegramConfigController(req, res) {
   }
 }
 
-/**
- * Toggle Telegram notifications (enable/disable)
- */
+// Mengaktifkan atau menonaktifkan notifikasi Telegram.
 export async function toggleTelegramController(req, res) {
   try {
+    // Body request hanya menerima field boolean `enabled`.
     const { enabled } = req.body;
 
     if (typeof enabled !== "boolean") {
@@ -164,7 +155,7 @@ export async function toggleTelegramController(req, res) {
       });
     }
 
-    // Update environment variable in memory
+    // Simpan status enabled di environment runtime.
     process.env.TELEGRAM_ENABLED = enabled.toString();
 
     return res.json({
@@ -184,20 +175,19 @@ export async function toggleTelegramController(req, res) {
   }
 }
 
-/**
- * Telegram Webhook untuk auto-register chat ID
- */
+// Menangani webhook Telegram untuk perintah /start, /connect, dan /status.
 export async function telegramWebhookController(req, res) {
   try {
+    // Payload webhook dari Telegram dikirim ke body request.
     const update = req.body;
 
-    // Log incoming webhook
+    // Simpan log payload webhook untuk debugging.
     console.log(
       "📥 Telegram webhook received:",
-      JSON.stringify(update, null, 2)
+      JSON.stringify(update, null, 2),
     );
 
-    // Extract message
+    // Ambil message dari payload update.
     const message = update.message;
     if (!message) {
       return res.json({ success: true, message: "No message in update" });
@@ -209,8 +199,9 @@ export async function telegramWebhookController(req, res) {
 
     console.log(`📨 Message from ${from.first_name} (${chatId}): ${text}`);
 
-    // Handle /start command
+    // Tangani perintah /start.
     if (text === "/start") {
+      // Kirim panduan awal agar user tahu langkah menghubungkan akun.
       const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
       const welcomeMessage = `
 👋 *Welcome to Crypto Trading Bot!*
@@ -231,14 +222,15 @@ You'll start receiving *Multi-Indicator* trading signals automatically! 📊
           chat_id: chatId,
           text: welcomeMessage.trim(),
           parse_mode: "Markdown",
-        }
+        },
       );
 
       console.log(`✅ Sent welcome message to ${chatId}`);
     }
 
-    // Handle /connect command with user ID
+    // Tangani perintah /connect untuk mengaitkan chatId ke user.
     else if (text.startsWith("/connect ")) {
+      // Format expected: /connect <userId>
       const userId = parseInt(text.split(" ")[1]);
 
       if (!userId || isNaN(userId)) {
@@ -247,13 +239,14 @@ You'll start receiving *Multi-Indicator* trading signals automatically! 📊
           {
             chat_id: chatId,
             text: "❌ Invalid user ID. Use: /connect <userId>",
-          }
+          },
         );
         return res.json({ success: true });
       }
 
-      // Update user with chat ID
+      // Update akun user dengan chatId Telegram.
       try {
+        // Simpan chatId agar user bisa menerima sinyal Telegram.
         const user = await prisma.user.update({
           where: { id: userId },
           data: {
@@ -268,7 +261,7 @@ You'll start receiving *Multi-Indicator* trading signals automatically! 📊
             chat_id: chatId,
             text: `✅ *Telegram Connected!*\n\nAccount: ${user.email}\nNotifications: Enabled\nSignal Mode: Multi-Indicator\n\nYou'll now receive trading signals! 📊`,
             parse_mode: "Markdown",
-          }
+          },
         );
 
         console.log(`✅ Connected Telegram for user ${userId} (${user.email})`);
@@ -278,13 +271,14 @@ You'll start receiving *Multi-Indicator* trading signals automatically! 📊
           {
             chat_id: chatId,
             text: `❌ Error: ${error.message}`,
-          }
+          },
         );
       }
     }
 
-    // Handle /status command
+    // Tangani perintah /status untuk cek status akun Telegram user.
     else if (text === "/status") {
+      // Cek apakah chatId ini sudah terhubung dengan user aplikasi.
       const user = await prisma.user.findFirst({
         where: { telegramChatId: chatId },
       });
@@ -304,7 +298,7 @@ Chat ID: \`${chatId}\`
             chat_id: chatId,
             text: statusMessage.trim(),
             parse_mode: "Markdown",
-          }
+          },
         );
       } else {
         await axios.post(
@@ -312,7 +306,7 @@ Chat ID: \`${chatId}\`
           {
             chat_id: chatId,
             text: "❌ No account connected. Use /start to get your Chat ID.",
-          }
+          },
         );
       }
     }
@@ -327,11 +321,10 @@ Chat ID: \`${chatId}\`
   }
 }
 
-/**
- * Test broadcast ke semua user
- */
+// Kirim pesan broadcast Telegram ke semua user yang terhubung.
 export async function broadcastController(req, res) {
   try {
+    // Ambil pesan broadcast dari body request.
     const { message } = req.body;
 
     if (!message) {
@@ -357,19 +350,16 @@ export async function broadcastController(req, res) {
   }
 }
 
-/**
- * Test broadcast trading signal (Multi Indicator Only)
- * POST /api/telegram/broadcast-signal
- */
+// Broadcast sinyal trading multi-indikator ke seluruh user target.
 export async function broadcastSignalController(req, res) {
   try {
-    // Validate input using service function
+    // Validasi input menggunakan helper service.
     validateBroadcastSignalParams(req.body);
 
-    // Build payload using service function
+    // Bentuk payload final untuk proses broadcast.
     const payload = buildBroadcastSignalPayload(req.body);
 
-    // Broadcast signal
+    // Kirim sinyal ke Telegram.
     const result = await broadcastTradingSignal(payload);
 
     return res.json({
@@ -378,7 +368,7 @@ export async function broadcastSignalController(req, res) {
       result,
     });
   } catch (error) {
-    // Handle validation errors with 400, others with 500
+    // Error validasi dikembalikan sebagai 400, selain itu 500.
     const statusCode =
       error.message.includes("required") ||
       error.message.includes("must be") ||

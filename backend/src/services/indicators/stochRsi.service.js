@@ -3,11 +3,12 @@
 import { createRollingWindow } from "../../utils/rollingWindow.js";
 import { createRSICalculator } from "./rsi.service.js";
 
+// Buat kalkulator Stochastic RSI (%K dan %D berbasis RSI).
 export function createStochasticRSICalculator(
   rsiPeriod = 14,
   stochPeriod = 14,
   kPeriod = 3,
-  dPeriod = 3
+  dPeriod = 3,
 ) {
   const rsiCalc = createRSICalculator(rsiPeriod);
   const rsiWindow = createRollingWindow(stochPeriod);

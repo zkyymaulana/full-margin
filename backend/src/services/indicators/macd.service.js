@@ -2,10 +2,11 @@
 // Mengukur kekuatan tren dengan melihat perbedaan dua EMA (biasanya 12 dan 26).
 import { createEMACalculator } from "./ema.service.js";
 
+// Buat kalkulator MACD lengkap dengan signal line dan histogram.
 export function createMACDCalculator(
   fastPeriod = 12,
   slowPeriod = 26,
-  signalPeriod = 9
+  signalPeriod = 9,
 ) {
   const fastEMA = createEMACalculator(fastPeriod);
   const slowEMA = createEMACalculator(slowPeriod);

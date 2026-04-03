@@ -27,13 +27,14 @@ const client = axios.create({
   },
 });
 
+// Ambil candle historis dari Coinbase secara bertahap (batch) agar aman dari limit API.
 export async function fetchHistoricalCandles(symbol, start, end) {
   const allCandles = [];
   let current = start;
   let batchCount = 1;
 
   console.log(
-    `🚀 Fetch ${symbol} candles: ${new Date(start).toISOString()} → ${new Date(end).toISOString()}`
+    `🚀 Fetch ${symbol} candles: ${new Date(start).toISOString()} → ${new Date(end).toISOString()}`,
   );
 
   while (current < end) {
@@ -66,7 +67,7 @@ export async function fetchHistoricalCandles(symbol, start, end) {
       if (candles.length > 0) {
         allCandles.push(...candles.reverse()); // urut lama → baru
         console.log(
-          `✅ ${symbol} Batch ${batchCount++}: ${candles.length} candles`
+          `✅ ${symbol} Batch ${batchCount++}: ${candles.length} candles`,
         );
       }
 
@@ -93,7 +94,7 @@ async function delay(ms) {
 async function handleFetchError(symbol, batch, err) {
   if (err.response?.status === 429) {
     console.warn(
-      `⚠️ ${symbol}: Rate limit (429), retry ${RETRY_DELAY_MS / 1000}s...`
+      `⚠️ ${symbol}: Rate limit (429), retry ${RETRY_DELAY_MS / 1000}s...`,
     );
     await delay(RETRY_DELAY_MS);
   } else if (["ECONNRESET", "ETIMEDOUT"].includes(err.code)) {
@@ -108,9 +109,8 @@ async function handleFetchError(symbol, batch, err) {
 /**
  * Ambil 1 candle pertama (earliest) untuk menentukan listing date
  * Sequential search dari 2016 sampai menemukan data pertama
- * @param {string} symbol - Trading pair symbol (e.g., "BTC-USD")
- * @returns {Object|null} - { time: timestamp, open, high, low, close, volume } atau null
  */
+// Cari candle paling awal yang tersedia untuk sebuah pair.
 export async function fetchEarliestCandle(symbol) {
   try {
     const currentYear = new Date().getFullYear();
@@ -128,7 +128,7 @@ export async function fetchEarliestCandle(symbol) {
         const testCandles = await fetchHistoricalCandles(
           symbol,
           yearStart,
-          yearEnd
+          yearEnd,
         );
 
         if (testCandles && testCandles.length > 0) {

@@ -14,8 +14,6 @@
 /**
  * 🔧 Setup SSE headers dan konfigurasi response untuk streaming
  *
- * @param {Object} res - Express response object
- * @returns {void}
  *
  * Menset headers:
  * - Content-Type: text/event-stream (required untuk SSE)
@@ -52,10 +50,6 @@ export function setupSSE(res) {
 /**
  * 📤 Kirim event ke single client
  *
- * @param {Object} res - Express response object (SSE client)
- * @param {string} eventName - Nama event (e.g., "progress", "completed")
- * @param {Object} data - Data yang akan dikirim (akan di-stringify)
- * @returns {boolean} true jika sukses, false jika gagal
  *
  * Format SSE:
  * data: {JSON}\n\n
@@ -90,10 +84,6 @@ export function sendEvent(res, eventName, data) {
 /**
  * 📡 Broadcast event ke multiple clients
  *
- * @param {Set} clients - Set dari SSE clients (response objects)
- * @param {string} eventName - Nama event
- * @param {Object} data - Data yang akan di-broadcast
- * @returns {Object} Statistik broadcast {successCount, failCount}
  *
  * Mengirim event ke semua clients yang terhubung.
  * Jika client disconnect, akan dihapus dari set.
@@ -146,9 +136,6 @@ export function broadcastEvent(clients, eventName, data) {
 /**
  * 💓 Setup heartbeat untuk keep-alive connection
  *
- * @param {Object} res - Express response object
- * @param {number} intervalMs - Interval dalam milliseconds (default: 15000)
- * @returns {number} Timer ID untuk bisa di-clear nanti
  *
  * Mengirim comment heartbeat setiap interval untuk:
  * - Keep connection alive (prevent timeout)
@@ -181,9 +168,6 @@ export function setupHeartbeat(res, intervalMs = 15000) {
 /**
  * 🔌 Close SSE connection dengan graceful
  *
- * @param {Object} res - Express response object
- * @param {Set} clients - Set dari clients (untuk cleanup)
- * @returns {void}
  */
 export function closeSSE(res, clients) {
   try {
@@ -200,8 +184,6 @@ export function closeSSE(res, clients) {
 /**
  * 🔥 Close semua SSE connections
  *
- * @param {Set} clients - Set dari SSE clients
- * @returns {void}
  *
  * Digunakan saat:
  * - Optimization selesai

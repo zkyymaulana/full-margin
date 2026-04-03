@@ -2,6 +2,7 @@
 // Menghitung rata-rata harga penutupan selama periode tertentu.
 import { createRollingWindow } from "../../utils/rollingWindow.js";
 
+// Buat kalkulator SMA untuk periode tertentu.
 export function createSMACalculator(period) {
   const window = createRollingWindow(period);
 

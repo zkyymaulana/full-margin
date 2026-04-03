@@ -4,7 +4,7 @@ import {
   backtestAllIndicators,
 } from "../services/backtest/backtest.service.js";
 
-// 🕒 Format tanggal ke Bahasa Indonesia (Asia/Jakarta)
+// Format tanggal agar mudah dibaca dengan locale Indonesia.
 const formatDate = (t) =>
   new Intl.DateTimeFormat("id-ID", {
     dateStyle: "long",
@@ -12,20 +12,18 @@ const formatDate = (t) =>
     timeZone: "Asia/Jakarta",
   }).format(new Date(Number(t)));
 
-/* ==========================================================
-   🔧 Ambil Semua Data Candle & Indikator
-========================================================== */
+// Ambil data indikator dan harga candle dalam rentang waktu backtest.
 async function getIndicatorsWithPrices(symbol, timeframe) {
   console.log(
-    `📊 Fetching dataset for ${symbol} (${timeframe}) between 2020–2025...`
+    `📊 Fetching dataset for ${symbol} (${timeframe}) between 2020–2025...`,
   );
   const start = Date.now();
 
-  // Rentang waktu (dalam epoch milliseconds)
+  // Gunakan rentang data historis 2020 sampai awal 2025.
   const startTime = new Date("2020-01-01T00:00:00Z").getTime();
   const endTime = new Date("2025-01-01T00:00:00Z").getTime();
 
-  // Ambil data indikator dan candle sesuai rentang waktu
+  // Query indikator dan candle secara paralel agar lebih cepat.
   const [indicators, candles] = await Promise.all([
     prisma.indicator.findMany({
       where: {
@@ -52,7 +50,9 @@ async function getIndicatorsWithPrices(symbol, timeframe) {
     }),
   ]);
 
+  // Buat peta waktu -> harga close agar proses merge lebih cepat.
   const priceMap = new Map(candles.map((c) => [c.time.toString(), c.close]));
+  // Gabungkan data indikator dengan harga close pada timestamp yang sama.
   const data = indicators
     .map((i) => ({ ...i, close: priceMap.get(i.time.toString()) }))
     .filter((i) => i.close != null);
@@ -74,9 +74,7 @@ async function getIndicatorsWithPrices(symbol, timeframe) {
   return { data, total: data.length, range, dataset, duration };
 }
 
-/* ==========================================================
-   BACKTEST SINGLE INDICATOR
-========================================================== */
+// Jalankan backtest untuk satu jenis indikator.
 export async function backtestSingleIndicatorController(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
@@ -92,11 +90,11 @@ export async function backtestSingleIndicatorController(req, res) {
     }
 
     console.log(
-      `\n📊 Starting single indicator backtest for ${symbol} - ${indicator}`
+      `\n📊 Starting single indicator backtest for ${symbol} - ${indicator}`,
     );
     const { data, total, range, dataset } = await getIndicatorsWithPrices(
       symbol,
-      timeframe
+      timeframe,
     );
 
     if (total < 50) {
@@ -110,6 +108,8 @@ export async function backtestSingleIndicatorController(req, res) {
 
     const start = Date.now();
     const result = await backtestSingleIndicator(data, indicator);
+    // Ukur waktu proses agar mudah memantau performa endpoint.
+    const processingTime = `${((Date.now() - start) / 1000).toFixed(2)}s`;
 
     res.json({
       success: true,
@@ -133,20 +133,18 @@ export async function backtestSingleIndicatorController(req, res) {
   }
 }
 
-/* ==========================================================
-  BACKTEST SEMUA INDIKATOR (COMPARISON)
-========================================================== */
+// Jalankan backtest untuk semua indikator sekaligus (mode perbandingan).
 export async function backtestAllIndicatorsController(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
     const timeframe = "1h";
 
     console.log(
-      `\n📊 Starting all indicators backtest for ${symbol} (${timeframe})`
+      `\n📊 Starting all indicators backtest for ${symbol} (${timeframe})`,
     );
     const { data, total, range, dataset } = await getIndicatorsWithPrices(
       symbol,
-      timeframe
+      timeframe,
     );
 
     if (total < 50) {
@@ -160,6 +158,7 @@ export async function backtestAllIndicatorsController(req, res) {
 
     const start = Date.now();
     const result = await backtestAllIndicators(data);
+    // Tampilkan durasi eksekusi untuk kebutuhan observasi backend.
     const processingTime = `${((Date.now() - start) / 1000).toFixed(2)}s`;
 
     res.json({

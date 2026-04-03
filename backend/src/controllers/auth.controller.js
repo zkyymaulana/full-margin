@@ -7,8 +7,20 @@ import {
 import { verifyToken, generateToken } from "../utils/jwt.js";
 import { prisma } from "../lib/prisma.js";
 
+// Bentuk payload user yang konsisten untuk response auth.
+function mapAuthUser(user) {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    lastLogin: user.lastLogin,
+  };
+}
+
+// Handle registrasi user baru lalu kirim token autentikasi.
 export async function register(req, res) {
   try {
+    // Ambil input utama dari body request.
     const { email, password, name } = req.body;
     const { token, user } = await registerService(email, password, name);
 
@@ -16,20 +28,17 @@ export async function register(req, res) {
       success: true,
       message: "Registrasi berhasil",
       token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        lastLogin: user.lastLogin,
-      },
+      user: mapAuthUser(user),
     });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
   }
 }
 
+// Handle login user dengan email dan password.
 export async function login(req, res) {
   try {
+    // Validasi kredensial dilakukan di service.
     const { email, password } = req.body;
     const { token, user } = await loginService(email, password);
 
@@ -37,20 +46,17 @@ export async function login(req, res) {
       success: true,
       message: "Login berhasil",
       token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        lastLogin: user.lastLogin,
-      },
+      user: mapAuthUser(user),
     });
   } catch (err) {
     res.status(401).json({ success: false, message: err.message });
   }
 }
 
+// Handle logout user berdasarkan token yang dikirim dari header Authorization.
 export async function logout(req, res) {
   try {
+    // Format header yang diharapkan: Bearer <token>.
     const token = req.headers.authorization?.split(" ")[1];
     if (!token)
       return res
@@ -63,6 +69,7 @@ export async function logout(req, res) {
         .status(401)
         .json({ success: false, message: "Token tidak valid" });
 
+    // Service logout hanya mencatat aktivitas logout di auth log.
     await logoutService(decoded.id);
     res.json({ success: true, message: "Logout berhasil" });
   } catch (err) {
@@ -70,9 +77,7 @@ export async function logout(req, res) {
   }
 }
 
-/**
- * Login with Google OAuth
- */
+// Handle login menggunakan Google OAuth.
 export async function loginWithGoogle(req, res) {
   try {
     const { credential } = req.body;
@@ -84,26 +89,27 @@ export async function loginWithGoogle(req, res) {
       });
     }
 
-    // Verify Google token
+    // Verifikasi token dari Google untuk mendapatkan data user.
     const googleUser = await verifyGoogleToken(credential);
 
-    // Check if user exists in database
+    // Cek apakah user sudah ada di database berdasarkan email.
     let user = await prisma.user.findUnique({
       where: { email: googleUser.email },
     });
 
-    // If user doesn't exist, create new user
+    // Jika user belum ada, buat akun baru.
     if (!user) {
       user = await prisma.user.create({
         data: {
           email: googleUser.email,
           name: googleUser.name,
-          passwordHash: "", // Google users don't have password - use passwordHash instead
+          // User Google tidak memakai password lokal.
+          passwordHash: "",
           avatarUrl: googleUser.picture,
         },
       });
     } else {
-      // Update last login and avatar if changed
+      // Jika sudah ada, perbarui waktu login terakhir dan avatar.
       user = await prisma.user.update({
         where: { id: user.id },
         data: {
@@ -113,7 +119,7 @@ export async function loginWithGoogle(req, res) {
       });
     }
 
-    // Generate JWT token
+    // Generate JWT untuk sesi login user.
     const token = generateToken({ id: user.id, email: user.email });
 
     res.json({

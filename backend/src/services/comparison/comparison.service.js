@@ -110,10 +110,6 @@ import {
  * PARAMETER INPUT:
  * ═════════════════════════════════════════════════════════════════════════════
  *
- * @param {string} symbol - Cryptocurrency symbol (e.g., "BTC-USD")
- * @param {string} startDate - Start date untuk backtest (ISO 8601 format)
- * @param {string} endDate - End date untuk backtest (ISO 8601 format)
- * @param {number} threshold - Signal strength threshold untuk entry/exit (default 0.4)
  *
  * ═════════════════════════════════════════════════════════════════════════════
  * OUTPUT STRUCTURE:

@@ -10,14 +10,7 @@
  * ================================================================
  */
 
-/**
- * 🔄 Convert signal string ke numeric value
- *
- * @param {string} signal - Signal value ("buy", "sell", "neutral", atau null)
- * @returns {number} +1 untuk "buy", -1 untuk "sell", 0 untuk neutral/null
- *
- * Digunakan untuk mengkonversi string signals ke numeric untuk calculation
- */
+// Convert sinyal string menjadi nilai numerik agar bisa dihitung.
 export function toSignalValue(signal) {
   if (!signal) return 0;
   const normalized = signal.toLowerCase();
@@ -26,30 +19,7 @@ export function toSignalValue(signal) {
   return 0;
 }
 
-/**
- * 📊 Hitung category scores dari indicators dan weights
- *
- * @param {Object} indicators - Indicators object dengan semua indicator data
- * @param {Object} weights - Optimized weights untuk setiap indicator
- * @returns {Object} Category scores {trend, momentum, volatility}
- *
- * Categories:
- * - TREND (SMA + EMA + PSAR): Long-term trend direction
- * - MOMENTUM (RSI + MACD + Stochastic + StochasticRSI): Speed of price change
- * - VOLATILITY (BollingerBands): Market volatility level
- *
- * Calculation:
- * 1. Extract weighted sum dari indicators dalam setiap category
- * 2. Normalize dengan sum of weights dalam category
- * 3. Return score dalam range [-1, +1]
- *
- * Output example:
- * {
- *   trend: 0.45,        // Bullish trend
- *   momentum: -0.12,    // Bearish momentum
- *   volatility: 0.33    // Moderate volatility
- * }
- */
+// Hitung skor kategori trend, momentum, dan volatility berdasarkan bobot indikator.
 export function calculateCategoryScores(indicators, weights) {
   // 🔧 Safe weight extraction dengan default 0
   const w = {
@@ -111,8 +81,3 @@ export function calculateCategoryScores(indicators, weights) {
     volatility: parseFloat(volatilityScore.toFixed(2)),
   };
 }
-
-export default {
-  toSignalValue,
-  calculateCategoryScores,
-};

@@ -38,6 +38,7 @@ function hasActiveOptimization() {
 /* ============================================================
    🚀 Start All Scheduler Jobs
 ============================================================ */
+// Menyalakan semua scheduler utama backend.
 export async function startAllSchedulers() {
   console.log("🚀 Starting crypto schedulers...");
 
@@ -343,6 +344,7 @@ async function checkAndSyncHistoricalData() {
 /* ============================================================
    ⏹️ Stop & Status
 ============================================================ */
+// Menghentikan seluruh scheduler yang sedang aktif.
 export function stopAllSchedulers() {
   console.log("⏹️ Stopping schedulers...");
   for (const [name, job] of activeJobs) {
@@ -353,6 +355,7 @@ export function stopAllSchedulers() {
   console.log("✅ All stopped");
 }
 
+// Mengambil status scheduler, statistik job, dan informasi cache simbol.
 export const getSchedulerStatus = () => ({
   activeJobs: [...activeJobs.keys()],
   jobCount: activeJobs.size,

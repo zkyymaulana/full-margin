@@ -18,6 +18,16 @@ const CMC_INFO_URL = "https://pro-api.coinmarketcap.com/v2";
 const TIMEOUT_LISTINGS_MS = 30000;
 const TIMEOUT_INFO_MS = 30000;
 
+// Ambil pesan error paling relevan dari response axios.
+function extractErrorMessage(err) {
+  return (
+    err?.response?.data?.status?.error_message ||
+    err?.response?.data?.message ||
+    err.message
+  );
+}
+
+// Siapkan header autentikasi untuk setiap request ke CoinMarketCap.
 function getAuthHeaders() {
   if (!process.env.CMC_API_KEY) {
     throw new Error("CMC_API_KEY tidak ditemukan di .env");
@@ -29,41 +39,30 @@ function getAuthHeaders() {
   };
 }
 
-/**
- * Ambil daftar top coins dari endpoint listings/latest.
- *
- * @param {number} limit - Jumlah coin yang ingin diambil.
- * @returns {Promise<object>} Response payload dari CoinMarketCap (objek `data`).
- */
+// Ambil daftar koin berdasarkan market cap dari endpoint listings/latest.
 export async function getTopCoins(limit) {
   try {
+    // Query daftar coin dari ranking market cap tertinggi.
     const { data } = await axios.get(
       `${CMC_API_URL}/cryptocurrency/listings/latest`,
       {
         headers: getAuthHeaders(),
         params: { start: 1, limit, convert: "USD", sort: "market_cap" },
         timeout: TIMEOUT_LISTINGS_MS,
-      }
+      },
     );
 
     return data;
   } catch (err) {
-    const msg =
-      err?.response?.data?.status?.error_message ||
-      err?.response?.data?.message ||
-      err.message;
+    const msg = extractErrorMessage(err);
     throw new Error(msg);
   }
 }
 
-/**
- * Ambil info coin (termasuk logo) berdasarkan symbol.
- *
- * @param {string|string[]} symbols - Simbol coin. Bisa string CSV ("BTC,ETH") atau array.
- * @returns {Promise<object>} Response payload dari CoinMarketCap (objek `data`).
- */
+// Ambil informasi koin, termasuk logo, berdasarkan satu atau banyak simbol.
 export async function getCoinLogos(symbols) {
   try {
+    // Support input array maupun CSV string agar fleksibel dipakai service.
     const symbolParam = Array.isArray(symbols) ? symbols.join(",") : symbols;
 
     const { data } = await axios.get(`${CMC_INFO_URL}/cryptocurrency/info`, {
@@ -74,10 +73,7 @@ export async function getCoinLogos(symbols) {
 
     return data;
   } catch (err) {
-    const msg =
-      err?.response?.data?.status?.error_message ||
-      err?.response?.data?.message ||
-      err.message;
+    const msg = extractErrorMessage(err);
     throw new Error(msg);
   }
 }

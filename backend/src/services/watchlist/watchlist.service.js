@@ -1,9 +1,8 @@
 import { prisma } from "../../lib/prisma.js";
 
-/**
- * Get all watchlist entries for a user, including coin details
- */
+// Ambil seluruh daftar watchlist milik user beserta detail coin.
 export async function getWatchlist(userId) {
+  // Query watchlist user dan join data coin yang dibutuhkan UI.
   const entries = await prisma.userWatchlist.findMany({
     where: { userId },
     include: {
@@ -20,6 +19,7 @@ export async function getWatchlist(userId) {
     orderBy: { createdAt: "desc" },
   });
 
+  // Bentuk response yang lebih rapi untuk frontend.
   return entries.map((e) => ({
     id: e.id,
     coinId: e.coinId,
@@ -28,18 +28,16 @@ export async function getWatchlist(userId) {
   }));
 }
 
-/**
- * Add a coin to a user's watchlist (idempotent – ignores duplicates)
- */
+// Tambahkan coin ke watchlist user secara aman (idempotent).
 export async function addToWatchlist(userId, coinId) {
-  // Verify coin exists
+  // Pastikan coin yang diminta benar-benar ada.
   const coin = await prisma.coin.findUnique({ where: { id: coinId } });
   if (!coin) throw new Error(`Coin with id ${coinId} not found`);
 
-  // upsert so duplicate calls are safe
+  // Gunakan upsert agar request berulang tidak membuat duplikasi data.
   const entry = await prisma.userWatchlist.upsert({
     where: { userId_coinId: { userId, coinId } },
-    update: {}, // nothing to update
+    update: {},
     create: { userId, coinId },
     include: {
       coin: { select: { id: true, symbol: true, name: true, logo: true } },
@@ -49,15 +47,15 @@ export async function addToWatchlist(userId, coinId) {
   return entry;
 }
 
-/**
- * Remove a coin from a user's watchlist
- */
+// Hapus coin dari watchlist user.
 export async function removeFromWatchlist(userId, coinId) {
+  // Cek dulu apakah relasi user-coin memang ada.
   const existing = await prisma.userWatchlist.findUnique({
     where: { userId_coinId: { userId, coinId } },
   });
 
-  if (!existing) return null; // already not in watchlist – silently succeed
+  // Jika sudah tidak ada di watchlist, cukup return null.
+  if (!existing) return null;
 
   await prisma.userWatchlist.delete({
     where: { userId_coinId: { userId, coinId } },
@@ -66,9 +64,7 @@ export async function removeFromWatchlist(userId, coinId) {
   return { removed: true, coinId };
 }
 
-/**
- * Get all users watching a specific coin (used for Telegram notifications)
- */
+// Ambil daftar user yang sedang memantau coin tertentu.
 export async function getWatchersForCoin(coinId) {
   return prisma.userWatchlist.findMany({
     where: { coinId },

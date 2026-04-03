@@ -4,6 +4,7 @@
  * berdasarkan aturan standar analisis teknikal.
  */
 
+// Hitung sinyal per indikator dari data indikator dan harga terbaru.
 export function calculateSignals(indicators, price) {
   const signals = {};
 

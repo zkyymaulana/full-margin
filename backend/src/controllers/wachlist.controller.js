@@ -4,10 +4,7 @@ import {
   removeFromWatchlist,
 } from "../services/watchlist/watchlist.service.js";
 
-/**
- * GET /api/watchlist
- * Returns all coins in the current user's watchlist
- */
+// Ambil semua coin di watchlist user yang sedang login.
 export async function getWatchlistHandler(req, res) {
   try {
     const userId = req.user?.id;
@@ -21,11 +18,7 @@ export async function getWatchlistHandler(req, res) {
   }
 }
 
-/**
- * POST /api/watchlist
- * Add a coin to the watchlist
- * Body: { coinId: number }
- */
+// Tambahkan satu coin ke watchlist user.
 export async function addToWatchlistHandler(req, res) {
   try {
     const userId = req.user?.id;
@@ -34,16 +27,14 @@ export async function addToWatchlistHandler(req, res) {
 
     const coinId = parseInt(req.body?.coinId);
     if (!coinId || isNaN(coinId))
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "coinId is required and must be a number",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "coinId is required and must be a number",
+      });
 
     const entry = await addToWatchlist(userId, coinId);
 
-    // Check if the user has Telegram enabled
+    // Cek status Telegram user agar response lebih informatif.
     const { prisma } = await import("../lib/prisma.js");
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -66,10 +57,7 @@ export async function addToWatchlistHandler(req, res) {
   }
 }
 
-/**
- * DELETE /api/watchlist/:coinId
- * Remove a coin from the watchlist
- */
+// Hapus coin tertentu dari watchlist user.
 export async function removeFromWatchlistHandler(req, res) {
   try {
     const userId = req.user?.id;

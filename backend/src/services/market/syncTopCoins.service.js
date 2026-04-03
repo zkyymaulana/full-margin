@@ -12,6 +12,7 @@ import {
 
 dotenv.config();
 
+// Sinkronisasi top coin dari CMC, padankan pair Coinbase, lalu simpan ke database.
 export async function syncTopCoins() {
   try {
     // Simpan per coin secara incremental agar aman saat proses terhenti di tengah.

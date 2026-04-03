@@ -8,6 +8,7 @@ const imagekit = new ImageKit({
   urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT || "",
 });
 
+// Ambil data profil user yang aman ditampilkan ke frontend.
 export async function getUserProfile(userId) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -26,10 +27,12 @@ export async function getUserProfile(userId) {
   return user;
 }
 
+// Perbarui profil user (nama, email, password, avatar) sesuai input yang diberikan.
 export async function updateUserProfile(userId, payload) {
+  // Objek update dibentuk dinamis agar hanya field yang dikirim yang diproses.
   const updates = {};
 
-  // Update name
+  // Proses update nama.
   if (payload.name) {
     const name = String(payload.name).trim();
     if (name.length < 2) {
@@ -38,7 +41,7 @@ export async function updateUserProfile(userId, payload) {
     updates.name = name;
   }
 
-  // Update email
+  // Proses update email dan pastikan email tidak dipakai user lain.
   if (payload.email) {
     const email = String(payload.email).trim().toLowerCase();
     const exists = await prisma.user.findUnique({ where: { email } });
@@ -48,7 +51,7 @@ export async function updateUserProfile(userId, payload) {
     updates.email = email;
   }
 
-  // Update password (require currentPassword)
+  // Proses update password, wajib menyertakan currentPassword.
   if (payload.newPassword) {
     if (!payload.currentPassword) {
       throw new Error("Current password wajib diisi");
@@ -62,10 +65,11 @@ export async function updateUserProfile(userId, payload) {
     if (String(payload.newPassword).length < 6) {
       throw new Error("Password minimal 6 karakter");
     }
+    // Simpan password baru dalam bentuk hash.
     updates.passwordHash = await bcrypt.hash(String(payload.newPassword), 10);
   }
 
-  // Update avatar via ImageKit (accept base64 dataURL or plain base64)
+  // Proses update avatar lewat upload ImageKit.
   let uploadedUrl = null;
   if (payload.avatarBase64) {
     if (
@@ -79,7 +83,7 @@ export async function updateUserProfile(userId, payload) {
     const fileName = `avatar_${userId}_${Date.now()}.jpg`;
     const folder = process.env.IMAGEKIT_FOLDER || "/avatars";
 
-    // Strip data URL prefix if present
+    // Hilangkan prefix data URL jika format yang dikirim berupa data:image/...;base64,...
     const base64 = String(payload.avatarBase64).includes(",")
       ? String(payload.avatarBase64).split(",")[1]
       : String(payload.avatarBase64);
@@ -94,6 +98,7 @@ export async function updateUserProfile(userId, payload) {
     updates.avatarUrl = uploadedUrl;
   }
 
+  // Jika tidak ada field yang berubah, kembalikan error agar request tidak sia-sia.
   if (Object.keys(updates).length === 0) {
     throw new Error("Tidak ada perubahan yang dikirim");
   }
@@ -114,20 +119,16 @@ export async function updateUserProfile(userId, payload) {
   return { updated, uploadedUrl };
 }
 
-/**
- * Validate user authorization for updating settings
- */
+// Validasi bahwa user hanya dapat mengubah pengaturannya sendiri.
 export function validateUserAuthorization(userId, authUserId) {
   if (userId !== authUserId) {
     throw new Error("Forbidden: You can only update your own settings");
   }
 }
 
-/**
- * Validate Telegram settings input
- */
+// Validasi tipe data input Telegram sebelum disimpan.
 export function validateTelegramInput(telegramChatId, telegramEnabled) {
-  // Validate telegramChatId
+  // telegramChatId boleh string atau null.
   if (
     telegramChatId !== undefined &&
     typeof telegramChatId !== "string" &&
@@ -136,15 +137,13 @@ export function validateTelegramInput(telegramChatId, telegramEnabled) {
     throw new Error("telegramChatId must be a string or null");
   }
 
-  // Validate telegramEnabled
+  // telegramEnabled harus boolean jika dikirim.
   if (telegramEnabled !== undefined && typeof telegramEnabled !== "boolean") {
     throw new Error("telegramEnabled must be a boolean");
   }
 }
 
-/**
- * Build Telegram update data object
- */
+// Bentuk object update Telegram dari field yang benar-benar dikirim.
 export function buildTelegramUpdateData(telegramChatId, telegramEnabled) {
   const updateData = {};
 
@@ -159,45 +158,43 @@ export function buildTelegramUpdateData(telegramChatId, telegramEnabled) {
   return updateData;
 }
 
-/**
- * Update user's Telegram settings
- * Validates watchlist when enabling notifications.
- */
+// Simpan pengaturan Telegram user dengan validasi prasyarat notifikasi.
 export async function updateUserTelegramSettings(userId, updateData) {
-  // If caller is trying to enable Telegram, enforce pre-conditions
+  // Jika user ingin mengaktifkan notifikasi Telegram, cek prasyarat dulu.
   if (updateData.telegramEnabled === true) {
-    // 1. Must have a Chat ID saved (either in updateData or already in DB)
+    // Prasyarat 1: harus punya chatId.
     if (updateData.telegramChatId === null) {
       throw new Error(
-        "telegramChatId is required to enable Telegram notifications"
+        "telegramChatId is required to enable Telegram notifications",
       );
     }
 
     if (updateData.telegramChatId === undefined) {
-      // Check existing value in DB
+      // Jika tidak dikirim, cek apakah chatId sudah tersimpan sebelumnya.
       const existingUser = await prisma.user.findUnique({
         where: { id: userId },
         select: { telegramChatId: true },
       });
       if (!existingUser?.telegramChatId) {
         throw new Error(
-          "Please save your Telegram Chat ID before enabling notifications"
+          "Please save your Telegram Chat ID before enabling notifications",
         );
       }
     }
 
-    // 2. Must have at least one coin in the watchlist
+    // Prasyarat 2: user minimal punya satu coin di watchlist.
     const watchlistCount = await prisma.userWatchlist.count({
       where: { userId },
     });
 
     if (watchlistCount === 0) {
       throw new Error(
-        "Add coins to your watchlist before enabling Telegram notifications"
+        "Add coins to your watchlist before enabling Telegram notifications",
       );
     }
   }
 
+  // Simpan pengaturan Telegram setelah semua validasi terpenuhi.
   const updatedUser = await prisma.user.update({
     where: { id: userId },
     data: updateData,

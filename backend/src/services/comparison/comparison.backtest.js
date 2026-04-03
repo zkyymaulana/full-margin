@@ -65,10 +65,7 @@ import { calcMaxDrawdown } from "./comparison.metrics.js";
  * - Tidak mempertimbangkan strength/confidence dari setiap indicator
  * - Mirip dengan "indicator voting" pada platform trading seperti Pintu/Indodax
  *
- * @param {Object} cur - Current candle data dengan indicator values
- * @param {Object} prev - Previous candle data untuk calculating signals
  *
- * @returns {string} Voting result: "buy", "sell", atau "neutral"
  */
 function votingSignal(cur, prev) {
   // ✅ Hitung individual signal dari setiap indicator
@@ -128,19 +125,7 @@ function votingSignal(cur, prev) {
  * │ Hold ketika votes equal (neutral)                       │
  * └─────────────────────────────────────────────────────────┘
  *
- * @param {Object[]} data - Array historical data dengan indicator values
- * @param {number} data[].close - Close price untuk period
- * @param {number} data[].time - Timestamp data point
- * @param {Object} data[].indicators - All technical indicator values
  *
- * @returns {Object} Backtest result dengan metrics
- * @returns {number} roi - Return on Investment percentage
- * @returns {number} winRate - Win percentage dari total trades
- * @returns {number} maxDrawdown - Maximum drawdown percentage
- * @returns {number} trades - Total number of trades executed
- * @returns {number} wins - Number of winning trades
- * @returns {number} finalCapital - Final capital setelah semua trades
- * @returns {number[]} equityCurve - Array equity values per period
  */
 function backtestVotingStrategy(data) {
   if (!data?.length) {

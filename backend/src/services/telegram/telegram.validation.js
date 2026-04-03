@@ -8,11 +8,6 @@
 /**
  * Validasi parameter request untuk broadcast sinyal.
  *
- * @param {object} params
- * @param {string} params.symbol - Simbol koin (wajib)
- * @param {string} params.signal - Jenis sinyal (wajib)
- * @param {number} params.price - Harga (wajib, number positif)
- * @returns {true} Mengembalikan true jika valid.
  * @throws {Error} Jika ada parameter yang tidak valid.
  */
 export function validateBroadcastSignalParams(params) {
@@ -48,12 +43,6 @@ export function validateBroadcastSignalParams(params) {
  * - type: selalu "multi" (sesuai perilaku sebelumnya)
  * - details: disatukan dan ditambah timestamp
  *
- * @param {object} params
- * @param {string} params.symbol
- * @param {string} params.signal
- * @param {number} params.price
- * @param {object} [params.details]
- * @returns {object} Payload siap untuk broadcast.
  */
 export function buildBroadcastSignalPayload(params) {
   const { symbol, signal, price, details = {} } = params;
