@@ -11,6 +11,10 @@ import {
 } from "../signals/signal-detection.service.js";
 import { prisma } from "../../lib/prisma.js";
 import { getRunningJobs } from "../multiIndicator/optimization-job.service.js";
+import {
+  syncTopCoins,
+  syncTopCoinRanksFromCmc,
+} from "../market/syncTopCoins.service.js";
 
 /* ============================================================
    🧠 Global Cache & Job Tracker
@@ -90,6 +94,12 @@ export async function startAllSchedulers() {
         schedule: "0 0 2 * * 0",
         task: weeklyOptimizationCheck,
         desc: "📊 Weekly optimization (Sunday 2 AM)",
+      },
+      {
+        name: "midnight-rank-sync",
+        schedule: "0 0 0 * * *",
+        task: runMidnightRankSync,
+        desc: "🌙 Daily CMC rank sync (00:00)",
       },
     ];
 
@@ -203,6 +213,28 @@ async function weeklyOptimizationCheck() {
 
   if (!symbolsCache.length) await refreshSymbolsCache();
   await autoOptimizeCoinsWithoutWeights(symbolsCache);
+}
+
+async function runMidnightRankSync() {
+  try {
+    console.log("🌙 Running midnight rank synchronization...");
+
+    const topCoinSync = await syncTopCoins();
+    if (!topCoinSync?.success) {
+      throw new Error(topCoinSync?.error || "Sync top coins gagal");
+    }
+
+    const rankSync = await syncTopCoinRanksFromCmc();
+    if (!rankSync?.success) {
+      throw new Error(rankSync?.error || "Rank sync CMC gagal");
+    }
+
+    console.log(
+      `✅ Midnight rank sync selesai | updated: ${rankSync.updatedCount}, null fixed: ${rankSync.fixedNullCount}`,
+    );
+  } catch (err) {
+    console.error("❌ Midnight rank sync failed:", err.message);
+  }
 }
 
 function logHealthCheck() {

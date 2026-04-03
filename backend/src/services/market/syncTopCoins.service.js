@@ -15,9 +15,100 @@ dotenv.config();
 const TARGET_VALID_COINS = 20;
 const LISTING_CUTOFF_DATE = new Date("2025-01-01T00:00:00.000Z");
 const SAFE_FALLBACK_LISTING_DATE = new Date("2000-01-01T00:00:00.000Z");
+const RANK_SYNC_LIMIT = 200;
 
 function toDateLabel(dateValue) {
   return dateValue?.toISOString().split("T")[0] || "never";
+}
+
+function getBaseSymbol(pairSymbol) {
+  return String(pairSymbol || "")
+    .split("-")[0]
+    .toUpperCase();
+}
+
+async function ensureTopCoinRanksNotNull() {
+  const maxRankResult = await prisma.coin.aggregate({
+    _max: { rank: true },
+  });
+
+  let nextRank = maxRankResult._max.rank || RANK_SYNC_LIMIT;
+
+  const nullRankTopCoins = await prisma.topCoin.findMany({
+    where: { coin: { rank: null } },
+    include: {
+      coin: {
+        select: { id: true, symbol: true },
+      },
+    },
+    orderBy: { coin: { createdAt: "asc" } },
+  });
+
+  for (const item of nullRankTopCoins) {
+    nextRank += 1;
+    await prisma.coin.update({
+      where: { id: item.coin.id },
+      data: { rank: nextRank },
+    });
+    console.warn(
+      `⚠️ Rank null fixed for ${item.coin.symbol}: assigned fallback rank ${nextRank}`,
+    );
+  }
+
+  return nullRankTopCoins.length;
+}
+
+// Sinkronisasi rank coin dari CMC ke coin yang terhubung dengan topCoin.
+// Tujuan: rank selalu update dan tidak null.
+export async function syncTopCoinRanksFromCmc(limit = RANK_SYNC_LIMIT) {
+  try {
+    const data = await getTopCoins(limit);
+    if (!data?.data?.length) {
+      throw new Error("Data rank CMC kosong.");
+    }
+
+    const cmcRankMap = new Map();
+    for (const item of data.data) {
+      const symbol = String(item.symbol || "").toUpperCase();
+      const rank = Number(item.cmc_rank || 0);
+      if (!symbol || !rank) continue;
+      cmcRankMap.set(symbol, rank);
+    }
+
+    const topCoins = await prisma.topCoin.findMany({
+      include: {
+        coin: {
+          select: { id: true, symbol: true, rank: true },
+        },
+      },
+    });
+
+    let updatedCount = 0;
+    for (const item of topCoins) {
+      const baseSymbol = getBaseSymbol(item.coin.symbol);
+      const cmcRank = cmcRankMap.get(baseSymbol);
+
+      if (cmcRank != null && item.coin.rank !== cmcRank) {
+        await prisma.coin.update({
+          where: { id: item.coin.id },
+          data: { rank: cmcRank },
+        });
+        updatedCount += 1;
+      }
+    }
+
+    const fixedNullCount = await ensureTopCoinRanksNotNull();
+
+    return {
+      success: true,
+      message: `Rank sync selesai. Updated: ${updatedCount}, Null fixed: ${fixedNullCount}`,
+      updatedCount,
+      fixedNullCount,
+      totalTopCoin: topCoins.length,
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 }
 
 // Sinkronisasi top coin dari CMC, padankan pair Coinbase, lalu simpan ke database.
@@ -343,6 +434,9 @@ export async function syncTopCoins() {
         );
       }
     }
+
+    // Pastikan coin yang masih terhubung ke topCoin tidak punya rank null.
+    await ensureTopCoinRanksNotNull();
 
     console.log(`Sync completed: ${savedCount} coins saved`);
     console.log(`${validCoins.length} coins available for analysis\n`);
