@@ -35,6 +35,9 @@ function getEnvBool(name, defaultValue = false) {
 const STARTUP_SYNC_DELAY_MS = Number(
   process.env.STARTUP_SYNC_DELAY_MS || "1500",
 );
+const STARTUP_HISTORICAL_DELAY_MS = Number(
+  process.env.STARTUP_HISTORICAL_DELAY_MS || "2000",
+);
 
 let isMainSyncRunning = false;
 
@@ -70,9 +73,15 @@ export async function startAllSchedulers() {
       "RUN_HISTORICAL_CHECK_ON_STARTUP",
       false,
     );
+    const forceStartupHistoricalBackfill = getEnvBool(
+      "FORCE_STARTUP_HISTORICAL_BACKFILL",
+      false,
+    );
 
     if (runStartupHistoricalCheck) {
-      await checkAndSyncHistoricalData();
+      await checkAndSyncHistoricalData({
+        forceBackfill: forceStartupHistoricalBackfill,
+      });
     } else {
       console.log("⏭️ Startup historical check skipped by configuration");
     }
@@ -141,15 +150,31 @@ export async function startAllSchedulers() {
 
     if (getEnvBool("RUN_MAIN_SYNC_ON_STARTUP", false)) {
       console.log(
-        `⚡ Startup main sync enabled. Running once in ${STARTUP_SYNC_DELAY_MS}ms...`,
+        `⚡ Startup candle sync enabled (NO notification). Running once in ${STARTUP_SYNC_DELAY_MS}ms...`,
       );
       setTimeout(
         () => {
-          runMainSyncJob(false).catch((err) => {
+          runMainSyncJob(true).catch((err) => {
             console.error("❌ Startup main sync failed:", err.message);
           });
         },
         Math.max(0, STARTUP_SYNC_DELAY_MS),
+      );
+    }
+
+    if (getEnvBool("RUN_HISTORICAL_SYNC_ON_STARTUP", false)) {
+      console.log(
+        `📚 Startup historical sync enabled. Running once in ${STARTUP_HISTORICAL_DELAY_MS}ms...`,
+      );
+      setTimeout(
+        () => {
+          checkAndSyncHistoricalData({
+            forceBackfill: forceStartupHistoricalBackfill,
+          }).catch((err) => {
+            console.error("❌ Startup historical sync failed:", err.message);
+          });
+        },
+        Math.max(0, STARTUP_HISTORICAL_DELAY_MS),
       );
     }
 
@@ -286,7 +311,9 @@ function logHealthCheck() {
 /* ============================================================
    🕒 Historical Data Check
 ============================================================ */
-async function checkAndSyncHistoricalData() {
+async function checkAndSyncHistoricalData(options = {}) {
+  const { forceBackfill = false } = options;
+
   if (hasActiveOptimization()) {
     console.warn("⏭️ Historical check skipped: optimization job is running");
     return;
@@ -295,7 +322,7 @@ async function checkAndSyncHistoricalData() {
   if (!symbolsCache.length) await refreshSymbolsCache();
 
   // Jika kuota simbol aktif sudah terpenuhi, skip backfill historis berat.
-  if (symbolsCache.length >= TARGET_ACTIVE_SYMBOLS) {
+  if (!forceBackfill && symbolsCache.length >= TARGET_ACTIVE_SYMBOLS) {
     console.log(
       `⏭️ Historical backfill skipped: active symbols already meet target (${symbolsCache.length}/${TARGET_ACTIVE_SYMBOLS})`,
     );
