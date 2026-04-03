@@ -27,20 +27,31 @@ app.get("/api", (_, res) =>
     success: true,
     message: "🚀 Crypto Analyze API is running!",
     env: ENV,
-  })
+  }),
 );
 app.use("/api", routes);
 app.get("/", (_, res) => res.redirect("/api"));
 
 // Helper: Jalankan langkah inisialisasi bertahap
 async function initializeSystem() {
+  const schedulerAutoStart =
+    (process.env.SCHEDULER_AUTO_START ?? "true").toLowerCase() === "true";
+
   const steps = [
     ["⏱️ Seeding timeframes", seedTimeframes],
     ["👤 Seeding admin", seedAdmin],
     ["📊 Sync Top 20 CMC", syncTopCoins],
     ["🔗 Matching pairs Coinbase", getMarketcapRealtime],
-    ["⏰ Start automated schedulers", startAllSchedulers],
-  ];
+    schedulerAutoStart
+      ? ["⏰ Start automated schedulers", startAllSchedulers]
+      : null,
+  ].filter(Boolean);
+
+  if (!schedulerAutoStart) {
+    console.log(
+      "⏸️ Scheduler auto-start disabled by SCHEDULER_AUTO_START=false",
+    );
+  }
 
   for (const [label, fn] of steps) {
     console.log(`${label}...`);

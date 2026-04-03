@@ -24,6 +24,14 @@ let symbolsCache = [];
 let symbolsCacheTime = 0;
 const SYMBOLS_CACHE_TTL = 5 * 60 * 1000; // 5 menit
 const TARGET_ACTIVE_SYMBOLS = Number(process.env.TARGET_ACTIVE_SYMBOLS || "20");
+const SCHEDULER_TIMEZONE = process.env.SCHEDULER_TIMEZONE || "Asia/Jakarta";
+
+function getEnvBool(name, defaultValue = false) {
+  const raw = process.env[name];
+  if (raw == null) return defaultValue;
+  return raw.toLowerCase() === "true";
+}
+
 let isMainSyncRunning = false;
 
 const jobStats = {
@@ -45,12 +53,19 @@ function hasActiveOptimization() {
 ============================================================ */
 // Menyalakan semua scheduler utama backend.
 export async function startAllSchedulers() {
+  if (activeJobs.size > 0) {
+    console.log("ℹ️ Scheduler already running. Skip duplicate initialization.");
+    return;
+  }
+
   console.log("🚀 Starting crypto schedulers...");
 
   try {
     await refreshSymbolsCache();
-    const runStartupHistoricalCheck =
-      (process.env.RUN_HISTORICAL_CHECK_ON_STARTUP ?? "true") === "true";
+    const runStartupHistoricalCheck = getEnvBool(
+      "RUN_HISTORICAL_CHECK_ON_STARTUP",
+      false,
+    );
 
     if (runStartupHistoricalCheck) {
       await checkAndSyncHistoricalData();
@@ -66,7 +81,7 @@ export async function startAllSchedulers() {
         task: runMainSyncJob,
         desc: "🕐 Hourly sync every hour (after candle close)",
       },
-      {
+      getEnvBool("ENABLE_BACKUP_SYNC", false) && {
         name: "backup-sync",
         schedule: "0 2 * * * *",
         task: () => runMainSyncJob(true),
@@ -84,25 +99,25 @@ export async function startAllSchedulers() {
         task: logHealthCheck,
         desc: "💖 Health check (every 5 min)",
       },
-      {
+      getEnvBool("ENABLE_DAILY_HISTORICAL_CHECK", false) && {
         name: "daily-historical-check",
         schedule: "0 0 3 * * *",
         task: checkAndSyncHistoricalData,
         desc: "📆 Daily historical check (3 AM)",
       },
-      {
+      getEnvBool("ENABLE_WEEKLY_OPTIMIZATION_CHECK", true) && {
         name: "weekly-optimization-check",
         schedule: "0 0 2 * * 0",
         task: weeklyOptimizationCheck,
         desc: "📊 Weekly optimization (Sunday 2 AM)",
       },
-      {
+      getEnvBool("ENABLE_MIDNIGHT_RANK_SYNC", true) && {
         name: "midnight-rank-sync",
         schedule: "0 0 0 * * *",
         task: runMidnightRankSync,
         desc: "🌙 Daily CMC rank sync (00:00)",
       },
-    ];
+    ].filter(Boolean);
 
     // Jalankan semua job
     jobs.forEach(({ name, schedule, task, desc }) => {
@@ -112,7 +127,7 @@ export async function startAllSchedulers() {
           console.log(`⏰ [${new Date().toISOString()}] ${desc}`);
           await task();
         },
-        { scheduled: false, timezone: "Asia/Jakarta" },
+        { scheduled: false, timezone: SCHEDULER_TIMEZONE },
       );
 
       job.start();
