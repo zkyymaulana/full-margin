@@ -2,8 +2,14 @@
 import dotenv from "dotenv";
 import { prisma } from "../../lib/prisma.js";
 import { fetchTicker } from "./coinbase.service.js";
+import { syncTopCoins } from "./syncTopCoins.service.js";
 
 dotenv.config();
+
+const TARGET_TOP_COINS = 20;
+const LISTING_CUTOFF_DATE = new Date("2025-01-01T00:00:00.000Z");
+const INITIAL_CANDIDATE_LIMIT = 100;
+const RETRY_CANDIDATE_LIMIT = 150;
 
 /**
  * Format harga dengan desimal dinamis untuk menangani aset dengan harga sangat kecil
@@ -19,6 +25,28 @@ function formatPrice(value) {
   if (value >= 1) return Number(value.toFixed(2));
   if (value >= 0.01) return Number(value.toFixed(4));
   return Number(value.toFixed(6));
+}
+
+// Ambil kandidat top coin berdasarkan rank untuk diproses lebih lanjut.
+async function getRankedTopCoinCandidates(limit = 80) {
+  return prisma.topCoin.findMany({
+    where: {
+      coin: {
+        symbol: { contains: "-" },
+      },
+    },
+    include: {
+      coin: true,
+    },
+    orderBy: {
+      coin: { rank: "asc" },
+    },
+    take: limit,
+  });
+}
+
+function isValidListingDate(listingDate, cutoffDate = LISTING_CUTOFF_DATE) {
+  return Boolean(listingDate && listingDate < cutoffDate);
 }
 
 /**
@@ -42,7 +70,7 @@ export async function getMarketcapRealtime() {
 
     // Sort berdasarkan rank dari tabel Coin
     const sortedCoins = topCoins.sort(
-      (a, b) => (a.coin.rank || 999) - (b.coin.rank || 999)
+      (a, b) => (a.coin.rank || 999) - (b.coin.rank || 999),
     );
 
     const coinsWithLogo = sortedCoins.map((topCoin) => ({
@@ -97,35 +125,47 @@ export async function getMarketcapLive() {
     // ✅ Filter coins by earliest candle date from Coinbase
     // This ensures we only analyze coins with sufficient historical data
     // Note: listingDate = earliest candle date from Coinbase, NOT from CoinMarketCap
-    const cutoffDate = new Date("2025-01-01T00:00:00.000Z");
-
-    const top20Coins = await prisma.topCoin.findMany({
-      where: {
-        coin: {
-          symbol: { contains: "-" }, // Hanya pair valid
-          listingDate: {
-            not: null, // Harus ada listingDate
-            lt: cutoffDate, // Dan harus sebelum cutoff date
-          },
-        },
-      },
-      include: {
-        coin: true,
-      },
-      take: 20,
+    // Ambil kandidat by rank, lalu filter listingDate valid.
+    // Jika ada coin invalid (null atau > cutoff), otomatis lanjut ke rank berikutnya.
+    let rankedCandidates = await getRankedTopCoinCandidates(
+      INITIAL_CANDIDATE_LIMIT,
+    );
+    let validCandidates = rankedCandidates.filter((item) => {
+      const listingDate = item.coin?.listingDate;
+      return isValidListingDate(listingDate);
     });
 
-    if (!top20Coins.length) {
+    // Jika belum cukup 20 coin valid, lakukan top-up sinkronisasi lalu cek ulang.
+    if (validCandidates.length < TARGET_TOP_COINS) {
+      console.warn(
+        `⚠️ Valid coins only ${validCandidates.length}/${TARGET_TOP_COINS}. Running top-up sync...`,
+      );
+
+      await syncTopCoins();
+
+      rankedCandidates = await getRankedTopCoinCandidates(
+        RETRY_CANDIDATE_LIMIT,
+      );
+      validCandidates = rankedCandidates.filter((item) => {
+        const listingDate = item.coin?.listingDate;
+        return isValidListingDate(listingDate);
+      });
+    }
+
+    if (!validCandidates.length) {
       return {
         success: false,
         message: "Belum ada coin pair di DB. Jalankan /api/marketcap dulu.",
       };
     }
 
-    // ✅ Fetch live data dari Coinbase untuk semua coin
+    // Fetch live data dan teruskan ke kandidat rank berikutnya sampai target 20 tercapai.
     const top20WithCoinbaseVolume = [];
+    const failedLiveCoins = [];
 
-    for (const topCoin of top20Coins) {
+    for (const topCoin of validCandidates) {
+      if (top20WithCoinbaseVolume.length >= TARGET_TOP_COINS) break;
+
       const liveData = await fetchTicker(topCoin.coin.symbol);
 
       if (liveData && liveData.price != null && liveData.volume != null) {
@@ -154,13 +194,43 @@ export async function getMarketcapLive() {
           coinbaseVolume24h,
         });
       } else {
+        failedLiveCoins.push(topCoin);
         console.warn(
-          `⚠️ ${topCoin.coin.symbol}: Failed to fetch live data from Coinbase`
+          `⚠️ ${topCoin.coin.symbol}: Failed to fetch live data from Coinbase`,
         );
       }
     }
 
-    // ✅ Sort berdasarkan Market Cap (dari CMC)
+    // Jika masih kurang 20 karena live fetch gagal, pakai fallback data DB
+    // dari kandidat valid berikutnya agar jumlah tetap stabil 20.
+    if (
+      top20WithCoinbaseVolume.length < TARGET_TOP_COINS &&
+      failedLiveCoins.length > 0
+    ) {
+      for (const topCoin of failedLiveCoins) {
+        if (top20WithCoinbaseVolume.length >= TARGET_TOP_COINS) break;
+
+        const rawPrice = Number(topCoin.price || 0);
+        const rawOpen = rawPrice;
+        const rawVolume = 0;
+        const rawMarketCap = Number(topCoin.marketCap || 0);
+
+        top20WithCoinbaseVolume.push({
+          rank: topCoin.coin.rank,
+          name: topCoin.coin.name || topCoin.coin.symbol.split("-")[0],
+          symbol: topCoin.coin.symbol,
+          coinId: topCoin.coin.id,
+          price: rawPrice,
+          volume: rawVolume,
+          marketCap: rawMarketCap,
+          change24h: 0,
+          open: rawOpen,
+          coinbaseVolume24h: Number(topCoin.volume24h || 0),
+        });
+      }
+    }
+
+    // Sort berdasarkan market cap dari data CMC.
     const sortedTop20 = top20WithCoinbaseVolume.sort((a, b) => {
       return b.marketCap - a.marketCap;
     });
@@ -168,15 +238,15 @@ export async function getMarketcapLive() {
     // STEP 4: Calculate summary dari 20 coin teratas
     const totalMarketCap = sortedTop20.reduce(
       (sum, coin) => sum + coin.marketCap,
-      0
+      0,
     );
     const totalVolume24h = sortedTop20.reduce(
       (sum, coin) => sum + coin.coinbaseVolume24h,
-      0
+      0,
     );
 
     const btcCoin = sortedTop20.find(
-      (coin) => coin.symbol.startsWith("BTC-") || coin.symbol === "BTC"
+      (coin) => coin.symbol.startsWith("BTC-") || coin.symbol === "BTC",
     );
     const btcDominance =
       btcCoin && totalMarketCap > 0

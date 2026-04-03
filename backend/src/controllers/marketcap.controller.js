@@ -2,7 +2,52 @@ import {
   getMarketcapRealtime,
   getMarketcapLive,
 } from "../services/market/marketcap.service.js";
+import { syncTopCoins } from "../services/market/syncTopCoins.service.js";
 import { prisma } from "../lib/prisma.js";
+
+const TARGET_TOP_SYMBOLS = 20;
+const LISTING_CUTOFF_DATE = new Date("2025-01-01T00:00:00.000Z");
+
+async function fetchRankedCoinCandidates(limit) {
+  return prisma.topCoin.findMany({
+    where: {
+      coin: {
+        // Pastikan format pair valid seperti BTC-USD.
+        symbol: { contains: "-" },
+      },
+    },
+    include: {
+      coin: {
+        select: {
+          symbol: true,
+          name: true,
+          rank: true,
+          logo: true,
+          listingDate: true,
+        },
+      },
+    },
+    orderBy: {
+      coin: { rank: "asc" },
+    },
+    take: limit,
+  });
+}
+
+function selectTopValidCandidates(candidates, cutoffDate, targetCount) {
+  const selected = [];
+
+  for (const candidate of candidates) {
+    const listingDate = candidate.coin?.listingDate;
+    const isValidListing = listingDate && listingDate < cutoffDate;
+    if (!isValidListing) continue;
+
+    selected.push(candidate);
+    if (selected.length >= targetCount) break;
+  }
+
+  return selected;
+}
 
 // Sinkronisasi top coin dari CoinMarketCap lalu simpan hasil ke database.
 export async function getCoinMarketcap(req, res) {
@@ -65,34 +110,30 @@ export async function getMarketcapLiveController(req, res) {
 // Ambil simbol top coin dari database dengan filter listing date yang valid.
 export async function getCoinSymbols(req, res) {
   try {
-    // Batasi coin yang listing sebelum 1 Januari 2025.
-    const cutoffDate = new Date("2025-01-01T00:00:00.000Z");
+    // Ambil kandidat berdasarkan rank, lalu lakukan filtering di memory.
+    // Jika coin invalid (null / > cutoff), lanjut ke rank berikutnya.
+    let rankedCandidates = await fetchRankedCoinCandidates(100);
+    let topCoins = selectTopValidCandidates(
+      rankedCandidates,
+      LISTING_CUTOFF_DATE,
+      TARGET_TOP_SYMBOLS,
+    );
 
-    // Ambil data top coin beserta detail coin melalui relasi.
-    const topCoins = await prisma.topCoin.findMany({
-      where: {
-        coin: {
-          // Pastikan format pair valid seperti BTC-USD.
-          symbol: { contains: "-" },
-          listingDate: {
-            not: null,
-            lt: cutoffDate,
-          },
-        },
-      },
-      include: {
-        coin: {
-          select: {
-            symbol: true,
-            name: true,
-            rank: true,
-            logo: true,
-            listingDate: true,
-          },
-        },
-      },
-      take: 20,
-    });
+    // Jika hasil masih kurang 20, lakukan top-up sinkronisasi lalu ulangi seleksi.
+    if (topCoins.length < TARGET_TOP_SYMBOLS) {
+      console.warn(
+        `⚠️ Valid symbols only ${topCoins.length}/${TARGET_TOP_SYMBOLS}. Running top-up sync...`,
+      );
+
+      await syncTopCoins();
+
+      rankedCandidates = await fetchRankedCoinCandidates(150);
+      topCoins = selectTopValidCandidates(
+        rankedCandidates,
+        LISTING_CUTOFF_DATE,
+        TARGET_TOP_SYMBOLS,
+      );
+    }
 
     // Urutkan hasil berdasarkan ranking coin.
     const sortedCoins = topCoins.sort(

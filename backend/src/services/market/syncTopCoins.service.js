@@ -12,6 +12,14 @@ import {
 
 dotenv.config();
 
+const TARGET_VALID_COINS = 20;
+const LISTING_CUTOFF_DATE = new Date("2025-01-01T00:00:00.000Z");
+const SAFE_FALLBACK_LISTING_DATE = new Date("2000-01-01T00:00:00.000Z");
+
+function toDateLabel(dateValue) {
+  return dateValue?.toISOString().split("T")[0] || "never";
+}
+
 // Sinkronisasi top coin dari CMC, padankan pair Coinbase, lalu simpan ke database.
 export async function syncTopCoins() {
   try {
@@ -100,8 +108,6 @@ export async function syncTopCoins() {
     }
 
     // 3. Filter: Cutoff date untuk analisis (bukan untuk menyimpan)
-    const cutoffDate = new Date("2025-01-01T00:00:00.000Z");
-
     // 4. Pairing + Check Earliest Candle
     let savedCount = 0;
     const validCoins = []; // Hanya coin dengan listing < 2025 (untuk analisis)
@@ -115,7 +121,7 @@ export async function syncTopCoins() {
       processedCount++;
 
       // Stop mencari coin baru jika sudah dapat 20 valid coins
-      if (validCoins.length >= 20) break;
+      if (validCoins.length >= TARGET_VALID_COINS) break;
 
       // Coba berbagai kemungkinan pair format
       const possiblePairs = [
@@ -159,7 +165,7 @@ export async function syncTopCoins() {
               `[${processedCount}/${coins.length}] ${foundPair}: fallback listingDate from CMC (${resolvedListingDate.toISOString().split("T")[0]})`,
             );
           } else {
-            resolvedListingDate = new Date("2000-01-01T00:00:00.000Z");
+            resolvedListingDate = SAFE_FALLBACK_LISTING_DATE;
             console.warn(
               `[${processedCount}/${coins.length}] ${foundPair}: listingDate source unavailable, using safe fallback 2000-01-01`,
             );
@@ -167,27 +173,21 @@ export async function syncTopCoins() {
         }
 
         // Coin sudah pernah dicek, gunakan data yang ada
-        const isValid = resolvedListingDate && resolvedListingDate < cutoffDate;
+        const isValid =
+          resolvedListingDate && resolvedListingDate < LISTING_CUTOFF_DATE;
 
         if (isValid) {
           console.log(
-            `${foundPair}: Already checked, valid for analysis (${validCoins.length + 1}/20)`,
+            `${foundPair}: Already checked, valid for analysis (${validCoins.length + 1}/${TARGET_VALID_COINS})`,
           );
           validCoins.push({
             ...coin,
             symbol: foundPair,
             listingDate: resolvedListingDate,
           });
-
-          if (validCoins.length >= 20) {
-            console.log(
-              `✅ Target reached: ${validCoins.length}/20 valid coins. Stopping scan.`,
-            );
-            break coinLoop;
-          }
         } else {
           console.log(
-            `${foundPair}: Already checked, not valid for analysis (listed ${resolvedListingDate?.toISOString().split("T")[0] || "never"})`,
+            `${foundPair}: Already checked, not valid for analysis (listed ${toDateLabel(resolvedListingDate)})`,
           );
         }
 
@@ -204,6 +204,14 @@ export async function syncTopCoins() {
         console.log(
           `[${processedCount}/${coins.length}] ✅ Saved ${foundPair} (${savedCount} total saved)`,
         );
+
+        // Setelah coin tersimpan, baru hentikan jika target valid 20 sudah terpenuhi.
+        if (validCoins.length >= TARGET_VALID_COINS) {
+          console.log(
+            `✅ Target reached: ${validCoins.length}/${TARGET_VALID_COINS} valid coins. Stopping scan.`,
+          );
+          break coinLoop;
+        }
 
         continue;
       }
@@ -222,7 +230,7 @@ export async function syncTopCoins() {
           `[${processedCount}/${coins.length}] ${foundPair}: fallback listingDate from CMC (${listingDate.toISOString().split("T")[0]})`,
         );
       } else {
-        listingDate = new Date("2000-01-01T00:00:00.000Z");
+        listingDate = SAFE_FALLBACK_LISTING_DATE;
         console.warn(
           `[${processedCount}/${coins.length}] ${foundPair}: listingDate source unavailable, using safe fallback 2000-01-01`,
         );
@@ -254,15 +262,15 @@ export async function syncTopCoins() {
       );
 
       // Cek apakah valid untuk analisis
-      if (listingDate < cutoffDate) {
+      if (listingDate < LISTING_CUTOFF_DATE) {
         validCoins.push(coinData);
         console.log(
-          `${foundPair}: Valid for analysis (${validCoins.length}/20)`,
+          `${foundPair}: Valid for analysis (${validCoins.length}/${TARGET_VALID_COINS})`,
         );
 
-        if (validCoins.length >= 20) {
+        if (validCoins.length >= TARGET_VALID_COINS) {
           console.log(
-            `✅ Target reached: ${validCoins.length}/20 valid coins. Stopping scan.`,
+            `✅ Target reached: ${validCoins.length}/${TARGET_VALID_COINS} valid coins. Stopping scan.`,
           );
           break coinLoop;
         }
@@ -277,13 +285,14 @@ export async function syncTopCoins() {
       throw new Error("Tidak ada coin yang bisa dipair dengan Coinbase");
     }
 
-    // 6. DELETE semua TopCoin yang rank > 30
+    // 6. DELETE semua TopCoin yang rank terlalu jauh agar tabel tetap bersih.
+    // Simpan pool lebih panjang supaya fallback rank berikutnya bisa memenuhi 20 coin valid.
     const oldTopCoins = await prisma.topCoin.findMany({
       include: { coin: true },
     });
 
     const coinsToDelete = oldTopCoins.filter(
-      (tc) => tc.coin.rank && tc.coin.rank > 30,
+      (tc) => tc.coin.rank && tc.coin.rank > 100,
     );
 
     for (const tc of coinsToDelete) {
