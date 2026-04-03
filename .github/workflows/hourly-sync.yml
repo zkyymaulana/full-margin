@@ -2,7 +2,7 @@ name: Hourly Sync Trigger
 
 on:
   schedule:
-    - cron: "15 * * * *"
+    - cron: "18 * * * *"
   workflow_dispatch:
 
 jobs:
