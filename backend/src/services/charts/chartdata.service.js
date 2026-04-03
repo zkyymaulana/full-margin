@@ -181,7 +181,7 @@ export async function getIndicatorsForTimeRange(
   timeframeId,
   minTime,
   maxTime,
-  expectedCount
+  expectedCount,
 ) {
   let indicators = await prisma.indicator.findMany({
     where: {
@@ -196,7 +196,7 @@ export async function getIndicatorsForTimeRange(
 
   if (coverageBefore < expectedCount) {
     console.log(
-      `[AUTO] Indicator coverage ${coverageBefore}/${expectedCount} → recalculating...`
+      `[AUTO] Indicator coverage ${coverageBefore}/${expectedCount} → recalculating...`,
     );
     try {
       const { calculateAndSaveIndicators } = await import(
@@ -213,7 +213,7 @@ export async function getIndicatorsForTimeRange(
         orderBy: { time: "asc" },
       });
       console.log(
-        `Found ${indicators.length}/${expectedCount} indicators after recalc.`
+        `Found ${indicators.length}/${expectedCount} indicators after recalc.`,
       );
     } catch (err) {
       console.error(`Indicator calculation failed:`, err.message);
@@ -361,6 +361,7 @@ function formatMultiSignalFromDB(ind, weights = null) {
     finalScore: parseFloat(finalScore.toFixed(2)),
     signalLabel,
     categoryScores,
+    isOptimized: Boolean(weights),
     source: "db",
   };
 }

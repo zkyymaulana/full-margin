@@ -20,7 +20,7 @@ const useSafeTradingViewLogoRemoval = () => {
       // Remove all TradingView logo images
       document
         .querySelectorAll(
-          'img[src*="tradingview"], img[alt*="TradingView"], img[alt*="tradingview"]'
+          'img[src*="tradingview"], img[alt*="TradingView"], img[alt*="tradingview"]',
         )
         .forEach((el) => {
           if (el.tagName === "IMG") {
@@ -192,7 +192,7 @@ function MainChart({
       if (chartContainerRef.current) {
         const newWidth = Math.max(
           chartContainerRef.current.clientWidth - 20,
-          300
+          300,
         );
         chart.applyOptions({ width: newWidth });
       }
@@ -283,7 +283,7 @@ function MainChart({
 
     // Ambil candle terakhir untuk nilai awal price line
     const sorted = [...allCandlesData].sort(
-      (a, b) => Number(a.time) - Number(b.time)
+      (a, b) => Number(a.time) - Number(b.time),
     );
     const lastCandle = sorted[sorted.length - 1];
 
@@ -315,13 +315,13 @@ function MainChart({
             const lastVal = getIndicatorValueByPeriod(
               lastCandle,
               indicator.type,
-              period
+              period,
             );
             addPriceLine(
               lineSeries,
               `${indicator.type.toUpperCase()} ${period}`,
               indicator.colors[index],
-              lastVal
+              lastVal,
             );
           }
         });
@@ -355,7 +355,7 @@ function MainChart({
               lineSeries,
               bbLabels[index],
               indicator.colors[index],
-              lastVal
+              lastVal,
             );
           }
         });
@@ -416,7 +416,7 @@ function MainChart({
     });
 
     console.log(
-      `📊 Overlay indicators updated from ${allCandlesData.length} candles`
+      `📊 Overlay indicators updated from ${allCandlesData.length} candles`,
     );
   }, [activeIndicators, allCandlesData]);
 
@@ -428,7 +428,7 @@ function MainChart({
       if (!priceLinesRef.current.length) return;
 
       const sorted = [...allCandlesData].sort(
-        (a, b) => Number(a.time) - Number(b.time)
+        (a, b) => Number(a.time) - Number(b.time),
       );
       const lastCandle = sorted[sorted.length - 1];
 
@@ -439,7 +439,7 @@ function MainChart({
         label,
         color,
         hoveredValue,
-        lastValue
+        lastValue,
       ) => {
         const value =
           hoveredValue !== null && hoveredValue !== undefined
@@ -464,12 +464,12 @@ function MainChart({
             const entry = priceLinesRef.current.find((e) => e.seriesObj === s);
             if (!entry) return;
             const hovered = param?.time
-              ? param.seriesData?.get(s)?.value ?? null
+              ? (param.seriesData?.get(s)?.value ?? null)
               : null;
             const last = getIndicatorValueByPeriod(
               lastCandle,
               indicator.type,
-              period
+              period,
             );
             updateLine(
               s,
@@ -477,7 +477,7 @@ function MainChart({
               `${indicator.type.toUpperCase()} ${period}`,
               indicator.colors[index],
               hovered,
-              last
+              last,
             );
           });
         } else if (indicator.type === "bollinger") {
@@ -489,7 +489,7 @@ function MainChart({
             const entry = priceLinesRef.current.find((e) => e.seriesObj === s);
             if (!entry) return;
             const hovered = param?.time
-              ? param.seriesData?.get(s)?.value ?? null
+              ? (param.seriesData?.get(s)?.value ?? null)
               : null;
             const last = lastCandle?.indicators?.bollingerBands?.[bands[i]];
             updateLine(
@@ -498,7 +498,7 @@ function MainChart({
               bbLabels[i],
               indicator.colors[i],
               hovered,
-              last
+              last,
             );
           });
         } else {
@@ -507,7 +507,7 @@ function MainChart({
           const entry = priceLinesRef.current.find((e) => e.seriesObj === s);
           if (!entry) return;
           const hovered = param?.time
-            ? param.seriesData?.get(s)?.value ?? null
+            ? (param.seriesData?.get(s)?.value ?? null)
             : null;
           const last =
             indicator.type === "psar"
@@ -519,7 +519,7 @@ function MainChart({
             indicator.label,
             indicator.color,
             hovered,
-            last
+            last,
           );
         }
       });
@@ -545,6 +545,9 @@ function MainChart({
       // ❌ Reject if no multiSignal
       if (!candle.multiSignal) return false;
 
+      // ❌ Reject if symbol has not been optimized yet
+      if (!candle.multiSignal.isOptimized) return false;
+
       // ❌ CRITICAL: Reject if source is NOT "db"
       if (candle.multiSignal.source !== "db") {
         console.warn("⚠️ [REJECTED] Non-database signal detected:", {
@@ -568,17 +571,17 @@ function MainChart({
     });
 
     console.log(
-      `✅ [DB SIGNALS] ${validSignals.length} valid signals from database`
+      `✅ [DB SIGNALS] ${validSignals.length} valid signals from database`,
     );
     console.log(
       `   Filtered out: ${
         allCandlesData.length - validSignals.length
-      } (neutral + weak + non-db)`
+      } (not optimized + neutral + weak + non-db)`,
     );
 
     // 2️⃣ Sort by time ascending (oldest first)
     const sortedSignals = [...validSignals].sort(
-      (a, b) => Number(a.time) - Number(b.time)
+      (a, b) => Number(a.time) - Number(b.time),
     );
 
     // 3️⃣ Remove consecutive duplicates (keep only direction changes)
@@ -596,14 +599,14 @@ function MainChart({
     });
 
     console.log(
-      `📍 [SIGNAL CHANGES] ${signalChanges.length} direction changes`
+      `📍 [SIGNAL CHANGES] ${signalChanges.length} direction changes`,
     );
     console.log(
       `   BUY: ${
         signalChanges.filter((c) => c.multiSignal.signal === "buy").length
       } | SELL: ${
         signalChanges.filter((c) => c.multiSignal.signal === "sell").length
-      }`
+      }`,
     );
 
     // 4️⃣ Convert to lightweight-charts marker format
