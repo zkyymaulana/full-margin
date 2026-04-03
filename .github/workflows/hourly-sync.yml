@@ -2,7 +2,7 @@ name: Hourly Sync Trigger
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "15 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -19,10 +19,33 @@ jobs:
             exit 1
           fi
 
-          curl --fail --show-error --silent \
-            -X POST "$BACKEND_CRON_URL" \
-            -H "Content-Type: application/json" \
-            -H "x-cron-token: $BACKEND_CRON_TOKEN" \
-            --data '{"source":"github-actions"}'
+          echo "Trigger URL: $BACKEND_CRON_URL"
 
-          echo "Hourly sync trigger sent successfully"
+          for attempt in 1 2 3; do
+            echo "Attempt $attempt: Trigger backend hourly sync"
+
+            status=$(curl --silent --show-error \
+              -o /tmp/cron_response.json \
+              -w "%{http_code}" \
+              -X POST "$BACKEND_CRON_URL" \
+              -H "Content-Type: application/json" \
+              -H "x-cron-token: $BACKEND_CRON_TOKEN" \
+              --data '{"source":"github-actions"}')
+
+            echo "HTTP status: $status"
+            cat /tmp/cron_response.json || true
+            echo
+
+            if [ "$status" -ge 200 ] && [ "$status" -lt 300 ]; then
+              echo "Hourly sync trigger sent successfully"
+              exit 0
+            fi
+
+            if [ "$attempt" -lt 3 ]; then
+              echo "Request failed. Retrying in 20 seconds..."
+              sleep 20
+            fi
+          done
+
+          echo "Failed to trigger hourly sync after 3 attempts"
+          exit 1
