@@ -25,6 +25,7 @@ let symbolsCacheTime = 0;
 const SYMBOLS_CACHE_TTL = 5 * 60 * 1000; // 5 menit
 const TARGET_ACTIVE_SYMBOLS = Number(process.env.TARGET_ACTIVE_SYMBOLS || "20");
 const SCHEDULER_TIMEZONE = process.env.SCHEDULER_TIMEZONE || "Asia/Jakarta";
+const STARTUP_NOTIFICATION_MUTE_MS = 15 * 60 * 1000;
 
 function getEnvBool(name, defaultValue = false) {
   const raw = process.env[name];
@@ -32,14 +33,8 @@ function getEnvBool(name, defaultValue = false) {
   return raw.toLowerCase() === "true";
 }
 
-const STARTUP_SYNC_DELAY_MS = Number(
-  process.env.STARTUP_SYNC_DELAY_MS || "1500",
-);
-const STARTUP_HISTORICAL_DELAY_MS = Number(
-  process.env.STARTUP_HISTORICAL_DELAY_MS || "2000",
-);
-
 let isMainSyncRunning = false;
+let schedulerStartedAt = 0;
 
 const jobStats = {
   totalRuns: 0,
@@ -68,23 +63,9 @@ export async function startAllSchedulers() {
   console.log("🚀 Starting crypto schedulers...");
 
   try {
+    schedulerStartedAt = Date.now();
     await refreshSymbolsCache();
-    const runStartupHistoricalCheck = getEnvBool(
-      "RUN_HISTORICAL_CHECK_ON_STARTUP",
-      false,
-    );
-    const forceStartupHistoricalBackfill = getEnvBool(
-      "FORCE_STARTUP_HISTORICAL_BACKFILL",
-      false,
-    );
-
-    if (runStartupHistoricalCheck) {
-      await checkAndSyncHistoricalData({
-        forceBackfill: forceStartupHistoricalBackfill,
-      });
-    } else {
-      console.log("⏭️ Startup historical check skipped by configuration");
-    }
+    await checkAndSyncHistoricalData({ forceBackfill: true });
 
     // Buat daftar job yang akan dijalankan
     const jobs = [
@@ -148,36 +129,6 @@ export async function startAllSchedulers() {
       console.log(`✅ ${desc}`);
     });
 
-    if (getEnvBool("RUN_MAIN_SYNC_ON_STARTUP", false)) {
-      console.log(
-        `⚡ Startup candle sync enabled (NO notification). Running once in ${STARTUP_SYNC_DELAY_MS}ms...`,
-      );
-      setTimeout(
-        () => {
-          runMainSyncJob(true).catch((err) => {
-            console.error("❌ Startup main sync failed:", err.message);
-          });
-        },
-        Math.max(0, STARTUP_SYNC_DELAY_MS),
-      );
-    }
-
-    if (getEnvBool("RUN_HISTORICAL_SYNC_ON_STARTUP", false)) {
-      console.log(
-        `📚 Startup historical sync enabled. Running once in ${STARTUP_HISTORICAL_DELAY_MS}ms...`,
-      );
-      setTimeout(
-        () => {
-          checkAndSyncHistoricalData({
-            forceBackfill: forceStartupHistoricalBackfill,
-          }).catch((err) => {
-            console.error("❌ Startup historical sync failed:", err.message);
-          });
-        },
-        Math.max(0, STARTUP_HISTORICAL_DELAY_MS),
-      );
-    }
-
     console.log("✅ All schedulers started successfully!");
   } catch (err) {
     console.error("❌ Failed to start schedulers:", err.message);
@@ -229,7 +180,16 @@ async function runMainSyncJob(isBackup = false) {
     // 2️⃣ Deteksi sinyal & kirim notifikasi Telegram (hanya untuk main job)
     // Always use "multi" mode - single indicator removed
     if (!isBackup) {
-      await detectAndNotifyAllSymbols(symbolsCache, "multi");
+      const isWithinStartupMuteWindow =
+        Date.now() - schedulerStartedAt < STARTUP_NOTIFICATION_MUTE_MS;
+
+      if (isWithinStartupMuteWindow) {
+        console.log(
+          "🔕 Skip Telegram notification during startup stabilization window",
+        );
+      } else {
+        await detectAndNotifyAllSymbols(symbolsCache, "multi");
+      }
     }
 
     jobStats.successfulRuns++;

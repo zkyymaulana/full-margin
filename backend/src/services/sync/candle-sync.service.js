@@ -4,10 +4,13 @@ import { calculateAndSaveIndicators } from "../indicators/indicator.service.js";
 
 // Cache untuk tracking last update time per symbol
 const lastUpdateCache = new Map();
-const SYNC_CONCURRENCY = Math.max(
-  1,
-  Number(process.env.SYNC_CONCURRENCY || "2"),
+const parsedSyncConcurrency = Number.parseInt(
+  process.env.SYNC_CONCURRENCY || "2",
+  10,
 );
+const SYNC_CONCURRENCY = Number.isFinite(parsedSyncConcurrency)
+  ? Math.max(1, parsedSyncConcurrency)
+  : 2;
 
 async function runWithConcurrency(items, limit, worker) {
   const results = new Array(items.length);
