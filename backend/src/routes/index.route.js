@@ -8,6 +8,7 @@ import multiIndicatorRoute from "./multiIndicator.route.js";
 import singleIndicatorRoute from "./singleIndicator.route.js";
 import comparisonRoute from "./comparison.route.js";
 import schedulerRoute from "./scheduler.route.js";
+import internalRoute from "./internal.route.js";
 import userRoute from "./user.route.js";
 import telegramRoute from "./telegram.route.js";
 import watchlistRoute from "./watchlist.route.js";
@@ -17,6 +18,9 @@ const router = express.Router();
 
 // Authentication
 router.use("/auth", authRoute);
+
+// Internal automation routes (token protected at controller level)
+router.use("/internal", internalRoute);
 
 // Market data
 router.use("/marketcap", authMiddleware, marketcapRoute);
@@ -42,7 +46,7 @@ router.use("/telegram", authMiddleware, telegramRoute);
 
 // Default 404 handler
 router.use("*", (_, res) =>
-  res.status(404).json({ success: false, message: "Endpoint not found" })
+  res.status(404).json({ success: false, message: "Endpoint not found" }),
 );
 
 export default router;

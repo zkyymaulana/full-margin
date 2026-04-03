@@ -72,13 +72,13 @@ export async function startAllSchedulers() {
       {
         name: "hourly-candle-sync",
         schedule: "0 0 * * * *",
-        task: runMainSyncJob,
+        task: () => runMainSyncJob({ isBackup: false }),
         desc: "🕐 Hourly sync every hour (after candle close)",
       },
       getEnvBool("ENABLE_BACKUP_SYNC", false) && {
         name: "backup-sync",
         schedule: "0 2 * * * *",
-        task: () => runMainSyncJob(true),
+        task: () => runMainSyncJob({ isBackup: true }),
         desc: "🔄 Backup sync (2 minutes after close)",
       },
       {
@@ -138,7 +138,9 @@ export async function startAllSchedulers() {
 /* ============================================================
    🔁 Main Sync Process (Candle → Indicators → Signals)
 ============================================================ */
-async function runMainSyncJob(isBackup = false) {
+async function runMainSyncJob(options = {}) {
+  const { isBackup = false, ignoreStartupMute = false } = options;
+
   const startTime = Date.now();
   jobStats.totalRuns++;
 
@@ -183,7 +185,7 @@ async function runMainSyncJob(isBackup = false) {
       const isWithinStartupMuteWindow =
         Date.now() - schedulerStartedAt < STARTUP_NOTIFICATION_MUTE_MS;
 
-      if (isWithinStartupMuteWindow) {
+      if (!ignoreStartupMute && isWithinStartupMuteWindow) {
         console.log(
           "🔕 Skip Telegram notification during startup stabilization window",
         );
@@ -207,6 +209,20 @@ async function runMainSyncJob(isBackup = false) {
   } finally {
     isMainSyncRunning = false;
   }
+}
+
+// Menjalankan sinkronisasi per jam secara manual (untuk external cron fallback).
+export async function runHourlySyncNow({ sendNotifications = true } = {}) {
+  await runMainSyncJob({
+    isBackup: !sendNotifications,
+    ignoreStartupMute: true,
+  });
+
+  return {
+    ok: true,
+    timestamp: new Date().toISOString(),
+    stats: jobStats,
+  };
 }
 
 /* ============================================================

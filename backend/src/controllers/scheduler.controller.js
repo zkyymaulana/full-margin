@@ -2,6 +2,7 @@ import {
   startAllSchedulers,
   stopAllSchedulers,
   getSchedulerStatus,
+  runHourlySyncNow,
 } from "../services/scheduler/scheduler.service.js";
 import { updateAllListingDates } from "../services/sync/candle-sync.service.js";
 
@@ -79,6 +80,49 @@ export async function updateListingDates(req, res) {
     res.status(500).json({
       success: false,
       message: "Failed to update listing dates",
+      error: error.message,
+    });
+  }
+}
+
+// Trigger sinkronisasi per jam dari external cron (GitHub Actions / service lain).
+export async function runHourlySyncInternal(req, res) {
+  try {
+    const expectedToken = process.env.INTERNAL_CRON_TOKEN;
+    if (!expectedToken) {
+      return res.status(500).json({
+        success: false,
+        message: "INTERNAL_CRON_TOKEN is not configured",
+      });
+    }
+
+    const bearer = req.headers.authorization?.startsWith("Bearer ")
+      ? req.headers.authorization.slice(7).trim()
+      : null;
+    const token = req.headers["x-cron-token"] || bearer;
+
+    if (!token || token !== expectedToken) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized cron trigger",
+      });
+    }
+
+    const sendNotifications =
+      String(req.query.notify ?? "true").toLowerCase() !== "false";
+
+    const result = await runHourlySyncNow({ sendNotifications });
+
+    return res.json({
+      success: true,
+      message: "Hourly sync triggered",
+      data: result,
+    });
+  } catch (error) {
+    console.error("Internal hourly sync error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to trigger hourly sync",
       error: error.message,
     });
   }

@@ -1,0 +1,28 @@
+name: Hourly Sync Trigger
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+jobs:
+  trigger-hourly-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger backend hourly sync
+        env:
+          BACKEND_CRON_URL: ${{ secrets.BACKEND_CRON_URL }}
+          BACKEND_CRON_TOKEN: ${{ secrets.BACKEND_CRON_TOKEN }}
+        run: |
+          if [ -z "$BACKEND_CRON_URL" ] || [ -z "$BACKEND_CRON_TOKEN" ]; then
+            echo "Missing BACKEND_CRON_URL or BACKEND_CRON_TOKEN secret"
+            exit 1
+          fi
+
+          curl --fail --show-error --silent \
+            -X POST "$BACKEND_CRON_URL" \
+            -H "Content-Type: application/json" \
+            -H "x-cron-token: $BACKEND_CRON_TOKEN" \
+            --data '{"source":"github-actions"}'
+
+          echo "Hourly sync trigger sent successfully"
