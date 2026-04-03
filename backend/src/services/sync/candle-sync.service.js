@@ -431,49 +431,60 @@ export async function syncHistoricalData(
         );
       }
 
-      // Fetch data
-      const candles = await fetchHistoricalCandles(
-        symbol,
-        fetchStartTime,
-        fetchEndTime,
-      );
+      // Fetch dan simpan per batch agar RAM tidak membengkak.
+      let totalCompleteCandles = 0;
+      let earliestSavedTime = null;
+      let latestSavedTime = null;
 
-      if (candles.length === 0) {
+      await fetchHistoricalCandles(symbol, fetchStartTime, fetchEndTime, {
+        accumulate: false,
+        onBatch: async (batchCandles) => {
+          const completeCandles = batchCandles.filter((candle) => {
+            const candleHour = Math.floor(candle.time / oneHour) * oneHour;
+            return candleHour < currentHour;
+          });
+
+          if (!completeCandles.length) return;
+
+          const candleData = completeCandles.map((candle) => ({
+            coinId: coin.id,
+            timeframeId: timeframeRecord.id,
+            time: BigInt(Math.floor(candle.time)),
+            open: candle.open,
+            high: candle.high,
+            low: candle.low,
+            close: candle.close,
+            volume: candle.volume,
+          }));
+
+          await prisma.candle.createMany({
+            data: candleData,
+            skipDuplicates: true,
+          });
+
+          totalCompleteCandles += completeCandles.length;
+          if (
+            !earliestSavedTime ||
+            completeCandles[0].time < earliestSavedTime
+          ) {
+            earliestSavedTime = completeCandles[0].time;
+          }
+
+          const batchLastTime =
+            completeCandles[completeCandles.length - 1].time;
+          if (!latestSavedTime || batchLastTime > latestSavedTime) {
+            latestSavedTime = batchLastTime;
+          }
+        },
+      });
+
+      if (totalCompleteCandles === 0) {
         console.log(
           `⚠️ No data available from API (pair may not have historical data)`,
         );
         results.skipped++;
         continue;
       }
-
-      // Filter complete candles
-      const completeCandles = candles.filter((candle) => {
-        const candleHour = Math.floor(candle.time / oneHour) * oneHour;
-        return candleHour < currentHour;
-      });
-
-      if (completeCandles.length === 0) {
-        console.log(`⚠️ No complete candles`);
-        results.skipped++;
-        continue;
-      }
-
-      // Save to database
-      const candleData = completeCandles.map((candle) => ({
-        coinId: coin.id,
-        timeframeId: timeframeRecord.id,
-        time: BigInt(Math.floor(candle.time)),
-        open: candle.open,
-        high: candle.high,
-        low: candle.low,
-        close: candle.close,
-        volume: candle.volume,
-      }));
-
-      await prisma.candle.createMany({
-        data: candleData,
-        skipDuplicates: true,
-      });
 
       // ✅ AUTOMATICALLY CALCULATE INDICATORS AFTER SAVING HISTORICAL CANDLES
       console.log(`📊 Calculating indicators for ${symbol}...`);
@@ -483,10 +494,10 @@ export async function syncHistoricalData(
       await updateListingDateFromCandles(symbol);
 
       results.successful++;
-      results.totalCandles += candleData.length;
+      results.totalCandles += totalCompleteCandles;
 
-      const dateRange = `${new Date(completeCandles[0].time).toISOString().split("T")[0]} → ${new Date(completeCandles[completeCandles.length - 1].time).toISOString().split("T")[0]}`;
-      console.log(`✅ Saved ${candleData.length} candles (${dateRange})`);
+      const dateRange = `${new Date(earliestSavedTime).toISOString().split("T")[0]} → ${new Date(latestSavedTime).toISOString().split("T")[0]}`;
+      console.log(`✅ Saved ${totalCompleteCandles} candles (${dateRange})`);
 
       // Delay between symbols
       if (i < symbols.length - 1) {

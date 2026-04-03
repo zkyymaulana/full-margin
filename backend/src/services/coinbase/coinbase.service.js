@@ -28,7 +28,8 @@ const client = axios.create({
 });
 
 // Ambil candle historis dari Coinbase secara bertahap (batch) agar aman dari limit API.
-export async function fetchHistoricalCandles(symbol, start, end) {
+export async function fetchHistoricalCandles(symbol, start, end, options = {}) {
+  const { onBatch = null, accumulate = true } = options;
   const allCandles = [];
   let current = start;
   let batchCount = 1;
@@ -65,7 +66,20 @@ export async function fetchHistoricalCandles(symbol, start, end) {
         .filter((c) => c.time < Date.now() - HOUR_MS);
 
       if (candles.length > 0) {
-        allCandles.push(...candles.reverse()); // urut lama → baru
+        const orderedCandles = candles.reverse(); // urut lama → baru
+
+        if (accumulate) {
+          allCandles.push(...orderedCandles);
+        }
+
+        if (typeof onBatch === "function") {
+          await onBatch(orderedCandles, {
+            batch: batchCount,
+            start: current,
+            end: next,
+          });
+        }
+
         console.log(
           `✅ ${symbol} Batch ${batchCount++}: ${candles.length} candles`,
         );
@@ -81,6 +95,10 @@ export async function fetchHistoricalCandles(symbol, start, end) {
   }
 
   // 🧹 Bersihkan dan validasi semua candle sebelum return
+  if (!accumulate) {
+    return [];
+  }
+
   const sortedCandles = allCandles.sort((a, b) => a.time - b.time);
   const cleanedCandles = cleanCandleData(sortedCandles);
   const finalCandles = removeDuplicateCandles(cleanedCandles);
