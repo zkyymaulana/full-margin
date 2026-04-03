@@ -23,6 +23,7 @@ const activeJobs = new Map();
 let symbolsCache = [];
 let symbolsCacheTime = 0;
 const SYMBOLS_CACHE_TTL = 5 * 60 * 1000; // 5 menit
+const TARGET_ACTIVE_SYMBOLS = Number(process.env.TARGET_ACTIVE_SYMBOLS || "20");
 let isMainSyncRunning = false;
 
 const jobStats = {
@@ -259,6 +260,15 @@ async function checkAndSyncHistoricalData() {
   }
 
   if (!symbolsCache.length) await refreshSymbolsCache();
+
+  // Jika kuota simbol aktif sudah terpenuhi, skip backfill historis berat.
+  if (symbolsCache.length >= TARGET_ACTIVE_SYMBOLS) {
+    console.log(
+      `⏭️ Historical backfill skipped: active symbols already meet target (${symbolsCache.length}/${TARGET_ACTIVE_SYMBOLS})`,
+    );
+    return;
+  }
+
   console.log(
     `🔍 Checking historical data for ${symbolsCache.length} symbols...`,
   );
