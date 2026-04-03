@@ -20,7 +20,6 @@ function Header() {
     useMarketcapSymbols();
   const { data: profileData } = useUserProfile();
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -40,7 +39,7 @@ function Header() {
 
   // Close dropdown when clicking outside
   useEffect(() => {
-// handleClickOutside: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+    // handleClickOutside: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsDropdownOpen(false);
@@ -61,7 +60,7 @@ function Header() {
   const filteredSymbols = symbols.filter(
     (s) =>
       s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.symbol.toLowerCase().includes(searchQuery.toLowerCase())
+      s.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   // Get current symbol info
@@ -87,7 +86,7 @@ function Header() {
         isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
       }`}
     >
-      <div className="flex items-center justify-between px-4 py-3">
+      <div className="flex items-center justify-between gap-2 px-3 py-3 sm:px-4">
         {/*   Mobile Menu Button  */}
         <button
           onClick={toggleSidebar}
@@ -111,9 +110,14 @@ function Header() {
           </svg>
         </button>
         {/* Logo */}
-        <Link to="/dashboard" className="hidden md:flex items-center gap-2">
+        <Link to="/dashboard" className="flex items-center gap-2 shrink-0">
+          <img
+            src="/images/logo.svg"
+            alt="Crypto Analyze"
+            className="h-7 w-7 sm:h-8 sm:w-8"
+          />
           <span
-            className={`text-xl font-bold ${
+            className={`hidden sm:block text-lg lg:text-xl font-bold ${
               isDarkMode ? "text-blue-400" : "text-blue-600"
             }`}
           >
@@ -121,16 +125,19 @@ function Header() {
           </span>
         </Link>
         {/* Symbol Selector Dropdown */}
-        <div className="flex-1 max-w-md mx-4 relative" ref={dropdownRef}>
+        <div
+          className="flex-1 min-w-0 max-w-md mx-1 sm:mx-4 relative"
+          ref={dropdownRef}
+        >
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className={`w-full flex items-center justify-between gap-3 px-4 py-2 border rounded-lg transition-colors cursor-pointer ${
+            className={`w-full flex items-center justify-between gap-2 sm:gap-3 px-3 sm:px-4 py-2 border rounded-lg transition-colors cursor-pointer ${
               isDarkMode
                 ? "bg-gray-700 hover:bg-gray-600 border-gray-600"
                 : "bg-gray-50 hover:bg-gray-100 border-gray-200"
             }`}
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               {/* ✅ Use logo from API instead of initial */}
               {currentSymbolInfo?.logo ? (
                 <img
@@ -150,9 +157,9 @@ function Header() {
               >
                 {currentSymbolInfo?.name?.charAt(0) || "?"}
               </div>
-              <div className="text-left">
+              <div className="text-left min-w-0">
                 <div
-                  className={`text-sm font-semibold ${
+                  className={`text-sm font-semibold truncate ${
                     isDarkMode ? "text-white" : "text-gray-900"
                   }`}
                 >
@@ -162,7 +169,7 @@ function Header() {
                       : "Loading...")}
                 </div>
                 <div
-                  className={`text-xs font-mono ${
+                  className={`text-xs font-mono truncate ${
                     isDarkMode ? "text-gray-400" : "text-gray-500"
                   }`}
                 >
@@ -190,7 +197,7 @@ function Header() {
           {/* Dropdown Menu */}
           {isDropdownOpen && (
             <div
-              className={`absolute top-full left-0 right-0 mt-2 border rounded-lg shadow-xl z-50 max-h-96 overflow-hidden flex flex-col ${
+              className={`absolute top-full left-0 right-0 mt-2 border rounded-lg shadow-xl z-50 max-h-[70vh] overflow-hidden flex flex-col ${
                 isDarkMode
                   ? "bg-gray-800 border-gray-700"
                   : "bg-white border-gray-200"

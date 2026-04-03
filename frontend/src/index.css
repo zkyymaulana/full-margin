@@ -4,8 +4,17 @@
    Base Styles - Clean & Minimal
    ========================= */
 @layer base {
+  :root {
+    --app-header-height: 74px;
+    --app-sidebar-width: 270px;
+    --content-max-width: 1600px;
+  }
+
   body {
     @apply bg-gray-50 text-gray-900;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body.dark-mode {
@@ -16,6 +25,17 @@
   body {
     height: 100%;
     overflow-x: hidden;
+  }
+
+  #root {
+    min-height: 100%;
+  }
+
+  img,
+  svg,
+  canvas,
+  video {
+    max-width: 100%;
   }
 }
 
@@ -155,14 +175,18 @@ th {
   .card {
     @apply bg-white;
     border-radius: 0.75rem;
-    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    box-shadow:
+      0 1px 3px 0 rgb(0 0 0 / 0.1),
+      0 1px 2px -1px rgb(0 0 0 / 0.1);
     overflow: hidden;
     position: relative;
   }
 
   .dark-mode .card {
     @apply bg-gray-800;
-    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+    box-shadow:
+      0 4px 6px -1px rgb(0 0 0 / 0.3),
+      0 2px 4px -2px rgb(0 0 0 / 0.3);
   }
 
   .card-body {
@@ -403,7 +427,11 @@ th {
     padding: 6px 10px !important;
     border-radius: 6px !important;
     font-size: 11px !important;
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif !important;
+    font-family:
+      "Inter",
+      -apple-system,
+      BlinkMacSystemFont,
+      sans-serif !important;
     font-weight: 500 !important;
     pointer-events: none !important;
     z-index: 1000 !important;

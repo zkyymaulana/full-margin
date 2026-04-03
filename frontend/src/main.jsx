@@ -9,6 +9,7 @@ import "./index.css";
 import { DarkModeProvider, useDarkMode } from "./contexts/DarkModeContext";
 import { OptimizationProvider } from "./contexts/OptimizationContext";
 import { GoogleOAuthProvider } from "@react-oauth/google";
+import { registerSW } from "virtual:pwa-register";
 
 // Create a query client
 const queryClient = new QueryClient({
@@ -23,6 +24,16 @@ const queryClient = new QueryClient({
 
 // Google OAuth Client ID from environment variable
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+
+registerSW({
+  immediate: true,
+  onOfflineReady() {
+    console.log("📦 PWA ready for offline usage");
+  },
+  onNeedRefresh() {
+    console.log("🔄 New app version available. Refresh to update.");
+  },
+});
 
 // Wrapper component for ToastContainer to access dark mode context
 function ToastWrapper() {
@@ -58,5 +69,5 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         </QueryClientProvider>
       </BrowserRouter>
     </GoogleOAuthProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 );

@@ -17,13 +17,13 @@ function Layout() {
       {/* Header */}
       <Header />
 
-      <div className="flex flex-1">
+      <div className="flex flex-1 min-w-0">
         {/* Sidebar */}
         <Sidebar />
 
         {/* Main Content */}
-        <main className="flex-1 xl:ml-[270px] mt-[74px] flex flex-col">
-          <div className="flex-1 p-6">
+        <main className="flex-1 min-w-0 xl:ml-[270px] mt-[74px] flex flex-col">
+          <div className="flex-1 w-full max-w-[1600px] mx-auto px-3 py-4 sm:px-4 sm:py-5 lg:px-6 lg:py-6">
             <Outlet />
           </div>
           <Footer />
