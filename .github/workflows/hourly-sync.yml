@@ -11,15 +11,21 @@ jobs:
     steps:
       - name: Ping backend warmup endpoint
         env:
-          BACKEND_WAKE_URL: ${{ secrets.BACKEND_CRON_URL }}
+          BACKEND_WAKE_URL: ${{ secrets.BACKEND_WAKE_URL }}
+          BACKEND_CRON_URL: ${{ secrets.BACKEND_CRON_URL }}
           BACKEND_CRON_TOKEN: ${{ secrets.BACKEND_CRON_TOKEN }}
         run: |
-          if [ -z "$BACKEND_WAKE_URL" ]; then
-            echo "Missing BACKEND_CRON_URL secret (set this to a lightweight endpoint, e.g. https://<host>/api)"
+          TARGET_URL="$BACKEND_WAKE_URL"
+          if [ -z "$TARGET_URL" ]; then
+            TARGET_URL="$BACKEND_CRON_URL"
+          fi
+
+          if [ -z "$TARGET_URL" ]; then
+            echo "Missing warmup URL secret. Set BACKEND_WAKE_URL (preferred) or BACKEND_CRON_URL to a lightweight endpoint, e.g. https://<host>/api"
             exit 1
           fi
 
-          echo "Warmup URL: $BACKEND_WAKE_URL"
+          echo "Warmup URL: $TARGET_URL"
 
           for attempt in 1 2 3; do
             echo "Attempt $attempt: Wake backend"
@@ -28,7 +34,7 @@ jobs:
               curl --silent --show-error
               -o /tmp/warmup_response.json
               -w "%{http_code}" \
-              -X GET "$BACKEND_WAKE_URL"
+              -X GET "$TARGET_URL"
             )
 
             if [ -n "$BACKEND_CRON_TOKEN" ]; then
