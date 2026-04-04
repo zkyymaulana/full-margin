@@ -154,6 +154,15 @@ async function runMainSyncJob(options = {}) {
   const { isBackup = false, ignoreStartupMute = false } = options;
 
   const startTime = Date.now();
+  const syncType = isBackup ? "Backup" : "Main";
+  const perfLabel = `perf:${syncType.toLowerCase()}-sync:${new Date(startTime).toISOString()}`;
+  const perf = {
+    startedAtIso: new Date(startTime).toISOString(),
+    refreshSymbolsMs: 0,
+    candleSyncMs: 0,
+    notificationMs: 0,
+  };
+
   jobStats.totalRuns++;
 
   if (hasActiveOptimization()) {
@@ -173,23 +182,36 @@ async function runMainSyncJob(options = {}) {
   }
 
   isMainSyncRunning = true;
+  console.time(perfLabel);
+  console.log(
+    `🚦 [${perf.startedAtIso}] ${syncType} sync started | symbolsCached=${symbolsCache.length}`,
+  );
 
   try {
     // Refresh symbols cache jika expired
     if (
       Date.now() - symbolsCacheTime > SYMBOLS_CACHE_TTL ||
       !symbolsCache.length
-    )
+    ) {
+      const refreshStart = Date.now();
       await refreshSymbolsCache();
+      perf.refreshSymbolsMs = Date.now() - refreshStart;
+      console.log(
+        `⏱️ [${new Date().toISOString()}] ${syncType} sync phase: refreshSymbols done in ${perf.refreshSymbolsMs}ms`,
+      );
+    }
 
     if (!symbolsCache.length) throw new Error("No active symbols found");
 
-    console.log(
-      `🎯 ${isBackup ? "Backup" : "Main"} sync for ${symbolsCache.length} symbols...`,
-    );
+    console.log(`🎯 ${syncType} sync for ${symbolsCache.length} symbols...`);
 
     // 1️⃣ Sinkronisasi candle (indicators calculated automatically inside)
+    const candleSyncStart = Date.now();
     await syncLatestCandles(symbolsCache);
+    perf.candleSyncMs = Date.now() - candleSyncStart;
+    console.log(
+      `⏱️ [${new Date().toISOString()}] ${syncType} sync phase: candle sync + indicator calculation done in ${perf.candleSyncMs}ms`,
+    );
 
     // 2️⃣ Deteksi sinyal & kirim notifikasi Telegram (hanya untuk main job)
     // Always use "multi" mode - single indicator removed
@@ -202,23 +224,35 @@ async function runMainSyncJob(options = {}) {
           "🔕 Skip Telegram notification during startup stabilization window",
         );
       } else {
+        console.log(
+          `⏱️ [${new Date().toISOString()}] ${syncType} sync phase: notification dispatch starting`,
+        );
+        const notifyStart = Date.now();
         await detectAndNotifyAllSymbols(symbolsCache, "multi");
+        perf.notificationMs = Date.now() - notifyStart;
+        console.log(
+          `⏱️ [${new Date().toISOString()}] ${syncType} sync phase: notification dispatch done in ${perf.notificationMs}ms`,
+        );
       }
     }
 
     jobStats.successfulRuns++;
     jobStats.lastRun = new Date();
     jobStats.lastRunDuration = Date.now() - startTime;
+
+    const nowIso = new Date().toISOString();
     console.log(
-      `✅ ${isBackup ? "Backup" : "Main"} sync completed in ${jobStats.lastRunDuration}ms`,
+      `📈 [${nowIso}] ${syncType} sync performance summary | total=${jobStats.lastRunDuration}ms | refresh=${perf.refreshSymbolsMs}ms | candle+indicator=${perf.candleSyncMs}ms | notify=${perf.notificationMs}ms`,
+    );
+
+    console.log(
+      `✅ ${syncType} sync completed in ${jobStats.lastRunDuration}ms`,
     );
   } catch (err) {
     jobStats.failedRuns++;
-    console.error(
-      `❌ ${isBackup ? "Backup" : "Main"} sync failed:`,
-      err.message,
-    );
+    console.error(`❌ ${syncType} sync failed:`, err.message);
   } finally {
+    console.timeEnd(perfLabel);
     isMainSyncRunning = false;
   }
 }

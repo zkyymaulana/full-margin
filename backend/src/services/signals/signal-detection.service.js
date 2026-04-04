@@ -6,6 +6,29 @@ import {
 } from "../../utils/indicator.utils.js";
 import { fetchLatestIndicatorData } from "../../utils/db.utils.js";
 
+const parsedSignalConcurrency = Number.parseInt(
+  process.env.SIGNAL_DETECTION_CONCURRENCY || "1",
+  10,
+);
+const SIGNAL_DETECTION_CONCURRENCY = Number.isFinite(parsedSignalConcurrency)
+  ? Math.max(1, parsedSignalConcurrency)
+  : 1;
+
+const parsedSignalInterBatchDelayMs = Number.parseInt(
+  process.env.SIGNAL_DETECTION_INTER_BATCH_DELAY_MS || "400",
+  10,
+);
+const SIGNAL_DETECTION_INTER_BATCH_DELAY_MS = Number.isFinite(
+  parsedSignalInterBatchDelayMs,
+)
+  ? Math.max(0, parsedSignalInterBatchDelayMs)
+  : 400;
+
+function sleep(ms) {
+  if (ms <= 0) return Promise.resolve();
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * 🎯 SIGNAL DETECTION SERVICE (ACADEMIC VERSION)
  * ================================================================
@@ -191,29 +214,87 @@ export async function detectAndNotifyAllSymbols(symbols, mode = "multi") {
   // Force mode to always be "multi"
   mode = "multi";
 
+  const startedAt = Date.now();
+
   console.log(
-    `🔄 Detecting multi-indicator signals for ${symbols.length} symbols...`,
+    `🔄 Detecting multi-indicator signals for ${symbols.length} symbols... (concurrency=${SIGNAL_DETECTION_CONCURRENCY}, interBatchDelay=${SIGNAL_DETECTION_INTER_BATCH_DELAY_MS}ms)`,
   );
 
   const results = {
     multi: { success: 0, failed: 0, neutral: 0, noWeights: 0 },
   };
 
-  for (const symbol of symbols) {
-    try {
-      const r = await detectAndNotifyMultiIndicatorSignals(symbol);
-      if (r.reason === "no_weights") results.multi.noWeights++;
-      else if (r.signal === "neutral") results.multi.neutral++;
-      else if (r.success) results.multi.success++;
-      else results.multi.failed++;
-      await new Promise((resolve) => setTimeout(resolve, 400));
-    } catch (err) {
-      console.error(`❌ Error processing ${symbol}:`, err.message);
-      results.multi.failed++;
+  const applyResult = (r) => {
+    if (r?.reason === "no_weights") results.multi.noWeights++;
+    else if (r?.signal === "neutral") results.multi.neutral++;
+    else if (r?.success) results.multi.success++;
+    else results.multi.failed++;
+  };
+
+  if (SIGNAL_DETECTION_CONCURRENCY <= 1) {
+    for (const symbol of symbols) {
+      const symbolStart = Date.now();
+      try {
+        const r = await detectAndNotifyMultiIndicatorSignals(symbol);
+        applyResult(r);
+      } catch (err) {
+        console.error(`❌ Error processing ${symbol}:`, err.message);
+        results.multi.failed++;
+      } finally {
+        console.log(
+          `⏱️ [${new Date().toISOString()}] Signal detection finished for ${symbol} in ${Date.now() - symbolStart}ms`,
+        );
+      }
+
+      await sleep(SIGNAL_DETECTION_INTER_BATCH_DELAY_MS);
+    }
+  } else {
+    for (let i = 0; i < symbols.length; i += SIGNAL_DETECTION_CONCURRENCY) {
+      const batch = symbols.slice(i, i + SIGNAL_DETECTION_CONCURRENCY);
+      const batchStart = Date.now();
+
+      const batchResults = await Promise.all(
+        batch.map(async (symbol) => {
+          const symbolStart = Date.now();
+          try {
+            const result = await detectAndNotifyMultiIndicatorSignals(symbol);
+            return { symbol, result };
+          } catch (err) {
+            return { symbol, error: err };
+          } finally {
+            console.log(
+              `⏱️ [${new Date().toISOString()}] Signal detection finished for ${symbol} in ${Date.now() - symbolStart}ms`,
+            );
+          }
+        }),
+      );
+
+      for (const item of batchResults) {
+        if (item.error) {
+          console.error(
+            `❌ Error processing ${item.symbol}:`,
+            item.error.message,
+          );
+          results.multi.failed++;
+          continue;
+        }
+        applyResult(item.result);
+      }
+
+      console.log(
+        `⏱️ [${new Date().toISOString()}] Signal detection batch ${Math.floor(i / SIGNAL_DETECTION_CONCURRENCY) + 1} finished in ${Date.now() - batchStart}ms`,
+      );
+
+      if (i + SIGNAL_DETECTION_CONCURRENCY < symbols.length) {
+        await sleep(SIGNAL_DETECTION_INTER_BATCH_DELAY_MS);
+      }
     }
   }
 
   console.log("📊 Detection Summary:", results);
+  console.log(
+    `⏱️ [${new Date().toISOString()}] Detection total duration: ${Date.now() - startedAt}ms`,
+  );
   return results;
 }
 
