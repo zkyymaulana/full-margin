@@ -211,20 +211,6 @@ async function runMainSyncJob(options = {}) {
   }
 }
 
-// Menjalankan sinkronisasi per jam secara manual (untuk external cron fallback).
-export async function runHourlySyncNow({ sendNotifications = true } = {}) {
-  await runMainSyncJob({
-    isBackup: !sendNotifications,
-    ignoreStartupMute: true,
-  });
-
-  return {
-    ok: true,
-    timestamp: new Date().toISOString(),
-    stats: jobStats,
-  };
-}
-
 /* ============================================================
    🧩 Supporting Jobs
 ============================================================ */

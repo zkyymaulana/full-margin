@@ -8,10 +8,10 @@ import multiIndicatorRoute from "./multiIndicator.route.js";
 import singleIndicatorRoute from "./singleIndicator.route.js";
 import comparisonRoute from "./comparison.route.js";
 import schedulerRoute from "./scheduler.route.js";
-import internalRoute from "./internal.route.js";
 import userRoute from "./user.route.js";
 import telegramRoute from "./telegram.route.js";
 import watchlistRoute from "./watchlist.route.js";
+import healthRoute from "./health.route.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
@@ -19,8 +19,8 @@ const router = express.Router();
 // Authentication
 router.use("/auth", authRoute);
 
-// Internal automation routes (token protected at controller level)
-router.use("/internal", internalRoute);
+// Lightweight health check
+router.use("/health", healthRoute);
 
 // Market data
 router.use("/marketcap", authMiddleware, marketcapRoute);
