@@ -1,54 +1,48 @@
-name: Hourly Sync Trigger
+name: Hourly Backend Warmup
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "55 * * * *"
   workflow_dispatch:
 
 jobs:
-  trigger-hourly-sync:
+  warmup-backend:
     runs-on: ubuntu-latest
     steps:
-      - name: Guard scheduled minute
-        if: github.event_name == 'schedule'
-        run: |
-          minute=$(date -u +%M)
-          echo "Current UTC minute: $minute"
-
-          if [ "$minute" != "59" ]; then
-            echo "Skip run: only execute at minute 59 for schedule trigger"
-            exit 0
-          fi
-
-      - name: Trigger backend hourly sync
+      - name: Ping backend warmup endpoint
         env:
-          BACKEND_CRON_URL: ${{ secrets.BACKEND_CRON_URL }}
+          BACKEND_WAKE_URL: ${{ secrets.BACKEND_CRON_URL }}
           BACKEND_CRON_TOKEN: ${{ secrets.BACKEND_CRON_TOKEN }}
         run: |
-          if [ -z "$BACKEND_CRON_URL" ] || [ -z "$BACKEND_CRON_TOKEN" ]; then
-            echo "Missing BACKEND_CRON_URL or BACKEND_CRON_TOKEN secret"
+          if [ -z "$BACKEND_WAKE_URL" ]; then
+            echo "Missing BACKEND_CRON_URL secret (set this to a lightweight endpoint, e.g. https://<host>/api)"
             exit 1
           fi
 
-          echo "Trigger URL: $BACKEND_CRON_URL"
+          echo "Warmup URL: $BACKEND_WAKE_URL"
 
           for attempt in 1 2 3; do
-            echo "Attempt $attempt: Trigger backend hourly sync"
+            echo "Attempt $attempt: Wake backend"
 
-            status=$(curl --silent --show-error \
-              -o /tmp/cron_response.json \
+            curl_cmd=(
+              curl --silent --show-error
+              -o /tmp/warmup_response.json
               -w "%{http_code}" \
-              -X POST "$BACKEND_CRON_URL" \
-              -H "Content-Type: application/json" \
-              -H "x-cron-token: $BACKEND_CRON_TOKEN" \
-              --data '{"source":"github-actions"}')
+              -X GET "$BACKEND_WAKE_URL"
+            )
+
+            if [ -n "$BACKEND_CRON_TOKEN" ]; then
+              curl_cmd+=( -H "x-cron-token: $BACKEND_CRON_TOKEN" )
+            fi
+
+            status=$("${curl_cmd[@]}")
 
             echo "HTTP status: $status"
-            cat /tmp/cron_response.json || true
+            cat /tmp/warmup_response.json || true
             echo
 
             if [ "$status" -ge 200 ] && [ "$status" -lt 300 ]; then
-              echo "Hourly sync trigger sent successfully"
+              echo "Backend warmup ping sent successfully"
               exit 0
             fi
 
@@ -58,5 +52,5 @@ jobs:
             fi
           done
 
-          echo "Failed to trigger hourly sync after 3 attempts"
+          echo "Failed to warmup backend after 3 attempts"
           exit 1
