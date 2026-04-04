@@ -25,6 +25,7 @@ let symbolsCacheTime = 0;
 const SYMBOLS_CACHE_TTL = 5 * 60 * 1000; // 5 menit
 const TARGET_ACTIVE_SYMBOLS = Number(process.env.TARGET_ACTIVE_SYMBOLS || "20");
 const SCHEDULER_TIMEZONE = process.env.SCHEDULER_TIMEZONE || "Asia/Jakarta";
+const HOURLY_SYNC_CRON = process.env.HOURLY_SYNC_CRON || "0 * * * *";
 const STARTUP_NOTIFICATION_MUTE_MS = 15 * 60 * 1000;
 
 function getEnvBool(name, defaultValue = false) {
@@ -71,9 +72,9 @@ export async function startAllSchedulers() {
     const jobs = [
       {
         name: "hourly-candle-sync",
-        schedule: "0 0 * * * *",
+        schedule: HOURLY_SYNC_CRON,
         task: () => runMainSyncJob({ isBackup: false }),
-        desc: "🕐 Hourly sync every hour (after candle close)",
+        desc: "🕐 Hourly sync every hour (minute 0)",
       },
       getEnvBool("ENABLE_BACKUP_SYNC", false) && {
         name: "backup-sync",
@@ -115,10 +116,19 @@ export async function startAllSchedulers() {
 
     // Jalankan semua job
     jobs.forEach(({ name, schedule, task, desc }) => {
+      if (!cron.validate(schedule)) {
+        console.error(
+          `❌ Invalid cron expression for ${name}: ${schedule}. Job skipped.`,
+        );
+        return;
+      }
+
       const job = cron.schedule(
         schedule,
         async () => {
-          console.log(`⏰ [${new Date().toISOString()}] ${desc}`);
+          console.log(
+            `⏰ [${new Date().toISOString()}] Executing ${name} | expr="${schedule}" | tz="${SCHEDULER_TIMEZONE}"`,
+          );
           await task();
         },
         { scheduled: false, timezone: SCHEDULER_TIMEZONE },
@@ -126,7 +136,9 @@ export async function startAllSchedulers() {
 
       job.start();
       activeJobs.set(name, job);
-      console.log(`✅ ${desc}`);
+      console.log(
+        `📅 [${new Date().toISOString()}] Scheduled ${name} | expr="${schedule}" | tz="${SCHEDULER_TIMEZONE}" | ${desc}`,
+      );
     });
 
     console.log("✅ All schedulers started successfully!");
