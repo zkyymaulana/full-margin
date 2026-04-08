@@ -1,10 +1,7 @@
 import dotenv from "dotenv";
 import { prisma } from "../../lib/prisma.js";
 import { cleanTopCoinData } from "../../utils/dataCleaner.js";
-import {
-  fetchPairs,
-  fetchEarliestCandle,
-} from "../../clients/coinbase.client.js";
+import { fetchPairs } from "../../clients/coinbase.client.js";
 import {
   getTopCoins,
   getCoinLogos,
@@ -13,13 +10,9 @@ import {
 dotenv.config();
 
 const TARGET_VALID_COINS = 20;
-const LISTING_CUTOFF_DATE = new Date("2025-01-01T00:00:00.000Z");
 const SAFE_FALLBACK_LISTING_DATE = new Date("2000-01-01T00:00:00.000Z");
 const RANK_SYNC_LIMIT = 200;
-
-function toDateLabel(dateValue) {
-  return dateValue?.toISOString().split("T")[0] || "never";
-}
+let isSyncTopCoinsRunning = false;
 
 function getBaseSymbol(pairSymbol) {
   return String(pairSymbol || "")
@@ -30,70 +23,40 @@ function getBaseSymbol(pairSymbol) {
 async function assignFallbackRanksToCoins(coinIds = []) {
   if (!coinIds.length) return 0;
 
-  const maxRankResult = await prisma.coin.aggregate({
-    _max: { rank: true },
+  await prisma.coin.updateMany({
+    where: { id: { in: coinIds } },
+    data: { rank: null },
   });
-
-  let nextRank = maxRankResult._max.rank || RANK_SYNC_LIMIT;
-
-  for (const coinId of coinIds) {
-    nextRank += 1;
-    await prisma.coin.update({
-      where: { id: coinId },
-      data: { rank: nextRank },
-    });
-  }
 
   return coinIds.length;
 }
 
 async function ensureAllCoinRanksNotNull(cmcRankMap = new Map()) {
-  const nullRankCoins = await prisma.coin.findMany({
-    where: { rank: null },
+  const mappedCoins = await prisma.coin.findMany({
+    where: { rank: { not: null } },
     select: { id: true, symbol: true },
-    orderBy: { createdAt: "asc" },
+    orderBy: { id: "asc" },
   });
 
-  if (!nullRankCoins.length) {
+  if (!mappedCoins.length) {
     return { fixedFromCmc: 0, fixedFallback: 0, totalFixed: 0 };
   }
 
-  let fixedFromCmc = 0;
-
-  for (const coin of nullRankCoins) {
-    const cmcRank = cmcRankMap.get(getBaseSymbol(coin.symbol));
-    if (cmcRank != null) {
-      await prisma.coin.update({
-        where: { id: coin.id },
-        data: { rank: cmcRank },
-      });
-      fixedFromCmc += 1;
-    }
-  }
-
-  const remainingNullCoins = await prisma.coin.findMany({
-    where: { rank: null },
-    select: { id: true },
-    orderBy: { createdAt: "asc" },
-  });
-
-  const fallbackIds = remainingNullCoins.map((c) => c.id);
-  const fixedFallback = await assignFallbackRanksToCoins(fallbackIds);
+  const unmappedCoins = mappedCoins.filter(
+    (coin) => !cmcRankMap.has(getBaseSymbol(coin.symbol)),
+  );
+  const fixedFallback = await assignFallbackRanksToCoins(
+    unmappedCoins.map((coin) => coin.id),
+  );
 
   return {
-    fixedFromCmc,
+    fixedFromCmc: 0,
     fixedFallback,
-    totalFixed: fixedFromCmc + fixedFallback,
+    totalFixed: fixedFallback,
   };
 }
 
 async function ensureTopCoinRanksNotNull() {
-  const maxRankResult = await prisma.coin.aggregate({
-    _max: { rank: true },
-  });
-
-  let nextRank = maxRankResult._max.rank || RANK_SYNC_LIMIT;
-
   const nullRankTopCoins = await prisma.topCoin.findMany({
     where: { coin: { rank: null } },
     include: {
@@ -101,25 +64,20 @@ async function ensureTopCoinRanksNotNull() {
         select: { id: true, symbol: true },
       },
     },
-    orderBy: { coin: { createdAt: "asc" } },
+    orderBy: { coin: { id: "asc" } },
   });
 
   for (const item of nullRankTopCoins) {
-    nextRank += 1;
-    await prisma.coin.update({
-      where: { id: item.coin.id },
-      data: { rank: nextRank },
-    });
     console.warn(
-      `⚠️ Rank null fixed for ${item.coin.symbol}: assigned fallback rank ${nextRank}`,
+      `⚠️ Rank for ${item.coin.symbol} not present in CMC snapshot. Keeping rank as null.`,
     );
   }
 
   return nullRankTopCoins.length;
 }
 
-// Sinkronisasi rank coin dari CMC ke coin yang terhubung dengan topCoin.
-// Tujuan: rank selalu update dan tidak null.
+// Sinkronisasi rank coin murni dari CMC.
+// Coin yang tidak ada pada snapshot CMC akan dibiarkan rank null (tanpa fallback lokal).
 export async function syncTopCoinRanksFromCmc(limit = RANK_SYNC_LIMIT) {
   try {
     const data = await getTopCoins(limit);
@@ -143,6 +101,10 @@ export async function syncTopCoinRanksFromCmc(limit = RANK_SYNC_LIMIT) {
       },
     });
 
+    const allCoins = await prisma.coin.findMany({
+      select: { id: true, symbol: true, rank: true },
+    });
+
     let updatedCount = 0;
     for (const item of topCoins) {
       const baseSymbol = getBaseSymbol(item.coin.symbol);
@@ -151,6 +113,18 @@ export async function syncTopCoinRanksFromCmc(limit = RANK_SYNC_LIMIT) {
       if (cmcRank != null && item.coin.rank !== cmcRank) {
         await prisma.coin.update({
           where: { id: item.coin.id },
+          data: { rank: cmcRank },
+        });
+        updatedCount += 1;
+      }
+    }
+
+    // Pastikan semua coin lain yang punya pasangan base symbol di CMC ikut sinkron murni.
+    for (const coin of allCoins) {
+      const cmcRank = cmcRankMap.get(getBaseSymbol(coin.symbol));
+      if (cmcRank != null && coin.rank !== cmcRank) {
+        await prisma.coin.update({
+          where: { id: coin.id },
           data: { rank: cmcRank },
         });
         updatedCount += 1;
@@ -178,6 +152,18 @@ export async function syncTopCoinRanksFromCmc(limit = RANK_SYNC_LIMIT) {
 
 // Sinkronisasi top coin dari CMC, padankan pair Coinbase, lalu simpan ke database.
 export async function syncTopCoins() {
+  if (isSyncTopCoinsRunning) {
+    return {
+      success: true,
+      skipped: true,
+      message: "Sync top coin sedang berjalan, skip duplicate trigger",
+      total: 0,
+      validCount: 0,
+    };
+  }
+
+  isSyncTopCoinsRunning = true;
+
   try {
     // Simpan per coin secara incremental agar aman saat proses terhenti di tengah.
     const upsertCoinAndTopCoin = async (coin) => {
@@ -234,11 +220,13 @@ export async function syncTopCoins() {
       }
     };
 
-    // 1. Ambil Top 50 dari CMC (buffer lebih banyak untuk filtering)
-    console.log("📥 Fetching top 50 coins from CoinMarketCap...");
+    // 1. Ambil daftar coin CMC berurutan dari rank tertinggi.
+    console.log(
+      `📥 Fetching top ${RANK_SYNC_LIMIT} coins from CoinMarketCap...`,
+    );
 
     // Semua HTTP request berada di client
-    const data = await getTopCoins(50);
+    const data = await getTopCoins(RANK_SYNC_LIMIT);
 
     if (!data?.data) throw new Error("Data dari CMC kosong.");
 
@@ -263,21 +251,16 @@ export async function syncTopCoins() {
       throw new Error("Tidak ada pair aktif di Coinbase");
     }
 
-    // 3. Filter: Cutoff date untuk analisis (bukan untuk menyimpan)
-    // 4. Pairing + Check Earliest Candle
+    // 3. Pairing berurutan berdasarkan rank CMC sampai dapat 20 coin yang match pair Coinbase.
     let savedCount = 0;
-    const validCoins = []; // Hanya coin dengan listing < 2025 (untuk analisis)
+    const selectedCoins = [];
     let processedCount = 0;
-    const syncedSymbols = new Set();
-    const incomingRanks = new Set(
-      coins.map((c) => c.rank).filter((r) => r != null),
-    );
 
     coinLoop: for (const coin of coins) {
       processedCount++;
 
-      // Stop mencari coin baru jika sudah dapat 20 valid coins
-      if (validCoins.length >= TARGET_VALID_COINS) break;
+      // Stop ketika sudah terkumpul 20 coin yang match pair Coinbase.
+      if (selectedCoins.length >= TARGET_VALID_COINS) break;
 
       // Coba berbagai kemungkinan pair format
       const possiblePairs = [
@@ -303,65 +286,11 @@ export async function syncTopCoins() {
       });
 
       if (existingCoin) {
-        let resolvedListingDate = existingCoin.listingDate;
-        const shouldRevalidateListingDate =
-          !resolvedListingDate || resolvedListingDate >= LISTING_CUTOFF_DATE;
-
-        // Revalidasi listingDate jika null atau terlihat terlalu baru.
-        if (shouldRevalidateListingDate) {
-          console.log(
-            `[${processedCount}/${coins.length}] ${foundPair}: revalidating listingDate...`,
-          );
-
-          const earliestCandle = await fetchEarliestCandle(foundPair);
-          let candidateListingDate = null;
-
-          if (earliestCandle) {
-            candidateListingDate = new Date(earliestCandle.time);
-            console.log(
-              `[${processedCount}/${coins.length}] ${foundPair}: earliest candle listingDate candidate (${candidateListingDate.toISOString().split("T")[0]})`,
-            );
-          } else if (coin.cmcListingDate) {
-            candidateListingDate = coin.cmcListingDate;
-            console.log(
-              `[${processedCount}/${coins.length}] ${foundPair}: fallback listingDate from CMC (${candidateListingDate.toISOString().split("T")[0]})`,
-            );
-          }
-
-          if (candidateListingDate) {
-            // Terapkan kandidat jika data lama kosong atau kandidat lebih tua (lebih akurat untuk histori).
-            if (
-              !resolvedListingDate ||
-              candidateListingDate < resolvedListingDate
-            ) {
-              resolvedListingDate = candidateListingDate;
-            }
-          } else if (!resolvedListingDate) {
-            resolvedListingDate = SAFE_FALLBACK_LISTING_DATE;
-            console.warn(
-              `[${processedCount}/${coins.length}] ${foundPair}: listingDate source unavailable, using safe fallback 2000-01-01`,
-            );
-          }
-        }
-
-        // Coin sudah pernah dicek, gunakan data yang ada
-        const isValid =
-          resolvedListingDate && resolvedListingDate < LISTING_CUTOFF_DATE;
-
-        if (isValid) {
-          console.log(
-            `${foundPair}: Already checked, valid for analysis (${validCoins.length + 1}/${TARGET_VALID_COINS})`,
-          );
-          validCoins.push({
-            ...coin,
-            symbol: foundPair,
-            listingDate: resolvedListingDate,
-          });
-        } else {
-          console.log(
-            `${foundPair}: Already checked, not valid for analysis (listed ${toDateLabel(resolvedListingDate)})`,
-          );
-        }
+        // Jika listingDate sudah ada, jangan revalidate lagi.
+        const resolvedListingDate =
+          existingCoin.listingDate ||
+          coin.cmcListingDate ||
+          SAFE_FALLBACK_LISTING_DATE;
 
         const coinData = {
           ...coin,
@@ -369,18 +298,17 @@ export async function syncTopCoins() {
           listingDate: resolvedListingDate,
         };
 
-        // Simpan/update langsung agar tidak fetch ulang saat rerun.
+        // Simpan/update langsung agar coin + rank selalu ikut snapshot CMC terbaru.
         await upsertCoinAndTopCoin(coinData);
-        syncedSymbols.add(foundPair);
+        selectedCoins.push(coinData);
         savedCount++;
         console.log(
-          `[${processedCount}/${coins.length}] ✅ Saved ${foundPair} (${savedCount} total saved)`,
+          `[${processedCount}/${coins.length}] ✅ Saved ${foundPair} (${savedCount} total saved, selected ${selectedCoins.length}/${TARGET_VALID_COINS})`,
         );
 
-        // Setelah coin tersimpan, baru hentikan jika target valid 20 sudah terpenuhi.
-        if (validCoins.length >= TARGET_VALID_COINS) {
+        if (selectedCoins.length >= TARGET_VALID_COINS) {
           console.log(
-            `✅ Target reached: ${validCoins.length}/${TARGET_VALID_COINS} valid coins. Stopping scan.`,
+            `✅ Target reached: ${selectedCoins.length}/${TARGET_VALID_COINS} paired coins. Stopping scan.`,
           );
           break coinLoop;
         }
@@ -388,25 +316,8 @@ export async function syncTopCoins() {
         continue;
       }
 
-      // Coin belum pernah dicek, fetch earliest candle (via client)
-      console.log(
-        `[${processedCount}/${coins.length}] ${foundPair}: Checking earliest candle...`,
-      );
-      const earliestCandle = await fetchEarliestCandle(foundPair);
-
-      let listingDate = coin.cmcListingDate;
-      if (earliestCandle) {
-        listingDate = new Date(earliestCandle.time);
-      } else if (listingDate) {
-        console.log(
-          `[${processedCount}/${coins.length}] ${foundPair}: fallback listingDate from CMC (${listingDate.toISOString().split("T")[0]})`,
-        );
-      } else {
-        listingDate = SAFE_FALLBACK_LISTING_DATE;
-        console.warn(
-          `[${processedCount}/${coins.length}] ${foundPair}: listingDate source unavailable, using safe fallback 2000-01-01`,
-        );
-      }
+      // Coin baru: listingDate cukup dari CMC, tanpa revalidate candle.
+      const listingDate = coin.cmcListingDate || SAFE_FALLBACK_LISTING_DATE;
 
       // Fetch logo dari CMC untuk coin ini (via client)
       let logo = null;
@@ -427,34 +338,28 @@ export async function syncTopCoins() {
 
       // Simpan/update langsung agar progress tidak hilang saat restart.
       await upsertCoinAndTopCoin(coinData);
-      syncedSymbols.add(foundPair);
       savedCount++;
       console.log(
         `[${processedCount}/${coins.length}] ✅ Saved ${foundPair} (${savedCount} total saved)`,
       );
 
-      // Cek apakah valid untuk analisis
-      if (listingDate < LISTING_CUTOFF_DATE) {
-        validCoins.push(coinData);
+      selectedCoins.push(coinData);
+      if (selectedCoins.length >= TARGET_VALID_COINS) {
         console.log(
-          `${foundPair}: Valid for analysis (${validCoins.length}/${TARGET_VALID_COINS})`,
+          `✅ Target reached: ${selectedCoins.length}/${TARGET_VALID_COINS} paired coins. Stopping scan.`,
         );
-
-        if (validCoins.length >= TARGET_VALID_COINS) {
-          console.log(
-            `✅ Target reached: ${validCoins.length}/${TARGET_VALID_COINS} valid coins. Stopping scan.`,
-          );
-          break coinLoop;
-        }
-      } else {
-        console.log(
-          `${foundPair}: Too new for analysis (${listingDate.toISOString().split("T")[0]})`,
-        );
+        break coinLoop;
       }
     }
 
     if (savedCount === 0) {
       throw new Error("Tidak ada coin yang bisa dipair dengan Coinbase");
+    }
+
+    if (selectedCoins.length < TARGET_VALID_COINS) {
+      console.warn(
+        `⚠️ Paired coins hanya ${selectedCoins.length}/${TARGET_VALID_COINS} dari ${coins.length} ranking CMC yang discan`,
+      );
     }
 
     // 6. DELETE semua TopCoin yang rank terlalu jauh agar tabel tetap bersih.
@@ -472,70 +377,21 @@ export async function syncTopCoins() {
       console.log(`Deleted: ${tc.coin.symbol} (rank ${tc.coin.rank})`);
     }
 
-    // 7. Reconcile rank agar update rank terbaru selalu konsisten dan tidak duplikat.
-    const syncedSymbolsList = Array.from(syncedSymbols);
-    if (syncedSymbolsList.length > 0 && incomingRanks.size > 0) {
-      const conflictingCoins = await prisma.coin.findMany({
-        where: {
-          symbol: { notIn: syncedSymbolsList },
-          rank: { in: Array.from(incomingRanks) },
-        },
-        select: { id: true, symbol: true, rank: true },
-      });
-
-      if (conflictingCoins.length > 0) {
-        const reassignedCount = await assignFallbackRanksToCoins(
-          conflictingCoins.map((c) => c.id),
-        );
-        console.log(
-          `♻️ Reassigned ${reassignedCount} conflicting rank(s) to fallback values`,
-        );
-      }
-    }
-
-    const duplicateRanks = await prisma.coin.groupBy({
-      by: ["rank"],
-      where: { rank: { not: null } },
-      _count: { rank: true },
-      having: { rank: { _count: { gt: 1 } } },
-    });
-
-    for (const dup of duplicateRanks) {
-      const sameRankCoins = await prisma.coin.findMany({
-        where: { rank: dup.rank },
-        select: { id: true, symbol: true, createdAt: true },
-        orderBy: { createdAt: "asc" },
-      });
-
-      const keep =
-        sameRankCoins.find((c) => syncedSymbols.has(c.symbol)) ||
-        sameRankCoins[0];
-      const toNull = sameRankCoins
-        .filter((c) => c.id !== keep.id)
-        .map((c) => c.id);
-
-      if (toNull.length > 0) {
-        await assignFallbackRanksToCoins(toNull);
-        console.log(
-          `♻️ Rank ${dup.rank} deduplicated: keeping ${keep.symbol}, reassigned ${toNull.length} duplicate(s)`,
-        );
-      }
-    }
-
-    // Pastikan coin yang masih terhubung ke topCoin tidak punya rank null.
-    await ensureTopCoinRanksNotNull();
-    await ensureAllCoinRanksNotNull();
+    // Tidak ada rekonsiliasi/fallback rank lokal.
+    // Rank akan dipertahankan murni dari snapshot CMC lewat syncTopCoinRanksFromCmc.
 
     console.log(`Sync completed: ${savedCount} coins saved`);
-    console.log(`${validCoins.length} coins available for analysis\n`);
+    console.log(`${selectedCoins.length} paired coins selected\n`);
 
     return {
       success: true,
-      message: `Sync berhasil: ${savedCount} coins saved, ${validCoins.length} valid for analysis`,
+      message: `Sync berhasil: ${savedCount} coins saved, ${selectedCoins.length} paired coins selected`,
       total: savedCount,
-      validCount: validCoins.length,
+      validCount: selectedCoins.length,
     };
   } catch (err) {
     return { success: false, error: err.message };
+  } finally {
+    isSyncTopCoinsRunning = false;
   }
 }
