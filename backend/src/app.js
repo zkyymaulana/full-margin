@@ -150,4 +150,3 @@ process.on("SIGTERM", async () => {
   console.log("Database disconnected. See you!");
   process.exit(0);
 });
-gimana;
