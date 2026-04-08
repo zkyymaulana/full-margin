@@ -2,11 +2,43 @@ import {
   getMarketcapRealtime,
   getMarketcapLive,
 } from "../services/market/marketcap.service.js";
-import { syncTopCoins } from "../services/market/syncTopCoins.service.js";
+import {
+  syncTopCoins,
+  syncTopCoinRanksFromCmc,
+} from "../services/market/syncTopCoins.service.js";
 import { prisma } from "../lib/prisma.js";
 
 const TARGET_TOP_SYMBOLS = 20;
 const LISTING_CUTOFF_DATE = new Date("2025-01-01T00:00:00.000Z");
+const SYMBOLS_SYNC_COOLDOWN_MS = Number(
+  process.env.SYMBOLS_SYNC_COOLDOWN_MS || 5 * 60 * 1000,
+);
+
+let lastSymbolsSyncAt = 0;
+
+async function ensureSymbolsFresh() {
+  const shouldAutoSync =
+    (process.env.ENABLE_SYMBOLS_AUTO_SYNC ?? "true").toLowerCase() === "true";
+
+  if (!shouldAutoSync) return;
+
+  const now = Date.now();
+  const isCooldownActive = now - lastSymbolsSyncAt < SYMBOLS_SYNC_COOLDOWN_MS;
+
+  if (isCooldownActive) return;
+
+  const topCoinSync = await syncTopCoins();
+  if (!topCoinSync?.success) {
+    throw new Error(topCoinSync?.error || "Sync top coins gagal");
+  }
+
+  const rankSync = await syncTopCoinRanksFromCmc();
+  if (!rankSync?.success) {
+    throw new Error(rankSync?.error || "Sync rank CMC gagal");
+  }
+
+  lastSymbolsSyncAt = Date.now();
+}
 
 async function fetchRankedCoinCandidates(limit) {
   return prisma.topCoin.findMany({
@@ -108,6 +140,8 @@ export async function getMarketcapLiveController(req, res) {
 // Ambil simbol top coin dari database dengan filter listing date yang valid.
 export async function getCoinSymbols(req, res) {
   try {
+    await ensureSymbolsFresh();
+
     // Ambil kandidat berdasarkan rank, lalu lakukan filtering di memory.
     // Jika coin invalid (null / > cutoff), lanjut ke rank berikutnya.
     let rankedCandidates = await fetchRankedCoinCandidates(100);

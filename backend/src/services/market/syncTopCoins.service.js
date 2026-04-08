@@ -304,23 +304,39 @@ export async function syncTopCoins() {
 
       if (existingCoin) {
         let resolvedListingDate = existingCoin.listingDate;
+        const shouldRevalidateListingDate =
+          !resolvedListingDate || resolvedListingDate >= LISTING_CUTOFF_DATE;
 
-        // Backfill listingDate lama yang masih null agar tidak fetch ulang di run berikutnya.
-        if (!resolvedListingDate) {
+        // Revalidasi listingDate jika null atau terlihat terlalu baru.
+        if (shouldRevalidateListingDate) {
           console.log(
-            `[${processedCount}/${coins.length}] ${foundPair}: listingDate kosong, checking earliest candle...`,
+            `[${processedCount}/${coins.length}] ${foundPair}: revalidating listingDate...`,
           );
 
           const earliestCandle = await fetchEarliestCandle(foundPair);
+          let candidateListingDate = null;
 
           if (earliestCandle) {
-            resolvedListingDate = new Date(earliestCandle.time);
-          } else if (coin.cmcListingDate) {
-            resolvedListingDate = coin.cmcListingDate;
+            candidateListingDate = new Date(earliestCandle.time);
             console.log(
-              `[${processedCount}/${coins.length}] ${foundPair}: fallback listingDate from CMC (${resolvedListingDate.toISOString().split("T")[0]})`,
+              `[${processedCount}/${coins.length}] ${foundPair}: earliest candle listingDate candidate (${candidateListingDate.toISOString().split("T")[0]})`,
             );
-          } else {
+          } else if (coin.cmcListingDate) {
+            candidateListingDate = coin.cmcListingDate;
+            console.log(
+              `[${processedCount}/${coins.length}] ${foundPair}: fallback listingDate from CMC (${candidateListingDate.toISOString().split("T")[0]})`,
+            );
+          }
+
+          if (candidateListingDate) {
+            // Terapkan kandidat jika data lama kosong atau kandidat lebih tua (lebih akurat untuk histori).
+            if (
+              !resolvedListingDate ||
+              candidateListingDate < resolvedListingDate
+            ) {
+              resolvedListingDate = candidateListingDate;
+            }
+          } else if (!resolvedListingDate) {
             resolvedListingDate = SAFE_FALLBACK_LISTING_DATE;
             console.warn(
               `[${processedCount}/${coins.length}] ${foundPair}: listingDate source unavailable, using safe fallback 2000-01-01`,

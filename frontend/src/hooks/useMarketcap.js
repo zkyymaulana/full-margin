@@ -41,6 +41,8 @@ export const useMarketcapSymbols = () => {
   return useQuery({
     queryKey: ["marketcap", "symbols"],
     queryFn: getMarketcapSymbols,
-    staleTime: 5 * 60 * 1000, // Cache 5 menit.
+    staleTime: 30 * 1000, // Hindari daftar symbol terlalu lama stale.
+    refetchInterval: 60 * 1000,
+    refetchOnWindowFocus: true,
   });
 };
