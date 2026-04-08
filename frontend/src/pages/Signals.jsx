@@ -264,6 +264,14 @@ function SignalsPage() {
           throw new Error(data.message || "Optimization failed");
         }
 
+        // Jika backend menerima job (running/waiting), langsung buka SSE.
+        if (
+          data?.running === true ||
+          ["running", "waiting"].includes(data?.status)
+        ) {
+          shouldOpenSSE = true;
+        }
+
         if (data.success && data.lastOptimized) {
           const lastOptimizedDate = new Date(data.lastOptimized);
           const formattedDate = lastOptimizedDate.toLocaleDateString("en-US", {
@@ -281,6 +289,9 @@ function SignalsPage() {
           });
 
           shouldOpenSSE = false;
+        } else if (data.success && !data.lastOptimized) {
+          // Respons sukses non-final dianggap proses berjalan di background.
+          shouldOpenSSE = true;
         }
       } catch (fetchError) {
         if (fetchError.name === "AbortError") {

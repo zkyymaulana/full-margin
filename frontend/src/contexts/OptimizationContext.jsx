@@ -35,6 +35,17 @@ export function OptimizationProvider({ children }) {
     }
   }, [progressData]);
 
+  // Tutup mode optimasi otomatis saat status terminal agar UI tidak stuck "Optimizing...".
+  useEffect(() => {
+    const status = progressData?.status;
+    if (!isOptimizationActive) return;
+    if (!["completed", "cancelled", "error"].includes(status)) return;
+
+    console.log(`🧹 Optimization reached terminal status: ${status}`);
+    setIsOptimizationActive(false);
+    setOptimizationSymbol(null);
+  }, [progressData, isOptimizationActive]);
+
   // Mulai optimasi untuk simbol tertentu.
   const startOptimization = (symbol) => {
     console.log(`🚀 Starting global optimization for ${symbol}`);

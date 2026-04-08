@@ -13,27 +13,18 @@ const isValidSymbol = (symbol) => {
 };
 
 export function SymbolProvider({ children }) {
-  const [selectedSymbol, setSelectedSymbol] = useState(DEFAULT_SYMBOL);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Inisialisasi simbol dari localStorage; fallback ke default bila tidak valid.
-  useEffect(() => {
+  const [selectedSymbol, setSelectedSymbol] = useState(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-
-      // Jika nilai tersimpan valid, gunakan nilai tersebut.
       if (stored && isValidSymbol(stored)) {
-        setSelectedSymbol(stored);
-      } else {
-        setSelectedSymbol(DEFAULT_SYMBOL);
+        return stored;
       }
     } catch (error) {
       console.error("❌ Error reading symbol from localStorage:", error);
-      setSelectedSymbol(DEFAULT_SYMBOL);
-    } finally {
-      setIsLoading(false);
     }
-  }, []);
+    return DEFAULT_SYMBOL;
+  });
+  const [isLoading] = useState(false);
 
   useEffect(() => {
     try {

@@ -243,7 +243,19 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
                 `ℹ️ [SSE] Status: ${data.status} - ${data.message || ""}`,
               );
 
-              // Selalu set state waiting saat menerima event status.
+              // Jangan menimpa state terminal (completed/cancelled/error).
+              if (["completed", "cancelled", "error"].includes(data.status)) {
+                const mappedStatus = mapStatusToProgress({
+                  success: true,
+                  status: data.status,
+                  error: data.message,
+                });
+                if (mappedStatus) {
+                  setProgress(mappedStatus);
+                }
+                break;
+              }
+
               setProgress({
                 current: 0,
                 total: 390625,
