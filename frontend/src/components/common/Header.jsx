@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useSymbol } from "../../contexts/SymbolContext";
@@ -27,7 +27,18 @@ function Header() {
   const dropdownRef = useRef(null);
   const userDropdownRef = useRef(null);
 
-  const symbols = symbolsData || [];
+  const symbols = useMemo(() => {
+    const list = Array.isArray(symbolsData) ? symbolsData : [];
+
+    // Gunakan rank asli dari API agar urutan konsisten lintas halaman/session.
+    return [...list].sort((a, b) => {
+      const rankA = Number.isFinite(a?.rank) ? a.rank : Number.MAX_SAFE_INTEGER;
+      const rankB = Number.isFinite(b?.rank) ? b.rank : Number.MAX_SAFE_INTEGER;
+
+      if (rankA !== rankB) return rankA - rankB;
+      return String(a?.symbol || "").localeCompare(String(b?.symbol || ""));
+    });
+  }, [symbolsData]);
   const user = profileData?.data || {};
 
   // Fallback to localStorage for avatar if not in profile data
@@ -246,7 +257,7 @@ function Header() {
                     No symbols found
                   </div>
                 ) : (
-                  filteredSymbols.map((symbol, index) => (
+                  filteredSymbols.map((symbol) => (
                     <button
                       key={symbol.symbol}
                       onClick={() => handleSymbolSelect(symbol.symbol)}
@@ -300,7 +311,7 @@ function Header() {
                           isDarkMode ? "text-gray-500" : "text-gray-400"
                         }`}
                       >
-                        #{index + 1}
+                        #{Number.isFinite(symbol.rank) ? symbol.rank : "-"}
                       </div>
                       {selectedSymbol === symbol.symbol && (
                         <div className="text-blue-500">
