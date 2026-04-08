@@ -139,22 +139,6 @@ export function StandardConfigResults({ displayData }) {
                         isDarkMode ? "text-gray-400" : "text-gray-500"
                       }`}
                     >
-                      Trades
-                    </div>
-                    <div
-                      className={`text-sm font-mono font-semibold ${
-                        isDarkMode ? "text-white" : "text-gray-900"
-                      }`}
-                    >
-                      {data.trades}
-                    </div>
-                  </div>
-                  <div>
-                    <div
-                      className={`text-xs ${
-                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                      }`}
-                    >
                       Final Capital
                     </div>
                     <div
@@ -289,22 +273,6 @@ export function StandardConfigResults({ displayData }) {
                     isDarkMode ? "text-gray-400" : "text-gray-500"
                   }`}
                 >
-                  Trades
-                </div>
-                <div
-                  className={`text-sm font-mono font-semibold ${
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  }`}
-                >
-                  {displayData.comparison.multi.trades}
-                </div>
-              </div>
-              <div>
-                <div
-                  className={`text-xs ${
-                    isDarkMode ? "text-gray-400" : "text-gray-500"
-                  }`}
-                >
                   Final Capital
                 </div>
                 <div
@@ -426,22 +394,6 @@ export function StandardConfigResults({ displayData }) {
                     isDarkMode ? "text-gray-400" : "text-gray-500"
                   }`}
                 >
-                  Trades
-                </div>
-                <div
-                  className={`text-sm font-mono font-semibold ${
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  }`}
-                >
-                  {displayData.comparison.voting.trades}
-                </div>
-              </div>
-              <div>
-                <div
-                  className={`text-xs ${
-                    isDarkMode ? "text-gray-400" : "text-gray-500"
-                  }`}
-                >
                   Final Capital
                 </div>
                 <div
@@ -529,13 +481,6 @@ export function StandardConfigResults({ displayData }) {
                     isDarkMode ? "text-gray-300" : "text-gray-700"
                   }`}
                 >
-                  Trades
-                </th>
-                <th
-                  className={`text-right py-3 px-4 text-sm font-semibold whitespace-nowrap ${
-                    isDarkMode ? "text-gray-300" : "text-gray-700"
-                  }`}
-                >
                   Final Capital
                 </th>
                 <th
@@ -615,13 +560,6 @@ export function StandardConfigResults({ displayData }) {
                         }`}
                       >
                         {formatPercent(data.winRate)}
-                      </td>
-                      <td
-                        className={`py-3 px-4 text-right font-mono text-sm ${
-                          isDarkMode ? "text-gray-300" : ""
-                        }`}
-                      >
-                        {data.trades}
                       </td>
                       <td className="py-3 px-4 text-right">
                         <span
@@ -710,13 +648,6 @@ export function StandardConfigResults({ displayData }) {
                   >
                     {formatPercent(displayData.comparison.multi.winRate)}
                   </td>
-                  <td
-                    className={`py-3 px-4 text-right font-mono text-sm ${
-                      isDarkMode ? "text-gray-300" : ""
-                    }`}
-                  >
-                    {displayData.comparison.multi.trades}
-                  </td>
                   <td className="py-3 px-4 text-right">
                     <span
                       className={`font-mono text-sm ${
@@ -794,13 +725,6 @@ export function StandardConfigResults({ displayData }) {
                     }`}
                   >
                     {formatPercent(displayData.comparison.voting.winRate)}
-                  </td>
-                  <td
-                    className={`py-3 px-4 text-right font-mono text-sm ${
-                      isDarkMode ? "text-gray-300" : ""
-                    }`}
-                  >
-                    {displayData.comparison.voting.trades}
                   </td>
                   <td className="py-3 px-4 text-right">
                     <span

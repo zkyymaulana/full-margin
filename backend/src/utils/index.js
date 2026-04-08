@@ -19,7 +19,7 @@ export {
 export {
   scoreSignal, // Ubah sinyal buy/sell/neutral menjadi skor numerik
   calculateIndividualSignals, // Hitung sinyal per indikator dari data candle
-  calcMaxDrawdown, // Hitung maksimum drawdown dari equity curve
+  calculateMaxDrawDown, // Hitung maksimum drawdown dari equity curve
   calculateMultiIndicatorScore, // Hitung skor multi-indikator berbobot
 } from "./indicator.utils.js";
 

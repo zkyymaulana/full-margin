@@ -159,6 +159,7 @@ async function runMainSyncJob(options = {}) {
   const perf = {
     startedAtIso: new Date(startTime).toISOString(),
     refreshSymbolsMs: 0,
+    rankSyncMs: 0,
     candleSyncMs: 0,
     notificationMs: 0,
   };
@@ -205,6 +206,20 @@ async function runMainSyncJob(options = {}) {
 
     console.log(`🎯 ${syncType} sync for ${symbolsCache.length} symbols...`);
 
+    // Sinkronisasi rank terbaru dari CMC pada setiap siklus cron utama.
+    const rankSyncStart = Date.now();
+    const rankSync = await syncTopCoinRanksFromCmc();
+    perf.rankSyncMs = Date.now() - rankSyncStart;
+    if (!rankSync?.success) {
+      console.warn(
+        `⚠️ ${syncType} sync phase: rank sync gagal (${rankSync?.error || "unknown error"})`,
+      );
+    } else {
+      console.log(
+        `⏱️ [${new Date().toISOString()}] ${syncType} sync phase: rank sync done in ${perf.rankSyncMs}ms (updated=${rankSync.updatedCount}, nullFixed=${rankSync.fixedNullCount})`,
+      );
+    }
+
     // 1️⃣ Sinkronisasi candle (indicators calculated automatically inside)
     const candleSyncStart = Date.now();
     await syncLatestCandles(symbolsCache);
@@ -242,7 +257,7 @@ async function runMainSyncJob(options = {}) {
 
     const nowIso = new Date().toISOString();
     console.log(
-      `📈 [${nowIso}] ${syncType} sync performance summary | total=${jobStats.lastRunDuration}ms | refresh=${perf.refreshSymbolsMs}ms | candle+indicator=${perf.candleSyncMs}ms | notify=${perf.notificationMs}ms`,
+      `📈 [${nowIso}] ${syncType} sync performance summary | total=${jobStats.lastRunDuration}ms | refresh=${perf.refreshSymbolsMs}ms | rank=${perf.rankSyncMs}ms | candle+indicator=${perf.candleSyncMs}ms | notify=${perf.notificationMs}ms`,
     );
 
     console.log(

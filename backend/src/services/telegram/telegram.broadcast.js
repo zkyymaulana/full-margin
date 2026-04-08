@@ -175,37 +175,3 @@ export async function broadcastTelegram(message, options = {}) {
     };
   }
 }
-
-/**
- * Broadcast sinyal trading ke semua user (Multi-Indicator Only).
- *
- */
-export async function broadcastTradingSignal({
-  symbol,
-  signal,
-  price,
-  type = "multi",
-  details = {},
-}) {
-  const signalEmoji = signal === "buy" ? "🟢" : signal === "sell" ? "🔴" : "⚪";
-  const signalText = signal.toUpperCase();
-
-  let message = `
-${signalEmoji} *${signalText} SIGNAL* ${signalEmoji}
-
-📊 *Symbol:* ${symbol}
-💰 *Price:* $${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-⏰ *Type:* Multi-Indicator
-🕐 *Time:* ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}
-`;
-
-  if (details.indicators) {
-    message += `\n🎯 *Active Indicators:*\n${details.indicators}`;
-  }
-
-  if (details.performance) {
-    message += `\n\n📈 *Performance:*\n${details.performance}`;
-  }
-
-  return await broadcastTelegram(message.trim());
-}

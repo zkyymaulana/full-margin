@@ -18,6 +18,8 @@ export {
 export {
   validateAndFillRsiData, // Validasi dan lengkapi data RSI
   scoreSignal, // Ubah sinyal buy/sell/neutral menjadi skor angka
-  calcMaxDrawdown, // Hitung maksimum drawdown
-  calcRiskMetrics, // Hitung metrik risiko dari equity curve
+  calculateROI, // Hitung return on investment (ROI)
+  calculateWinRate, // Hitung win rate dari trade menang/total trade
+  calculateMaxDrawDown, // Hitung maksimum drawdown
+  calculateSharpeRatio, // Hitung Sharpe Ratio dari equity curve
 } from "./backtest.utils.js";

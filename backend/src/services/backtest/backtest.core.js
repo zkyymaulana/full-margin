@@ -1,7 +1,9 @@
 import {
   scoreSignal,
-  calcMaxDrawdown,
-  calcRiskMetrics,
+  calculateMaxDrawDown,
+  calculateROI,
+  calculateWinRate,
+  calculateSharpeRatio,
 } from "./backtest.utils.js";
 
 const INITIAL_CAPITAL = 10000;
@@ -90,7 +92,7 @@ export function runBacktestCore(
   data,
   indicatorName,
   funcs,
-  useStoredSignals = false
+  useStoredSignals = false,
 ) {
   let cap = INITIAL_CAPITAL,
     pos = null,
@@ -150,7 +152,7 @@ export function runBacktestCore(
             price,
             c.bbUpper,
             c.bbLower,
-            c.bbMiddle
+            c.bbMiddle,
           );
           break;
         case "Stochastic":
@@ -198,20 +200,20 @@ export function runBacktestCore(
 
   // 📊 Calculate performance metrics based on thesis requirements
   // 1. ROI = ((Final Capital - Initial Capital) / Initial Capital) * 100
-  const roi = ((cap - INITIAL_CAPITAL) / INITIAL_CAPITAL) * 100;
+  const roi = calculateROI(cap, INITIAL_CAPITAL);
 
   // 2. Win Rate = (Winning Trades / Total Trades) * 100
-  const winRate = trades > 0 ? (wins / trades) * 100 : 0;
+  const winRate = calculateWinRate(wins, trades);
 
   // 3. Maximum Drawdown = (Peak - Lowest After Peak) / Peak * 100
-  const maxDrawdown = calcMaxDrawdown(curve);
+  const maxDrawdown = calculateMaxDrawDown(curve);
 
   // 4. Sharpe Ratio = Average Return / Std Dev of Returns (risk-free rate = 0)
-  const { sharpeRatio } = calcRiskMetrics(curve);
+  const sharpeRatio = calculateSharpeRatio(curve);
 
   return {
-    roi: +roi.toFixed(2),
-    winRate: +winRate.toFixed(2),
+    roi,
+    winRate,
     maxDrawdown,
     trades,
     wins,

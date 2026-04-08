@@ -6,5 +6,4 @@
 
 export {
   fetchHistoricalCandles, // Ambil candle historis dari API Coinbase
-  fetchEarliestCandle, // Ambil candle paling awal untuk listing date
 } from "./coinbase.service.js";

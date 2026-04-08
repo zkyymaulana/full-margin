@@ -8,7 +8,6 @@ import {
   toggleTelegramController,
   telegramWebhookController,
   broadcastController,
-  broadcastSignalController,
 } from "../controllers/index.js";
 
 const router = express.Router();
@@ -18,7 +17,6 @@ router.post("/webhook", telegramWebhookController);
 
 // Broadcast endpoints
 router.post("/broadcast", broadcastController);
-router.post("/broadcast-signal", broadcastSignalController);
 
 // Get Telegram configuration status (public)
 router.get("/config", getTelegramConfigController);

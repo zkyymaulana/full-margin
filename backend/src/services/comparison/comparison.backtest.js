@@ -34,7 +34,7 @@
  */
 
 import { calculateIndividualSignals } from "../../utils/indicator.utils.js";
-import { calcMaxDrawdown } from "./comparison.metrics.js";
+import { calculateMaxDrawDown } from "./comparison.metrics.js";
 
 /**
  * 🗳️ Hitung voting signal dari 8 technical indicators
@@ -143,7 +143,7 @@ function backtestVotingStrategy(data) {
   console.log(`\n🗳️ Running Voting Strategy backtest...`);
   console.log(`   Total data points: ${data.length}`);
   console.log(
-    `   ⚠️ Using majority voting (different from weighted multi-indicator)`
+    `   ⚠️ Using majority voting (different from weighted multi-indicator)`,
   );
 
   // ✅ Iterate melalui semua historical data
@@ -206,7 +206,7 @@ function backtestVotingStrategy(data) {
   const winRate = trades > 0 ? (wins / trades) * 100 : 0;
 
   // ✅ Max Drawdown = worst loss dari peak equity
-  const maxDrawdown = calcMaxDrawdown(equityCurve);
+  const maxDrawdown = calculateMaxDrawDown(equityCurve);
 
   // ═══════════════════════════════════════════════════════
   // 📋 LOG RESULTS
@@ -227,8 +227,6 @@ function backtestVotingStrategy(data) {
     roi: +roi.toFixed(2),
     winRate: +winRate.toFixed(2),
     maxDrawdown,
-    trades,
-    wins,
     finalCapital: +capital.toFixed(2),
     equityCurve,
   };

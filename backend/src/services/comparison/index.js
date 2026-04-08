@@ -44,9 +44,8 @@ import {
   mean,
   stddev,
   calcSharpe,
-  calcSortino,
   calculateReturns,
-  calcMaxDrawdown,
+  calculateMaxDrawDown,
   formatResult,
 } from "./comparison.metrics.js";
 
@@ -92,9 +91,8 @@ export {
   mean, // Hitung rata-rata aritmatika
   stddev, // Hitung standar deviasi
   calcSharpe, // Hitung rasio Sharpe
-  calcSortino, // Hitung rasio Sortino
   calculateReturns, // Hitung return dari equity curve
-  calcMaxDrawdown, // Hitung drawdown maksimum
+  calculateMaxDrawDown, // Hitung drawdown maksimum
   formatResult, // Format hasil backtest agar rapi
 };
 

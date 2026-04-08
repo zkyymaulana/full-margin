@@ -8,7 +8,7 @@
  *
  * Tanggung jawab:
  * • Perhitungan statistik dasar (mean, standard deviation)
- * • Perhitungan financial metrics (Sharpe Ratio, Sortino Ratio)
+ * • Perhitungan financial metrics (Sharpe Ratio)
  * • Perhitungan return dan drawdown
  * • Formatting hasil untuk consistency dan precision
  *
@@ -24,7 +24,7 @@
  *
  * Tujuan:
  * - Menghitung rata-rata nilai dari sebuah array
- * - Digunakan sebagai base untuk Sharpe Ratio dan Sortino Ratio
+ * - Digunakan sebagai base untuk Sharpe Ratio
  * - Essential untuk statistical analysis
  *
  * Formula: mean = Σ(xi) / n
@@ -45,7 +45,7 @@ function mean(values) {
  *
  * Tujuan:
  * - Mengukur volatility atau variabilitas dari data
- * - Digunakan dalam Sharpe Ratio dan Sortino Ratio
+ * - Digunakan dalam Sharpe Ratio
  * - Menunjukkan seberapa banyak data menyimpang dari mean
  *
  * Formula: stddev = √(Σ(xi - mean)² / n)
@@ -110,62 +110,6 @@ function calcSharpe(returns) {
 }
 
 /**
- * 📊 Hitung Sortino Ratio dari return values
- *
- * Tujuan:
- * - Similar dengan Sharpe Ratio, tapi hanya count downside volatility
- * - Lebih baik untuk mengukur risk-adjusted return karena hanya penalize losses
- * - Upside volatility (gains) tidak dihitung
- *
- * Formula: Sortino Ratio = (mean return - rf) / downside deviation
- *
- * Downside Deviation:
- * - Hanya count negative returns (losses) atau returns di bawah minimum acceptable return (MAR)
- * - Measure of downside risk saja
- * - Sama dengan standard deviation tapi hanya untuk bad days
- *
- * Interpretasi:
- * - > 1.0 = Good downside-adjusted return
- * - > 2.0 = Very good
- * - > 3.0 = Excellent
- * - Lebih tinggi dari Sharpe = Strategy lebih baik di upside
- *
- *
- *
- * @example
- * sortino([1, 1.5, 0.8, 2.1, 1.2]) // Returns higher than Sharpe
- * sortino([-1, -2, 1, 2, 1]) // Returns 0 if all downside
- */
-function calcSortino(returns) {
-  if (!returns || returns.length < 2) return 0;
-
-  // ✅ Hitung mean return
-  const avgReturn = mean(returns);
-
-  // ✅ Hitung downside deviation: sqrt(Σ(min(ri, 0))² / n)
-  // Hanya count negative returns sebagai downside risk
-  const negativeReturns = returns.filter((r) => r < 0);
-
-  if (!negativeReturns.length) {
-    // ✅ Jika tidak ada negative returns, strategy sempurna, return high ratio
-    return 100; // Arbitrary high value untuk perfect strategy
-  }
-
-  // ✅ Downside deviation = standard deviation dari negative returns saja
-  const downsideDeviation = stddev(negativeReturns);
-
-  if (downsideDeviation === 0) return 0;
-
-  // ✅ Sortino Ratio formula: (mean return - rf) / downside deviation
-  const sortinoRatio = avgReturn / downsideDeviation;
-
-  // ✅ Annualize
-  const annualizedSortino = sortinoRatio * Math.sqrt(8760);
-
-  return annualizedSortino;
-}
-
-/**
  * 📈 Hitung returns dari equity curve (modal curve)
  *
  * Tujuan:
@@ -222,10 +166,10 @@ function calculateReturns(equityCurve) {
  *
  *
  * @example
- * calcMaxDrawdown([100, 110, 105, 120, 90, 95]) // Returns -25
- * calcMaxDrawdown([100, 101, 102, 103, 104]) // Returns 0 (only up)
+ * calculateMaxDrawDown([100, 110, 105, 120, 90, 95]) // Returns -25
+ * calculateMaxDrawDown([100, 101, 102, 103, 104]) // Returns 0 (only up)
  */
-function calcMaxDrawdown(values) {
+function calculateMaxDrawDown(values) {
   if (!values || values.length < 2) return 0;
 
   let maxDrawdown = 0; // ✅ Track worst drawdown (most negative)
@@ -259,18 +203,14 @@ function calcMaxDrawdown(values) {
  * - Ensure consistency dalam format response
  * - Round numbers ke 2 decimal places
  * - Handle edge cases dan missing values
- * - Provide complete backtest metrics
+ * - Provide metrics sesuai kebutuhan aplikasi
  *
  * Output fields:
  * - roi: Return on Investment (%)
  * - finalCapital: Ending capital ($)
  * - winRate: Percentage of winning trades (%)
  * - maxDrawdown: Worst peak-to-trough loss (%)
- * - trades: Total number of trades executed
  * - sharpeRatio: Risk-adjusted return metric
- * - sortinoRatio: Downside-adjusted return metric
- * - avgTrade: Average $ per trade
- * - profitFactor: Total wins / Total losses ratio
  *
  *
  *
@@ -280,7 +220,6 @@ function calcMaxDrawdown(values) {
  *   finalCapital: 125.567829,
  *   winRate: 55.555555,
  *   maxDrawdown: -15.123456,
- *   trades: 18,
  *   equityCurve: [100, 101, 103, 105, 102, 115, 125.5678]
  * })
  * // Returns: {
@@ -288,9 +227,7 @@ function calcMaxDrawdown(values) {
  * //   finalCapital: 125.57,
  * //   winRate: 55.56,
  * //   maxDrawdown: -15.12,
- * //   trades: 18,
- * //   sharpeRatio: 2.34,
- * //   sortinoRatio: 2.89
+ * //   sharpeRatio: 2.34
  * // }
  */
 function formatResult(backtest) {
@@ -300,29 +237,23 @@ function formatResult(backtest) {
       finalCapital: 100,
       winRate: 0,
       maxDrawdown: 0,
-      trades: 0,
       sharpeRatio: 0,
-      sortinoRatio: 0,
-      avgTrade: 0,
-      profitFactor: 0,
     };
   }
 
   // ✅ Calculate metrics jika belum ada
   let sharpRatio = backtest.sharpeRatio || 0;
-  let sortinoRat = backtest.sortinoRatio || 0;
 
-  // ✅ Jika ada equity curve tapi belum ada sharpe/sortino, hitung
-  if (backtest.equityCurve && (!sharpRatio || !sortinoRat)) {
+  // ✅ Jika ada equity curve tapi belum ada sharpe, hitung
+  if (backtest.equityCurve && !sharpRatio) {
     const returns = calculateReturns(backtest.equityCurve);
     if (!sharpRatio) sharpRatio = calcSharpe(returns);
-    if (!sortinoRat) sortinoRat = calcSortino(returns);
   }
 
   // ✅ Calculate maxDrawdown dari equity curve jika belum ada
   let maxDD = backtest.maxDrawdown;
   if (backtest.equityCurve && !maxDD) {
-    maxDD = calcMaxDrawdown(backtest.equityCurve);
+    maxDD = calculateMaxDrawDown(backtest.equityCurve);
   }
 
   // ✅ Round semua numbers ke 2 decimal places untuk consistency
@@ -331,11 +262,7 @@ function formatResult(backtest) {
     finalCapital: +Number(backtest.finalCapital ?? 100).toFixed(2),
     winRate: +Number(backtest.winRate ?? 0).toFixed(2),
     maxDrawdown: +Number(maxDD ?? 0).toFixed(2),
-    trades: backtest.trades ?? 0,
     sharpeRatio: +Number(sharpRatio).toFixed(2),
-    sortinoRatio: +Number(sortinoRat).toFixed(2),
-    avgTrade: +Number(backtest.avgTrade ?? 0).toFixed(2),
-    profitFactor: +Number(backtest.profitFactor ?? 0).toFixed(2),
   };
 }
 
@@ -347,8 +274,7 @@ export {
   mean,
   stddev,
   calcSharpe,
-  calcSortino,
   calculateReturns,
-  calcMaxDrawdown,
+  calculateMaxDrawDown,
   formatResult,
 };

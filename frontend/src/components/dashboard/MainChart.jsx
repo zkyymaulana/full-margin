@@ -139,8 +139,6 @@ function MainChart({
   seriesRef,
   allCandlesData,
   activeIndicators,
-  chartSync,
-  oscillatorChartsRef,
   onCrosshairMove,
 }) {
   const { isDarkMode } = useDarkMode();

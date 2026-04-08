@@ -61,7 +61,6 @@ export {
   toggleTelegramController, // Aktifkan/nonaktifkan notifikasi Telegram
   telegramWebhookController, // Handler webhook Telegram
   broadcastController, // Broadcast pesan Telegram ke semua user
-  broadcastSignalController, // Broadcast sinyal trading multi-indikator
 } from "./telegram.controller.js";
 
 export {

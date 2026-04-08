@@ -76,7 +76,7 @@ export function calculateIndividualSignals(ind) {
 }
 
 /* --- Utility: Max Drawdown --- */
-export function calcMaxDrawdown(curve) {
+export function calculateMaxDrawDown(curve) {
   let peak = curve?.[0] ?? 0;
   let maxDD = 0;
   for (const v of curve || []) {

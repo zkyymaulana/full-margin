@@ -2,9 +2,6 @@ import {
   testTelegramConnection,
   clearSignalCache,
   broadcastTelegram,
-  broadcastTradingSignal,
-  validateBroadcastSignalParams,
-  buildBroadcastSignalPayload,
 } from "../services/telegram/index.js";
 import {
   detectAndNotifyMultiIndicatorSignals,
@@ -344,39 +341,6 @@ export async function broadcastController(req, res) {
   } catch (error) {
     console.error("❌ Broadcast error:", error.message);
     return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-}
-
-// Broadcast sinyal trading multi-indikator ke seluruh user target.
-export async function broadcastSignalController(req, res) {
-  try {
-    // Validasi input menggunakan helper service.
-    validateBroadcastSignalParams(req.body);
-
-    // Bentuk payload final untuk proses broadcast.
-    const payload = buildBroadcastSignalPayload(req.body);
-
-    // Kirim sinyal ke Telegram.
-    const result = await broadcastTradingSignal(payload);
-
-    return res.json({
-      success: true,
-      message: "Multi-indicator trading signal broadcast completed",
-      result,
-    });
-  } catch (error) {
-    // Error validasi dikembalikan sebagai 400, selain itu 500.
-    const statusCode =
-      error.message.includes("required") ||
-      error.message.includes("must be") ||
-      error.message.includes("Invalid")
-        ? 400
-        : 500;
-
-    return res.status(statusCode).json({
       success: false,
       message: error.message,
     });

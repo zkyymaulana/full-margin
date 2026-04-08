@@ -6,7 +6,10 @@ import { prisma } from "./lib/prisma.js";
 
 // Services
 import { seedAdmin, seedTimeframes } from "../prisma/seed.js";
-import { syncTopCoins } from "./services/market/index.js";
+import {
+  syncTopCoins,
+  syncTopCoinRanksFromCmc,
+} from "./services/market/index.js";
 import { getMarketcapRealtime } from "./services/market/index.js";
 import { startAllSchedulers } from "./services/scheduler/index.js";
 
@@ -41,6 +44,7 @@ async function initializeSystem() {
     ["⏱️ Seeding timeframes", seedTimeframes],
     ["👤 Seeding admin", seedAdmin],
     ["📊 Sync Top 20 CMC", syncTopCoins],
+    ["🏷️ Sync latest CMC ranks", syncTopCoinRanksFromCmc],
     ["🔗 Matching pairs Coinbase", getMarketcapRealtime],
     schedulerAutoStart
       ? ["⏰ Start automated schedulers", startAllSchedulers]

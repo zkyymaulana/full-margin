@@ -51,8 +51,22 @@ export const scoreSignal = (s) => {
   }
 };
 
-// 📉 Hitung maximum drawdown
-export function calcMaxDrawdown(equity) {
+// ROI dalam persentase
+export function calculateROI(finalCapital, initialCapital) {
+  if (!initialCapital || !Number.isFinite(initialCapital)) return 0;
+  const roi = ((finalCapital - initialCapital) / initialCapital) * 100;
+  return +roi.toFixed(2);
+}
+
+// win rate dalam persentase
+export function calculateWinRate(wins, trades) {
+  if (!trades || trades <= 0) return 0;
+  const winRate = (wins / trades) * 100;
+  return +winRate.toFixed(2);
+}
+
+// maximum drawdown
+export function calculateMaxDrawDown(equity) {
   let peak = equity[0];
   let maxDD = 0;
   for (const v of equity) {
@@ -63,15 +77,15 @@ export function calcMaxDrawdown(equity) {
   return +maxDD.toFixed(2);
 }
 
-// 📊 Hitung Sharpe Ratio (tanpa Sortino Ratio)
+// Sharpe Ratio dari equity curve
 /**
  * Sharpe Ratio = Average Return / Standard Deviation of Returns
  * Assumes risk-free rate = 0
  * Uses sample standard deviation
  */
-export function calcRiskMetrics(equity) {
+export function calculateSharpeRatio(equity) {
   if (!equity || equity.length < 2) {
-    return { sharpeRatio: null };
+    return null;
   }
 
   // Calculate returns from equity curve
@@ -81,7 +95,7 @@ export function calcRiskMetrics(equity) {
   }
 
   if (returns.length === 0) {
-    return { sharpeRatio: null };
+    return null;
   }
 
   // Average return
@@ -96,7 +110,5 @@ export function calcRiskMetrics(equity) {
   const annualizationFactor = Math.sqrt(252 * 24);
   const sharpeRatio = std > 0 ? (mean / std) * annualizationFactor : null;
 
-  return {
-    sharpeRatio: sharpeRatio !== null ? +sharpeRatio.toFixed(2) : null,
-  };
+  return sharpeRatio !== null ? +sharpeRatio.toFixed(2) : null;
 }

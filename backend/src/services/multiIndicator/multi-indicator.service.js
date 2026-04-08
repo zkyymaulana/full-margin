@@ -17,11 +17,15 @@
  */
 
 import {
+  calculateROI,
+  calculateSharpeRatio,
+  calculateWinRate,
+} from "../backtest/backtest.utils.js";
+import {
   calculateIndividualSignals,
   scoreSignal,
-  calcMaxDrawdown,
+  calculateMaxDrawDown,
 } from "../../utils/indicator.utils.js";
-import { calcRiskMetrics } from "../backtest/backtest.utils.js";
 
 const ALL_INDICATORS = [
   "SMA",
@@ -193,14 +197,14 @@ function backtestWithWeightsCached(cache, weights) {
     trades++;
   }
 
-  const roi = ((capital - INITIAL_CAPITAL) / INITIAL_CAPITAL) * 100;
-  const winRate = trades > 0 ? (wins / trades) * 100 : 0;
-  const maxDrawdown = calcMaxDrawdown(equityCurve);
-  const { sharpeRatio } = calcRiskMetrics(equityCurve);
+  const roi = calculateROI(capital, INITIAL_CAPITAL);
+  const winRate = calculateWinRate(wins, trades);
+  const maxDrawdown = calculateMaxDrawDown(equityCurve);
+  const sharpeRatio = calculateSharpeRatio(equityCurve);
 
   return {
-    roi: +roi.toFixed(2),
-    winRate: +winRate.toFixed(2),
+    roi,
+    winRate,
     trades,
     wins,
     finalCapital: +capital.toFixed(2),
@@ -266,7 +270,7 @@ export async function optimizeIndicatorWeights(
   let best = null;
   let currentCandleIndex = 0;
 
-  // 🔄 MAIN LOOP: Iterate through semua 5^8 kombinasi
+  // MAIN LOOP: Iterate through semua 5^8 kombinasi
   for (let i = 0; i < totalCombinations; i++) {
     // ✅ Yield to event loop to reduce blocking and improve scheduler responsiveness.
     if (i % OPTIMIZATION_YIELD_EVERY === 0) {

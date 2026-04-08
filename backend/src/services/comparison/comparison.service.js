@@ -63,9 +63,7 @@ import {
 } from "./comparison.validation.js";
 
 import {
-  mean,
   calcSharpe,
-  calcSortino,
   calculateReturns,
   formatResult,
 } from "./comparison.metrics.js";
@@ -122,8 +120,8 @@ import {
  *   period: { start, end, days },
  *   comparison: {
  *     single: { [indicator]: { roi, winRate, maxDrawdown, ... } },
- *     multi: { roi, winRate, maxDrawdown, sharpeRatio, sortinoRatio, ... },
- *     voting: { roi, winRate, maxDrawdown, sharpeRatio, sortinoRatio, ... }
+ *     multi: { roi, winRate, finalCapital, maxDrawdown, sharpeRatio },
+ *     voting: { roi, winRate, finalCapital, maxDrawdown, sharpeRatio }
  *   },
  *   bestStrategy: { name, roi },
  *   analysis: { periodDays, candles, dataPoints, bestSingle, ... }
@@ -135,10 +133,10 @@ export async function compareStrategies(
   symbol,
   startDate,
   endDate,
-  threshold = 0.4
+  threshold = 0.4,
 ) {
   console.log(
-    `📊 Comparison started for ${symbol} with threshold ${threshold}`
+    `📊 Comparison started for ${symbol} with threshold ${threshold}`,
   );
   const timeframe = "1h";
 
@@ -231,7 +229,7 @@ export async function compareStrategies(
 
     const { weights: bestWeights, source: weightSource } = await getBestWeights(
       symbol,
-      timeframe
+      timeframe,
     );
 
     console.log(`✅ Using ${weightSource} weights`, bestWeights);
@@ -248,7 +246,7 @@ export async function compareStrategies(
     // ═══════════════════════════════════════════════════════════════════════
 
     console.log(
-      `🚀 Running multi indicator backtest with threshold ${threshold}...`
+      `🚀 Running multi indicator backtest with threshold ${threshold}...`,
     );
     const multiResult = await backtestWithWeights(data, bestWeights, {
       fastMode: true,
@@ -273,7 +271,7 @@ export async function compareStrategies(
       for (const r of singleResults.results) {
         if (r.success && r.performance) {
           console.log(
-            `   ✓ ${r.indicator}: ROI=${r.performance.roi}%, Capital=${r.performance.finalCapital}, WinRate=${r.performance.winRate}%`
+            `   ✓ ${r.indicator}: ROI=${r.performance.roi}%, Capital=${r.performance.finalCapital}, WinRate=${r.performance.winRate}%`,
           );
           singleFormatted[r.indicator] = formatResult(r.performance);
         } else {
@@ -283,35 +281,22 @@ export async function compareStrategies(
     }
 
     console.log(
-      `📊 Successfully formatted ${Object.keys(singleFormatted).length} indicators`
+      `📊 Successfully formatted ${Object.keys(singleFormatted).length} indicators`,
     );
 
     const multiFormatted = formatResult(multiResult);
     const votingFormatted = formatResult(votingResult);
 
     // ═══════════════════════════════════════════════════════════════════════
-    // 9️⃣ HITUNG SHARPE & SORTINO RATIO
+    // 9️⃣ HITUNG SHARPE RATIO
     // ═══════════════════════════════════════════════════════════════════════
 
-    // ✅ Multi-indicator Sortino Ratio
-    if (multiResult.equityCurve) {
-      const multiReturns = calculateReturns(multiResult.equityCurve);
-      multiFormatted.sortinoRatio = +calcSortino(multiReturns).toFixed(2);
-    } else {
-      multiFormatted.sortinoRatio = 0;
-    }
-
-    // ✅ Voting strategy Sharpe & Sortino Ratio
+    // ✅ Voting strategy Sharpe Ratio
     const votingReturns = calculateReturns(votingResult.equityCurve);
     votingFormatted.sharpeRatio = +calcSharpe(votingReturns).toFixed(2);
-    votingFormatted.sortinoRatio = +calcSortino(votingReturns).toFixed(2);
 
-    console.log(
-      `📊 Multi-indicator Sharpe: ${multiFormatted.sharpeRatio} (from backtest), Sortino: ${multiFormatted.sortinoRatio}`
-    );
-    console.log(
-      `📊 Voting Strategy Sharpe: ${votingFormatted.sharpeRatio}, Sortino: ${votingFormatted.sortinoRatio}`
-    );
+    console.log(`📊 Multi-indicator Sharpe: ${multiFormatted.sharpeRatio}`);
+    console.log(`📊 Voting Strategy Sharpe: ${votingFormatted.sharpeRatio}`);
 
     // ═══════════════════════════════════════════════════════════════════════
     // 🔟 IDENTIFIKASI BEST SINGLE INDICATOR
@@ -320,7 +305,7 @@ export async function compareStrategies(
     const validSingles =
       singleResults.results?.filter((r) => r.success && r.performance) || [];
     console.log(
-      `🔍 Finding best single indicator from ${validSingles.length} valid results...`
+      `🔍 Finding best single indicator from ${validSingles.length} valid results...`,
     );
 
     const bestSingle = validSingles.reduce(
@@ -328,7 +313,7 @@ export async function compareStrategies(
         cur.performance.roi > (best?.performance?.roi ?? -Infinity)
           ? cur
           : best,
-      null
+      null,
     );
 
     const bestSingleData = bestSingle
@@ -337,14 +322,13 @@ export async function compareStrategies(
           roi: +Number(bestSingle.performance.roi).toFixed(2),
           winRate: +Number(bestSingle.performance.winRate).toFixed(2),
           maxDrawdown: +Number(bestSingle.performance.maxDrawdown).toFixed(2),
-          trades: bestSingle.performance.trades,
           finalCapital: +Number(bestSingle.performance.finalCapital).toFixed(2),
         }
       : null;
 
     if (bestSingleData) {
       console.log(
-        `🏆 Best single indicator: ${bestSingleData.indicator} with ${bestSingleData.roi}% ROI and $${bestSingleData.finalCapital} final capital`
+        `🏆 Best single indicator: ${bestSingleData.indicator} with ${bestSingleData.roi}% ROI and $${bestSingleData.finalCapital} final capital`,
       );
     } else {
       console.warn("⚠️ No valid single indicator results found!");
@@ -361,18 +345,18 @@ export async function compareStrategies(
     ];
 
     const bestStrategy = strategies.reduce((best, cur) =>
-      cur.roi > best.roi ? cur : best
+      cur.roi > best.roi ? cur : best,
     );
 
     console.log(`\n🏆 STRATEGY COMPARISON:`);
     console.log(
-      `   Single (${bestSingleData?.indicator}): ${bestSingleData?.roi}% ROI, $${bestSingleData?.finalCapital}`
+      `   Single (${bestSingleData?.indicator}): ${bestSingleData?.roi}% ROI, $${bestSingleData?.finalCapital}`,
     );
     console.log(
-      `   Multi-Weighted: ${multiFormatted.roi}% ROI, $${multiFormatted.finalCapital}`
+      `   Multi-Weighted: ${multiFormatted.roi}% ROI, $${multiFormatted.finalCapital}`,
     );
     console.log(
-      `   Voting: ${votingFormatted.roi}% ROI, $${votingFormatted.finalCapital}`
+      `   Voting: ${votingFormatted.roi}% ROI, $${votingFormatted.finalCapital}`,
     );
     console.log(`   🏆 Winner: ${bestStrategy.name.toUpperCase()}`);
 

@@ -137,11 +137,6 @@ export function OptimizedHighROIResults({ displayData }) {
                   isDarkMode={isDarkMode}
                 />
                 <MetricCell
-                  label="Trades"
-                  value={data.trades}
-                  isDarkMode={isDarkMode}
-                />
-                <MetricCell
                   label="Final Capital"
                   value={formatCurrency(data.finalCapital)}
                   isDarkMode={isDarkMode}
@@ -150,15 +145,6 @@ export function OptimizedHighROIResults({ displayData }) {
                       ? "text-green-600"
                       : "text-red-600"
                   }
-                />
-                <MetricCell
-                  label="Annual Return"
-                  value={
-                    data.annualizedReturn
-                      ? formatPercent(data.annualizedReturn)
-                      : "N/A"
-                  }
-                  isDarkMode={isDarkMode}
                 />
                 <MetricCell
                   label="Max Drawdown"
@@ -230,11 +216,6 @@ export function OptimizedHighROIResults({ displayData }) {
                 isDarkMode={isDarkMode}
               />
               <MetricCell
-                label="Trades"
-                value={displayData.comparisonHighROI.multi.trades}
-                isDarkMode={isDarkMode}
-              />
-              <MetricCell
                 label="Final Capital"
                 value={formatCurrency(
                   displayData.comparisonHighROI.multi.finalCapital,
@@ -245,17 +226,6 @@ export function OptimizedHighROIResults({ displayData }) {
                     ? "text-green-600"
                     : "text-red-600"
                 }
-              />
-              <MetricCell
-                label="Annual Return"
-                value={
-                  displayData.comparisonHighROI.multi.annualizedReturn
-                    ? formatPercent(
-                        displayData.comparisonHighROI.multi.annualizedReturn,
-                      )
-                    : "N/A"
-                }
-                isDarkMode={isDarkMode}
               />
               <MetricCell
                 label="Max Drawdown"
@@ -313,13 +283,6 @@ export function OptimizedHighROIResults({ displayData }) {
                     isDarkMode ? "text-gray-300" : "text-gray-700"
                   }`}
                 >
-                  Trades
-                </th>
-                <th
-                  className={`text-right py-3 px-4 text-sm font-semibold whitespace-nowrap ${
-                    isDarkMode ? "text-gray-300" : "text-gray-700"
-                  }`}
-                >
                   Final Capital
                 </th>
                 <th
@@ -327,7 +290,14 @@ export function OptimizedHighROIResults({ displayData }) {
                     isDarkMode ? "text-gray-300" : "text-gray-700"
                   }`}
                 >
-                  Annualized Return
+                  Max Drawdown
+                </th>
+                <th
+                  className={`text-right py-3 px-4 text-sm font-semibold whitespace-nowrap ${
+                    isDarkMode ? "text-gray-300" : "text-gray-700"
+                  }`}
+                >
+                  Sharpe Ratio
                 </th>
               </tr>
             </thead>
@@ -377,13 +347,6 @@ export function OptimizedHighROIResults({ displayData }) {
                     >
                       {formatPercent(data.winRate)}
                     </td>
-                    <td
-                      className={`py-3 px-4 text-right font-mono text-sm ${
-                        isDarkMode ? "text-gray-300" : ""
-                      }`}
-                    >
-                      {data.trades}
-                    </td>
                     <td className="py-3 px-4 text-right">
                       <span
                         className={`font-mono text-sm ${
@@ -395,14 +358,21 @@ export function OptimizedHighROIResults({ displayData }) {
                         {formatCurrency(data.finalCapital)}
                       </span>
                     </td>
+                    <td className="py-3 px-4 text-right font-mono text-sm text-red-600">
+                      {formatPercent(data.maxDrawdown)}
+                    </td>
                     <td
                       className={`py-3 px-4 text-right font-mono text-sm ${
-                        isDarkMode ? "text-gray-300" : ""
+                        data.sharpeRatio > 1
+                          ? "text-green-600"
+                          : data.sharpeRatio > 0
+                            ? isDarkMode
+                              ? "text-gray-300"
+                              : "text-gray-700"
+                            : "text-red-600"
                       }`}
                     >
-                      {data.annualizedReturn
-                        ? formatPercent(data.annualizedReturn)
-                        : "N/A"}
+                      {formatRatio(data.sharpeRatio)}
                     </td>
                   </tr>
                 ),
@@ -452,13 +422,6 @@ export function OptimizedHighROIResults({ displayData }) {
                   >
                     {formatPercent(displayData.comparisonHighROI.multi.winRate)}
                   </td>
-                  <td
-                    className={`py-3 px-4 text-right font-mono text-sm ${
-                      isDarkMode ? "text-gray-300" : ""
-                    }`}
-                  >
-                    {displayData.comparisonHighROI.multi.trades}
-                  </td>
                   <td className="py-3 px-4 text-right">
                     <span
                       className={`font-mono text-sm ${
@@ -473,16 +436,25 @@ export function OptimizedHighROIResults({ displayData }) {
                       )}
                     </span>
                   </td>
+                  <td className="py-3 px-4 text-right font-mono text-sm text-red-600">
+                    {formatPercent(
+                      displayData.comparisonHighROI.multi.maxDrawdown,
+                    )}
+                  </td>
                   <td
                     className={`py-3 px-4 text-right font-mono text-sm ${
-                      isDarkMode ? "text-gray-300" : ""
+                      displayData.comparisonHighROI.multi.sharpeRatio > 1
+                        ? "text-green-600"
+                        : displayData.comparisonHighROI.multi.sharpeRatio > 0
+                          ? isDarkMode
+                            ? "text-gray-300"
+                            : "text-gray-700"
+                          : "text-red-600"
                     }`}
                   >
-                    {displayData.comparisonHighROI.multi.annualizedReturn
-                      ? formatPercent(
-                          displayData.comparisonHighROI.multi.annualizedReturn,
-                        )
-                      : "N/A"}
+                    {formatRatio(
+                      displayData.comparisonHighROI.multi.sharpeRatio,
+                    )}
                   </td>
                 </tr>
               )}
