@@ -9,15 +9,14 @@ import { seedAdmin, seedTimeframes } from "../prisma/seed.js";
 import {
   syncTopCoins,
   syncTopCoinRanksFromCmc,
+  getMarketcapRealtime,
 } from "./services/market/index.js";
-import { getMarketcapRealtime } from "./services/market/index.js";
 import { startAllSchedulers } from "./services/scheduler/index.js";
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 8000;
-const HOST = process.env.HOST || "localhost";
+const PORT = process.env.PORT || 10000;
 const ENV = process.env.NODE_ENV || "development";
 
 // Middleware
@@ -32,10 +31,11 @@ app.get("/api", (_, res) =>
     env: ENV,
   }),
 );
+
 app.use("/api", routes);
 app.get("/", (_, res) => res.redirect("/api"));
 
-// Helper: Jalankan langkah inisialisasi bertahap
+// 🔥 Background init (NON-BLOCKING)
 async function initializeSystem() {
   const schedulerAutoStart =
     (process.env.SCHEDULER_AUTO_START ?? "true").toLowerCase() === "true";
@@ -43,19 +43,16 @@ async function initializeSystem() {
   const steps = [
     ["⏱️ Seeding timeframes", seedTimeframes],
     ["👤 Seeding admin", seedAdmin],
+
+    // ⚠️ kalau masih berat, nanti bisa dimatikan dulu
     ["📊 Sync Top 20 CMC", syncTopCoins],
     ["🏷️ Sync latest CMC ranks", syncTopCoinRanksFromCmc],
     ["🔗 Matching pairs Coinbase", getMarketcapRealtime],
+
     schedulerAutoStart
       ? ["⏰ Start automated schedulers", startAllSchedulers]
       : null,
   ].filter(Boolean);
-
-  if (!schedulerAutoStart) {
-    console.log(
-      "⏸️ Scheduler auto-start disabled by SCHEDULER_AUTO_START=false",
-    );
-  }
 
   for (const [label, fn] of steps) {
     console.log(`${label}...`);
@@ -67,30 +64,26 @@ async function initializeSystem() {
     }
   }
 
-  console.log("Background service aktif!");
+  console.log("✅ Background service selesai");
 }
 
-// Jalankan server
+// 🚀 START SERVER (TIDAK BOLEH BLOCKING)
 app.listen(PORT, "0.0.0.0", async () => {
   console.log("==========================================");
-  console.log("🚀 Crypto Analyze Backend is LIVE!");
-  console.log(`🌐 http://${HOST}:${PORT}/api`);
+  console.log("🚀 Server LIVE");
+  console.log(`🌐 Port: ${PORT}`);
   console.log(`🧭 Environment: ${ENV}`);
   console.log("==========================================");
 
   try {
     await prisma.$connect();
     console.log("✅ Database connected");
-    await initializeSystem();
-  } catch (err) {
-    console.error("❌ Gagal inisialisasi sistem:", err.message);
-  }
-});
 
-// Graceful shutdown (Ctrl + C)
-process.on("SIGINT", async () => {
-  console.log("\n Shutting down gracefully...");
-  await prisma.$disconnect();
-  console.log("Database disconnected. See you!");
-  process.exit(0);
+    // 🔥 PENTING: JANGAN await
+    setTimeout(() => {
+      initializeSystem();
+    }, 3000);
+  } catch (err) {
+    console.error("❌ Init error:", err.message);
+  }
 });
