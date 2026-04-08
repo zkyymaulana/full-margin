@@ -27,9 +27,7 @@ async function fetchRankedCoinCandidates(limit) {
         },
       },
     },
-    orderBy: {
-      coin: { rank: "asc" },
-    },
+    orderBy: [{ coin: { rank: "asc" } }, { coin: { symbol: "asc" } }],
     take: limit,
   });
 }
@@ -136,9 +134,15 @@ export async function getCoinSymbols(req, res) {
     }
 
     // Urutkan hasil berdasarkan ranking coin.
-    const sortedCoins = topCoins.sort(
-      (a, b) => (a.coin.rank || 999) - (b.coin.rank || 999),
-    );
+    const sortedCoins = topCoins.sort((a, b) => {
+      const rankA = Number.isFinite(a.coin.rank) ? a.coin.rank : 999;
+      const rankB = Number.isFinite(b.coin.rank) ? b.coin.rank : 999;
+
+      if (rankA !== rankB) return rankA - rankB;
+      return String(a.coin.symbol || "").localeCompare(
+        String(b.coin.symbol || ""),
+      );
+    });
 
     // Bentuk payload sederhana untuk response API.
     const symbols = sortedCoins.map((topCoin) => ({

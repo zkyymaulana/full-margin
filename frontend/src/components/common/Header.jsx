@@ -257,7 +257,7 @@ function Header() {
                     No symbols found
                   </div>
                 ) : (
-                  filteredSymbols.map((symbol) => (
+                  filteredSymbols.map((symbol, index) => (
                     <button
                       key={symbol.symbol}
                       onClick={() => handleSymbolSelect(symbol.symbol)}
@@ -311,7 +311,7 @@ function Header() {
                           isDarkMode ? "text-gray-500" : "text-gray-400"
                         }`}
                       >
-                        #{Number.isFinite(symbol.rank) ? symbol.rank : "-"}
+                        #{index + 1}
                       </div>
                       {selectedSymbol === symbol.symbol && (
                         <div className="text-blue-500">
