@@ -17,7 +17,6 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 8000;
-const HOST = process.env.HOST || "localhost";
 const ENV = process.env.NODE_ENV || "development";
 const STARTUP_BG_DELAY_MS = Number(process.env.STARTUP_BG_DELAY_MS || 3000);
 const ENABLE_STARTUP_BACKGROUND_JOBS =
@@ -104,22 +103,21 @@ async function runStartupBackgroundJobs() {
 }
 
 // Jalankan server
-app.listen(PORT, "0.0.0.0", async () => {
+app.listen(PORT, async () => {
   console.log("==========================================");
   console.log("🚀 Crypto Analyze Backend is LIVE!");
-  console.log(`🌐 http://${HOST}:${PORT}/api`);
+  console.log(`🌐 Server running on port ${PORT}`);
   console.log(`🧭 Environment: ${ENV}`);
   console.log("==========================================");
 
   try {
-    // Prisma tetap dikoneksikan di startup agar background jobs punya koneksi DB yang valid.
     await prisma.$connect();
     console.log("✅ Database connected");
 
-    // Jalankan inisialisasi berat secara non-blocking setelah server siap menerima request.
     console.log(
       `⏳ Scheduling background initialization in ${STARTUP_BG_DELAY_MS}ms...`,
     );
+
     setTimeout(() => {
       void runStartupBackgroundJobs();
     }, STARTUP_BG_DELAY_MS);
