@@ -27,6 +27,66 @@ function getBaseSymbol(pairSymbol) {
     .toUpperCase();
 }
 
+async function assignFallbackRanksToCoins(coinIds = []) {
+  if (!coinIds.length) return 0;
+
+  const maxRankResult = await prisma.coin.aggregate({
+    _max: { rank: true },
+  });
+
+  let nextRank = maxRankResult._max.rank || RANK_SYNC_LIMIT;
+
+  for (const coinId of coinIds) {
+    nextRank += 1;
+    await prisma.coin.update({
+      where: { id: coinId },
+      data: { rank: nextRank },
+    });
+  }
+
+  return coinIds.length;
+}
+
+async function ensureAllCoinRanksNotNull(cmcRankMap = new Map()) {
+  const nullRankCoins = await prisma.coin.findMany({
+    where: { rank: null },
+    select: { id: true, symbol: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (!nullRankCoins.length) {
+    return { fixedFromCmc: 0, fixedFallback: 0, totalFixed: 0 };
+  }
+
+  let fixedFromCmc = 0;
+
+  for (const coin of nullRankCoins) {
+    const cmcRank = cmcRankMap.get(getBaseSymbol(coin.symbol));
+    if (cmcRank != null) {
+      await prisma.coin.update({
+        where: { id: coin.id },
+        data: { rank: cmcRank },
+      });
+      fixedFromCmc += 1;
+    }
+  }
+
+  const remainingNullCoins = await prisma.coin.findMany({
+    where: { rank: null },
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const fallbackIds = remainingNullCoins.map((c) => c.id);
+  const fixedFallback = await assignFallbackRanksToCoins(fallbackIds);
+
+  return {
+    fixedFromCmc,
+    fixedFallback,
+    totalFixed: fixedFromCmc + fixedFallback,
+  };
+}
+
 async function ensureTopCoinRanksNotNull() {
   const maxRankResult = await prisma.coin.aggregate({
     _max: { rank: true },
@@ -97,13 +157,18 @@ export async function syncTopCoinRanksFromCmc(limit = RANK_SYNC_LIMIT) {
       }
     }
 
-    const fixedNullCount = await ensureTopCoinRanksNotNull();
+    const fixedNullTopCoinCount = await ensureTopCoinRanksNotNull();
+    const allCoinNullFix = await ensureAllCoinRanksNotNull(cmcRankMap);
+    const fixedNullCount = fixedNullTopCoinCount + allCoinNullFix.totalFixed;
 
     return {
       success: true,
       message: `Rank sync selesai. Updated: ${updatedCount}, Null fixed: ${fixedNullCount}`,
       updatedCount,
       fixedNullCount,
+      fixedNullTopCoinCount,
+      fixedNullFromCmc: allCoinNullFix.fixedFromCmc,
+      fixedNullFallback: allCoinNullFix.fixedFallback,
       totalTopCoin: topCoins.length,
     };
   } catch (err) {
@@ -394,13 +459,22 @@ export async function syncTopCoins() {
     // 7. Reconcile rank agar update rank terbaru selalu konsisten dan tidak duplikat.
     const syncedSymbolsList = Array.from(syncedSymbols);
     if (syncedSymbolsList.length > 0 && incomingRanks.size > 0) {
-      await prisma.coin.updateMany({
+      const conflictingCoins = await prisma.coin.findMany({
         where: {
           symbol: { notIn: syncedSymbolsList },
           rank: { in: Array.from(incomingRanks) },
         },
-        data: { rank: null },
+        select: { id: true, symbol: true, rank: true },
       });
+
+      if (conflictingCoins.length > 0) {
+        const reassignedCount = await assignFallbackRanksToCoins(
+          conflictingCoins.map((c) => c.id),
+        );
+        console.log(
+          `♻️ Reassigned ${reassignedCount} conflicting rank(s) to fallback values`,
+        );
+      }
     }
 
     const duplicateRanks = await prisma.coin.groupBy({
@@ -425,18 +499,16 @@ export async function syncTopCoins() {
         .map((c) => c.id);
 
       if (toNull.length > 0) {
-        await prisma.coin.updateMany({
-          where: { id: { in: toNull } },
-          data: { rank: null },
-        });
+        await assignFallbackRanksToCoins(toNull);
         console.log(
-          `♻️ Rank ${dup.rank} deduplicated: keeping ${keep.symbol}, cleared ${toNull.length} duplicate(s)`,
+          `♻️ Rank ${dup.rank} deduplicated: keeping ${keep.symbol}, reassigned ${toNull.length} duplicate(s)`,
         );
       }
     }
 
     // Pastikan coin yang masih terhubung ke topCoin tidak punya rank null.
     await ensureTopCoinRanksNotNull();
+    await ensureAllCoinRanksNotNull();
 
     console.log(`Sync completed: ${savedCount} coins saved`);
     console.log(`${validCoins.length} coins available for analysis\n`);
