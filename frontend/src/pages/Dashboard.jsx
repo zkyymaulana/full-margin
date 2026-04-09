@@ -1,11 +1,16 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSymbol } from "../contexts/SymbolContext";
 import { useDarkMode } from "../contexts/DarkModeContext";
 import { useMarketCapLive } from "../hooks/useMarketcap";
-import { fetchCandlesWithPagination } from "../services/api.service";
+import {
+  fetchCandlesWithPagination,
+  fetchChartLiveTicker,
+  fetchChartLiveOHLCV,
+} from "../services/api.service";
 import { useChartSync } from "../hooks/useChartSync";
 import { useChartPagination } from "../hooks/useChartPagination";
+import { useLiveRunningCandle } from "../hooks/useLiveRunningCandle";
 import MainChart from "../components/dashboard/MainChart";
 import OscillatorCharts from "../components/dashboard/OscillatorCharts";
 import IndicatorTogglePanel from "../components/dashboard/IndicatorTogglePanel";
@@ -27,6 +32,14 @@ function DashboardPage() {
   const seriesRef = useRef(null);
   const oscillatorChartsRef = useRef({});
   const syncCleanupRef = useRef(null);
+  const wsRef = useRef(null);
+  const lastWsEmitRef = useRef(0);
+  const seriesMetaRef = useRef({
+    initialized: false,
+    minTime: null,
+    maxTime: null,
+    length: 0,
+  });
 
   // Hook custom untuk sinkronisasi chart dan infinite scroll candle.
   const chartSync = useChartSync();
@@ -45,6 +58,166 @@ function DashboardPage() {
   });
 
   const { data: marketCapData } = useMarketCapLive();
+  const { data: chartLiveTickerData } = useQuery({
+    queryKey: ["chart-live-ticker", selectedSymbol],
+    queryFn: () => fetchChartLiveTicker(selectedSymbol),
+    enabled: !!selectedSymbol,
+    refetchInterval: 2000,
+    staleTime: 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: chartLiveOhlcvData } = useQuery({
+    queryKey: ["chart-live-ohlcv", selectedSymbol, timeframe],
+    queryFn: () => fetchChartLiveOHLCV(selectedSymbol, timeframe),
+    enabled: !!selectedSymbol,
+    refetchInterval: 2000,
+    staleTime: 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const [wsLivePrice, setWsLivePrice] = useState(null);
+  const [wsTickKey, setWsTickKey] = useState(null);
+  const [wsTickTimestamp, setWsTickTimestamp] = useState(null);
+
+  useEffect(() => {
+    setWsLivePrice(null);
+    setWsTickKey(null);
+    setWsTickTimestamp(null);
+    lastWsEmitRef.current = 0;
+
+    if (!selectedSymbol) return;
+
+    let isActive = true;
+
+    try {
+      const ws = new WebSocket("wss://ws-feed.exchange.coinbase.com");
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        ws.send(
+          JSON.stringify({
+            type: "subscribe",
+            product_ids: [selectedSymbol],
+            channels: ["ticker"],
+          }),
+        );
+      };
+
+      ws.onmessage = (event) => {
+        if (!isActive) return;
+
+        try {
+          const data = JSON.parse(event.data);
+          if (data?.type !== "ticker" || data?.product_id !== selectedSymbol) {
+            return;
+          }
+
+          const price = Number(data.price);
+          if (!Number.isFinite(price)) return;
+
+          const now = Date.now();
+          if (now - lastWsEmitRef.current < 500) return;
+          lastWsEmitRef.current = now;
+
+          const tickTs = data.time ? new Date(data.time).getTime() : now;
+
+          setWsLivePrice(price);
+          setWsTickKey(now);
+          setWsTickTimestamp(tickTs);
+        } catch (e) {
+          // ignore parse errors from non-json frames
+        }
+      };
+
+      ws.onerror = () => {
+        // fallback polling tetap berjalan jika websocket gagal.
+      };
+    } catch (e) {
+      // fallback polling tetap berjalan jika websocket tidak tersedia.
+    }
+
+    return () => {
+      isActive = false;
+
+      const ws = wsRef.current;
+      if (ws) {
+        try {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(
+              JSON.stringify({
+                type: "unsubscribe",
+                product_ids: [selectedSymbol],
+                channels: ["ticker"],
+              }),
+            );
+          }
+          ws.close();
+        } catch (e) {
+          // ignore close errors
+        }
+      }
+
+      wsRef.current = null;
+    };
+  }, [selectedSymbol]);
+
+  const liveTicker = useMemo(() => {
+    if (!marketCapData?.success || !Array.isArray(marketCapData.data)) {
+      return null;
+    }
+    return marketCapData.data.find((coin) => coin.symbol === selectedSymbol);
+  }, [marketCapData, selectedSymbol]);
+
+  const wsPrice = Number(wsLivePrice);
+  const directLivePrice = Number(chartLiveTickerData?.data?.price);
+  const liveOhlcvClose = Number(chartLiveOhlcvData?.data?.close);
+  const fallbackLivePrice = Number(liveTicker?.price);
+  const livePrice = Number.isFinite(liveOhlcvClose)
+    ? liveOhlcvClose
+    : Number.isFinite(wsPrice)
+      ? wsPrice
+      : Number.isFinite(directLivePrice)
+        ? directLivePrice
+        : fallbackLivePrice;
+
+  const polledTickTs = Number(chartLiveTickerData?.data?.time);
+  const marketTickTs = marketCapData?.timestamp
+    ? new Date(marketCapData.timestamp).getTime()
+    : null;
+
+  const tickTimestampMs = Number.isFinite(Number(wsTickTimestamp))
+    ? Number(wsTickTimestamp)
+    : Number.isFinite(polledTickTs)
+      ? polledTickTs
+      : marketTickTs;
+
+  const liveTickKey =
+    wsTickKey ||
+    chartLiveTickerData?.timestamp ||
+    marketCapData?.timestamp ||
+    null;
+
+  useLiveRunningCandle({
+    setCandles: setAllCandlesData,
+    timeframe,
+    livePrice,
+    liveOhlcv: chartLiveOhlcvData?.data || null,
+    tickKey: liveTickKey,
+    tickTimestampMs,
+    enabled: !!selectedSymbol && Number.isFinite(livePrice),
+  });
+
+  useEffect(() => {
+    if (allCandlesData.length > 0) return;
+
+    seriesMetaRef.current = {
+      initialized: false,
+      minTime: null,
+      maxTime: null,
+      length: 0,
+    };
+  }, [allCandlesData.length]);
 
   // Inisialisasi data candle setiap kali response API terbaru datang.
   useEffect(() => {
@@ -94,6 +267,60 @@ function DashboardPage() {
   useEffect(() => {
     if (!seriesRef.current || !allCandlesData.length) return;
 
+    let minTime = Number.POSITIVE_INFINITY;
+    let maxTime = Number.NEGATIVE_INFINITY;
+    let latestRawCandle = null;
+
+    for (const candle of allCandlesData) {
+      const candleTime = Number(candle.time) / 1000;
+      if (!Number.isFinite(candleTime)) continue;
+
+      if (candleTime < minTime) minTime = candleTime;
+      if (candleTime > maxTime) {
+        maxTime = candleTime;
+        latestRawCandle = candle;
+      }
+    }
+
+    if (
+      !latestRawCandle ||
+      !Number.isFinite(minTime) ||
+      !Number.isFinite(maxTime)
+    ) {
+      return;
+    }
+
+    const previous = seriesMetaRef.current;
+    const canDoIncrementalUpdate =
+      previous.initialized &&
+      minTime === previous.minTime &&
+      maxTime >= previous.maxTime &&
+      allCandlesData.length >= previous.length &&
+      allCandlesData.length <= previous.length + 1;
+
+    if (canDoIncrementalUpdate) {
+      seriesRef.current.update({
+        time: maxTime,
+        open: Number(latestRawCandle.open),
+        high: Number(latestRawCandle.high),
+        low: Number(latestRawCandle.low),
+        close: Number(latestRawCandle.close),
+      });
+
+      chartSync.dataRangeRef.current = {
+        minTime,
+        maxTime,
+      };
+
+      seriesMetaRef.current = {
+        initialized: true,
+        minTime,
+        maxTime,
+        length: allCandlesData.length,
+      };
+      return;
+    }
+
     const chartData = allCandlesData
       .map((d) => ({
         time: Number(d.time) / 1000,
@@ -110,6 +337,13 @@ function DashboardPage() {
       chartSync.dataRangeRef.current = {
         minTime: chartData[0].time,
         maxTime: chartData[chartData.length - 1].time,
+      };
+
+      seriesMetaRef.current = {
+        initialized: true,
+        minTime: chartData[0].time,
+        maxTime: chartData[chartData.length - 1].time,
+        length: chartData.length,
       };
     }
 
@@ -231,7 +465,7 @@ function DashboardPage() {
     );
   };
 
-  // Ambil candle terbaru untuk OHLCV dan kartu indikator.
+  // Kartu OHLCV/indikator dikunci ke data API agar konsisten saat refresh.
   const latestCandle =
     candlesData?.success && candlesData.data?.length > 0
       ? candlesData.data[0]
@@ -324,6 +558,7 @@ function DashboardPage() {
               <MainChart
                 chartRef={chartRef}
                 seriesRef={seriesRef}
+                timeframe={timeframe}
                 allCandlesData={allCandlesData}
                 activeIndicators={activeIndicators}
                 chartSync={chartSync}

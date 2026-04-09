@@ -44,7 +44,7 @@ function Sidebar() {
                 key.includes("candles") ||
                 key.includes("marketcap") ||
                 key.includes("comparison") ||
-                key === "symbols")
+                key === "symbols"),
           ) &&
           query.state.dataUpdatedAt
         );
@@ -52,7 +52,7 @@ function Sidebar() {
 
       if (dataQueries.length > 0) {
         const mostRecentUpdate = Math.max(
-          ...dataQueries.map((q) => q.state.dataUpdatedAt)
+          ...dataQueries.map((q) => q.state.dataUpdatedAt),
         );
         if (mostRecentUpdate > lastDataUpdate.getTime()) {
           setLastDataUpdate(new Date(mostRecentUpdate));
@@ -154,8 +154,8 @@ function Sidebar() {
                       ? "bg-blue-900/20 text-blue-400"
                       : "bg-blue-50 text-blue-600"
                     : isDarkMode
-                    ? "text-gray-300 hover:bg-gray-700"
-                    : "text-gray-600 hover:bg-gray-50"
+                      ? "text-gray-300 hover:bg-gray-700"
+                      : "text-gray-600 hover:bg-gray-50"
                 }`
               }
             >
@@ -177,11 +177,11 @@ function Sidebar() {
             </div>
 
             <h3 className="text-center font-bold text-lg mb-1">
-              Crypto Analyze Pro
+              Crypto Analyze
             </h3>
 
             <p className="text-center text-xs text-white/80 mb-4">
-              Real-time market analysis
+              Cryptocurrency market analysis
             </p>
 
             <div className="space-y-2 text-xs">

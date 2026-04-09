@@ -137,6 +137,7 @@ const useSafeTradingViewLogoRemoval = () => {
 function MainChart({
   chartRef,
   seriesRef,
+  timeframe = "1h",
   allCandlesData,
   activeIndicators,
   onCrosshairMove,
@@ -144,8 +145,45 @@ function MainChart({
   const { isDarkMode } = useDarkMode();
   const chartContainerRef = useRef(null);
   const indicatorSeriesRef = useRef({});
+  const livePriceLineRef = useRef(null);
   // 🆕 simpan { seriesObj, priceLine }[] agar bisa di-remove saat indikator berubah
   const priceLinesRef = useRef([]);
+
+  const getTimeframeMs = (tf) => {
+    const map = {
+      "1m": 60 * 1000,
+      "3m": 3 * 60 * 1000,
+      "5m": 5 * 60 * 1000,
+      "15m": 15 * 60 * 1000,
+      "30m": 30 * 60 * 1000,
+      "1h": 60 * 60 * 1000,
+      "2h": 2 * 60 * 60 * 1000,
+      "4h": 4 * 60 * 60 * 1000,
+      "6h": 6 * 60 * 60 * 1000,
+      "8h": 8 * 60 * 60 * 1000,
+      "12h": 12 * 60 * 60 * 1000,
+      "1d": 24 * 60 * 60 * 1000,
+    };
+
+    if (map[tf]) return map[tf];
+    const m = String(tf || "").match(/^(\d+)([mhd])$/i);
+    if (!m) return map["1h"];
+
+    const amount = Number(m[1]);
+    const unit = m[2].toLowerCase();
+    if (unit === "m") return amount * 60 * 1000;
+    if (unit === "h") return amount * 60 * 60 * 1000;
+    if (unit === "d") return amount * 24 * 60 * 60 * 1000;
+    return map["1h"];
+  };
+
+  const formatRemaining = (remainingMs) => {
+    const safeMs = Math.max(0, remainingMs);
+    const totalSec = Math.floor(safeMs / 1000);
+    const min = Math.floor(totalSec / 60);
+    const sec = totalSec % 60;
+    return `${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  };
 
   // ✅ USE SAFE LOGO REMOVAL HOOK
   useSafeTradingViewLogoRemoval();
@@ -174,12 +212,26 @@ function MainChart({
     });
 
     const candlestickSeries = chart.addCandlestickSeries({
+      ...getCleanSeriesOptions(), // Base clean options, then override for main candle
       upColor: "#26a69a",
       downColor: "#ef5350",
-      borderVisible: false,
+      borderVisible: true,
       wickUpColor: "#26a69a",
       wickDownColor: "#ef5350",
-      ...getCleanSeriesOptions(), // ✅ Hide corner tooltip
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
+    // Label native di price scale agar selalu sinkron dengan sumbu Y.
+    livePriceLineRef.current = candlestickSeries.createPriceLine({
+      price: 0,
+      color: "#26a69a",
+      lineWidth: 1,
+      lineStyle: 2,
+      axisLabelVisible: true,
+      title: "",
+      axisLabelColor: "#26a69a",
+      axisLabelTextColor: "#ffffff",
     });
 
     chartRef.current = chart;
@@ -202,6 +254,7 @@ function MainChart({
 
     return () => {
       window.removeEventListener("resize", handleResize);
+      livePriceLineRef.current = null;
       chart.remove();
     };
   }, [isDarkMode]);
@@ -528,6 +581,66 @@ function MainChart({
       if (chartRef.current) chartRef.current.unsubscribeCrosshairMove(handler);
     };
   }, [chartRef.current, activeIndicators, allCandlesData]);
+
+  // Update label harga native pada price-scale agar sinkron dengan sumbu Y.
+  useEffect(() => {
+    if (
+      !seriesRef.current ||
+      !livePriceLineRef.current ||
+      !allCandlesData.length
+    ) {
+      return;
+    }
+
+    const getLatestCandle = () => {
+      let latest = allCandlesData[0];
+      for (let i = 1; i < allCandlesData.length; i += 1) {
+        if (Number(allCandlesData[i].time) > Number(latest.time)) {
+          latest = allCandlesData[i];
+        }
+      }
+      return latest;
+    };
+
+    const updateBadge = () => {
+      const latest = getLatestCandle();
+      const latestClose = Number(latest?.close);
+      const latestOpen = Number(latest?.open);
+      const latestTimeMs = Number(latest?.time);
+
+      if (!Number.isFinite(latestClose) || !Number.isFinite(latestTimeMs)) {
+        try {
+          livePriceLineRef.current?.applyOptions({ title: "--:--" });
+        } catch (e) {}
+        return;
+      }
+
+      const isBullish = Number.isFinite(latestOpen)
+        ? latestClose >= latestOpen
+        : true;
+      const labelColor = isBullish ? "#26a69a" : "#ef5350";
+
+      const now = Date.now();
+      const elapsed = Math.max(0, now - latestTimeMs);
+      const timeframeMs = getTimeframeMs(timeframe);
+      const remaining = timeframeMs - (elapsed % timeframeMs);
+
+      try {
+        livePriceLineRef.current?.applyOptions({
+          price: latestClose,
+          color: labelColor,
+          axisLabelColor: labelColor,
+          axisLabelTextColor: "#ffffff",
+          title: formatRemaining(remaining),
+        });
+      } catch (e) {}
+    };
+
+    updateBadge();
+    const timer = setInterval(updateBadge, 1000);
+
+    return () => clearInterval(timer);
+  }, [allCandlesData, seriesRef.current, timeframe]);
 
   // Update multi-indicator signal markers (BUY/SELL arrows)
   // ✅ PURE DATABASE SIGNALS - NO FRONTEND CALCULATION

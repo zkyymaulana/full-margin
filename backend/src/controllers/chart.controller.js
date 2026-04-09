@@ -9,6 +9,69 @@ import {
   buildPagination,
 } from "../services/charts/chartdata.service.js";
 import { getCoinLiveDetail } from "../services/market/index.js";
+import { fetchLastCandleByTimeframe } from "../clients/index.js";
+
+// Ambil harga live ringan untuk satu simbol (dipakai polling frontend running candle).
+export async function getChartLiveTicker(req, res) {
+  try {
+    const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
+    const live = await getCoinLiveDetail(symbol);
+
+    if (!live?.success || !live?.data) {
+      return res.status(404).json({
+        success: false,
+        symbol,
+        message: live?.message || "Live ticker tidak ditemukan",
+      });
+    }
+
+    return res.json({
+      success: true,
+      symbol,
+      timestamp: Date.now(),
+      data: live.data,
+    });
+  } catch (err) {
+    console.error("Chart live ticker error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+}
+
+// Ambil OHLCV live per timeframe langsung dari candle Coinbase terbaru.
+export async function getChartLiveOHLCV(req, res) {
+  try {
+    const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
+    const timeframe = String(req.query.timeframe || "1h").toLowerCase();
+
+    const liveCandle = await fetchLastCandleByTimeframe(symbol, timeframe);
+    if (!liveCandle) {
+      return res.status(404).json({
+        success: false,
+        symbol,
+        timeframe,
+        message: "Live OHLCV tidak ditemukan",
+      });
+    }
+
+    return res.json({
+      success: true,
+      symbol,
+      timeframe,
+      timestamp: Date.now(),
+      data: {
+        time: liveCandle.bucketStartMs,
+        open: Number(liveCandle.open),
+        high: Number(liveCandle.high),
+        low: Number(liveCandle.low),
+        close: Number(liveCandle.close),
+        volume: Number(liveCandle.volume),
+      },
+    });
+  } catch (err) {
+    console.error("Chart live OHLCV error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+}
 
 // Ambil data chart lengkap (candlestick, indikator, metadata, dan data live market).
 export async function getChart(req, res) {

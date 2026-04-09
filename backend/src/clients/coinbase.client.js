@@ -7,7 +7,20 @@ dotenv.config();
 const COINBASE_API =
   process.env.COINBASE_API_URL || "https://api.exchange.coinbase.com";
 const API_TIMEOUT = parseInt(process.env.API_TIMEOUT || "10000", 10);
-const GRANULARITY_SECONDS = 3600; // 1 jam
+const GRANULARITY_SECONDS = 3600; // default 1 jam
+
+const GRANULARITY_BY_TIMEFRAME = {
+  "1m": 60,
+  "5m": 300,
+  "15m": 900,
+  "1h": 3600,
+  "6h": 21600,
+  "1d": 86400,
+};
+
+function getGranularityByTimeframe(timeframe = "1h") {
+  return GRANULARITY_BY_TIMEFRAME[timeframe] || GRANULARITY_SECONDS;
+}
 
 // Bangun rentang waktu 1 candle terakhir berdasarkan waktu saat ini.
 function buildLatestCandleRange(now) {
@@ -59,6 +72,34 @@ export async function fetchLastCandle(symbol) {
 
   // Coinbase mengembalikan array candle, lalu kita ubah jadi object terstruktur.
   return mapCoinbaseCandle(data[0]);
+}
+
+// Ambil candle live terbaru berdasarkan timeframe yang diminta.
+export async function fetchLastCandleByTimeframe(symbol, timeframe = "1h") {
+  const granularity = getGranularityByTimeframe(timeframe);
+  const now = new Date();
+  const end = now.toISOString();
+  const start = new Date(now.getTime() - granularity * 2 * 1000).toISOString();
+
+  const { data } = await axios.get(
+    `${COINBASE_API}/products/${symbol}/candles`,
+    {
+      params: { start, end, granularity },
+      timeout: API_TIMEOUT,
+    },
+  );
+
+  if (!Array.isArray(data) || data.length === 0) return null;
+
+  const latest = [...data].sort((a, b) => b[0] - a[0])[0];
+  const mapped = mapCoinbaseCandle(latest);
+
+  return {
+    ...mapped,
+    bucketStartMs: new Date(mapped.time).getTime(),
+    timeframe,
+    granularity,
+  };
 }
 
 // Ambil data ticker dan stats mentah untuk satu pair.
