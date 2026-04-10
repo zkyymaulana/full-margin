@@ -125,3 +125,49 @@ export function removeDuplicateCandles(candles = []) {
     return true;
   });
 }
+
+/**
+ * Melengkapi candle yang hilang dengan metode forward fill.
+ *
+ * Contoh penggunaan:
+ * const candlesFilled = fillMissingCandles(candlesAsc, 60_000);
+ */
+export function fillMissingCandles(candles = [], intervalMs) {
+  // Validasi input dasar agar fungsi aman dipakai ulang di berbagai service.
+  if (!Array.isArray(candles) || candles.length === 0) return [];
+  if (!Number.isFinite(intervalMs) || intervalMs <= 0) return [...candles];
+  if (candles.length === 1) return [...candles];
+
+  // Asumsi input sudah ascending; tetap buat salinan agar tidak mutasi data asli.
+  const result = [candles[0]];
+
+  for (let i = 1; i < candles.length; i++) {
+    const prev = result[result.length - 1];
+    const current = candles[i];
+
+    // Jika timestamp tidak valid atau mundur, langsung lanjutkan candle asli.
+    if (current.time <= prev.time) {
+      result.push(current);
+      continue;
+    }
+
+    // Isi gap antar candle menggunakan close candle sebelumnya.
+    let nextExpectedTime = prev.time + intervalMs;
+    while (nextExpectedTime < current.time) {
+      result.push({
+        time: nextExpectedTime,
+        open: prev.close,
+        high: prev.close,
+        low: prev.close,
+        close: prev.close,
+        volume: 0,
+      });
+      nextExpectedTime += intervalMs;
+    }
+
+    // Tambahkan candle aktual dari sumber data.
+    result.push(current);
+  }
+
+  return result;
+}

@@ -10,6 +10,7 @@ export {
   cleanTickerData, // Bersihkan data ticker agar valid diproses
   cleanCandleData, // Bersihkan dan normalisasi data candle
   removeDuplicateCandles, // Hapus candle duplikat berdasarkan timestamp
+  fillMissingCandles, // Lengkapi gap candle dengan forward fill
 } from "./dataCleaner.js";
 
 export {

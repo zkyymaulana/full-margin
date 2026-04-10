@@ -1,6 +1,11 @@
 import { prisma } from "../../lib/prisma.js";
 import { fetchHistoricalCandles } from "../coinbase/coinbase.service.js";
 import { calculateAndSaveIndicators } from "../indicators/indicator.service.js";
+import {
+  cleanCandleData,
+  removeDuplicateCandles,
+  fillMissingCandles,
+} from "../../utils/dataCleaner.js";
 
 // Cache untuk tracking last update time per symbol
 const lastUpdateCache = new Map();
@@ -266,8 +271,13 @@ async function syncSymbolCandles(symbol) {
       return { symbol, newCandles: 0 };
     }
 
+    // Rapikan data lalu isi gap waktu agar deret waktu tetap konsisten.
+    const normalizedCandles = cleanCandleData(completeCandles);
+    const uniqueCandles = removeDuplicateCandles(normalizedCandles);
+    const candlesWithForwardFill = fillMissingCandles(uniqueCandles, oneHour);
+
     // Prepare data for database insert
-    const candleData = completeCandles.map((candle) => ({
+    const candleData = candlesWithForwardFill.map((candle) => ({
       coinId: coin.id,
       timeframeId: timeframeRecord.id,
       time: BigInt(Math.floor(candle.time)),
@@ -449,7 +459,15 @@ export async function syncHistoricalData(
 
           if (!completeCandles.length) return;
 
-          const candleData = completeCandles.map((candle) => ({
+          // Rapikan data batch lalu isi candle yang hilang dengan forward fill.
+          const normalizedCandles = cleanCandleData(completeCandles);
+          const uniqueCandles = removeDuplicateCandles(normalizedCandles);
+          const candlesWithForwardFill = fillMissingCandles(
+            uniqueCandles,
+            oneHour,
+          );
+
+          const candleData = candlesWithForwardFill.map((candle) => ({
             coinId: coin.id,
             timeframeId: timeframeRecord.id,
             time: BigInt(Math.floor(candle.time)),
@@ -465,16 +483,16 @@ export async function syncHistoricalData(
             skipDuplicates: true,
           });
 
-          totalCompleteCandles += completeCandles.length;
+          totalCompleteCandles += candlesWithForwardFill.length;
           if (
             !earliestSavedTime ||
-            completeCandles[0].time < earliestSavedTime
+            candlesWithForwardFill[0].time < earliestSavedTime
           ) {
-            earliestSavedTime = completeCandles[0].time;
+            earliestSavedTime = candlesWithForwardFill[0].time;
           }
 
           const batchLastTime =
-            completeCandles[completeCandles.length - 1].time;
+            candlesWithForwardFill[candlesWithForwardFill.length - 1].time;
           if (!latestSavedTime || batchLastTime > latestSavedTime) {
             latestSavedTime = batchLastTime;
           }
