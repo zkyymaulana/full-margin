@@ -52,10 +52,10 @@ export async function fetchHistoricalCandles(symbol, start, end, options = {}) {
       });
       if (!Array.isArray(data)) throw new Error("Invalid response format");
 
-      // ✅ PERBAIKAN: Coinbase memberikan timestamp dalam detik, konversi ke milidetik
+      // PERBAIKAN: Coinbase memberikan timestamp dalam detik, konversi ke milidetik
       const candles = data
         .map(([t, low, high, open, close, volume]) => ({
-          time: t * 1000, // ✅ Konversi dari detik ke milidetik (13 digit)
+          time: t * 1000, // Konversi dari detik ke milidetik (13 digit)
           open,
           high,
           low,
@@ -81,7 +81,7 @@ export async function fetchHistoricalCandles(symbol, start, end, options = {}) {
         }
 
         console.log(
-          `✅ ${symbol} Batch ${batchCount++}: ${candles.length} candles`,
+          `${symbol} Batch ${batchCount++}: ${candles.length} candles`,
         );
       }
 

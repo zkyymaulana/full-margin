@@ -160,7 +160,7 @@ export async function updateAllListingDates() {
     }
 
     console.log(`\n📊 Listing Date Update Summary:`);
-    console.log(`   ✅ Updated: ${results.updated}`);
+    console.log(`   Updated: ${results.updated}`);
     console.log(`   ⏭️  Skipped: ${results.skipped}`);
     console.log(`   ❌ Failed: ${results.failed}`);
 
@@ -188,7 +188,7 @@ export async function syncLatestCandles(symbols = []) {
     const failed = results.filter((r) => r.status === "rejected").length;
 
     console.log(
-      `✅ Candle sync completed: ${successful} success, ${failed} failed (${Date.now() - start}ms)`,
+      `Candle sync completed: ${successful} success, ${failed} failed (${Date.now() - start}ms)`,
     );
     return { successful, failed, duration: Date.now() - start };
   } catch (error) {
@@ -235,7 +235,7 @@ async function syncSymbolCandles(symbol) {
 
     let startTime;
     if (lastCandle) {
-      // ✅ Handle BigInt timestamp properly
+      // Handle BigInt timestamp properly
       const lastCandleTime =
         lastCandle.time instanceof Date
           ? lastCandle.time.getTime()
@@ -294,7 +294,7 @@ async function syncSymbolCandles(symbol) {
       skipDuplicates: true,
     });
 
-    // ✅ AUTOMATICALLY CALCULATE INDICATORS AFTER SAVING CANDLES
+    // AUTOMATICALLY CALCULATE INDICATORS AFTER SAVING CANDLES
     await calculateAndSaveIndicators(symbol, "1h");
 
     // Update cache
@@ -316,14 +316,14 @@ export async function getActiveSymbols() {
       return [];
     }
 
-    // ✅ Filter: Hanya coin dengan listing date sebelum 2025-01-01
+    // Filter: Hanya coin dengan listing date sebelum 2025-01-01
     const cutoffDate = new Date("2025-01-01T00:00:00.000Z");
 
     const coins = await prisma.coin.findMany({
       where: {
         rank: { not: null },
         symbol: { contains: "-" }, // Hanya pair valid
-        listingDate: { lt: cutoffDate }, // ✅ HANYA coin yang listing sebelum 2025-01-01
+        listingDate: { lt: cutoffDate }, // HANYA coin yang listing sebelum 2025-01-01
       },
       orderBy: { rank: "asc" },
       select: { symbol: true },
@@ -338,7 +338,7 @@ export async function getActiveSymbols() {
     }
 
     console.log(
-      `✅ Found ${result.length} active symbols from database (listed before 2025-01-01)`,
+      `Found ${result.length} active symbols from database (listed before 2025-01-01)`,
     );
     return result;
   } catch (error) {
@@ -434,7 +434,7 @@ export async function syncHistoricalData(
 
         // Check if already up to date
         if (fetchStartTime >= currentHour) {
-          console.log(`✅ Already up to date`);
+          console.log(`Already up to date`);
           results.skipped++;
           continue;
         }
@@ -507,25 +507,25 @@ export async function syncHistoricalData(
         continue;
       }
 
-      // ✅ AUTOMATICALLY CALCULATE INDICATORS AFTER SAVING HISTORICAL CANDLES
+      // AUTOMATICALLY CALCULATE INDICATORS AFTER SAVING HISTORICAL CANDLES
       console.log(`📊 Calculating indicators for ${symbol}...`);
       await calculateAndSaveIndicators(symbol, "1h");
 
-      // ✅ UPDATE LISTING DATE based on earliest candle
+      // UPDATE LISTING DATE based on earliest candle
       await updateListingDateFromCandles(symbol);
 
       results.successful++;
       results.totalCandles += totalCompleteCandles;
 
       const dateRange = `${new Date(earliestSavedTime).toISOString().split("T")[0]} → ${new Date(latestSavedTime).toISOString().split("T")[0]}`;
-      console.log(`✅ Saved ${totalCompleteCandles} candles (${dateRange})`);
+      console.log(`Saved ${totalCompleteCandles} candles (${dateRange})`);
 
       // Delay between symbols
       if (i < symbols.length - 1) {
         await new Promise((resolve) => setTimeout(resolve, 2000));
       }
     } catch (error) {
-      // ✅ Handle 404 specifically (pair tidak ada historical data)
+      // Handle 404 specifically (pair tidak ada historical data)
       if (error.response?.status === 404) {
         console.warn(
           `⚠️ ${symbol}: Pair tidak memiliki historical data di Coinbase (404)`,
@@ -544,7 +544,7 @@ export async function syncHistoricalData(
   const duration = Date.now() - totalDuration;
   console.log(`\n${"=".repeat(60)}`);
   console.log(`📊 SYNC SUMMARY:`);
-  console.log(`   ✅ Updated: ${results.successful}/${symbols.length}`);
+  console.log(`   Updated: ${results.successful}/${symbols.length}`);
   console.log(`   ⏭️  Skipped: ${results.skipped}/${symbols.length}`);
   console.log(`   ❌ Failed: ${results.failed}/${symbols.length}`);
   console.log(`   💾 Total candles: ${results.totalCandles.toLocaleString()}`);

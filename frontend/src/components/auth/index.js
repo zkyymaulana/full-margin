@@ -25,3 +25,11 @@ export {
 export {
   AuthFooterLink, // Link footer untuk pindah halaman auth
 } from "./AuthFooterLink";
+
+export {
+  LoginForm, // Form login siap pakai
+} from "./LoginForm";
+
+export {
+  RegisterForm, // Form register siap pakai
+} from "./RegisterForm";

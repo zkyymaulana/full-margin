@@ -11,7 +11,7 @@ dotenv.config();
 
 const TARGET_VALID_COINS = 20;
 const SAFE_FALLBACK_LISTING_DATE = new Date("2000-01-01T00:00:00.000Z");
-const RANK_SYNC_LIMIT = 200;
+const RANK_SYNC_LIMIT = 50;
 let isSyncTopCoinsRunning = false;
 
 function getBaseSymbol(pairSymbol) {
@@ -221,9 +221,7 @@ export async function syncTopCoins() {
     };
 
     // 1. Ambil daftar coin CMC berurutan dari rank tertinggi.
-    console.log(
-      `📥 Fetching top ${RANK_SYNC_LIMIT} coins from CoinMarketCap...`,
-    );
+    console.log(`Fetching top ${RANK_SYNC_LIMIT} coins from CoinMarketCap...`);
 
     // Semua HTTP request berada di client
     const data = await getTopCoins(RANK_SYNC_LIMIT);
@@ -303,12 +301,12 @@ export async function syncTopCoins() {
         selectedCoins.push(coinData);
         savedCount++;
         console.log(
-          `[${processedCount}/${coins.length}] ✅ Saved ${foundPair} (${savedCount} total saved, selected ${selectedCoins.length}/${TARGET_VALID_COINS})`,
+          `[${processedCount}/${coins.length}] Saved ${foundPair} (${savedCount} total saved, selected ${selectedCoins.length}/${TARGET_VALID_COINS})`,
         );
 
         if (selectedCoins.length >= TARGET_VALID_COINS) {
           console.log(
-            `✅ Target reached: ${selectedCoins.length}/${TARGET_VALID_COINS} paired coins. Stopping scan.`,
+            `Target reached: ${selectedCoins.length}/${TARGET_VALID_COINS} paired coins. Stopping scan.`,
           );
           break coinLoop;
         }
@@ -333,20 +331,20 @@ export async function syncTopCoins() {
         ...coin,
         symbol: foundPair,
         listingDate: listingDate,
-        logo: logo, // ✅ Logo sudah ada
+        logo: logo, // Logo sudah ada
       };
 
       // Simpan/update langsung agar progress tidak hilang saat restart.
       await upsertCoinAndTopCoin(coinData);
       savedCount++;
       console.log(
-        `[${processedCount}/${coins.length}] ✅ Saved ${foundPair} (${savedCount} total saved)`,
+        `[${processedCount}/${coins.length}] Saved ${foundPair} (${savedCount} total saved)`,
       );
 
       selectedCoins.push(coinData);
       if (selectedCoins.length >= TARGET_VALID_COINS) {
         console.log(
-          `✅ Target reached: ${selectedCoins.length}/${TARGET_VALID_COINS} paired coins. Stopping scan.`,
+          `Target reached: ${selectedCoins.length}/${TARGET_VALID_COINS} paired coins. Stopping scan.`,
         );
         break coinLoop;
       }
@@ -361,27 +359,6 @@ export async function syncTopCoins() {
         `⚠️ Paired coins hanya ${selectedCoins.length}/${TARGET_VALID_COINS} dari ${coins.length} ranking CMC yang discan`,
       );
     }
-
-    // 6. DELETE semua TopCoin yang rank terlalu jauh agar tabel tetap bersih.
-    // Simpan pool lebih panjang supaya fallback rank berikutnya bisa memenuhi 20 coin valid.
-    const oldTopCoins = await prisma.topCoin.findMany({
-      include: { coin: true },
-    });
-
-    const coinsToDelete = oldTopCoins.filter(
-      (tc) => tc.coin.rank && tc.coin.rank > 100,
-    );
-
-    for (const tc of coinsToDelete) {
-      await prisma.topCoin.delete({ where: { id: tc.id } });
-      console.log(`Deleted: ${tc.coin.symbol} (rank ${tc.coin.rank})`);
-    }
-
-    // Tidak ada rekonsiliasi/fallback rank lokal.
-    // Rank akan dipertahankan murni dari snapshot CMC lewat syncTopCoinRanksFromCmc.
-
-    console.log(`Sync completed: ${savedCount} coins saved`);
-    console.log(`${selectedCoins.length} paired coins selected\n`);
 
     return {
       success: true,

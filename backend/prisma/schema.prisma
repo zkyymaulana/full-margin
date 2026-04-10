@@ -50,7 +50,7 @@ model Candle {
   @@index([coinId, time])
 }
 
-model Indicator {
+model Indicators {
   id          Int      @id @default(autoincrement())
   coinId      Int
   timeframeId Int
