@@ -106,8 +106,8 @@ model IndicatorWeight {
   coinId       Int
   timeframeId  Int
 
-  startTrain   BigInt
-  endTrain     BigInt
+  startTest    BigInt
+  endTest      BigInt
 
   weights      Json
   roi          Float
@@ -124,7 +124,7 @@ model IndicatorWeight {
   coin      Coin      @relation(fields: [coinId], references: [id], onDelete: Cascade)
   timeframe Timeframe @relation(fields: [timeframeId], references: [id])
 
-  @@unique([coinId, timeframeId, startTrain, endTrain])
+  @@unique([coinId, timeframeId, startTest, endTest])
   @@index([coinId, timeframeId]) 
 }
 

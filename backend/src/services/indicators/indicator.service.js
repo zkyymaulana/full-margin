@@ -581,10 +581,10 @@ export function formatPerformanceData(weightRecord) {
     trades: weightRecord.trades,
     finalCapital: weightRecord.finalCapital,
     trainingPeriod: {
-      startDate: Number(weightRecord.startTrain),
-      endDate: Number(weightRecord.endTrain),
-      startDateReadable: formatReadableDate(Number(weightRecord.startTrain)),
-      endDateReadable: formatReadableDate(Number(weightRecord.endTrain)),
+      startDate: Number(weightRecord.startTest),
+      endDate: Number(weightRecord.endTest),
+      startDateReadable: formatReadableDate(Number(weightRecord.startTest)),
+      endDateReadable: formatReadableDate(Number(weightRecord.endTest)),
     },
   };
 }

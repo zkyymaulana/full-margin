@@ -290,8 +290,8 @@ export async function runOptimization(
       where: {
         coinId: coin.id,
         timeframeId: timeframeRecord.id,
-        startTrain: BigInt(trainingWindow.startEpoch),
-        endTrain: BigInt(trainingWindow.endEpoch),
+        startTest: BigInt(trainingWindow.startEpoch),
+        endTest: BigInt(trainingWindow.endEpoch),
       },
       orderBy: { updatedAt: "desc" },
     });
@@ -360,11 +360,11 @@ export async function runOptimization(
       console.log(`💾 Saving to database...`);
       await prisma.indicatorWeight.upsert({
         where: {
-          coinId_timeframeId_startTrain_endTrain: {
+          coinId_timeframeId_startTest_endTest: {
             coinId: coin.id,
             timeframeId: timeframeRecord.id,
-            startTrain: BigInt(trainingWindow.startEpoch),
-            endTrain: BigInt(trainingWindow.endEpoch),
+            startTest: BigInt(trainingWindow.startEpoch),
+            endTest: BigInt(trainingWindow.endEpoch),
           },
         },
         update: {
@@ -380,8 +380,8 @@ export async function runOptimization(
         create: {
           coinId: coin.id,
           timeframeId: timeframeRecord.id,
-          startTrain: BigInt(trainingWindow.startEpoch),
-          endTrain: BigInt(trainingWindow.endEpoch),
+          startTest: BigInt(trainingWindow.startEpoch),
+          endTest: BigInt(trainingWindow.endEpoch),
           weights: result.bestWeights,
           roi: result.performance.roi,
           winRate: result.performance.winRate,
@@ -485,8 +485,8 @@ export async function runBacktestWithOptimizedWeights(symbol, timeframe) {
       where: {
         coinId: coin.id,
         timeframeId: timeframeRecord.id,
-        startTrain: BigInt(trainingWindow.startEpoch),
-        endTrain: BigInt(trainingWindow.endEpoch),
+        startTest: BigInt(trainingWindow.startEpoch),
+        endTest: BigInt(trainingWindow.endEpoch),
       },
       orderBy: { updatedAt: "desc" },
     });
@@ -581,8 +581,8 @@ export async function optimizeAllCoins(timeframe) {
           where: {
             coinId: coin.id,
             timeframeId: timeframeRecord.id,
-            startTrain: BigInt(trainingWindow.startEpoch),
-            endTrain: BigInt(trainingWindow.endEpoch),
+            startTest: BigInt(trainingWindow.startEpoch),
+            endTest: BigInt(trainingWindow.endEpoch),
           },
           orderBy: { updatedAt: "desc" },
         });
@@ -632,8 +632,8 @@ export async function optimizeAllCoins(timeframe) {
           data: {
             coinId: coin.id,
             timeframeId: timeframeRecord.id,
-            startTrain: BigInt(trainingWindow.startEpoch),
-            endTrain: BigInt(trainingWindow.endEpoch),
+            startTest: BigInt(trainingWindow.startEpoch),
+            endTest: BigInt(trainingWindow.endEpoch),
             weights: result.bestWeights,
             roi: result.performance.roi,
             winRate: result.performance.winRate,

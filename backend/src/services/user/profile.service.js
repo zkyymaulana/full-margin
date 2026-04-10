@@ -23,7 +23,7 @@ export async function getUserProfile(userId) {
       telegramEnabled: true,
     },
   });
-  if (!user) throw new Error("User tidak ditemukan");
+  if (!user) throw new Error("Akun tidak terdaftar");
   return user;
 }
 
@@ -57,7 +57,7 @@ export async function updateUserProfile(userId, payload) {
       throw new Error("Current password wajib diisi");
     }
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new Error("User tidak ditemukan");
+    if (!user) throw new Error("Akun tidak terdaftar");
 
     const ok = await bcrypt.compare(payload.currentPassword, user.passwordHash);
     if (!ok) throw new Error("Current password salah");

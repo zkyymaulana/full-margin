@@ -106,8 +106,8 @@ export function calculateSharpeRatio(equity) {
     returns.reduce((s, r) => s + (r - mean) ** 2, 0) / (returns.length - 1);
   const std = Math.sqrt(variance);
 
-  // Sharpe Ratio (annualized for hourly data: sqrt(252 * 24))
-  const annualizationFactor = Math.sqrt(252 * 24);
+  // Sharpe Ratio (annualized for hourly data: sqrt(365 * 24))
+  const annualizationFactor = Math.sqrt(365 * 24);
   const sharpeRatio = std > 0 ? (mean / std) * annualizationFactor : null;
 
   return sharpeRatio !== null ? +sharpeRatio.toFixed(2) : null;

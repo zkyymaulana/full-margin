@@ -58,7 +58,7 @@ export async function registerService(email, password, name) {
 export async function loginService(email, password) {
   // Cari user berdasarkan email.
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) throw new Error("User tidak ditemukan");
+  if (!user) throw new Error("Akun tidak terdaftar");
 
   // Verifikasi password dengan hash di database.
   if (!(await bcrypt.compare(password, user.passwordHash)))
