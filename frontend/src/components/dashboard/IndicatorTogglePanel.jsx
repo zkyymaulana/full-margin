@@ -18,7 +18,7 @@ function IndicatorTogglePanel({ activeIndicators, onToggle }) {
     <div className="card">
       <div className={`card-body ${isDarkMode ? "bg-gray-800" : "bg-white"}`}>
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center">
+          <div className="w-10 h-10 bg-linear-to-r from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center">
             <FiBarChart2 className="text-lg text-white" />
           </div>
           <div>
@@ -50,13 +50,13 @@ function IndicatorTogglePanel({ activeIndicators, onToggle }) {
                     ? "bg-blue-900 text-blue-300 border-2 border-blue-700 shadow-sm"
                     : "bg-blue-100 text-blue-600 border-2 border-blue-300 shadow-sm"
                   : isDarkMode
-                  ? "bg-gray-700 text-gray-300 border-2 border-gray-600 hover:bg-gray-600"
-                  : "bg-gray-100 text-gray-600 border-2 border-gray-200 hover:bg-gray-200"
+                    ? "bg-gray-700 text-gray-300 border-2 border-gray-600 hover:bg-gray-600"
+                    : "bg-gray-100 text-gray-600 border-2 border-gray-200 hover:bg-gray-200"
               }`}
             >
               <div className="flex items-center gap-1.5">
                 <div
-                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                  className="w-2.5 h-2.5 rounded-full shrink-0"
                   style={{ backgroundColor: indicator.color }}
                 ></div>
                 <span className="truncate">{indicator.label}</span>

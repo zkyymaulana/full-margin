@@ -1,6 +1,10 @@
 import { useDarkMode } from "../../contexts/DarkModeContext";
 import { safeSignal } from "../../utils/indicatorParser";
 import { useState } from "react";
+import {
+  overlayIndicators,
+  oscillatorIndicators,
+} from "../../utils/chartConfig";
 
 /**
  * InfoTooltip Component
@@ -200,6 +204,15 @@ const indicatorExplanations = {
 // IndicatorValueCards: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 function IndicatorValueCards({ latestCandle, activeIndicators }) {
   const { isDarkMode } = useDarkMode();
+  const indicatorColorMap = [
+    ...overlayIndicators,
+    ...oscillatorIndicators,
+  ].reduce((acc, indicator) => {
+    if (indicator.color) {
+      acc[indicator.id] = indicator.color;
+    }
+    return acc;
+  }, {});
 
   if (!latestCandle || !latestCandle.indicators) {
     return null;
@@ -240,7 +253,7 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
       icon: "🔴",
       title: "RSI (14)",
       subtitle: "Real-time values",
-      color: "#FF6D00",
+      color: indicatorColorMap.rsi || "#FF6D00",
       visible: activeIndicators.includes("rsi"),
       values: [
         {
@@ -257,7 +270,7 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
       icon: "🔴",
       title: "PSAR (0.02 / 0.2)",
       subtitle: "Real-time values",
-      color: "#FF6A00",
+      color: indicatorColorMap.psar || "#E65100",
       visible: activeIndicators.includes("psar"),
       values: [
         { label: "Step:", value: "0.02", bg: true },
@@ -276,7 +289,7 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
       icon: "🟣",
       title: "EMA (20, 50)",
       subtitle: "Real-time values",
-      color: "#9C27B0",
+      color: indicatorColorMap.ema || "#9C27B0",
       visible: activeIndicators.includes("ema"),
       values: [
         {
@@ -298,7 +311,7 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
       icon: "🔵",
       title: "SMA (20, 50)",
       subtitle: "Real-time values",
-      color: "#2962FF",
+      color: indicatorColorMap.sma || "#2962FF",
       visible: activeIndicators.includes("sma"),
       values: [
         {
@@ -320,7 +333,7 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
       icon: "🟢",
       title: "MACD (12, 26, 9)",
       subtitle: "Real-time values",
-      color: "#00C853",
+      color: indicatorColorMap.macd || "#00C853",
       visible: activeIndicators.includes("macd"),
       values: [
         { label: "Fast:", value: "12", bg: true },
@@ -341,7 +354,7 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
       icon: "🟢",
       title: "Stochastic (14, 3)",
       subtitle: "Real-time values",
-      color: "#4CAF50",
+      color: indicatorColorMap.stochastic || "#2E7D32",
       visible: activeIndicators.includes("stochastic"),
       values: [
         { label: "K Period:", value: "14", bg: true },
@@ -365,7 +378,7 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
       icon: "🟡",
       title: "Stochastic RSI",
       subtitle: "Real-time values",
-      color: "#FFC107",
+      color: indicatorColorMap.stochasticRsi || "#FFC107",
       visible: activeIndicators.includes("stochasticRsi"),
       values: [
         { label: "RSI Period:", value: "14", bg: true },
@@ -391,7 +404,7 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
       icon: "🔵",
       title: "Bollinger B. (20, 2)",
       subtitle: "Real-time values",
-      color: "#00BCD4",
+      color: indicatorColorMap.bollinger || "#00BCD4",
       visible: activeIndicators.includes("bollinger"),
       values: [
         { label: "Period:", value: "20", bg: true },
@@ -436,11 +449,11 @@ function IndicatorValueCards({ latestCandle, activeIndicators }) {
           {/* Header with Info Tooltip */}
           <div className="flex items-start gap-3 mb-3">
             <div
-              className="text-2xl shrink-0"
-              style={{ filter: isDarkMode ? "brightness(0.9)" : "none" }}
-            >
-              {card.icon}
-            </div>
+              className={`w-5 h-5 rounded-full shrink-0 mt-1 ${
+                isDarkMode ? "ring-2 ring-white/10" : "ring-1 ring-black/5"
+              }`}
+              style={{ backgroundColor: card.color }}
+            />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <h4

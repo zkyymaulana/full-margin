@@ -156,6 +156,7 @@ export const overlayIndicators = [
   {
     id: "bollinger",
     label: "Bollinger B. (20, 2)",
+    color: "#00BCD4",
     type: "bollinger",
     // Three separate bands with distinct cyan/teal colors
     bands: ["upper", "middle", "lower"],
@@ -164,7 +165,7 @@ export const overlayIndicators = [
   {
     id: "psar",
     label: "PSAR (0.02 / 0.2)",
-    color: "#FF6A00",
+    color: "#E65100",
     type: "psar",
     isDots: true, // Flag to render as dots instead of line
   },
@@ -177,7 +178,7 @@ export const oscillatorIndicators = [
   {
     id: "stochastic",
     label: "Stochastic (14, 3)",
-    color: "#4CAF50",
+    color: "#2E7D32",
     type: "stochastic",
   },
   {
