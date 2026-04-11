@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSymbol } from "../contexts/SymbolContext";
-import { useDarkMode } from "../contexts/DarkModeContext";
 import { useMarketCapLive } from "../hooks/useMarketcap";
 import {
   fetchCandlesWithPagination,
@@ -11,17 +10,15 @@ import {
 import { useChartSync } from "../hooks/useChartSync";
 import { useChartPagination } from "../hooks/useChartPagination";
 import { useLiveRunningCandle } from "../hooks/useLiveRunningCandle";
-import MainChart from "../components/dashboard/MainChart";
-import OscillatorCharts from "../components/dashboard/OscillatorCharts";
 import IndicatorTogglePanel from "../components/dashboard/IndicatorTogglePanel";
 import IndicatorValueCards from "../components/dashboard/IndicatorValueCards";
-import OHLCVCard from "../components/dashboard/OHLCVCard";
 import TopCoinsSection from "../components/dashboard/TopCoinsSection";
+import DashboardHeader from "../components/dashboard/DashboardHeader";
+import DashboardChartSection from "../components/dashboard/DashboardChartSection";
 
 // Halaman dashboard: menampilkan chart utama, oscillator, indikator, dan top coin.
 function DashboardPage() {
   const { selectedSymbol } = useSymbol();
-  const { isDarkMode } = useDarkMode();
   const [timeframe, setTimeframe] = useState("1h");
   const [activeIndicators, setActiveIndicators] = useState([]);
   const [allCandlesData, setAllCandlesData] = useState([]);
@@ -478,107 +475,25 @@ function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1
-            className={`text-3xl font-bold ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
-          >
-            Dashboard
-          </h1>
-          <p
-            className={`mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
-          >
-            Cryptocurrency market analysis
-          </p>
-        </div>
-      </div>
+      <DashboardHeader />
 
-      {/* Chart Section */}
-      <div className="card">
-        <div className={`card-body ${isDarkMode ? "bg-gray-800" : "bg-white"}`}>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2
-                className={`text-xl font-semibold ${
-                  isDarkMode ? "text-white border-none" : "text-gray-900"
-                }`}
-              >
-                {selectedSymbol} Chart
-              </h2>
-              <p
-                className={`text-xs mt-1 ${
-                  isDarkMode ? "text-gray-400" : "text-gray-500"
-                }`}
-              >
-                Change symbol from header dropdown
-              </p>
-            </div>
-            <div className="flex gap-2">
-              {timeframes.map((tf) => (
-                <button
-                  key={tf.value}
-                  onClick={() => setTimeframe(tf.value)}
-                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                    timeframe === tf.value
-                      ? isDarkMode
-                        ? "bg-blue-900 text-blue-300"
-                        : "bg-blue-100 text-blue-600"
-                      : isDarkMode
-                        ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
-                  {tf.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Loading State - Only show once */}
-          {candlesLoading ? (
-            <div className="flex items-center justify-center h-[500px]">
-              <div className="text-center">
-                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
-                <div className={isDarkMode ? "text-gray-400" : "text-gray-500"}>
-                  Loading chart data...
-                </div>
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* OHLCV Card */}
-              {latestCandle && (
-                <OHLCVCard latestCandle={hoveredCandle || latestCandle} />
-              )}
-
-              {/* Main Chart */}
-              <MainChart
-                chartRef={chartRef}
-                seriesRef={seriesRef}
-                timeframe={timeframe}
-                allCandlesData={allCandlesData}
-                activeIndicators={activeIndicators}
-                chartSync={chartSync}
-                oscillatorChartsRef={oscillatorChartsRef}
-                onCrosshairMove={setHoveredCandle}
-              />
-
-              {/* Oscillator Charts */}
-              <OscillatorCharts
-                activeIndicators={activeIndicators}
-                allCandlesData={allCandlesData}
-                chartSync={chartSync}
-                oscillatorChartsRef={oscillatorChartsRef}
-                mainChartRef={chartRef}
-                onChartReady={handleChartReady}
-              />
-            </>
-          )}
-        </div>
-      </div>
+      <DashboardChartSection
+        selectedSymbol={selectedSymbol}
+        timeframes={timeframes}
+        timeframe={timeframe}
+        onTimeframeChange={setTimeframe}
+        candlesLoading={candlesLoading}
+        latestCandle={latestCandle}
+        hoveredCandle={hoveredCandle}
+        chartRef={chartRef}
+        seriesRef={seriesRef}
+        allCandlesData={allCandlesData}
+        activeIndicators={activeIndicators}
+        chartSync={chartSync}
+        oscillatorChartsRef={oscillatorChartsRef}
+        onCrosshairMove={setHoveredCandle}
+        onChartReady={handleChartReady}
+      />
 
       {/* Technical Indicators Toggle Panel */}
       <IndicatorTogglePanel

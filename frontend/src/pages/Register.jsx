@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useRegister } from "../hooks/useAuth";
-import { useDarkMode } from "../contexts/DarkModeContext";
 import { showErrorToast, showSuccessToast } from "../utils/notifications";
 import {
   AuthLayout,
@@ -21,7 +20,6 @@ function Register() {
     confirmPassword: "",
   });
   const { mutate: register, isLoading } = useRegister();
-  const { isDarkMode } = useDarkMode();
 
   // Handle perubahan field form register.
   const handleChange = (e) => {

@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useComparison } from "../hooks/useComparison";
 import { useSymbol } from "../contexts/SymbolContext";
-import { useDarkMode } from "../contexts/DarkModeContext";
 import { useQueryClient } from "@tanstack/react-query";
 
 // Import modular components
@@ -18,7 +17,6 @@ import { ComparisonResults } from "../components/comparison/results";
 // Halaman comparison: mengatur alur input tanggal, eksekusi compare, dan render hasil.
 function ComparisonPage() {
   const { selectedSymbol } = useSymbol();
-  const { isDarkMode } = useDarkMode();
   const queryClient = useQueryClient();
 
   // Track simbol yang sedang aktif saat comparison dijalankan

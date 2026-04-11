@@ -18,26 +18,21 @@ export function GlobalOptimizationProgress() {
   const { data: estimateData } = useOptimizationEstimate(
     optimizationSymbol || "BTC-USD",
     "1h",
-    false
+    false,
   );
 
-  // ✅ Handle cancel optimization
+  // Handle cancel optimization
   const handleCancel = async () => {
     if (!optimizationSymbol || isCancelling) return;
 
     try {
       setIsCancelling(true);
-      console.log(`🛑 Cancelling optimization for ${optimizationSymbol}...`);
 
       await cancelOptimization(optimizationSymbol);
-
-      console.log(`✅ Cancel request sent successfully`);
 
       // Don't stop immediately, let SSE handle the cancelled event
       // stopOptimization will be called when SSE receives "cancelled" event
     } catch (err) {
-      console.error(`❌ Failed to cancel optimization:`, err);
-
       // Force stop on error
       stopOptimization();
     } finally {

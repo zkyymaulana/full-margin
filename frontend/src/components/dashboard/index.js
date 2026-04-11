@@ -21,3 +21,11 @@ export {
 export {
   TopCoinsSection, // Section daftar top coin market
 } from "./TopCoinsSection";
+
+export {
+  DashboardHeader, // Header halaman dashboard
+} from "./DashboardHeader";
+
+export {
+  DashboardChartSection, // Section chart utama dashboard
+} from "./DashboardChartSection";

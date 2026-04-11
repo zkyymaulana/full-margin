@@ -17,3 +17,11 @@ export {
 export {
   CoinTable, // Tabel daftar coin market
 } from "./CoinTable";
+
+export {
+  MarketCapHeader, // Header halaman market cap + refresh button
+} from "./MarketCapHeader";
+
+export {
+  MarketCoinsSection, // Section daftar coin (mobile cards + desktop table)
+} from "./MarketCoinsSection";
