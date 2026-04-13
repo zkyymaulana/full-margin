@@ -1,10 +1,7 @@
 import { prisma } from "../../lib/prisma.js";
 import { getWatchersForCoin } from "../watchlist/watchlist.service.js";
 import { formatTelegramSignalMessage } from "./telegram.message.js";
-import {
-  broadcastTelegram,
-  sendTelegramMessage,
-} from "./telegram.broadcast.js";
+import { sendTelegramMessage } from "./telegram.broadcast.js";
 
 /**
  * File: telegram.service.js
@@ -72,20 +69,68 @@ export async function clearSignalCache(symbol = null) {
 }
 
 /**
- * Test koneksi Telegram dengan cara broadcast pesan test.
+ * Test koneksi Telegram untuk SATU user (bukan broadcast).
  *
  */
-export async function testTelegramConnection() {
-  const message = `
-*TELEGRAM CONNECTION TEST*
+export async function testTelegramConnectionForUser(userId) {
+  if (!userId) {
+    return {
+      success: false,
+      reason: "invalid_user",
+      message: "User ID is required",
+    };
+  }
 
-System: Crypto Trading Bot
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      telegramChatId: true,
+      telegramEnabled: true,
+    },
+  });
+
+  if (!user) {
+    return {
+      success: false,
+      reason: "user_not_found",
+      message: "User not found",
+    };
+  }
+
+  if (!user.telegramChatId) {
+    return {
+      success: false,
+      reason: "no_chat_id",
+      message: "Telegram chat ID is not set for this user",
+    };
+  }
+
+  if (!user.telegramEnabled) {
+    return {
+      success: false,
+      reason: "telegram_disabled",
+      message: "Telegram notifications are disabled for this user",
+    };
+  }
+
+  const message = `
+*CRYPTO ANALYZE CONNECTION TEST*
+
+Name: ${user.name || user.email || `User ${user.id}`}
 Status: Connected
-Mode: Multi-Indicator Only
 Time: ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}
 `;
 
-  return await broadcastTelegram(message.trim());
+  const result = await sendTelegramMessage(message.trim(), user.telegramChatId);
+
+  return {
+    ...result,
+    userId: user.id,
+    chatId: user.telegramChatId,
+  };
 }
 
 /**

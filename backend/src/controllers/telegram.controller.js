@@ -1,5 +1,5 @@
 import {
-  testTelegramConnection,
+  testTelegramConnectionForUser,
   clearSignalCache,
   broadcastTelegram,
 } from "../services/telegram/index.js";
@@ -13,13 +13,35 @@ import axios from "axios";
 // Menguji koneksi bot Telegram dan memastikan bot bisa mengirim pesan.
 export async function testTelegramController(req, res) {
   try {
-    const result = await testTelegramConnection();
+    const authUserId = Number(req.user?.id);
+
+    if (!authUserId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const result = await testTelegramConnectionForUser(authUserId);
+
+    if (!result.success) {
+      const badRequestReasons = new Set([
+        "invalid_user",
+        "no_chat_id",
+        "telegram_disabled",
+      ]);
+      const statusCode = badRequestReasons.has(result.reason) ? 400 : 500;
+
+      return res.status(statusCode).json({
+        success: false,
+        message: result.message || "Failed to send Telegram message",
+        result,
+      });
+    }
 
     return res.json({
       success: result.success,
-      message: result.success
-        ? "Telegram test message sent successfully"
-        : "Failed to send Telegram message",
+      message: "Telegram test message sent successfully",
       result,
     });
   } catch (error) {

@@ -33,7 +33,7 @@ export function TelegramSettingsCard({
         <h2
           className={`text-lg md:text-xl font-semibold ${t(
             "text-white",
-            "text-gray-900"
+            "text-gray-900",
           )}`}
         >
           Preferences
@@ -48,7 +48,7 @@ export function TelegramSettingsCard({
         <div
           className={`p-4 rounded-lg space-y-4 ${t(
             "bg-gray-700/50",
-            "bg-gray-50"
+            "bg-gray-50",
           )}`}
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -56,7 +56,7 @@ export function TelegramSettingsCard({
               <span
                 className={`font-semibold text-base md:text-lg ${t(
                   "text-white",
-                  "text-gray-900"
+                  "text-gray-900",
                 )}`}
               >
                 Telegram Notifications
@@ -80,7 +80,7 @@ export function TelegramSettingsCard({
               <div
                 className={`w-11 h-6 rounded-full peer peer-focus:outline-none peer-focus:ring-4 ${t(
                   "bg-gray-600 peer-focus:ring-blue-800",
-                  "bg-gray-200 peer-focus:ring-blue-300"
+                  "bg-gray-200 peer-focus:ring-blue-300",
                 )} peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
                   isUserConfigured ? "peer-checked:bg-blue-600" : ""
                 }`}
@@ -91,7 +91,7 @@ export function TelegramSettingsCard({
           <p
             className={`text-xs md:text-sm ${t(
               "text-gray-400",
-              "text-gray-500"
+              "text-gray-500",
             )}`}
           >
             Receive trading signal alerts directly to your personal Telegram
@@ -109,7 +109,7 @@ export function TelegramSettingsCard({
             <label
               className={`block text-xs md:text-sm font-medium ${t(
                 "text-gray-300",
-                "text-gray-700"
+                "text-gray-700",
               )}`}
             >
               Telegram Chat ID
@@ -123,7 +123,7 @@ export function TelegramSettingsCard({
                 placeholder="e.g. 123456789"
                 className={`flex-1 px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${t(
                   "bg-gray-800 border-gray-600 text-white placeholder-gray-500",
-                  "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
+                  "bg-white border-gray-300 text-gray-900 placeholder-gray-400",
                 )} focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow`}
               />
               <button
@@ -148,7 +148,7 @@ export function TelegramSettingsCard({
               <p
                 className={`flex items-center gap-1 text-xs ${t(
                   "text-gray-500",
-                  "text-gray-400"
+                  "text-gray-400",
                 )}`}
               >
                 <FiInfo className="shrink-0" />
@@ -167,7 +167,7 @@ export function TelegramSettingsCard({
             <div
               className={`flex items-start gap-2 p-3 rounded-lg ${t(
                 "bg-red-900/20 text-red-400",
-                "bg-red-50 text-red-700"
+                "bg-red-50 text-red-700",
               )}`}
             >
               <span className="shrink-0 text-base leading-none">❌</span>
@@ -175,7 +175,7 @@ export function TelegramSettingsCard({
                 <p
                   className={`font-medium text-xs md:text-sm ${t(
                     "text-red-300",
-                    "text-red-800"
+                    "text-red-800",
                   )}`}
                 >
                   Backend Not Configured
@@ -185,7 +185,7 @@ export function TelegramSettingsCard({
                   <code
                     className={`px-1 rounded ${t(
                       "bg-red-900/40",
-                      "bg-red-100"
+                      "bg-red-100",
                     )}`}
                   >
                     TELEGRAM_BOT_TOKEN
@@ -196,13 +196,13 @@ export function TelegramSettingsCard({
             </div>
           )}
 
-          {isUserConfigured && isBackendConfigured && (
+          {isUserConfigured && isBackendConfigured && userTelegramEnabled && (
             <button
               onClick={handleTestConnection}
               disabled={isTesting}
               className={`w-full p-2.5 rounded-lg border transition-colors text-sm font-medium ${t(
                 "bg-green-900/20 hover:bg-green-900/30 text-green-400 border-green-700/30",
-                "bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                "bg-green-50 hover:bg-green-100 text-green-700 border-green-200",
               )} disabled:opacity-40 disabled:cursor-not-allowed`}
             >
               {isTesting ? (
