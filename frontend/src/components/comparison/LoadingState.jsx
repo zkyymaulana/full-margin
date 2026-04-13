@@ -1,5 +1,6 @@
 import { useDarkMode } from "../../contexts/DarkModeContext";
 import { FiSearch } from "react-icons/fi";
+import { formatDateLabel } from "./utils";
 
 // LoadingState: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 export function LoadingState({
@@ -49,7 +50,7 @@ export function LoadingState({
             Running backtests for {selectedSymbol}
             <span className="hidden md:inline">
               {" "}
-              ({startDate} to {endDate})
+              ({formatDateLabel(startDate)} to {formatDateLabel(endDate)})
             </span>
           </p>
         </div>

@@ -8,6 +8,8 @@ export function BacktestParametersForm({
   endDate,
   setStartDate,
   setEndDate,
+  minDate,
+  maxDate,
   handleCompare,
   isLoading,
   isPending,
@@ -34,6 +36,8 @@ export function BacktestParametersForm({
           endDate={endDate}
           setStartDate={setStartDate}
           setEndDate={setEndDate}
+          minDate={minDate}
+          maxDate={maxDate}
         />
 
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 mt-3 md:mt-4">

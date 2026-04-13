@@ -31,8 +31,7 @@
  * 2. Check startDate dan endDate ada
  * 3. Check format ISO 8601 (YYYY-MM-DD atau ISO full)
  * 4. Check startDate < endDate (logical order)
- * 5. Check date range tidak terlalu lama (max 1 tahun)
- * 6. Check date range tidak terlalu pendek (min 7 hari)
+ * 5. Check date range tidak terlalu pendek (min 7 hari)
  *
  *
  *
@@ -127,25 +126,10 @@ function validateComparisonParams({ symbol, startDate, endDate }) {
     };
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // ✅ VALIDASI 5: Check date range tidak terlalu lama (max 1 tahun)
-  // ═══════════════════════════════════════════════════════════════
-
-  const maxRangeMs = 365 * 24 * 60 * 60 * 1000; // 1 tahun
   const rangeMs = end - start;
 
-  if (rangeMs > maxRangeMs) {
-    return {
-      isValid: false,
-      error: {
-        message: `Date range terlalu panjang (${Math.round(rangeMs / (1000 * 60 * 60 * 24))} hari > 365 hari)`,
-        example: "Maksimal 365 hari per backtest",
-      },
-    };
-  }
-
   // ═══════════════════════════════════════════════════════════════
-  // ✅ VALIDASI 6: Check date range tidak terlalu pendek (min 7 hari)
+  // ✅ VALIDASI 5: Check date range tidak terlalu pendek (min 7 hari)
   // ═══════════════════════════════════════════════════════════════
 
   const minRangeMs = 7 * 24 * 60 * 60 * 1000; // 7 hari

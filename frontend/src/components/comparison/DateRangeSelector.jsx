@@ -7,9 +7,21 @@ export function DateRangeSelector({
   endDate,
   setStartDate,
   setEndDate,
+  minDate,
+  maxDate,
 }) {
   const { isDarkMode } = useDarkMode();
   const { selectedSymbol } = useSymbol();
+
+  const formatToYYYYMMDD = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const minDateValue = minDate || "";
+  const maxDateValue = maxDate || formatToYYYYMMDD(new Date());
 
   const handleQuickSelect = ({ days = 0, months = 0, years = 0 }) => {
     const end = new Date();
@@ -23,15 +35,13 @@ export function DateRangeSelector({
       start.setDate(start.getDate() - days);
     }
 
-    const formatToYYYYMMDD = (date) => {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    };
+    const startValue = formatToYYYYMMDD(start);
+    const endValue = formatToYYYYMMDD(end);
+    const clampedStart =
+      minDateValue && startValue < minDateValue ? minDateValue : startValue;
 
-    setStartDate(formatToYYYYMMDD(start));
-    setEndDate(formatToYYYYMMDD(end));
+    setStartDate(clampedStart);
+    setEndDate(endValue > maxDateValue ? maxDateValue : endValue);
   };
 
   return (
@@ -71,10 +81,12 @@ export function DateRangeSelector({
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
+            min={minDateValue}
+            max={endDate || maxDateValue}
             className={`comparison-date-input w-full max-w-full min-w-0 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
               isDarkMode
-                ? "bg-gray-700 border-gray-600 text-white [color-scheme:dark]"
-                : "border-gray-300 [color-scheme:light]"
+                ? "bg-gray-700 border-gray-600 text-white scheme-dark"
+                : "border-gray-300 scheme-light"
             }`}
           />
         </div>
@@ -91,10 +103,12 @@ export function DateRangeSelector({
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
+            min={startDate || minDateValue}
+            max={maxDateValue}
             className={`comparison-date-input w-full max-w-full min-w-0 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
               isDarkMode
-                ? "bg-gray-700 border-gray-600 text-white [color-scheme:dark]"
-                : "border-gray-300 [color-scheme:light]"
+                ? "bg-gray-700 border-gray-600 text-white scheme-dark"
+                : "border-gray-300 scheme-light"
             }`}
           />
         </div>

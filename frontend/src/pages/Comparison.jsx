@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useComparison } from "../hooks/useComparison";
 import { useSymbol } from "../contexts/SymbolContext";
+import { useMarketcapSymbols } from "../hooks/useMarketcap";
 import { useQueryClient } from "@tanstack/react-query";
 
 // Import modular components
@@ -18,6 +19,7 @@ import { ComparisonResults } from "../components/comparison/results";
 function ComparisonPage() {
   const { selectedSymbol } = useSymbol();
   const queryClient = useQueryClient();
+  const { data: symbolsData } = useMarketcapSymbols();
 
   // Track simbol yang sedang aktif saat comparison dijalankan
   const comparedSymbolRef = useRef(null);
@@ -37,6 +39,16 @@ function ComparisonPage() {
   const [startDate, setStartDate] = useState(formatDate(oneYearAgo));
   const [endDate, setEndDate] = useState(formatDate(today));
   const [displayData, setDisplayData] = useState(null);
+
+  const symbolMeta = Array.isArray(symbolsData)
+    ? symbolsData.find((item) => item?.symbol === selectedSymbol)
+    : null;
+
+  const minHistoricalDate = symbolMeta?.listingDate
+    ? formatDate(new Date(symbolMeta.listingDate))
+    : null;
+
+  const maxSelectableDate = formatDate(today);
 
   const {
     mutate: compare,
@@ -75,6 +87,18 @@ function ComparisonPage() {
     setDisplayData(comparisonData);
   }, [comparisonData]);
 
+  useEffect(() => {
+    if (!minHistoricalDate) return;
+
+    if (startDate < minHistoricalDate) {
+      setStartDate(minHistoricalDate);
+    }
+
+    if (endDate < minHistoricalDate) {
+      setEndDate(minHistoricalDate);
+    }
+  }, [minHistoricalDate, startDate, endDate]);
+
   // Jalankan comparison berdasarkan simbol aktif dan rentang tanggal.
   const handleCompare = () => {
     if (!startDate || !endDate) {
@@ -100,6 +124,8 @@ function ComparisonPage() {
         endDate={endDate}
         setStartDate={setStartDate}
         setEndDate={setEndDate}
+        minDate={minHistoricalDate}
+        maxDate={maxSelectableDate}
         handleCompare={handleCompare}
         isLoading={isLoading}
         isPending={isPending}

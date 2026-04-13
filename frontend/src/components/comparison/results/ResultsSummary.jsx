@@ -1,17 +1,23 @@
 import { useDarkMode } from "../../../contexts/DarkModeContext";
-import { formatPercent, getROIColor } from "../utils";
+import { formatDateLabel, formatPercent, getROIColor } from "../utils";
 import { FiAward, FiAlertTriangle } from "react-icons/fi";
 
 // ResultsSummary: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 export function ResultsSummary({ displayData }) {
   const { isDarkMode } = useDarkMode();
+  const periodStart = displayData.period?.start
+    ? formatDateLabel(displayData.period.start)
+    : null;
+  const periodEnd = displayData.period?.end
+    ? formatDateLabel(displayData.period.end)
+    : null;
 
   return (
     <div
       className={`rounded-lg md:rounded-xl border p-4 md:p-6 ${
         isDarkMode
-          ? "bg-gradient-to-r from-blue-900/30 to-purple-900/30 border-blue-800"
-          : "bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200"
+          ? "bg-linear-to-r from-blue-900/30 to-purple-900/30 border-blue-800"
+          : "bg-linear-to-r from-blue-50 to-purple-50 border-blue-200"
       }`}
     >
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 md:gap-0 mb-4">
@@ -30,6 +36,7 @@ export function ResultsSummary({ displayData }) {
           >
             {displayData.symbol} • {displayData.timeframe} •{" "}
             {displayData.period?.days || displayData.analysis?.periodDays} days
+            {periodStart && periodEnd ? ` • ${periodStart} - ${periodEnd}` : ""}
           </p>
         </div>
         <div className="text-left md:text-right">
@@ -45,17 +52,17 @@ export function ResultsSummary({ displayData }) {
               displayData.comparison?.bestStrategy === "multi"
                 ? "text-purple-600"
                 : displayData.comparison?.bestStrategy === "voting"
-                ? isDarkMode
-                  ? "text-indigo-400"
-                  : "text-indigo-600"
-                : "text-blue-600"
+                  ? isDarkMode
+                    ? "text-indigo-400"
+                    : "text-indigo-600"
+                  : "text-blue-600"
             }`}
           >
             {displayData.comparison?.bestStrategy === "multi"
               ? "Multi-Indicator"
               : displayData.comparison?.bestStrategy === "voting"
-              ? "Voting Strategy"
-              : displayData.analysis?.bestSingle?.indicator || "N/A"}
+                ? "Voting Strategy"
+                : displayData.analysis?.bestSingle?.indicator || "N/A"}
           </div>
         </div>
       </div>
@@ -98,7 +105,7 @@ export function ResultsSummary({ displayData }) {
           <div
             className={`text-lg md:text-2xl font-bold ${getROIColor(
               displayData.analysis?.bestSingle?.roi,
-              isDarkMode
+              isDarkMode,
             )}`}
           >
             {formatPercent(displayData.analysis?.bestSingle?.roi)}
@@ -127,7 +134,7 @@ export function ResultsSummary({ displayData }) {
           <div
             className={`text-lg md:text-2xl font-bold ${getROIColor(
               displayData.comparison?.multi?.roi,
-              isDarkMode
+              isDarkMode,
             )}`}
           >
             {formatPercent(displayData.comparison?.multi?.roi)}
@@ -156,7 +163,7 @@ export function ResultsSummary({ displayData }) {
           <div
             className={`text-lg md:text-2xl font-bold ${getROIColor(
               displayData.comparison?.voting?.roi,
-              isDarkMode
+              isDarkMode,
             )}`}
           >
             {formatPercent(displayData.comparison?.voting?.roi)}
@@ -187,10 +194,10 @@ export function ResultsSummary({ displayData }) {
               displayData.analysis?.roiDifference > 0
                 ? "text-green-600"
                 : displayData.analysis?.roiDifference < 0
-                ? "text-red-600"
-                : isDarkMode
-                ? "text-gray-400"
-                : "text-gray-500"
+                  ? "text-red-600"
+                  : isDarkMode
+                    ? "text-gray-400"
+                    : "text-gray-500"
             }`}
           >
             {displayData.analysis?.roiDifference > 0 ? "+" : ""}
@@ -255,11 +262,11 @@ export function ResultsSummary({ displayData }) {
                   {" "}
                   (Win Rate:{" "}
                   {formatPercent(
-                    displayData.analysis.winRateComparison?.multi
+                    displayData.analysis.winRateComparison?.multi,
                   )}{" "}
                   vs{" "}
                   {formatPercent(
-                    displayData.analysis.winRateComparison?.bestSingle
+                    displayData.analysis.winRateComparison?.bestSingle,
                   )}
                   )
                 </span>
@@ -286,7 +293,7 @@ export function ResultsSummary({ displayData }) {
                         {" "}
                         (+
                         {formatPercent(
-                          displayData.analysis.votingComparison.difference
+                          displayData.analysis.votingComparison.difference,
                         )}
                         )
                       </span>
@@ -296,7 +303,7 @@ export function ResultsSummary({ displayData }) {
                         {" "}
                         (
                         {formatPercent(
-                          displayData.analysis.votingComparison.difference
+                          displayData.analysis.votingComparison.difference,
                         )}
                         )
                       </span>
