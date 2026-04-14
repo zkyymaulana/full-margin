@@ -12,6 +12,8 @@ import {
   AuthFooterLink,
 } from "../components/auth";
 
+const GOOGLE_AUTH_ENDPOINT = `${import.meta.env.VITE_API_BASE_URL}/auth/google`;
+
 // Halaman login: autentikasi email/password atau Google.
 function LoginPage() {
   const [email, setEmail] = useState("");
@@ -39,7 +41,7 @@ function LoginPage() {
   // Handle callback sukses dari Google OAuth.
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
-      const response = await fetch("http://localhost:8000/api/auth/google", {
+      const response = await fetch(GOOGLE_AUTH_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ credential: credentialResponse.credential }),

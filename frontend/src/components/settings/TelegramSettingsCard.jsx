@@ -163,7 +163,7 @@ export function TelegramSettingsCard({
             />
           </div>
 
-          {!isBackendConfigured && (
+          {/* {!isBackendConfigured && (
             <div
               className={`flex items-start gap-2 p-3 rounded-lg ${t(
                 "bg-red-900/20 text-red-400",
@@ -194,7 +194,7 @@ export function TelegramSettingsCard({
                 </p>
               </div>
             </div>
-          )}
+          )} */}
 
           {isUserConfigured && isBackendConfigured && userTelegramEnabled && (
             <button
