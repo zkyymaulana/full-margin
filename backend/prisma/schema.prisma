@@ -12,7 +12,7 @@ model Timeframe {
   timeframe String   @unique
 
   candles        Candle[]
-  indicators     Indicator[]
+  indicators     Indicators[]
   indicatorWeights IndicatorWeight[]
 }
 
@@ -26,7 +26,7 @@ model Coin {
   createdAt DateTime @default(now())
 
   candles          Candle[]
-  indicators       Indicator[]
+  indicators       Indicators[]
   indicatorWeights IndicatorWeight[]
   topCoins         TopCoin[]
   watchlist UserWatchlist[]
@@ -148,7 +148,7 @@ model User {
   createdAt       DateTime @default(now())
   lastLogin       DateTime?
   avatarUrl       String?
-  telegramChatId  String?
+  telegramChatId  String?  @unique
   telegramEnabled Boolean  @default(false)
 
   authLogs AuthLog[]

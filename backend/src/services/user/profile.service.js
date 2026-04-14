@@ -160,6 +160,31 @@ export function buildTelegramUpdateData(telegramChatId, telegramEnabled) {
 
 // Simpan pengaturan Telegram user dengan validasi prasyarat notifikasi.
 export async function updateUserTelegramSettings(userId, updateData) {
+  // Normalisasi input chatId agar string kosong dianggap tidak valid.
+  if (typeof updateData.telegramChatId === "string") {
+    const normalizedChatId = updateData.telegramChatId.trim();
+    updateData.telegramChatId = normalizedChatId.length
+      ? normalizedChatId
+      : null;
+  }
+
+  // Pastikan satu chatId hanya dimiliki satu akun.
+  if (updateData.telegramChatId) {
+    const existingOwner = await prisma.user.findFirst({
+      where: {
+        telegramChatId: updateData.telegramChatId,
+        id: { not: userId },
+      },
+      select: { id: true },
+    });
+
+    if (existingOwner) {
+      throw new Error(
+        "Telegram Chat ID is already connected to another account",
+      );
+    }
+  }
+
   // Jika user ingin mengaktifkan notifikasi Telegram, cek prasyarat dulu.
   if (updateData.telegramEnabled === true) {
     // Prasyarat 1: harus punya chatId.

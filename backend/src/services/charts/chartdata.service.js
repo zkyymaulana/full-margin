@@ -1,5 +1,10 @@
 import { prisma } from "../../lib/prisma.js";
 
+function getIndicatorDelegate() {
+  // Support both Prisma model naming variants: `Indicator` and `Indicators`.
+  return prisma.indicator || prisma.indicators;
+}
+
 /** Ambil waktu candle terakhir untuk symbol */
 export async function getLastCandleTime(symbol) {
   try {
@@ -183,7 +188,14 @@ export async function getIndicatorsForTimeRange(
   maxTime,
   expectedCount,
 ) {
-  let indicators = await prisma.indicator.findMany({
+  const indicatorDelegate = getIndicatorDelegate();
+  if (!indicatorDelegate?.findMany) {
+    throw new Error(
+      "Indicator model delegate is not available in Prisma client",
+    );
+  }
+
+  let indicators = await indicatorDelegate.findMany({
     where: {
       coinId,
       timeframeId,
@@ -204,7 +216,7 @@ export async function getIndicatorsForTimeRange(
       );
       await calculateAndSaveIndicators(symbol, timeframe, minTime, maxTime);
 
-      indicators = await prisma.indicator.findMany({
+      indicators = await indicatorDelegate.findMany({
         where: {
           coinId,
           timeframeId,

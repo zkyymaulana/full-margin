@@ -265,6 +265,22 @@ You'll start receiving *Multi-Indicator* trading signals automatically! 📊
 
       // Update akun user dengan chatId Telegram.
       try {
+        const existingChatOwner = await prisma.user.findFirst({
+          where: { telegramChatId: chatId },
+          select: { id: true, email: true },
+        });
+
+        if (existingChatOwner && existingChatOwner.id !== userId) {
+          await axios.post(
+            `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+            {
+              chat_id: chatId,
+              text: "❌ This Telegram chat is already connected to a different account.",
+            },
+          );
+          return res.json({ success: true });
+        }
+
         // Simpan chatId agar user bisa menerima sinyal Telegram.
         const user = await prisma.user.update({
           where: { id: userId },
