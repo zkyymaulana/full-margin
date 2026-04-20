@@ -226,6 +226,7 @@ function backtestVotingStrategy(data) {
   return {
     roi: +roi.toFixed(2),
     winRate: +winRate.toFixed(2),
+    trades,
     maxDrawdown,
     finalCapital: +capital.toFixed(2),
     equityCurve,

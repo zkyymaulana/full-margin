@@ -236,6 +236,7 @@ function formatResult(backtest) {
       roi: 0,
       finalCapital: 100,
       winRate: 0,
+      trades: 0,
       maxDrawdown: 0,
       sharpeRatio: 0,
     };
@@ -261,6 +262,9 @@ function formatResult(backtest) {
     roi: +Number(backtest.roi ?? 0).toFixed(2),
     finalCapital: +Number(backtest.finalCapital ?? 100).toFixed(2),
     winRate: +Number(backtest.winRate ?? 0).toFixed(2),
+    trades: Number.isFinite(Number(backtest.trades))
+      ? Number(backtest.trades)
+      : 0,
     maxDrawdown: +Number(maxDD ?? 0).toFixed(2),
     sharpeRatio: +Number(sharpRatio).toFixed(2),
   };

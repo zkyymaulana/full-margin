@@ -185,6 +185,24 @@ export function StandardConfigResults({ displayData }) {
                       {formatRatio(data.sharpeRatio)}
                     </div>
                   </div>
+                  <div>
+                    <div
+                      className={`text-xs ${
+                        isDarkMode ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
+                      Trades
+                    </div>
+                    <div
+                      className={`text-sm font-mono font-semibold ${
+                        isDarkMode ? "text-white" : "text-gray-900"
+                      }`}
+                    >
+                      {Number.isFinite(Number(data.trades))
+                        ? Number(data.trades)
+                        : "N/A"}
+                    </div>
+                  </div>
                 </div>
               </div>
             );
@@ -319,6 +337,24 @@ export function StandardConfigResults({ displayData }) {
                   {formatRatio(displayData.comparison.multi.sharpeRatio)}
                 </div>
               </div>
+              <div>
+                <div
+                  className={`text-xs ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
+                  Trades
+                </div>
+                <div
+                  className={`text-sm font-mono font-semibold ${
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  }`}
+                >
+                  {Number.isFinite(Number(displayData.comparison.multi.trades))
+                    ? Number(displayData.comparison.multi.trades)
+                    : "N/A"}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -440,6 +476,24 @@ export function StandardConfigResults({ displayData }) {
                   {formatRatio(displayData.comparison.voting.sharpeRatio)}
                 </div>
               </div>
+              <div>
+                <div
+                  className={`text-xs ${
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
+                >
+                  Trades
+                </div>
+                <div
+                  className={`text-sm font-mono font-semibold ${
+                    isDarkMode ? "text-white" : "text-gray-900"
+                  }`}
+                >
+                  {Number.isFinite(Number(displayData.comparison.voting.trades))
+                    ? Number(displayData.comparison.voting.trades)
+                    : "N/A"}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -496,6 +550,13 @@ export function StandardConfigResults({ displayData }) {
                   }`}
                 >
                   Sharpe Ratio
+                </th>
+                <th
+                  className={`text-right py-3 px-4 text-sm font-semibold whitespace-nowrap ${
+                    isDarkMode ? "text-gray-300" : "text-gray-700"
+                  }`}
+                >
+                  Trades
                 </th>
               </tr>
             </thead>
@@ -588,6 +649,15 @@ export function StandardConfigResults({ displayData }) {
                       >
                         {formatRatio(data.sharpeRatio)}
                       </td>
+                      <td
+                        className={`py-3 px-4 text-right font-mono text-sm ${
+                          isDarkMode ? "text-gray-300" : "text-gray-700"
+                        }`}
+                      >
+                        {Number.isFinite(Number(data.trades))
+                          ? Number(data.trades)
+                          : "N/A"}
+                      </td>
                     </tr>
                   );
                 },
@@ -677,6 +747,17 @@ export function StandardConfigResults({ displayData }) {
                   >
                     {formatRatio(displayData.comparison.multi.sharpeRatio)}
                   </td>
+                  <td
+                    className={`py-3 px-4 text-right font-mono text-sm ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
+                    {Number.isFinite(
+                      Number(displayData.comparison.multi.trades),
+                    )
+                      ? Number(displayData.comparison.multi.trades)
+                      : "N/A"}
+                  </td>
                 </tr>
               )}
               {/* Voting Strategy Row */}
@@ -754,6 +835,17 @@ export function StandardConfigResults({ displayData }) {
                     }`}
                   >
                     {formatRatio(displayData.comparison.voting.sharpeRatio)}
+                  </td>
+                  <td
+                    className={`py-3 px-4 text-right font-mono text-sm ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
+                    {Number.isFinite(
+                      Number(displayData.comparison.voting.trades),
+                    )
+                      ? Number(displayData.comparison.voting.trades)
+                      : "N/A"}
                   </td>
                 </tr>
               )}
