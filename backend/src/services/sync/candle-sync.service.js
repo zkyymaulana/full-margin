@@ -16,6 +16,23 @@ const parsedSyncConcurrency = Number.parseInt(
 const SYNC_CONCURRENCY = Number.isFinite(parsedSyncConcurrency)
   ? Math.max(1, parsedSyncConcurrency)
   : 2;
+const TARGET_ASSET_LIMIT = Number(process.env.TARGET_ASSET_LIMIT || "10");
+const LISTING_FETCH_CUTOFF_DATE = new Date("2025-01-01T00:00:00.000Z");
+const STABLECOIN_SYMBOLS = new Set([
+  "USDT",
+  "USDC",
+  "DAI",
+  "BUSD",
+  "TUSD",
+  "USDP",
+  "GUSD",
+  "USDE",
+  "FDUSD",
+  "PYUSD",
+  "USDD",
+  "FRAX",
+  "EURC",
+]);
 
 async function runWithConcurrency(items, limit, worker) {
   const results = new Array(items.length);
@@ -202,11 +219,18 @@ async function syncSymbolCandles(symbol) {
     // Get coin and timeframe IDs
     const coin = await prisma.coin.findUnique({
       where: { symbol },
-      select: { id: true },
+      select: { id: true, listingDate: true },
     });
 
     if (!coin) {
       console.log(`⚠️ ${symbol}: Coin not found in database, skipping...`);
+      return { symbol, newCandles: 0 };
+    }
+
+    if (coin.listingDate && coin.listingDate > LISTING_FETCH_CUTOFF_DATE) {
+      console.log(
+        `⏭️ ${symbol}: Skip candle sync (listingDate ${coin.listingDate.toISOString().split("T")[0]} > 2025-01-01)`,
+      );
       return { symbol, newCandles: 0 };
     }
 
@@ -318,19 +342,27 @@ export async function getActiveSymbols() {
 
     // Filter: Hanya coin dengan listing date sebelum 2025-01-01
     const cutoffDate = new Date("2025-01-01T00:00:00.000Z");
+    const stablecoinPrefixFilters = Array.from(STABLECOIN_SYMBOLS).map(
+      (symbol) => ({ symbol: { startsWith: `${symbol}-` } }),
+    );
 
-    const coins = await prisma.coin.findMany({
+    const topCoins = await prisma.topCoin.findMany({
       where: {
-        rank: { not: null },
-        symbol: { contains: "-" }, // Hanya pair valid
-        listingDate: { lt: cutoffDate }, // HANYA coin yang listing sebelum 2025-01-01
+        coin: {
+          rank: { not: null },
+          symbol: { contains: "-" }, // Hanya pair valid
+          listingDate: { lt: cutoffDate }, // HANYA coin yang listing sebelum 2025-01-01
+          NOT: {
+            OR: stablecoinPrefixFilters,
+          },
+        },
       },
-      orderBy: { rank: "asc" },
-      select: { symbol: true },
-      take: 20,
+      orderBy: { coin: { rank: "asc" } },
+      select: { coin: { select: { symbol: true } } },
+      take: TARGET_ASSET_LIMIT,
     });
 
-    const result = coins.map((c) => c.symbol).filter(Boolean);
+    const result = topCoins.map((item) => item.coin?.symbol).filter(Boolean);
 
     if (result.length === 0) {
       console.warn("⚠️ No symbols found in database. Please run sync first.");
@@ -394,13 +426,21 @@ export async function syncHistoricalData(
       // Get coinId from Coin table
       const coin = await prisma.coin.findUnique({
         where: { symbol },
-        select: { id: true },
+        select: { id: true, listingDate: true },
       });
 
       if (!coin) {
         console.log(`⚠️ Coin not found in database`);
         results.failed++;
         results.errors.push({ symbol, error: "Coin not found" });
+        continue;
+      }
+
+      if (coin.listingDate && coin.listingDate > LISTING_FETCH_CUTOFF_DATE) {
+        console.log(
+          `⏭️ ${symbol}: Skip historical sync (listingDate ${coin.listingDate.toISOString().split("T")[0]} > 2025-01-01)`,
+        );
+        results.skipped++;
         continue;
       }
 

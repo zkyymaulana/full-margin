@@ -6,10 +6,25 @@ import { syncTopCoins } from "./syncTopCoins.service.js";
 
 dotenv.config();
 
-const TARGET_TOP_COINS = 20;
+const TARGET_TOP_COINS = Number(process.env.TARGET_ASSET_LIMIT || "10");
 const LISTING_CUTOFF_DATE = new Date("2025-01-01T00:00:00.000Z");
 const INITIAL_CANDIDATE_LIMIT = 100;
 const RETRY_CANDIDATE_LIMIT = 150;
+const STABLECOIN_SYMBOLS = new Set([
+  "USDT",
+  "USDC",
+  "DAI",
+  "BUSD",
+  "TUSD",
+  "USDP",
+  "GUSD",
+  "USDE",
+  "FDUSD",
+  "PYUSD",
+  "USDD",
+  "FRAX",
+  "EURC",
+]);
 
 /**
  * Format harga dengan desimal dinamis untuk menangani aset dengan harga sangat kecil
@@ -29,10 +44,17 @@ function formatPrice(value) {
 
 // Ambil kandidat top coin berdasarkan rank untuk diproses lebih lanjut.
 async function getRankedTopCoinCandidates(limit = 80) {
+  const stablecoinPrefixFilters = Array.from(STABLECOIN_SYMBOLS).map(
+    (symbol) => ({ symbol: { startsWith: `${symbol}-` } }),
+  );
+
   return prisma.topCoin.findMany({
     where: {
       coin: {
         symbol: { contains: "-" },
+        NOT: {
+          OR: stablecoinPrefixFilters,
+        },
       },
     },
     include: {
@@ -55,17 +77,24 @@ function isValidListingDate(listingDate, cutoffDate = LISTING_CUTOFF_DATE) {
  */
 export async function getMarketcapRealtime() {
   try {
+    const stablecoinPrefixFilters = Array.from(STABLECOIN_SYMBOLS).map(
+      (symbol) => ({ symbol: { startsWith: `${symbol}-` } }),
+    );
+
     // Ambil TopCoin dengan JOIN ke Coin untuk dapat rank, name, symbol, logo
     const topCoins = await prisma.topCoin.findMany({
       where: {
         coin: {
           rank: { lte: 30 }, // Hanya ambil rank <= 30 dari tabel Coin
+          NOT: {
+            OR: stablecoinPrefixFilters,
+          },
         },
       },
       include: {
         coin: true, // Include data dari tabel Coin
       },
-      take: 20, // Ambil maksimal 20
+      take: TARGET_TOP_COINS,
     });
 
     // Sort berdasarkan rank dari tabel Coin

@@ -9,15 +9,40 @@ import {
 
 dotenv.config();
 
-const TARGET_VALID_COINS = 20;
-const SAFE_FALLBACK_LISTING_DATE = new Date("2000-01-01T00:00:00.000Z");
-const RANK_SYNC_LIMIT = 50;
+const TARGET_VALID_COINS = Number(process.env.TARGET_ASSET_LIMIT || "10");
+const CMC_SCAN_LIMIT = Number(
+  process.env.CMC_FETCH_LIMIT || process.env.TARGET_ASSET_LIMIT || "10",
+);
+const LISTING_CUTOFF_DATE = new Date("2025-01-01T00:00:00.000Z");
 let isSyncTopCoinsRunning = false;
+const STABLECOIN_SYMBOLS = new Set([
+  "USDT",
+  "USDC",
+  "DAI",
+  "BUSD",
+  "TUSD",
+  "USDP",
+  "GUSD",
+  "USDE",
+  "FDUSD",
+  "PYUSD",
+  "USDD",
+  "FRAX",
+  "EURC",
+]);
+
+const stablecoinPrefixFilters = Array.from(STABLECOIN_SYMBOLS).map(
+  (symbol) => ({ symbol: { startsWith: `${symbol}-` } }),
+);
 
 function getBaseSymbol(pairSymbol) {
   return String(pairSymbol || "")
     .split("-")[0]
     .toUpperCase();
+}
+
+function isEligibleListingDate(listingDate) {
+  return Boolean(listingDate && listingDate < LISTING_CUTOFF_DATE);
 }
 
 async function assignFallbackRanksToCoins(coinIds = []) {
@@ -78,7 +103,7 @@ async function ensureTopCoinRanksNotNull() {
 
 // Sinkronisasi rank coin murni dari CMC.
 // Coin yang tidak ada pada snapshot CMC akan dibiarkan rank null (tanpa fallback lokal).
-export async function syncTopCoinRanksFromCmc(limit = RANK_SYNC_LIMIT) {
+export async function syncTopCoinRanksFromCmc(limit = CMC_SCAN_LIMIT) {
   try {
     const data = await getTopCoins(limit);
     if (!data?.data?.length) {
@@ -165,6 +190,15 @@ export async function syncTopCoins() {
   isSyncTopCoinsRunning = true;
 
   try {
+    // Bersihkan dulu entri topCoin stablecoin agar tidak ikut alur selection aktif.
+    await prisma.topCoin.deleteMany({
+      where: {
+        coin: {
+          OR: stablecoinPrefixFilters,
+        },
+      },
+    });
+
     // Simpan per coin secara incremental agar aman saat proses terhenti di tengah.
     const upsertCoinAndTopCoin = async (coin) => {
       const updateData = {
@@ -221,22 +255,26 @@ export async function syncTopCoins() {
     };
 
     // 1. Ambil daftar coin CMC berurutan dari rank tertinggi.
-    console.log(`Fetching top ${RANK_SYNC_LIMIT} coins from CoinMarketCap...`);
+    console.log(
+      `Fetching top ${CMC_SCAN_LIMIT} coins from CoinMarketCap to fill target ${TARGET_VALID_COINS}...`,
+    );
 
     // Semua HTTP request berada di client
-    const data = await getTopCoins(RANK_SYNC_LIMIT);
+    const data = await getTopCoins(CMC_SCAN_LIMIT);
 
     if (!data?.data) throw new Error("Data dari CMC kosong.");
 
-    const rawCoins = data.data.map((c) => ({
-      rank: c.cmc_rank,
-      name: c.name,
-      symbol: c.symbol.toUpperCase(),
-      price: c.quote.USD.price,
-      marketCap: c.quote.USD.market_cap,
-      volume24h: c.quote.USD.volume_24h,
-      cmcListingDate: c.date_added ? new Date(c.date_added) : null,
-    }));
+    const rawCoins = data.data
+      .map((c) => ({
+        rank: c.cmc_rank,
+        name: c.name,
+        symbol: c.symbol.toUpperCase(),
+        price: c.quote.USD.price,
+        marketCap: c.quote.USD.market_cap,
+        volume24h: c.quote.USD.volume_24h,
+        cmcListingDate: c.date_added ? new Date(c.date_added) : null,
+      }))
+      .filter((coin) => !STABLECOIN_SYMBOLS.has(coin.symbol));
 
     const coins = cleanTopCoinData(rawCoins);
     if (coins.length === 0)
@@ -286,9 +324,14 @@ export async function syncTopCoins() {
       if (existingCoin) {
         // Jika listingDate sudah ada, jangan revalidate lagi.
         const resolvedListingDate =
-          existingCoin.listingDate ||
-          coin.cmcListingDate ||
-          SAFE_FALLBACK_LISTING_DATE;
+          existingCoin.listingDate || coin.cmcListingDate;
+
+        if (!isEligibleListingDate(resolvedListingDate)) {
+          console.log(
+            `[${processedCount}/${coins.length}] ⏭️  ${foundPair}: Listing date not eligible (${resolvedListingDate ? resolvedListingDate.toISOString().split("T")[0] : "null"})`,
+          );
+          continue;
+        }
 
         const coinData = {
           ...coin,
@@ -315,7 +358,14 @@ export async function syncTopCoins() {
       }
 
       // Coin baru: listingDate cukup dari CMC, tanpa revalidate candle.
-      const listingDate = coin.cmcListingDate || SAFE_FALLBACK_LISTING_DATE;
+      const listingDate = coin.cmcListingDate;
+
+      if (!isEligibleListingDate(listingDate)) {
+        console.log(
+          `[${processedCount}/${coins.length}] ⏭️  ${foundPair}: Listing date not eligible (${listingDate ? listingDate.toISOString().split("T")[0] : "null"})`,
+        );
+        continue;
+      }
 
       // Fetch logo dari CMC untuk coin ini (via client)
       let logo = null;

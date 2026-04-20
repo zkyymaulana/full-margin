@@ -43,11 +43,12 @@ app.get("/", (_, res) => res.redirect("/api"));
 async function initializeSystem() {
   const schedulerAutoStart =
     (process.env.SCHEDULER_AUTO_START ?? "true").toLowerCase() === "true";
+  const targetValidCoins = Number(process.env.TARGET_ASSET_LIMIT || "10");
 
   const steps = [
     ["⏱️ Seeding timeframes", seedTimeframes],
     ["👤 Seeding admin", seedAdmin],
-    ["📊 Sync Top 20 CMC", syncTopCoins],
+    [`📊 Sync Top ${targetValidCoins} CMC`, syncTopCoins],
     ["🏷️ Sync latest CMC ranks", syncTopCoinRanksFromCmc],
     ["🔗 Matching pairs Coinbase", getMarketcapRealtime],
     schedulerAutoStart

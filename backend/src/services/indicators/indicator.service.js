@@ -14,9 +14,10 @@ import { calculateSignals } from "../signals/signalAnalyzer.js";
 import { calculateOverallSignal } from "../signals/overallAnalyzer.js";
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
+const LISTING_FETCH_CUTOFF_DATE = new Date("2025-01-01T00:00:00.000Z");
 const INDICATOR_WARMUP_CANDLES = Math.max(
-  60,
-  Number(process.env.INDICATOR_WARMUP_CANDLES || "250"),
+  20,
+  Number(process.env.INDICATOR_WARMUP_CANDLES || "20"),
 );
 
 async function getCandlesForIndicatorCalculation(
@@ -52,11 +53,18 @@ export async function calculateAndSaveIndicators(symbol, timeframe = "1h") {
   // Get coinId and timeframeId first
   const coin = await prisma.coin.findUnique({
     where: { symbol },
-    select: { id: true },
+    select: { id: true, listingDate: true },
   });
 
   if (!coin) {
     console.log(`No coin found for ${symbol}.`);
+    return;
+  }
+
+  if (coin.listingDate && coin.listingDate > LISTING_FETCH_CUTOFF_DATE) {
+    console.log(
+      `⏭️ ${symbol}: Skip indicator calculation (listingDate ${coin.listingDate.toISOString().split("T")[0]} > 2025-01-01)`,
+    );
     return;
   }
 
@@ -97,7 +105,8 @@ export async function calculateAndSaveIndicators(symbol, timeframe = "1h") {
     const latestIndicatorTime = Number(latestIndicator.time);
     existingTimes = new Set([latestIndicatorTime]);
     missingCandles = candles.filter(
-      (c, idx) => idx >= 50 && Number(c.time) > latestIndicatorTime,
+      (c, idx) =>
+        idx >= INDICATOR_WARMUP_CANDLES && Number(c.time) > latestIndicatorTime,
     );
   } else {
     const existing = await prisma.indicator.findMany({
@@ -109,7 +118,8 @@ export async function calculateAndSaveIndicators(symbol, timeframe = "1h") {
     });
     existingTimes = new Set(existing.map((e) => Number(e.time)));
     missingCandles = candles.filter(
-      (c, idx) => idx >= 50 && !existingTimes.has(Number(c.time)),
+      (c, idx) =>
+        idx >= INDICATOR_WARMUP_CANDLES && !existingTimes.has(Number(c.time)),
     );
   }
 
@@ -161,8 +171,8 @@ async function calculateInBatches(
   // Inisialisasi kalkulator sekali saja
   const calculators = initializeCalculators();
 
-  // Warmup calculators dengan 50 candle pertama
-  for (let i = 0; i < Math.min(50, candles.length); i++) {
+  // Warmup calculators berdasarkan buffer candle konfigurasi.
+  for (let i = 0; i < Math.min(INDICATOR_WARMUP_CANDLES, candles.length); i++) {
     const { close, high, low } = candles[i];
     warmupCalculators(calculators, close, high, low);
   }
@@ -174,7 +184,7 @@ async function calculateInBatches(
   const PING_INTERVAL = 30000; // Ping every 30 seconds
 
   // Process candles after warmup
-  for (let i = 50; i < candles.length; i++) {
+  for (let i = INDICATOR_WARMUP_CANDLES; i < candles.length; i++) {
     const { close, high, low, time } = candles[i];
 
     // ✅ Periodic database ping to keep connection alive
@@ -276,8 +286,8 @@ async function processIndicators(
     const stochRSIVal = calculators.stochRSI.calculate(close);
     const psarVal = calculators.psar.calculate(high, low);
 
-    // Hanya simpan jika: sudah melewati warmup (50 period) DAN belum ada di database
-    if (i >= 50 && !existingTimes.has(Number(time))) {
+    // Hanya simpan jika: sudah melewati warmup DAN belum ada di database
+    if (i >= INDICATOR_WARMUP_CANDLES && !existingTimes.has(Number(time))) {
       const indicators = {
         sma20: sma20Val,
         sma50: sma50Val,
