@@ -13,9 +13,10 @@
 // Convert sinyal string menjadi nilai numerik agar bisa dihitung.
 export function toSignalValue(signal) {
   if (!signal) return 0;
-  const normalized = signal.toLowerCase();
-  if (normalized === "buy") return 1;
-  if (normalized === "sell") return -1;
+  const normalized = String(signal).trim().toLowerCase();
+  // Samakan arti strong signal dengan arah dasarnya agar agregasi kategori konsisten.
+  if (normalized === "buy" || normalized === "strong_buy") return 1;
+  if (normalized === "sell" || normalized === "strong_sell") return -1;
   return 0;
 }
 

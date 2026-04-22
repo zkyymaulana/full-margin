@@ -141,7 +141,7 @@ export async function getIndicatorsForTimeRange(
   timeframeId,
   minTime,
   maxTime,
-  expectedCount
+  expectedCount,
 ) {
   // ✅ Query indicator dari database untuk time range
   let indicators = await prisma.indicator.findMany({
@@ -158,7 +158,7 @@ export async function getIndicatorsForTimeRange(
   // ✅ Check coverage - jika kurang dari expected count, recalculate
   if (coverageBefore < expectedCount) {
     console.log(
-      `[AUTO] Indicator coverage ${coverageBefore}/${expectedCount} → recalculating...`
+      `[AUTO] Indicator coverage ${coverageBefore}/${expectedCount} → recalculating...`,
     );
     try {
       // ✅ Import dan trigger indicator calculation
@@ -177,7 +177,7 @@ export async function getIndicatorsForTimeRange(
         orderBy: { time: "asc" },
       });
       console.log(
-        `Found ${indicators.length}/${expectedCount} indicators after recalc.`
+        `Found ${indicators.length}/${expectedCount} indicators after recalc.`,
       );
     } catch (err) {
       console.error(`Indicator calculation failed:`, err.message);
@@ -364,26 +364,36 @@ function formatMultiSignalFromDB(ind, weights = null) {
   const dbStrength = ind.signalStrength ?? 0;
 
   // ✅ Determine signal berdasarkan finalScore
+  // Konsisten dengan rumus klasifikasi di modul overall analyzer.
   let signal = "neutral";
   let finalScore = dbFinalScore;
   let strength = dbStrength;
+  const STRONG_BUY_THRESHOLD = 0.6;
+  const STRONG_SELL_THRESHOLD = -0.6;
 
-  if (finalScore > 0) {
-    signal = "buy"; // finalScore positive = buy signal
+  if (finalScore >= STRONG_BUY_THRESHOLD) {
+    signal = "strong_buy";
+  } else if (finalScore > 0) {
+    signal = "buy";
+  } else if (finalScore <= STRONG_SELL_THRESHOLD) {
+    signal = "strong_sell";
   } else if (finalScore < 0) {
-    signal = "sell"; // finalScore negative = sell signal
+    signal = "sell";
   } else {
-    signal = "neutral"; // finalScore zero = neutral
-    strength = 0; // No strength untuk neutral signal
+    signal = "neutral";
+    strength = 0;
   }
 
-  // ✅ Calculate signalLabel berdasarkan strength
-  // Strength >= 0.6 adalah "STRONG", di bawah itu adalah regular
+  // ✅ Calculate signalLabel berdasarkan kategori sinyal final
   let signalLabel = "NEUTRAL";
-  if (signal === "buy") {
-    signalLabel = strength >= 0.6 ? "STRONG BUY" : "BUY";
+  if (signal === "strong_buy") {
+    signalLabel = "STRONG BUY";
+  } else if (signal === "buy") {
+    signalLabel = "BUY";
+  } else if (signal === "strong_sell") {
+    signalLabel = "STRONG SELL";
   } else if (signal === "sell") {
-    signalLabel = strength >= 0.6 ? "STRONG SELL" : "SELL";
+    signalLabel = "SELL";
   }
 
   // ✅ Calculate categoryScores jika weights tersedia
@@ -405,6 +415,8 @@ function formatMultiSignalFromDB(ind, weights = null) {
       signalToScore(ind.smaSignal) * (weights.SMA || 0) +
       signalToScore(ind.emaSignal) * (weights.EMA || 0) +
       signalToScore(ind.psarSignal) * (weights.PSAR || 0);
+    const trendWeight =
+      (weights.SMA || 0) + (weights.EMA || 0) + (weights.PSAR || 0);
 
     // ✅ Momentum category: RSI, MACD, Stochastic, StochasticRSI
     const momentumScore =
@@ -412,16 +424,30 @@ function formatMultiSignalFromDB(ind, weights = null) {
       signalToScore(ind.macdSignal) * (weights.MACD || 0) +
       signalToScore(ind.stochSignal) * (weights.Stochastic || 0) +
       signalToScore(ind.stochRsiSignal) * (weights.StochasticRSI || 0);
+    const momentumWeight =
+      (weights.RSI || 0) +
+      (weights.MACD || 0) +
+      (weights.Stochastic || 0) +
+      (weights.StochasticRSI || 0);
 
     // ✅ Volatility category: Bollinger Bands
     const volatilityScore =
       signalToScore(ind.bbSignal) * (weights.BollingerBands || 0);
+    const volatilityWeight = weights.BollingerBands || 0;
 
-    // ✅ Set categoryScores dengan fixed decimal places
+    // ✅ Normalisasi category score agar comparable antar kombinasi bobot
     categoryScores = {
-      trend: parseFloat(trendScore.toFixed(2)),
-      momentum: parseFloat(momentumScore.toFixed(2)),
-      volatility: parseFloat(volatilityScore.toFixed(2)),
+      trend: parseFloat(
+        (trendWeight > 0 ? trendScore / trendWeight : 0).toFixed(2),
+      ),
+      momentum: parseFloat(
+        (momentumWeight > 0 ? momentumScore / momentumWeight : 0).toFixed(2),
+      ),
+      volatility: parseFloat(
+        (volatilityWeight > 0 ? volatilityScore / volatilityWeight : 0).toFixed(
+          2,
+        ),
+      ),
     };
   }
 

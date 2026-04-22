@@ -32,30 +32,28 @@ export function makeSignalFuncs({ rsiLow = 30, rsiHigh = 70 } = {}) {
       return "neutral";
     },
 
-    // SMA: price position relative to moving averages
+    // SMA: harga dan SMA20 relatif terhadap SMA50
     sma: (s20, s50, p) => {
-      if (!p || !s20 || !s50) return "neutral";
-      if (p > s20 && p > s50 && s20 > s50) return "buy";
-      if (p < s20 && p < s50 && s20 < s50) return "sell";
+      // Pakai cek null eksplisit agar nilai 0 tetap dianggap angka valid.
+      if (p == null || s20 == null || s50 == null) return "neutral";
+      if (p > s50 && s20 > s50) return "buy";
+      if (p < s50 && s20 < s50) return "sell";
       return "neutral";
     },
 
-    // EMA: similar to SMA but more responsive
-    ema: (e20, e50, p) => {
-      if (!p || !e20 || !e50) return "neutral";
-      if (p > e20 && p > e50 && e20 > e50) return "buy";
-      if (p < e20 && p < e50 && e20 < e50) return "sell";
+    // EMA: sesuai flowchart, sinyal dari relasi EMA20 vs EMA50.
+    ema: (e20, e50) => {
+      if (e20 == null || e50 == null) return "neutral";
+      if (e20 > e50) return "buy";
+      if (e20 < e50) return "sell";
       return "neutral";
     },
 
-    // Bollinger Bands: price near upper/lower band
+    // Bollinger Bands: sinyal saat harga menyentuh band.
     bollingerBands: (p, up, low, middle) => {
-      if (!p || !up || !low) return "neutral";
-      const width = up - low;
-      const mid = middle || (up + low) / 2;
-
-      if (p > up - width * 0.1) return "sell";
-      if (p < low + width * 0.1) return "buy";
+      if (p == null || up == null || low == null) return "neutral";
+      if (p >= up) return "sell";
+      if (p <= low) return "buy";
       return "neutral";
     },
 
@@ -77,7 +75,7 @@ export function makeSignalFuncs({ rsiLow = 30, rsiHigh = 70 } = {}) {
 
     // PSAR: price position relative to SAR
     psar: (p, ps) => {
-      if (!p || !ps) return "neutral";
+      if (p == null || ps == null) return "neutral";
       if (p > ps) return "buy";
       if (p < ps) return "sell";
       return "neutral";
@@ -122,7 +120,8 @@ export function runBacktestCore(
   for (let i = 0; i < data.length; i++) {
     const c = data[i];
     const price = c.close;
-    if (!price) {
+    // Skip hanya jika data harga benar-benar kosong.
+    if (price == null) {
       curve.push(cap);
       continue;
     }
@@ -145,7 +144,7 @@ export function runBacktestCore(
           signal = funcs.sma(c.sma20, c.sma50, price);
           break;
         case "EMA":
-          signal = funcs.ema(c.ema20, c.ema50, price);
+          signal = funcs.ema(c.ema20, c.ema50);
           break;
         case "BollingerBands":
           signal = funcs.bollingerBands(

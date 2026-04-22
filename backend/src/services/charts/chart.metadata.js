@@ -33,8 +33,8 @@
  *     coverage: "100/500",              // "dengan_indicator/total"
  *     coveragePercent: "100.0%",        // Persentase data coverage
  *     signalDistribution: {
- *       buy: 50,                        // Jumlah candle dengan signal BUY
- *       sell: 30,                       // Jumlah candle dengan signal SELL
+ *       buy: 50,                        // Jumlah candle dengan signal BUY + STRONG BUY
+ *       sell: 30,                       // Jumlah candle dengan signal SELL + STRONG SELL
  *       neutral: 20,                    // Jumlah candle dengan signal NEUTRAL
  *       missing: 0                      // Jumlah candle tanpa multiSignal
  *     },
@@ -55,9 +55,14 @@ export function calculateMetadata(merged, minTime, maxTime) {
   const coverage = (withIndicators / merged.length) * 100;
 
   // ✅ Hitung signal distribution (jumlah setiap jenis signal)
+  // Strong signal digabung ke bucket buy/sell agar statistik arah pasar tidak bias.
   const signalStats = {
-    buy: merged.filter((m) => m.multiSignal?.signal === "buy").length,
-    sell: merged.filter((m) => m.multiSignal?.signal === "sell").length,
+    buy: merged.filter((m) =>
+      ["buy", "strong_buy"].includes(m.multiSignal?.signal),
+    ).length,
+    sell: merged.filter((m) =>
+      ["sell", "strong_sell"].includes(m.multiSignal?.signal),
+    ).length,
     neutral: merged.filter((m) => m.multiSignal?.signal === "neutral").length,
     missing: merged.filter((m) => !m.multiSignal).length,
   };

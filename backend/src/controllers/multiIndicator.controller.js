@@ -328,7 +328,7 @@ export async function optimizeIndicatorWeightsController(req, res) {
 
     // Hitung skor kategori untuk ringkasan hasil.
     const categoryScores = calculateCategoryScores(
-      result.latest || {},
+      result.latestIndicator || {},
       result.weights || {},
     );
 
@@ -373,6 +373,7 @@ export async function optimizeIndicatorWeightsController(req, res) {
       weights: result.weights,
       categoryScores,
       latest: result.latest,
+      latestIndicator: result.latestIndicator,
     });
   } catch (err) {
     console.error("❌ Error in optimization:", err.message);

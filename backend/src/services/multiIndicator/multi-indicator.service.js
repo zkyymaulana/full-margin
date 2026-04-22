@@ -155,7 +155,7 @@ function backtestWithWeightsCached(
   for (let i = 0; i < cache.length; i++) {
     const { price, signals } = cache[i];
 
-    if (!price) {
+    if (price == null) {
       equityCurve.push(capital);
       continue;
     }
@@ -424,7 +424,7 @@ export async function optimizeIndicatorWeights(
 export async function backtestWithWeights(
   data,
   weights = {},
-  { fastMode = false, threshold: _threshold = 0 } = {},
+  { fastMode = false, threshold = EXECUTION_THRESHOLD } = {},
 ) {
   if (!data?.length) throw new Error("Data historis kosong");
 
@@ -467,14 +467,21 @@ export async function backtestWithWeights(
   // 📊 Precompute indicators
   const cache = computeAllIndicators(data);
 
-  const normalizedThreshold = EXECUTION_THRESHOLD;
+  // Threshold dieksekusi simetris: BUY saat score > +t, SELL saat score < -t.
+  const parsedThreshold = Number(threshold);
+  const executionThreshold = Number.isFinite(parsedThreshold)
+    ? Math.max(0, Math.abs(parsedThreshold))
+    : EXECUTION_THRESHOLD;
 
   console.log(`\n🎯 DSS Backtest with Weights`);
   console.log(`📊 Weights:`, weights);
-  console.log(`📏 Threshold (execution): ±${normalizedThreshold}`);
+  console.log(`📏 Threshold (execution): ±${executionThreshold}`);
 
   // ⚡ Run backtest
-  const result = backtestWithWeightsCached(cache, weights);
+  const result = backtestWithWeightsCached(cache, weights, {
+    buyThreshold: executionThreshold,
+    sellThreshold: -executionThreshold,
+  });
 
   console.log(`✅ Backtest Complete`);
   console.log(`   ROI: ${result.roi.toFixed(2)}%`);
@@ -486,7 +493,7 @@ export async function backtestWithWeights(
 
   return {
     success: true,
-    methodology: `Rule-Based DSS with Threshold ±${normalizedThreshold}`,
+    methodology: `Rule-Based DSS with Threshold ±${executionThreshold}`,
     roi: +result.roi.toFixed(2),
     winRate: +result.winRate.toFixed(2),
     trades: result.trades,
@@ -494,7 +501,7 @@ export async function backtestWithWeights(
     finalCapital: +result.finalCapital.toFixed(2),
     maxDrawdown: +result.maxDrawdown.toFixed(2),
     sharpeRatio: result.sharpeRatio ? +result.sharpeRatio.toFixed(2) : null,
-    threshold: normalizedThreshold,
+    threshold: executionThreshold,
     dataPoints: data.length,
     equityCurve: [], // Optional untuk comparison
   };

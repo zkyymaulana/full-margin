@@ -318,9 +318,16 @@ function formatMultiSignalFromDB(ind, weights = null) {
   let signal = "neutral";
   let finalScore = dbFinalScore;
   let strength = dbStrength;
+  const STRONG_BUY_THRESHOLD = 0.6;
+  const STRONG_SELL_THRESHOLD = -0.6;
 
-  if (finalScore > 0) {
+  // Klasifikasi sinyal mengikuti aturan proposal: strong threshold ±0.6.
+  if (finalScore >= STRONG_BUY_THRESHOLD) {
+    signal = "strong_buy";
+  } else if (finalScore > 0) {
     signal = "buy";
+  } else if (finalScore <= STRONG_SELL_THRESHOLD) {
+    signal = "strong_sell";
   } else if (finalScore < 0) {
     signal = "sell";
   } else {
@@ -329,10 +336,14 @@ function formatMultiSignalFromDB(ind, weights = null) {
   }
 
   let signalLabel = "NEUTRAL";
-  if (signal === "buy") {
-    signalLabel = strength >= 0.6 ? "STRONG BUY" : "BUY";
+  if (signal === "strong_buy") {
+    signalLabel = "STRONG BUY";
+  } else if (signal === "buy") {
+    signalLabel = "BUY";
+  } else if (signal === "strong_sell") {
+    signalLabel = "STRONG SELL";
   } else if (signal === "sell") {
-    signalLabel = strength >= 0.6 ? "STRONG SELL" : "SELL";
+    signalLabel = "SELL";
   }
 
   let categoryScores = { trend: 0, momentum: 0, volatility: 0 };
@@ -350,20 +361,36 @@ function formatMultiSignalFromDB(ind, weights = null) {
       signalToScore(ind.smaSignal) * (weights.SMA || 0) +
       signalToScore(ind.emaSignal) * (weights.EMA || 0) +
       signalToScore(ind.psarSignal) * (weights.PSAR || 0);
+    const trendWeight =
+      (weights.SMA || 0) + (weights.EMA || 0) + (weights.PSAR || 0);
 
     const momentumScore =
       signalToScore(ind.rsiSignal) * (weights.RSI || 0) +
       signalToScore(ind.macdSignal) * (weights.MACD || 0) +
       signalToScore(ind.stochSignal) * (weights.Stochastic || 0) +
       signalToScore(ind.stochRsiSignal) * (weights.StochasticRSI || 0);
+    const momentumWeight =
+      (weights.RSI || 0) +
+      (weights.MACD || 0) +
+      (weights.Stochastic || 0) +
+      (weights.StochasticRSI || 0);
 
     const volatilityScore =
       signalToScore(ind.bbSignal) * (weights.BollingerBands || 0);
+    const volatilityWeight = weights.BollingerBands || 0;
 
     categoryScores = {
-      trend: parseFloat(trendScore.toFixed(2)),
-      momentum: parseFloat(momentumScore.toFixed(2)),
-      volatility: parseFloat(volatilityScore.toFixed(2)),
+      trend: parseFloat(
+        (trendWeight > 0 ? trendScore / trendWeight : 0).toFixed(2),
+      ),
+      momentum: parseFloat(
+        (momentumWeight > 0 ? momentumScore / momentumWeight : 0).toFixed(2),
+      ),
+      volatility: parseFloat(
+        (volatilityWeight > 0 ? volatilityScore / volatilityWeight : 0).toFixed(
+          2,
+        ),
+      ),
     };
   }
 
@@ -385,9 +412,14 @@ export function calculateMetadata(merged, minTime, maxTime) {
   const withIndicators = merged.filter((m) => m.indicators).length;
   const coverage = (withIndicators / merged.length) * 100;
 
+  // Strong signal tetap dihitung sebagai arah buy/sell agar distribusi konsisten.
   const signalStats = {
-    buy: merged.filter((m) => m.multiSignal?.signal === "buy").length,
-    sell: merged.filter((m) => m.multiSignal?.signal === "sell").length,
+    buy: merged.filter((m) =>
+      ["buy", "strong_buy"].includes(m.multiSignal?.signal),
+    ).length,
+    sell: merged.filter((m) =>
+      ["sell", "strong_sell"].includes(m.multiSignal?.signal),
+    ).length,
     neutral: merged.filter((m) => m.multiSignal?.signal === "neutral").length,
     missing: merged.filter((m) => !m.multiSignal).length,
   };

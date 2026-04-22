@@ -7,19 +7,16 @@
 // Hitung sinyal per indikator dari data indikator dan harga terbaru.
 export function calculateSignals(indicators, price) {
   const signals = {};
+  const hasPrice = price != null;
 
   // === 1. Simple Moving Average (SMA)
-  // BUY: harga dan SMA20 > SMA50 → tren naik
-  // SELL: harga dan SMA20 < SMA50 → tren turun
-  if (indicators.sma20 && indicators.sma50 && price) {
-    if (
-      price > indicators.sma20 &&
-      price > indicators.sma50 &&
-      indicators.sma20 > indicators.sma50
-    ) {
+  // BUY: harga dan SMA20 berada di atas SMA50 → tren naik
+  // SELL: harga dan SMA20 berada di bawah SMA50 → tren turun
+  // Gunakan cek null eksplisit agar nilai 0 tidak dianggap data kosong.
+  if (indicators.sma20 != null && indicators.sma50 != null && hasPrice) {
+    if (price > indicators.sma50 && indicators.sma20 > indicators.sma50) {
       signals.smaSignal = "buy";
     } else if (
-      price < indicators.sma20 &&
       price < indicators.sma50 &&
       indicators.sma20 < indicators.sma50
     ) {
@@ -28,19 +25,11 @@ export function calculateSignals(indicators, price) {
   }
 
   // === 2. Exponential Moving Average (EMA)
-  // Sama seperti SMA, tapi lebih sensitif terhadap harga terbaru
-  if (indicators.ema20 && indicators.ema50 && price) {
-    if (
-      price > indicators.ema20 &&
-      price > indicators.ema50 &&
-      indicators.ema20 > indicators.ema50
-    ) {
+  // Berdasarkan flowchart skripsi: sinyal EMA ditentukan dari relasi EMA20 vs EMA50.
+  if (indicators.ema20 != null && indicators.ema50 != null && hasPrice) {
+    if (indicators.ema20 > indicators.ema50) {
       signals.emaSignal = "buy";
-    } else if (
-      price < indicators.ema20 &&
-      price < indicators.ema50 &&
-      indicators.ema20 < indicators.ema50
-    ) {
+    } else if (indicators.ema20 < indicators.ema50) {
       signals.emaSignal = "sell";
     } else signals.emaSignal = "neutral";
   }
@@ -76,15 +65,11 @@ export function calculateSignals(indicators, price) {
   }
 
   // === 5. Bollinger Bands
-  // BUY: harga mendekati pita bawah
-  // SELL: harga mendekati pita atas
-  if (indicators.bbUpper && indicators.bbLower && price) {
-    const width = indicators.bbUpper - indicators.bbLower;
-    const middle =
-      indicators.bbMiddle || (indicators.bbUpper + indicators.bbLower) / 2;
-
-    if (price > indicators.bbUpper - width * 0.1) signals.bbSignal = "sell";
-    else if (price < indicators.bbLower + width * 0.1) signals.bbSignal = "buy";
+  // BUY: harga menyentuh/menembus pita bawah
+  // SELL: harga menyentuh/menembus pita atas
+  if (indicators.bbUpper != null && indicators.bbLower != null && hasPrice) {
+    if (price >= indicators.bbUpper) signals.bbSignal = "sell";
+    else if (price <= indicators.bbLower) signals.bbSignal = "buy";
     else signals.bbSignal = "neutral";
   }
 
@@ -112,7 +97,7 @@ export function calculateSignals(indicators, price) {
   // === 8. Parabolic SAR
   // BUY: harga di atas titik SAR → tren naik
   // SELL: harga di bawah titik SAR → tren turun
-  if (indicators.psar !== null && price) {
+  if (indicators.psar != null && hasPrice) {
     if (price > indicators.psar) signals.psarSignal = "buy";
     else if (price < indicators.psar) signals.psarSignal = "sell";
     else signals.psarSignal = "neutral";

@@ -4,14 +4,25 @@ export function createEMACalculator(period) {
   const multiplier = 2 / (period + 1);
   let ema = null;
   let isInitialized = false;
+  const seedPrices = [];
 
   return {
     calculate(price) {
       if (!isInitialized) {
-        // Inisialisasi EMA pertama dengan harga saat ini
-        ema = price;
-        isInitialized = true;
-        return ema;
+        // Sesuai rumus skripsi: EMA awal di-seed dari SMA periode yang sama.
+        seedPrices.push(price);
+
+        if (seedPrices.length < period) {
+          return null;
+        }
+
+        if (seedPrices.length === period) {
+          const smaSeed =
+            seedPrices.reduce((sum, value) => sum + value, 0) / period;
+          ema = smaSeed;
+          isInitialized = true;
+          return ema;
+        }
       }
 
       // Rumus EMA:

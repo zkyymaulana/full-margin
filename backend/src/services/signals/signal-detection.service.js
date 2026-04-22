@@ -127,20 +127,35 @@ export async function detectAndNotifyMultiIndicatorSignals(
       signalToScore(signals.SMA) * (w.SMA || 0) +
       signalToScore(signals.EMA) * (w.EMA || 0) +
       signalToScore(signals.PSAR) * (w.PSAR || 0);
+    const trendWeight = (w.SMA || 0) + (w.EMA || 0) + (w.PSAR || 0);
 
     const momentumScore =
       signalToScore(signals.RSI) * (w.RSI || 0) +
       signalToScore(signals.MACD) * (w.MACD || 0) +
       signalToScore(signals.Stochastic) * (w.Stochastic || 0) +
       signalToScore(signals.StochasticRSI) * (w.StochasticRSI || 0);
+    const momentumWeight =
+      (w.RSI || 0) +
+      (w.MACD || 0) +
+      (w.Stochastic || 0) +
+      (w.StochasticRSI || 0);
 
     const volatilityScore =
       signalToScore(signals.BollingerBands) * (w.BollingerBands || 0);
+    const volatilityWeight = w.BollingerBands || 0;
 
     const categoryScores = {
-      trend: parseFloat(trendScore.toFixed(2)),
-      momentum: parseFloat(momentumScore.toFixed(2)),
-      volatility: parseFloat(volatilityScore.toFixed(2)),
+      trend: parseFloat(
+        (trendWeight > 0 ? trendScore / trendWeight : 0).toFixed(2),
+      ),
+      momentum: parseFloat(
+        (momentumWeight > 0 ? momentumScore / momentumWeight : 0).toFixed(2),
+      ),
+      volatility: parseFloat(
+        (volatilityWeight > 0 ? volatilityScore / volatilityWeight : 0).toFixed(
+          2,
+        ),
+      ),
     };
 
     // ✅ Log hasil untuk debugging

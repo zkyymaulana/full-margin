@@ -67,6 +67,8 @@ function formatMultiSignalFromDB(ind, weights = null) {
       signalToScore(ind.smaSignal) * (weights.SMA || 0) +
       signalToScore(ind.emaSignal) * (weights.EMA || 0) +
       signalToScore(ind.psarSignal) * (weights.PSAR || 0);
+    const trendWeight =
+      (weights.SMA || 0) + (weights.EMA || 0) + (weights.PSAR || 0);
 
     // Kategori momentum: RSI + MACD + Stochastic + StochasticRSI.
     const momentumScore =
@@ -74,15 +76,29 @@ function formatMultiSignalFromDB(ind, weights = null) {
       signalToScore(ind.macdSignal) * (weights.MACD || 0) +
       signalToScore(ind.stochSignal) * (weights.Stochastic || 0) +
       signalToScore(ind.stochRsiSignal) * (weights.StochasticRSI || 0);
+    const momentumWeight =
+      (weights.RSI || 0) +
+      (weights.MACD || 0) +
+      (weights.Stochastic || 0) +
+      (weights.StochasticRSI || 0);
 
     // Kategori volatility: Bollinger Bands.
     const volatilityScore =
       signalToScore(ind.bbSignal) * (weights.BollingerBands || 0);
+    const volatilityWeight = weights.BollingerBands || 0;
 
     categoryScores = {
-      trend: parseFloat(trendScore.toFixed(2)),
-      momentum: parseFloat(momentumScore.toFixed(2)),
-      volatility: parseFloat(volatilityScore.toFixed(2)),
+      trend: parseFloat(
+        (trendWeight > 0 ? trendScore / trendWeight : 0).toFixed(2),
+      ),
+      momentum: parseFloat(
+        (momentumWeight > 0 ? momentumScore / momentumWeight : 0).toFixed(2),
+      ),
+      volatility: parseFloat(
+        (volatilityWeight > 0 ? volatilityScore / volatilityWeight : 0).toFixed(
+          2,
+        ),
+      ),
     };
   }
 

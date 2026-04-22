@@ -49,8 +49,9 @@ export function createRollingWindow(size) {
     // Ambil nilai maksimum dari isi window saat ini.
     getMax() {
       if (count === 0) return null;
-      let max = data[0];
-      for (let i = 1; i < count; i++) {
+      let max = filled ? data[index] : data[0];
+      const limit = filled ? size : count;
+      for (let i = 1; i < limit; i++) {
         const val = filled ? data[(index + i) % size] : data[i];
         if (val > max) max = val;
       }
@@ -60,8 +61,9 @@ export function createRollingWindow(size) {
     // Ambil nilai minimum dari isi window saat ini.
     getMin() {
       if (count === 0) return null;
-      let min = data[0];
-      for (let i = 1; i < count; i++) {
+      let min = filled ? data[index] : data[0];
+      const limit = filled ? size : count;
+      for (let i = 1; i < limit; i++) {
         const val = filled ? data[(index + i) % size] : data[i];
         if (val < min) min = val;
       }

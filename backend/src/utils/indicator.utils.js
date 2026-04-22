@@ -31,28 +31,33 @@ const signalFuncs = {
     return "neutral";
   },
   sma: (s20, s50, p) =>
-    !p || !s20 || !s50
+    p == null || s20 == null || s50 == null
       ? "neutral"
-      : p > s20 && s20 > s50
+      : p > s50 && s20 > s50
         ? "buy"
-        : p < s20 && s20 < s50
+        : p < s50 && s20 < s50
           ? "sell"
           : "neutral",
-  ema: (e20, e50, p) =>
-    !p || !e20 || !e50
+  ema: (e20, e50) =>
+    e20 == null || e50 == null
       ? "neutral"
-      : p > e20 && e20 > e50
+      : e20 > e50
         ? "buy"
-        : p < e20 && e20 < e50
+        : e20 < e50
           ? "sell"
           : "neutral",
   psar: (p, ps) =>
-    !p || !ps ? "neutral" : p > ps ? "buy" : p < ps ? "sell" : "neutral",
-  bollingerBands: (p, up, low, middle) => {
-    if (!p || !up || !low) return "neutral";
-    const width = up - low;
-    if (p > up - width * 0.1) return "sell";
-    if (p < low + width * 0.1) return "buy";
+    p == null || ps == null
+      ? "neutral"
+      : p > ps
+        ? "buy"
+        : p < ps
+          ? "sell"
+          : "neutral",
+  bollingerBands: (p, up, low) => {
+    if (p == null || up == null || low == null) return "neutral";
+    if (p >= up) return "sell";
+    if (p <= low) return "buy";
     return "neutral";
   },
 };
@@ -65,7 +70,7 @@ export function calculateIndividualSignals(ind) {
   const p = ind.close;
   return {
     SMA: signalFuncs.sma(ind.sma20, ind.sma50, p),
-    EMA: signalFuncs.ema(ind.ema20, ind.ema50, p),
+    EMA: signalFuncs.ema(ind.ema20, ind.ema50),
     RSI: signalFuncs.rsi(ind.rsi),
     MACD: signalFuncs.macd(ind.macd, ind.macdSignalLine, ind.macdHist), // ✅ Standardized MACD naming for consistency
     BollingerBands: signalFuncs.bollingerBands(

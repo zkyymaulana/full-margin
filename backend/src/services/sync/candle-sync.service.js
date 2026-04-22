@@ -16,7 +16,12 @@ const parsedSyncConcurrency = Number.parseInt(
 const SYNC_CONCURRENCY = Number.isFinite(parsedSyncConcurrency)
   ? Math.max(1, parsedSyncConcurrency)
   : 2;
+// Jumlah aset final yang diproses/sinkron ke DB.
 const TARGET_ASSET_LIMIT = Number(process.env.TARGET_ASSET_LIMIT || "10");
+// Buffer kandidat dari ranking teratas sebelum dipotong ke target final.
+const TARGET_ASSET_BUFFER_LIMIT = Number(
+  process.env.TARGET_ASSET_BUFFER_LIMIT || "20",
+);
 const LISTING_FETCH_CUTOFF_DATE = new Date("2025-01-01T00:00:00.000Z");
 const STABLECOIN_SYMBOLS = new Set([
   "USDT",
@@ -33,6 +38,25 @@ const STABLECOIN_SYMBOLS = new Set([
   "FRAX",
   "EURC",
 ]);
+
+function isStablecoinPair(symbol = "") {
+  const normalized = String(symbol).toUpperCase();
+  for (const stable of STABLECOIN_SYMBOLS) {
+    if (normalized.startsWith(`${stable}-`)) return true;
+  }
+  return false;
+}
+
+// Kriteria aset yang boleh difetch historis sesuai metodologi skripsi.
+function isEligibleForHistoricalFetch(coin, symbol) {
+  if (!coin) return false;
+  if (!String(symbol || "").includes("-")) return false;
+  if (isStablecoinPair(symbol)) return false;
+  if (coin.rank == null) return false;
+  if (!coin.listingDate) return false;
+  if (coin.listingDate >= LISTING_FETCH_CUTOFF_DATE) return false;
+  return true;
+}
 
 async function runWithConcurrency(items, limit, worker) {
   const results = new Array(items.length);
@@ -219,17 +243,12 @@ async function syncSymbolCandles(symbol) {
     // Get coin and timeframe IDs
     const coin = await prisma.coin.findUnique({
       where: { symbol },
-      select: { id: true, listingDate: true },
+      select: { id: true, rank: true, listingDate: true },
     });
 
-    if (!coin) {
-      console.log(`⚠️ ${symbol}: Coin not found in database, skipping...`);
-      return { symbol, newCandles: 0 };
-    }
-
-    if (coin.listingDate && coin.listingDate > LISTING_FETCH_CUTOFF_DATE) {
+    if (!isEligibleForHistoricalFetch(coin, symbol)) {
       console.log(
-        `⏭️ ${symbol}: Skip candle sync (listingDate ${coin.listingDate.toISOString().split("T")[0]} > 2025-01-01)`,
+        `⏭️ ${symbol}: Skip candle sync (tidak memenuhi kriteria aset historis)`,
       );
       return { symbol, newCandles: 0 };
     }
@@ -296,12 +315,38 @@ async function syncSymbolCandles(symbol) {
     }
 
     // Rapikan data lalu isi gap waktu agar deret waktu tetap konsisten.
-    const normalizedCandles = cleanCandleData(completeCandles);
+    // Tambahkan candle terakhir dari DB sebagai anchor agar gap tepat di batas
+    // antara data lama (DB) dan data baru (API) tetap ikut terisi.
+    const bridgeInput = lastCandle
+      ? [
+          {
+            time: Number(lastCandle.time),
+            open: lastCandle.open,
+            high: lastCandle.high,
+            low: lastCandle.low,
+            close: lastCandle.close,
+            volume: lastCandle.volume,
+          },
+          ...completeCandles,
+        ]
+      : completeCandles;
+
+    const normalizedCandles = cleanCandleData(bridgeInput);
     const uniqueCandles = removeDuplicateCandles(normalizedCandles);
     const candlesWithForwardFill = fillMissingCandles(uniqueCandles, oneHour);
 
+    // Jangan simpan ulang candle anchor lama dari DB.
+    const candlesForSave = lastCandle
+      ? candlesWithForwardFill.filter((c) => c.time > Number(lastCandle.time))
+      : candlesWithForwardFill;
+
+    if (!candlesForSave.length) {
+      console.log(`⏭️ ${symbol}: No new candles after bridge normalization`);
+      return { symbol, newCandles: 0 };
+    }
+
     // Prepare data for database insert
-    const candleData = candlesWithForwardFill.map((candle) => ({
+    const candleData = candlesForSave.map((candle) => ({
       coinId: coin.id,
       timeframeId: timeframeRecord.id,
       time: BigInt(Math.floor(candle.time)),
@@ -359,10 +404,14 @@ export async function getActiveSymbols() {
       },
       orderBy: { coin: { rank: "asc" } },
       select: { coin: { select: { symbol: true } } },
-      take: TARGET_ASSET_LIMIT,
+      take: TARGET_ASSET_BUFFER_LIMIT,
     });
 
-    const result = topCoins.map((item) => item.coin?.symbol).filter(Boolean);
+    // Ambil simbol valid dari buffer, lalu potong ke target final (10 aset).
+    const result = topCoins
+      .map((item) => item.coin?.symbol)
+      .filter(Boolean)
+      .slice(0, TARGET_ASSET_LIMIT);
 
     if (result.length === 0) {
       console.warn("⚠️ No symbols found in database. Please run sync first.");
@@ -370,7 +419,7 @@ export async function getActiveSymbols() {
     }
 
     console.log(
-      `Found ${result.length} active symbols from database (listed before 2025-01-01)`,
+      `Found ${result.length} active symbols from database (buffer ${TARGET_ASSET_BUFFER_LIMIT}, listed before 2025-01-01)`,
     );
     return result;
   } catch (error) {
@@ -426,19 +475,12 @@ export async function syncHistoricalData(
       // Get coinId from Coin table
       const coin = await prisma.coin.findUnique({
         where: { symbol },
-        select: { id: true, listingDate: true },
+        select: { id: true, rank: true, listingDate: true },
       });
 
-      if (!coin) {
-        console.log(`⚠️ Coin not found in database`);
-        results.failed++;
-        results.errors.push({ symbol, error: "Coin not found" });
-        continue;
-      }
-
-      if (coin.listingDate && coin.listingDate > LISTING_FETCH_CUTOFF_DATE) {
+      if (!isEligibleForHistoricalFetch(coin, symbol)) {
         console.log(
-          `⏭️ ${symbol}: Skip historical sync (listingDate ${coin.listingDate.toISOString().split("T")[0]} > 2025-01-01)`,
+          `⏭️ ${symbol}: Skip historical sync (tidak memenuhi kriteria aset historis)`,
         );
         results.skipped++;
         continue;
@@ -488,6 +530,8 @@ export async function syncHistoricalData(
       let totalCompleteCandles = 0;
       let earliestSavedTime = null;
       let latestSavedTime = null;
+      // Simpan candle terakhir batch sebelumnya untuk bridge gap antar-batch.
+      let previousBatchTail = null;
 
       await fetchHistoricalCandles(symbol, fetchStartTime, fetchEndTime, {
         accumulate: false,
@@ -500,14 +544,28 @@ export async function syncHistoricalData(
           if (!completeCandles.length) return;
 
           // Rapikan data batch lalu isi candle yang hilang dengan forward fill.
-          const normalizedCandles = cleanCandleData(completeCandles);
+          // Tambahkan tail batch sebelumnya supaya gap di batas batch ikut terisi.
+          const bridgeInput = previousBatchTail
+            ? [previousBatchTail, ...completeCandles]
+            : completeCandles;
+
+          const normalizedCandles = cleanCandleData(bridgeInput);
           const uniqueCandles = removeDuplicateCandles(normalizedCandles);
           const candlesWithForwardFill = fillMissingCandles(
             uniqueCandles,
             oneHour,
           );
 
-          const candleData = candlesWithForwardFill.map((candle) => ({
+          // Jangan simpan ulang tail batch sebelumnya.
+          const candlesForSave = previousBatchTail
+            ? candlesWithForwardFill.filter(
+                (c) => c.time > previousBatchTail.time,
+              )
+            : candlesWithForwardFill;
+
+          if (!candlesForSave.length) return;
+
+          const candleData = candlesForSave.map((candle) => ({
             coinId: coin.id,
             timeframeId: timeframeRecord.id,
             time: BigInt(Math.floor(candle.time)),
@@ -523,19 +581,20 @@ export async function syncHistoricalData(
             skipDuplicates: true,
           });
 
-          totalCompleteCandles += candlesWithForwardFill.length;
+          totalCompleteCandles += candlesForSave.length;
           if (
             !earliestSavedTime ||
-            candlesWithForwardFill[0].time < earliestSavedTime
+            candlesForSave[0].time < earliestSavedTime
           ) {
-            earliestSavedTime = candlesWithForwardFill[0].time;
+            earliestSavedTime = candlesForSave[0].time;
           }
 
-          const batchLastTime =
-            candlesWithForwardFill[candlesWithForwardFill.length - 1].time;
+          const batchLastTime = candlesForSave[candlesForSave.length - 1].time;
           if (!latestSavedTime || batchLastTime > latestSavedTime) {
             latestSavedTime = batchLastTime;
           }
+
+          previousBatchTail = candlesForSave[candlesForSave.length - 1];
         },
       });
 

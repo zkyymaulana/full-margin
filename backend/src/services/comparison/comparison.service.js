@@ -137,6 +137,8 @@ export async function compareStrategies(
   _threshold = 0,
 ) {
   const executionThreshold = 0;
+  // Sesuai metodologi skripsi: rule eksekusi final score menggunakan ambang 0.
+  // Parameter threshold sengaja tidak dipakai agar hasil pembandingan tetap apple-to-apple.
 
   console.log(
     `📊 Comparison started for ${symbol} with execution threshold ${executionThreshold}`,

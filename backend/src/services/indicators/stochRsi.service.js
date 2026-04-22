@@ -44,16 +44,18 @@ export function createStochasticRSICalculator(
 
       const highestRSI = rsiWindow.getMax();
       const lowestRSI = rsiWindow.getMin();
+      const range = highestRSI - lowestRSI;
 
       // Rumus Stochastic RSI:
       // StochRSI = (RSI - LowestRSI) / (HighestRSI - LowestRSI) × 100
       // Artinya: seberapa dekat nilai RSI sekarang dengan batas atas/bawah RSI terbaru.
-      const k = ((rsi - lowestRSI) / (highestRSI - lowestRSI)) * 100;
+      const rawK = range === 0 ? 50 : ((rsi - lowestRSI) / range) * 100;
+      const k = Math.min(100, Math.max(0, rawK));
       kValues.add(k);
 
       // Rumus %D:
       // %D = Rata-rata %K selama 3 periode terakhir
-      const d = kValues.getAverage();
+      const d = kValues.isFull() ? kValues.getAverage() : null;
 
       return {
         "%K": k,

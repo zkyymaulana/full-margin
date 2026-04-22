@@ -9,9 +9,12 @@ import {
 
 dotenv.config();
 
-const TARGET_VALID_COINS = Number(process.env.TARGET_ASSET_LIMIT || "10");
+// Buffer coin valid yang disimpan di tabel topCoin untuk seleksi lanjutan.
+const TARGET_VALID_COINS = Number(
+  process.env.TARGET_ASSET_BUFFER_LIMIT || "20",
+);
 const CMC_SCAN_LIMIT = Number(
-  process.env.CMC_FETCH_LIMIT || process.env.TARGET_ASSET_LIMIT || "10",
+  process.env.CMC_FETCH_LIMIT || process.env.TARGET_ASSET_BUFFER_LIMIT || "20",
 );
 const LISTING_CUTOFF_DATE = new Date("2025-01-01T00:00:00.000Z");
 let isSyncTopCoinsRunning = false;

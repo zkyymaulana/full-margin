@@ -14,6 +14,7 @@
  */
 
 import { prisma } from "../../lib/prisma.js";
+import { invalidateWeightsCache } from "../indicators/indicator.service.js";
 import {
   optimizeIndicatorWeights,
   backtestWithWeights,
@@ -85,6 +86,21 @@ function estimateDuration(dataCount) {
       benchmarkMinutes: BENCHMARK_MINUTES,
       scalingFactor: (dataCount / BENCHMARK_DATA_POINTS).toFixed(2),
     },
+  };
+}
+
+function buildLatestIndicatorSnapshot(indicator) {
+  if (!indicator) return null;
+
+  return {
+    sma: { signal: indicator.smaSignal || "neutral" },
+    ema: { signal: indicator.emaSignal || "neutral" },
+    rsi: { signal: indicator.rsiSignal || "neutral" },
+    macd: { signal: indicator.macdSignal || "neutral" },
+    bollingerBands: { signal: indicator.bbSignal || "neutral" },
+    stochastic: { signal: indicator.stochSignal || "neutral" },
+    stochasticRsi: { signal: indicator.stochRsiSignal || "neutral" },
+    parabolicSar: { signal: indicator.psarSignal || "neutral" },
   };
 }
 
@@ -396,6 +412,9 @@ export async function runOptimization(
         },
       });
 
+      // Pastikan sinyal berikutnya memakai bobot hasil optimasi terbaru.
+      invalidateWeightsCache(symbol, timeframe);
+
       performanceData = result.performance;
       performanceData.initialCapital = 10000;
       weightsData = result.bestWeights;
@@ -446,6 +465,7 @@ export async function runOptimization(
         close: latestCandle.close,
         volume: latestCandle.volume,
       },
+      latestIndicator: buildLatestIndicatorSnapshot(latestIndicator),
     };
   } catch (err) {
     console.error("❌ Error in optimization:", err.message);
@@ -647,6 +667,9 @@ export async function optimizeAllCoins(timeframe) {
             candleCount: data.length,
           },
         });
+
+        // Hindari penggunaan bobot cache lama setelah create weights baru.
+        invalidateWeightsCache(symbol, timeframe);
 
         results.push({
           symbol,

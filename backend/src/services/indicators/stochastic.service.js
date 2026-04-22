@@ -25,16 +25,18 @@ export function createStochasticCalculator(kPeriod = 14, dPeriod = 3) {
 
       const highestHigh = highWindow.getMax();
       const lowestLow = lowWindow.getMin();
+      const range = highestHigh - lowestLow;
 
       // Rumus %K:
       // %K = ((Close - LowestLow) / (HighestHigh - LowestLow)) × 100
       // Menunjukkan posisi harga saat ini dalam rentang harga terbaru
-      const k = ((close - lowestLow) / (highestHigh - lowestLow)) * 100;
+      const rawK = range === 0 ? 50 : ((close - lowestLow) / range) * 100;
+      const k = Math.min(100, Math.max(0, rawK));
       kValues.add(k);
 
       // Rumus %D:
       // %D = Rata-rata dari %K selama 3 periode terakhir (SMA 3)
-      const d = kValues.getAverage();
+      const d = kValues.isFull() ? kValues.getAverage() : null;
 
       return {
         "%K": k,

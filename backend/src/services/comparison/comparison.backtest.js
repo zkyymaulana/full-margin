@@ -153,7 +153,7 @@ function backtestVotingStrategy(data) {
     const prev = i > 0 ? data[i - 1] : null;
     const price = cur.close;
 
-    if (!price) {
+    if (price == null) {
       equityCurve.push(capital);
       continue;
     }

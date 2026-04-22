@@ -17,7 +17,7 @@ export function createSMACalculator(period) {
       // - P = harga penutupan (close)
       // - n = jumlah periode
       // Jadi setiap kali ada data baru, nilai lama keluar (rolling), dan dihitung ulang rata-ratanya.
-      return window.getAverage();
+      return window.isFull() ? window.getAverage() : null;
     },
   };
 }

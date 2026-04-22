@@ -42,13 +42,15 @@ export function validateAndFillRsiData(data) {
 export const scoreSignal = (s) => {
   switch (s) {
     case "strong_buy":
-      return 2;
+      // Strong signal diperlakukan sebagai arah buy yang sama (bukan pengali ekstra).
+      return 1;
     case "buy":
       return 1;
     case "sell":
       return -1;
     case "strong_sell":
-      return -2;
+      // Strong signal diperlakukan sebagai arah sell yang sama (bukan pengali ekstra).
+      return -1;
     default:
       return 0;
   }

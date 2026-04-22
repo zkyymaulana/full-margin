@@ -13,17 +13,37 @@ import {
 import { calculateSignals } from "../signals/signalAnalyzer.js";
 import { calculateOverallSignal } from "../signals/overallAnalyzer.js";
 
-const ONE_HOUR_MS = 60 * 60 * 1000;
 const LISTING_FETCH_CUTOFF_DATE = new Date("2025-01-01T00:00:00.000Z");
+// Minimal warmup mengikuti periode indikator terpanjang yang aktif (SMA50).
+const MIN_REQUIRED_WARMUP_CANDLES = 50;
 const INDICATOR_WARMUP_CANDLES = Math.max(
-  20,
+  MIN_REQUIRED_WARMUP_CANDLES,
   Number(process.env.INDICATOR_WARMUP_CANDLES || "20"),
 );
+
+function timeframeToMs(timeframe = "1h") {
+  // Konversi timeframe teks (contoh: 15m, 1h, 1d) menjadi milidetik.
+  const normalized = timeframe.toLowerCase();
+  const match = normalized.match(/^(\d+)(m|h|d|w)$/);
+  if (!match) return 60 * 60 * 1000;
+
+  const value = Number(match[1]);
+  const unit = match[2];
+  const unitToMs = {
+    m: 60 * 1000,
+    h: 60 * 60 * 1000,
+    d: 24 * 60 * 60 * 1000,
+    w: 7 * 24 * 60 * 60 * 1000,
+  };
+
+  return value * unitToMs[unit];
+}
 
 async function getCandlesForIndicatorCalculation(
   coinId,
   timeframeId,
   latestIndicatorTime,
+  timeframe,
 ) {
   if (!latestIndicatorTime) {
     return prisma.candle.findMany({
@@ -33,9 +53,11 @@ async function getCandlesForIndicatorCalculation(
   }
 
   const latest = Number(latestIndicatorTime);
+  // Ambil buffer candle sesuai timeframe supaya warmup konsisten lintas timeframe.
+  const timeframeMs = timeframeToMs(timeframe);
   const rangeStart = Math.max(
     0,
-    latest - INDICATOR_WARMUP_CANDLES * ONE_HOUR_MS,
+    latest - INDICATOR_WARMUP_CANDLES * timeframeMs,
   );
 
   return prisma.candle.findMany({
@@ -91,6 +113,7 @@ export async function calculateAndSaveIndicators(symbol, timeframe = "1h") {
     coin.id,
     timeframeRecord.id,
     latestIndicator?.time,
+    timeframe,
   );
 
   if (!candles.length) {
@@ -416,6 +439,17 @@ const weightsCache = new Map();
 
 function getWeightsCacheKey(symbol, timeframe) {
   return `${symbol}::${timeframe}`;
+}
+
+// Hapus cache bobot per simbol-timeframe agar memakai hasil optimasi terbaru.
+export function invalidateWeightsCache(symbol, timeframe = "1h") {
+  if (!symbol) return;
+  weightsCache.delete(getWeightsCacheKey(symbol, timeframe));
+}
+
+// Hapus seluruh cache bobot (opsional untuk maintenance/debugging).
+export function clearWeightsCache() {
+  weightsCache.clear();
 }
 
 async function calculateOverallSignalOptimized(signals, symbol, timeframe) {
