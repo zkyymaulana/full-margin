@@ -14,6 +14,7 @@ const MAX_BATCH_SIZE = Number(process.env.COINBASE_BATCH_SIZE) || 300;
 // Coinbase membatasi maksimal 300 candle per request.
 // Agar stabil dan tidak overlap, satu jendela batch dibatasi tepat 300 titik waktu.
 const MAX_BATCH_SPAN_MS = (MAX_BATCH_SIZE - 1) * HOUR_MS;
+const EARLIEST_LISTING_SEARCH_START_MS = Date.parse("2015-01-01T00:00:00.000Z");
 
 const BATCH_DELAY_MS = Number(process.env.COINBASE_BATCH_DELAY_MS) || 400; // jeda antar batch
 const RETRY_DELAY_MS = Number(process.env.COINBASE_RETRY_DELAY_MS) || 5000; // retry saat rate limit
@@ -134,6 +135,76 @@ export async function fetchHistoricalCandles(symbol, start, end, options = {}) {
   const cleanedCandles = cleanCandleData(sortedCandles);
   const finalCandles = removeDuplicateCandles(cleanedCandles);
   return finalCandles;
+}
+
+async function fetchWindowCandles(symbol, startMs, endMs) {
+  const params = {
+    start: new Date(startMs).toISOString(),
+    end: new Date(endMs).toISOString(),
+    granularity: HOUR_SEC,
+  };
+
+  const { data } = await client.get(`/products/${symbol}/candles`, { params });
+  if (!Array.isArray(data) || data.length === 0) return [];
+
+  return data
+    .map(([t, low, high, open, close, volume]) => ({
+      time: t * 1000,
+      open,
+      high,
+      low,
+      close,
+      volume,
+    }))
+    .filter((c) => c.time < Date.now() - HOUR_MS);
+}
+
+// Cari timestamp candle pertama yang benar-benar tersedia di Coinbase untuk sebuah pair.
+// Dipakai untuk memvalidasi eligibility historis agar tidak fetch dataset besar secara sia-sia.
+export async function findEarliestCoinbaseCandleTime(symbol, options = {}) {
+  const lowerBound = Number(
+    options.lowerBoundMs || EARLIEST_LISTING_SEARCH_START_MS,
+  );
+  const nowHour = Math.floor(Date.now() / HOUR_MS) * HOUR_MS;
+  let left = Math.floor(lowerBound / HOUR_MS) * HOUR_MS;
+  let right = Math.max(left, nowHour - HOUR_MS);
+  let firstWindowStart = null;
+
+  while (left <= right) {
+    const mid = Math.floor((left + right) / (2 * HOUR_MS)) * HOUR_MS;
+    const end = Math.min(mid + MAX_BATCH_SPAN_MS, nowHour);
+
+    try {
+      const candles = await fetchWindowCandles(symbol, mid, end);
+      if (candles.length > 0) {
+        firstWindowStart = mid;
+        right = mid - HOUR_MS;
+      } else {
+        left = mid + HOUR_MS;
+      }
+    } catch (err) {
+      if (err.response?.status === 404) {
+        return null;
+      }
+
+      // Untuk error sementara, fallback ke pergeseran kanan agar pencarian tetap lanjut.
+      left = mid + HOUR_MS;
+    }
+  }
+
+  if (firstWindowStart == null) {
+    return null;
+  }
+
+  const refineEnd = Math.min(firstWindowStart + MAX_BATCH_SPAN_MS, nowHour);
+  const refined = await fetchWindowCandles(symbol, firstWindowStart, refineEnd);
+
+  if (!refined.length) return null;
+
+  return refined.reduce(
+    (minTime, candle) => Math.min(minTime, candle.time),
+    refined[0].time,
+  );
 }
 
 async function delay(ms) {

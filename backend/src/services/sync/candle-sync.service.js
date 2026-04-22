@@ -1,5 +1,8 @@
 import { prisma } from "../../lib/prisma.js";
-import { fetchHistoricalCandles } from "../coinbase/coinbase.service.js";
+import {
+  fetchHistoricalCandles,
+  findEarliestCoinbaseCandleTime,
+} from "../coinbase/coinbase.service.js";
 import { calculateAndSaveIndicators } from "../indicators/indicator.service.js";
 import {
   cleanCandleData,
@@ -38,6 +41,7 @@ const STABLECOIN_SYMBOLS = new Set([
   "FRAX",
   "EURC",
 ]);
+const earliestCoinbaseListingCache = new Map();
 
 function isStablecoinPair(symbol = "") {
   const normalized = String(symbol).toUpperCase();
@@ -56,6 +60,33 @@ function isEligibleForHistoricalFetch(coin, symbol) {
   if (!coin.listingDate) return false;
   if (coin.listingDate >= LISTING_FETCH_CUTOFF_DATE) return false;
   return true;
+}
+
+async function resolveEarliestCoinbaseListingDate(symbol) {
+  if (earliestCoinbaseListingCache.has(symbol)) {
+    return earliestCoinbaseListingCache.get(symbol);
+  }
+
+  const earliestTime = await findEarliestCoinbaseCandleTime(symbol);
+  const listingDate = earliestTime ? new Date(earliestTime) : null;
+  earliestCoinbaseListingCache.set(symbol, listingDate);
+  return listingDate;
+}
+
+// Pastikan listing date tersimpan berdasarkan data candle Coinbase, bukan asumsi eksternal.
+async function syncCoinListingDateFromCoinbase(coinId, symbol) {
+  const listingDate = await resolveEarliestCoinbaseListingDate(symbol);
+
+  if (!listingDate) {
+    return null;
+  }
+
+  await prisma.coin.update({
+    where: { id: coinId },
+    data: { listingDate },
+  });
+
+  return listingDate;
 }
 
 async function runWithConcurrency(items, limit, worker) {
@@ -270,6 +301,23 @@ async function syncSymbolCandles(symbol) {
       },
       orderBy: { time: "desc" },
     });
+
+    if (!lastCandle) {
+      const coinbaseListingDate = await syncCoinListingDateFromCoinbase(
+        coin.id,
+        symbol,
+      );
+
+      if (
+        !coinbaseListingDate ||
+        coinbaseListingDate >= LISTING_FETCH_CUTOFF_DATE
+      ) {
+        console.log(
+          `⏭️ ${symbol}: Skip candle sync (listing Coinbase ${coinbaseListingDate ? coinbaseListingDate.toISOString().split("T")[0] : "tidak ditemukan"} tidak memenuhi cutoff)`,
+        );
+        return { symbol, newCandles: 0 };
+      }
+    }
 
     // Calculate start time for fetch (last candle + 1 hour or 7 days ago)
     const now = Date.now();
@@ -502,6 +550,22 @@ export async function syncHistoricalData(
       let fetchEndTime = currentTime;
 
       if (!newestCandle) {
+        const coinbaseListingDate = await syncCoinListingDateFromCoinbase(
+          coin.id,
+          symbol,
+        );
+
+        if (
+          !coinbaseListingDate ||
+          coinbaseListingDate >= LISTING_FETCH_CUTOFF_DATE
+        ) {
+          console.log(
+            `⏭️ ${symbol}: Skip historical sync (listing Coinbase ${coinbaseListingDate ? coinbaseListingDate.toISOString().split("T")[0] : "tidak ditemukan"} tidak memenuhi cutoff)`,
+          );
+          results.skipped++;
+          continue;
+        }
+
         // No data - fetch everything from start date
         fetchStartTime = targetStartTime;
         console.log(`📥 Fetching from ${startDate} to now`);
