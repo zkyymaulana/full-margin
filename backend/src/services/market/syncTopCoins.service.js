@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import { prisma } from "../../lib/prisma.js";
 import { cleanTopCoinData } from "../../utils/dataCleaner.js";
 import { fetchPairs } from "../../clients/coinbase.client.js";
+import { findEarliestCoinbaseCandleTime } from "../coinbase/coinbase.service.js";
 import {
   getTopCoins,
   getCoinLogos,
@@ -37,6 +38,7 @@ const STABLECOIN_SYMBOLS = new Set([
 const stablecoinPrefixFilters = Array.from(STABLECOIN_SYMBOLS).map(
   (symbol) => ({ symbol: { startsWith: `${symbol}-` } }),
 );
+const coinbaseListingDateCache = new Map();
 
 function getBaseSymbol(pairSymbol) {
   return String(pairSymbol || "")
@@ -46,6 +48,18 @@ function getBaseSymbol(pairSymbol) {
 
 function isEligibleListingDate(listingDate) {
   return Boolean(listingDate && listingDate < LISTING_CUTOFF_DATE);
+}
+
+// Ambil listing date berbasis candle pertama Coinbase agar tidak bias data CMC.
+async function getCoinbaseListingDate(symbol) {
+  if (coinbaseListingDateCache.has(symbol)) {
+    return coinbaseListingDateCache.get(symbol);
+  }
+
+  const earliestTime = await findEarliestCoinbaseCandleTime(symbol);
+  const listingDate = earliestTime ? new Date(earliestTime) : null;
+  coinbaseListingDateCache.set(symbol, listingDate);
+  return listingDate;
 }
 
 async function assignFallbackRanksToCoins(coinIds = []) {
@@ -318,6 +332,16 @@ export async function syncTopCoins() {
         continue;
       }
 
+      // WAJIB: listing date memakai data historis awal Coinbase (bukan CMC).
+      const coinbaseListingDate = await getCoinbaseListingDate(foundPair);
+
+      if (!isEligibleListingDate(coinbaseListingDate)) {
+        console.log(
+          `[${processedCount}/${coins.length}] ⏭️  ${foundPair}: Coinbase listing not eligible (${coinbaseListingDate ? coinbaseListingDate.toISOString().split("T")[0] : "null"})`,
+        );
+        continue;
+      }
+
       // Cek apakah coin sudah pernah dicek sebelumnya (ada di database)
       const existingCoin = await prisma.coin.findFirst({
         where: { symbol: foundPair },
@@ -325,21 +349,11 @@ export async function syncTopCoins() {
       });
 
       if (existingCoin) {
-        // Jika listingDate sudah ada, jangan revalidate lagi.
-        const resolvedListingDate =
-          existingCoin.listingDate || coin.cmcListingDate;
-
-        if (!isEligibleListingDate(resolvedListingDate)) {
-          console.log(
-            `[${processedCount}/${coins.length}] ⏭️  ${foundPair}: Listing date not eligible (${resolvedListingDate ? resolvedListingDate.toISOString().split("T")[0] : "null"})`,
-          );
-          continue;
-        }
-
         const coinData = {
           ...coin,
           symbol: foundPair,
-          listingDate: resolvedListingDate,
+          // Override nilai lama agar sumber kebenaran listingDate selalu Coinbase.
+          listingDate: coinbaseListingDate,
         };
 
         // Simpan/update langsung agar coin + rank selalu ikut snapshot CMC terbaru.
@@ -360,16 +374,6 @@ export async function syncTopCoins() {
         continue;
       }
 
-      // Coin baru: listingDate cukup dari CMC, tanpa revalidate candle.
-      const listingDate = coin.cmcListingDate;
-
-      if (!isEligibleListingDate(listingDate)) {
-        console.log(
-          `[${processedCount}/${coins.length}] ⏭️  ${foundPair}: Listing date not eligible (${listingDate ? listingDate.toISOString().split("T")[0] : "null"})`,
-        );
-        continue;
-      }
-
       // Fetch logo dari CMC untuk coin ini (via client)
       let logo = null;
       try {
@@ -383,7 +387,8 @@ export async function syncTopCoins() {
       const coinData = {
         ...coin,
         symbol: foundPair,
-        listingDate: listingDate,
+        // Untuk coin baru, langsung isi dari Coinbase historical earliest candle.
+        listingDate: coinbaseListingDate,
         logo: logo, // Logo sudah ada
       };
 
@@ -412,6 +417,17 @@ export async function syncTopCoins() {
         `⚠️ Paired coins hanya ${selectedCoins.length}/${TARGET_VALID_COINS} dari ${coins.length} ranking CMC yang discan`,
       );
     }
+
+    // Pastikan tabel TopCoin hanya berisi aset valid hasil seleksi terbaru.
+    // Ini mencegah aset lama (yang kini tidak lolos kriteria) tetap terbaca sistem.
+    const selectedSymbols = selectedCoins.map((item) => item.symbol);
+    await prisma.topCoin.deleteMany({
+      where: {
+        coin: {
+          symbol: { notIn: selectedSymbols },
+        },
+      },
+    });
 
     return {
       success: true,
