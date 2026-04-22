@@ -411,12 +411,18 @@ function calculateAllIndicators(calculators, close, high, low) {
   };
 }
 
-// ✅ Cache untuk weights per symbol
+// Cache untuk weights per symbol
 const weightsCache = new Map();
 
+function getWeightsCacheKey(symbol, timeframe) {
+  return `${symbol}::${timeframe}`;
+}
+
 async function calculateOverallSignalOptimized(signals, symbol, timeframe) {
+  const cacheKey = getWeightsCacheKey(symbol, timeframe);
+
   // Check cache first
-  let weights = weightsCache.get(symbol);
+  let weights = weightsCache.get(cacheKey);
 
   if (!weights) {
     // Get coinId and timeframeId for query
@@ -463,7 +469,7 @@ async function calculateOverallSignalOptimized(signals, symbol, timeframe) {
       };
     }
 
-    weightsCache.set(symbol, weights);
+    weightsCache.set(cacheKey, weights);
   }
 
   // Use cached weights to avoid DB query for every indicator

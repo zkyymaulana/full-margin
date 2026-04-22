@@ -13,8 +13,9 @@
  *
  * MULTI-INDICATOR WEIGHTED (Penelitian Utama):
  * - Menggunakan FinalScore ternormalisasi (-1 sampai +1)
- * - Entry HANYA pada Strong Buy (score >= 0.6)
- * - Exit HANYA pada Strong Sell (score <= -0.6)
+ * - Entry saat FinalScore > 0
+ * - Exit saat FinalScore < 0
+ * - Strong Buy/Strong Sell (±0.6) dipakai untuk labeling tingkat keyakinan
  * - Lebih selektif dan robust
  * - Jumlah trade lebih sedikit, win rate lebih tinggi
  *
@@ -165,7 +166,7 @@ function backtestVotingStrategy(data) {
     // ═══════════════════════════════════════════════════════
     // Entry: BUY votes > SELL votes (agresif, threshold rendah)
     // Exit: SELL votes > BUY votes (agresif, threshold rendah)
-    // ⚠️ Berbeda dengan multi-weighted yang menggunakan threshold ±0.6
+    // ⚠️ Berbeda dengan multi-weighted yang menggunakan finalScore > 0 / < 0
     // ═══════════════════════════════════════════════════════
 
     if (signal === "buy" && !position) {

@@ -37,7 +37,7 @@
  *    ↓
  * 5️⃣ BACKTEST SINGLE INDICATORS (8 individual backtests)
  *    ↓
- * 6️⃣ BACKTEST MULTI-INDICATOR WEIGHTED (dengan custom threshold)
+ * 6️⃣ BACKTEST MULTI-INDICATOR WEIGHTED (execution threshold = 0)
  *    ↓
  * 7️⃣ BACKTEST VOTING STRATEGY (majority voting baseline)
  *    ↓
@@ -92,8 +92,9 @@ import {
  *
  * 2. MULTI-INDICATOR WEIGHTED
  *    - Kombinasi 8 indicators dengan optimized weights
- *    - Entry pada Strong Buy signal (score >= 0.6)
- *    - Exit pada Strong Sell signal (score <= -0.6)
+ *    - Entry saat FinalScore > 0
+ *    - Exit saat FinalScore < 0
+ *    - Label Strong Buy/Strong Sell (±0.6) dipakai untuk tingkat keyakinan
  *    - Lebih robust dan selective
  *    - Main strategy dari research paper
  *
@@ -133,10 +134,12 @@ export async function compareStrategies(
   symbol,
   startDate,
   endDate,
-  threshold = 0.4,
+  _threshold = 0,
 ) {
+  const executionThreshold = 0;
+
   console.log(
-    `📊 Comparison started for ${symbol} with threshold ${threshold}`,
+    `📊 Comparison started for ${symbol} with execution threshold ${executionThreshold}`,
   );
   const timeframe = "1h";
 
@@ -246,11 +249,11 @@ export async function compareStrategies(
     // ═══════════════════════════════════════════════════════════════════════
 
     console.log(
-      `🚀 Running multi indicator backtest with threshold ${threshold}...`,
+      `🚀 Running multi indicator backtest with threshold ${executionThreshold}...`,
     );
     const multiResult = await backtestWithWeights(data, bestWeights, {
       fastMode: true,
-      threshold, // ✅ Pass threshold untuk Strong Buy/Sell determination
+      threshold: executionThreshold,
     });
 
     // ═══════════════════════════════════════════════════════════════════════

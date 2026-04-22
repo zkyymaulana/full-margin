@@ -19,6 +19,9 @@ import {
   backtestWithWeights,
 } from "./multi-indicator.service.js";
 
+// const FIXED_START_EPOCH = Date.parse("2025-01-01T00:00:00Z");
+// const FIXED_END_EPOCH = Date.parse("2025-12-01T00:00:00Z");
+
 // Fixed training window untuk semua optimization
 const FIXED_START_EPOCH = Date.parse("2020-01-01T00:00:00Z");
 const FIXED_END_EPOCH = Date.parse("2025-01-01T00:00:00Z");

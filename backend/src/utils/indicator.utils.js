@@ -8,18 +8,24 @@ const STOCH_OVERBOUGHT = 80;
 
 /* --- Signal Logic --- */
 const signalFuncs = {
-  rsi: (v) =>
-    v < RSI_OVERSOLD ? "buy" : v > RSI_OVERBOUGHT ? "sell" : "neutral",
-  macd: (m, s) =>
-    !m || !s ? "neutral" : m > s ? "buy" : m < s ? "sell" : "neutral",
+  rsi: (v) => {
+    if (v == null) return "neutral";
+    return v < RSI_OVERSOLD ? "buy" : v > RSI_OVERBOUGHT ? "sell" : "neutral";
+  },
+  macd: (m, s, h) => {
+    if (m == null || s == null || h == null) return "neutral";
+    if (m > s && h > 0) return "buy";
+    if (m < s && h < 0) return "sell";
+    return "neutral";
+  },
   stochastic: (k, d) => {
-    if (!k || !d) return "neutral";
+    if (k == null || d == null) return "neutral";
     if (k < STOCH_OVERSOLD && d < STOCH_OVERSOLD) return "buy";
     if (k > STOCH_OVERBOUGHT && d > STOCH_OVERBOUGHT) return "sell";
-    return k > d ? "buy" : k < d ? "sell" : "neutral";
+    return "neutral";
   },
   stochasticRsi: (k, d) => {
-    if (!k || !d) return "neutral";
+    if (k == null || d == null) return "neutral";
     if (k < STOCH_OVERSOLD && d < STOCH_OVERSOLD) return "buy";
     if (k > STOCH_OVERBOUGHT && d > STOCH_OVERBOUGHT) return "sell";
     return "neutral";
@@ -42,14 +48,13 @@ const signalFuncs = {
           : "neutral",
   psar: (p, ps) =>
     !p || !ps ? "neutral" : p > ps ? "buy" : p < ps ? "sell" : "neutral",
-  bollingerBands: (p, up, low, middle) =>
-    !p || !up || !low
-      ? "neutral"
-      : p < low
-        ? "buy"
-        : p > up
-          ? "sell"
-          : "neutral",
+  bollingerBands: (p, up, low, middle) => {
+    if (!p || !up || !low) return "neutral";
+    const width = up - low;
+    if (p > up - width * 0.1) return "sell";
+    if (p < low + width * 0.1) return "buy";
+    return "neutral";
+  },
 };
 
 /* --- Convert Buy/Sell/Neutral to Score --- */
@@ -62,7 +67,7 @@ export function calculateIndividualSignals(ind) {
     SMA: signalFuncs.sma(ind.sma20, ind.sma50, p),
     EMA: signalFuncs.ema(ind.ema20, ind.ema50, p),
     RSI: signalFuncs.rsi(ind.rsi),
-    MACD: signalFuncs.macd(ind.macd, ind.macdSignalLine), // ✅ Standardized MACD naming for consistency
+    MACD: signalFuncs.macd(ind.macd, ind.macdSignalLine, ind.macdHist), // ✅ Standardized MACD naming for consistency
     BollingerBands: signalFuncs.bollingerBands(
       p,
       ind.bbUpper,
@@ -84,7 +89,7 @@ export function calculateMaxDrawDown(curve) {
     const dd = ((peak - v) / peak) * 100;
     if (dd > maxDD) maxDD = dd;
   }
-  return +Math.max(maxDD, 0.01).toFixed(2);
+  return +maxDD.toFixed(2);
 }
 
 // Hitung skor multi-indikator berbobot dan normalisasi hasil ke rentang [-1, +1].

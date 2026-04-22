@@ -4,15 +4,18 @@
 
 // ✅ Validasi & interpolasi RSI
 export function validateAndFillRsiData(data) {
-  const valid = data.filter((d) => d.rsi != null && d.rsi > 0);
+  const isFiniteRsi = (value) => Number.isFinite(Number(value));
+  const valid = data.filter((d) => d.rsi != null && isFiniteRsi(d.rsi));
   const missing = data.length - valid.length;
 
   if (valid.length < data.length * 0.5) {
-    console.warn("⚠️ >50% data RSI kosong → gunakan fallback acak (40–60)");
+    console.warn(
+      "⚠️ >50% data RSI kosong -> gunakan fallback netral deterministik (50)",
+    );
     return data.map((d) => ({
       ...d,
-      rsi: d.rsi || 40 + Math.random() * 20,
-      _fallback: !d.rsi,
+      rsi: isFiniteRsi(d.rsi) ? Number(d.rsi) : 50,
+      _fallback: !isFiniteRsi(d.rsi),
     }));
   }
 
@@ -20,12 +23,12 @@ export function validateAndFillRsiData(data) {
     console.log(`🔧 Interpolasi ${missing} nilai RSI yang hilang...`);
     const filled = [...data];
     for (let i = 0; i < filled.length; i++) {
-      if (!filled[i].rsi) {
+      if (!isFiniteRsi(filled[i].rsi)) {
         const prev = filled
           .slice(0, i)
           .reverse()
-          .find((x) => x.rsi);
-        const next = filled.slice(i + 1).find((x) => x.rsi);
+          .find((x) => isFiniteRsi(x.rsi));
+        const next = filled.slice(i + 1).find((x) => isFiniteRsi(x.rsi));
         filled[i].rsi = prev && next ? (prev.rsi + next.rsi) / 2 : 50;
       }
     }

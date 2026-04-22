@@ -41,6 +41,7 @@ const OPTIMIZATION_YIELD_EVERY = Math.max(
   1,
   Number(process.env.OPTIMIZATION_YIELD_EVERY || "10"),
 );
+const EXECUTION_THRESHOLD = 0;
 
 function formatEta(seconds) {
   const safe = Math.max(0, Math.ceil(seconds || 0));
@@ -117,14 +118,17 @@ function getWeightCombination(index, indicators) {
  * 3. Entry: score > 0 (bullish consensus)
  * 4. Exit: score < 0 (bearish consensus)
  * 5. Hitung ROI, win rate, drawdown
- *
- * Threshold selalu = 0 (natural boundary antara buy/sell)
  */
-function backtestWithWeightsCached(cache, weights) {
+function backtestWithWeightsCached(
+  cache,
+  weights,
+  {
+    buyThreshold = EXECUTION_THRESHOLD,
+    sellThreshold = EXECUTION_THRESHOLD,
+  } = {},
+) {
   const INITIAL_CAPITAL = 10_000;
   const EARLY_STOP_THRESHOLD = INITIAL_CAPITAL * 0.4;
-  const BUY_THRESHOLD = 0;
-  const SELL_THRESHOLD = 0;
 
   let capital = INITIAL_CAPITAL;
   let position = null;
@@ -166,12 +170,12 @@ function backtestWithWeightsCached(cache, weights) {
     const score = totalWeight > 0 ? weightedSum / totalWeight : 0;
 
     // 🟢 Entry: score > BUY_THRESHOLD
-    if (score > BUY_THRESHOLD && !position) {
+    if (score > buyThreshold && !position) {
       position = "BUY";
       entry = price;
     }
     // 🔴 Exit: score < SELL_THRESHOLD
-    else if (score < SELL_THRESHOLD && position === "BUY") {
+    else if (score < sellThreshold && position === "BUY") {
       const pnl = price - entry;
       if (pnl > 0) wins++;
       capital += (capital / entry) * pnl;
@@ -420,7 +424,7 @@ export async function optimizeIndicatorWeights(
 export async function backtestWithWeights(
   data,
   weights = {},
-  { fastMode = false, threshold = 0 } = {},
+  { fastMode = false, threshold: _threshold = 0 } = {},
 ) {
   if (!data?.length) throw new Error("Data historis kosong");
 
@@ -463,9 +467,11 @@ export async function backtestWithWeights(
   // 📊 Precompute indicators
   const cache = computeAllIndicators(data);
 
+  const normalizedThreshold = EXECUTION_THRESHOLD;
+
   console.log(`\n🎯 DSS Backtest with Weights`);
   console.log(`📊 Weights:`, weights);
-  console.log(`📏 Threshold: ±${threshold}`);
+  console.log(`📏 Threshold (execution): ±${normalizedThreshold}`);
 
   // ⚡ Run backtest
   const result = backtestWithWeightsCached(cache, weights);
@@ -480,7 +486,7 @@ export async function backtestWithWeights(
 
   return {
     success: true,
-    methodology: `Rule-Based DSS with Threshold ±${threshold}`,
+    methodology: `Rule-Based DSS with Threshold ±${normalizedThreshold}`,
     roi: +result.roi.toFixed(2),
     winRate: +result.winRate.toFixed(2),
     trades: result.trades,
@@ -488,7 +494,7 @@ export async function backtestWithWeights(
     finalCapital: +result.finalCapital.toFixed(2),
     maxDrawdown: +result.maxDrawdown.toFixed(2),
     sharpeRatio: result.sharpeRatio ? +result.sharpeRatio.toFixed(2) : null,
-    threshold,
+    threshold: normalizedThreshold,
     dataPoints: data.length,
     equityCurve: [], // Optional untuk comparison
   };

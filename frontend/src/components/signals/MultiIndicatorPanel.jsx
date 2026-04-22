@@ -93,12 +93,18 @@ function MultiIndicatorPanel({
                 Combines 8 technical indicators with optimal weights derived
                 from backtesting.
                 <br />
-                <strong>Threshold = 0:</strong>
+                <strong>Execution Threshold: 0</strong>
                 <br />
                 • finalScore &gt; 0 → BUY
                 <br />
                 • finalScore &lt; 0 → SELL
-                <br />• finalScore = 0 → NEUTRAL
+                <br />
+                • finalScore = 0 → NEUTRAL
+                <br />
+                <strong>Labeling Threshold: ±0.6</strong>
+                <br />
+                • finalScore ≥ 0.6 → STRONG BUY
+                <br />• finalScore ≤ -0.6 → STRONG SELL
               </p>
               <p className="mt-2">
                 <strong>Strength:</strong> Confidence level (0.0 – 1.0)
@@ -123,12 +129,12 @@ function MultiIndicatorPanel({
                   ? "text-green-400"
                   : "text-green-600"
                 : signal === "sell"
-                ? isDarkMode
-                  ? "text-red-400"
-                  : "text-red-600"
-                : isDarkMode
-                ? "text-gray-400"
-                : "text-gray-600"
+                  ? isDarkMode
+                    ? "text-red-400"
+                    : "text-red-600"
+                  : isDarkMode
+                    ? "text-gray-400"
+                    : "text-gray-600"
             }`}
           >
             {displaySignal}
@@ -242,12 +248,12 @@ function MultiIndicatorPanel({
                     ? "text-green-400"
                     : "text-green-600"
                   : categoryScores.trend < 0
-                  ? isDarkMode
-                    ? "text-red-400"
-                    : "text-red-600"
-                  : isDarkMode
-                  ? "text-gray-500"
-                  : "text-gray-400"
+                    ? isDarkMode
+                      ? "text-red-400"
+                      : "text-red-600"
+                    : isDarkMode
+                      ? "text-gray-500"
+                      : "text-gray-400"
               }`}
             >
               {categoryScores.trend > 0 ? "+" : ""}
@@ -279,12 +285,12 @@ function MultiIndicatorPanel({
                     ? "text-green-400"
                     : "text-green-600"
                   : categoryScores.momentum < 0
-                  ? isDarkMode
-                    ? "text-red-400"
-                    : "text-red-600"
-                  : isDarkMode
-                  ? "text-gray-500"
-                  : "text-gray-400"
+                    ? isDarkMode
+                      ? "text-red-400"
+                      : "text-red-600"
+                    : isDarkMode
+                      ? "text-gray-500"
+                      : "text-gray-400"
               }`}
             >
               {categoryScores.momentum > 0 ? "+" : ""}
@@ -316,12 +322,12 @@ function MultiIndicatorPanel({
                     ? "text-green-400"
                     : "text-green-600"
                   : categoryScores.volatility < 0
-                  ? isDarkMode
-                    ? "text-red-400"
-                    : "text-red-600"
-                  : isDarkMode
-                  ? "text-gray-500"
-                  : "text-gray-400"
+                    ? isDarkMode
+                      ? "text-red-400"
+                      : "text-red-600"
+                    : isDarkMode
+                      ? "text-gray-500"
+                      : "text-gray-400"
               }`}
             >
               {categoryScores.volatility > 0 ? "+" : ""}
@@ -351,12 +357,12 @@ function MultiIndicatorPanel({
                     ? "text-green-400"
                     : "text-green-600"
                   : finalScore < 0
-                  ? isDarkMode
-                    ? "text-red-400"
-                    : "text-red-600"
-                  : isDarkMode
-                  ? "text-gray-500"
-                  : "text-gray-400"
+                    ? isDarkMode
+                      ? "text-red-400"
+                      : "text-red-600"
+                    : isDarkMode
+                      ? "text-gray-500"
+                      : "text-gray-400"
               }`}
             >
               {finalScore > 0 ? "+" : ""}

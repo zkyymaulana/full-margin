@@ -48,7 +48,7 @@ function mean(values) {
  * - Digunakan dalam Sharpe Ratio
  * - Menunjukkan seberapa banyak data menyimpang dari mean
  *
- * Formula: stddev = √(Σ(xi - mean)² / n)
+ * Formula: stddev = √(Σ(xi - mean)² / (n - 1))
  *
  *
  *
@@ -57,10 +57,11 @@ function mean(values) {
  * stddev([10, 10, 10]) // Returns 0 (no variance)
  */
 function stddev(values) {
-  if (!values.length) return 0;
+  if (!values || values.length < 2) return 0;
   const avg = mean(values);
   const squaredDiffs = values.map((val) => Math.pow(val - avg, 2));
-  const variance = mean(squaredDiffs);
+  const variance =
+    squaredDiffs.reduce((sum, v) => sum + v, 0) / (values.length - 1);
   return Math.sqrt(variance);
 }
 
@@ -152,27 +153,27 @@ function calculateReturns(equityCurve) {
  * - Maximum loss dari peak ke trough dalam backtest period
  * - Critical untuk risk management
  *
- * Formula: MaxDD = (lowest point - highest point before it) / highest point * 100
+ * Formula: MaxDD = (highest point before it - lowest point) / highest point * 100
  *
  * Proses:
  * 1. Track running maximum dari awal sampai setiap point
- * 2. Hitung drawdown di setiap point: (value - runningMax) / runningMax
+ * 2. Hitung drawdown di setiap point: (runningMax - value) / runningMax
  * 3. Track maximum drawdown
  *
  * Contoh:
  * Equity curve: [100, 110, 105, 120, 90, 95]
- * Peak pada 120, terbang ke 90 = drawdown = (90-120)/120 = -25%
+ * Peak pada 120, turun ke 90 = drawdown = (120-90)/120 = 25%
  *
  *
  *
  * @example
- * calculateMaxDrawDown([100, 110, 105, 120, 90, 95]) // Returns -25
+ * calculateMaxDrawDown([100, 110, 105, 120, 90, 95]) // Returns 25
  * calculateMaxDrawDown([100, 101, 102, 103, 104]) // Returns 0 (only up)
  */
 function calculateMaxDrawDown(values) {
   if (!values || values.length < 2) return 0;
 
-  let maxDrawdown = 0; // ✅ Track worst drawdown (most negative)
+  let maxDrawdown = 0;
   let runningMax = values[0]; // ✅ Track highest value seen so far
 
   // ✅ Loop semua values mulai dari index 1
@@ -184,11 +185,10 @@ function calculateMaxDrawDown(values) {
       runningMax = currentValue;
     }
 
-    // ✅ Hitung drawdown: (current - peak) / peak
-    const drawdown = ((currentValue - runningMax) / runningMax) * 100;
+    // ✅ Hitung drawdown sebagai angka positif: (peak - current) / peak
+    const drawdown = ((runningMax - currentValue) / runningMax) * 100;
 
-    // ✅ Track yang paling negatif (worst case)
-    if (drawdown < maxDrawdown) {
+    if (drawdown > maxDrawdown) {
       maxDrawdown = drawdown;
     }
   }
@@ -219,14 +219,14 @@ function calculateMaxDrawDown(values) {
  *   roi: 25.567829,
  *   finalCapital: 125.567829,
  *   winRate: 55.555555,
- *   maxDrawdown: -15.123456,
+ *   maxDrawdown: 15.123456,
  *   equityCurve: [100, 101, 103, 105, 102, 115, 125.5678]
  * })
  * // Returns: {
  * //   roi: 25.57,
  * //   finalCapital: 125.57,
  * //   winRate: 55.56,
- * //   maxDrawdown: -15.12,
+ * //   maxDrawdown: 15.12,
  * //   sharpeRatio: 2.34
  * // }
  */
@@ -234,7 +234,7 @@ function formatResult(backtest) {
   if (!backtest) {
     return {
       roi: 0,
-      finalCapital: 100,
+      finalCapital: 10000,
       winRate: 0,
       trades: 0,
       maxDrawdown: 0,
@@ -243,12 +243,12 @@ function formatResult(backtest) {
   }
 
   // ✅ Calculate metrics jika belum ada
-  let sharpRatio = backtest.sharpeRatio || 0;
+  let sharpeRatio = backtest.sharpeRatio || 0;
 
   // ✅ Jika ada equity curve tapi belum ada sharpe, hitung
-  if (backtest.equityCurve && !sharpRatio) {
+  if (backtest.equityCurve && !sharpeRatio) {
     const returns = calculateReturns(backtest.equityCurve);
-    if (!sharpRatio) sharpRatio = calcSharpe(returns);
+    if (!sharpeRatio) sharpeRatio = calcSharpe(returns);
   }
 
   // ✅ Calculate maxDrawdown dari equity curve jika belum ada
@@ -260,13 +260,13 @@ function formatResult(backtest) {
   // ✅ Round semua numbers ke 2 decimal places untuk consistency
   return {
     roi: +Number(backtest.roi ?? 0).toFixed(2),
-    finalCapital: +Number(backtest.finalCapital ?? 100).toFixed(2),
+    finalCapital: +Number(backtest.finalCapital ?? 10000).toFixed(2),
     winRate: +Number(backtest.winRate ?? 0).toFixed(2),
     trades: Number.isFinite(Number(backtest.trades))
       ? Number(backtest.trades)
       : 0,
     maxDrawdown: +Number(maxDD ?? 0).toFixed(2),
-    sharpeRatio: +Number(sharpRatio).toFixed(2),
+    sharpeRatio: +Number(sharpeRatio).toFixed(2),
   };
 }
 
