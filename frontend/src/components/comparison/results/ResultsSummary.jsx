@@ -12,6 +12,33 @@ export function ResultsSummary({ displayData }) {
     ? formatDateLabel(displayData.period.end)
     : null;
 
+  const resolvedBestStrategy =
+    displayData.bestStrategy?.name ||
+    displayData.comparison?.bestStrategy ||
+    (() => {
+      const bestSingleRoi = Number(displayData.analysis?.bestSingle?.roi);
+      const multiRoi = Number(displayData.comparison?.multi?.roi);
+      const votingRoi = Number(displayData.comparison?.voting?.roi);
+
+      const strategies = [
+        {
+          name: "single",
+          roi: Number.isFinite(bestSingleRoi) ? bestSingleRoi : -Infinity,
+        },
+        {
+          name: "multi",
+          roi: Number.isFinite(multiRoi) ? multiRoi : -Infinity,
+        },
+        {
+          name: "voting",
+          roi: Number.isFinite(votingRoi) ? votingRoi : -Infinity,
+        },
+      ];
+
+      return strategies.reduce((best, cur) => (cur.roi > best.roi ? cur : best))
+        .name;
+    })();
+
   return (
     <div
       className={`rounded-lg md:rounded-xl border p-4 md:p-6 ${
@@ -49,18 +76,18 @@ export function ResultsSummary({ displayData }) {
           </div>
           <div
             className={`text-lg md:text-xl font-bold ${
-              displayData.comparison?.bestStrategy === "multi"
+              resolvedBestStrategy === "multi"
                 ? "text-purple-600"
-                : displayData.comparison?.bestStrategy === "voting"
+                : resolvedBestStrategy === "voting"
                   ? isDarkMode
                     ? "text-indigo-400"
                     : "text-indigo-600"
                   : "text-blue-600"
             }`}
           >
-            {displayData.comparison?.bestStrategy === "multi"
+            {resolvedBestStrategy === "multi"
               ? "Multi-Indicator"
-              : displayData.comparison?.bestStrategy === "voting"
+              : resolvedBestStrategy === "voting"
                 ? "Voting Strategy"
                 : displayData.analysis?.bestSingle?.indicator || "N/A"}
           </div>
