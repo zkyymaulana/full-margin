@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useComparison } from "../hooks/useComparison";
 import { useSymbol } from "../contexts/SymbolContext";
-import { useMarketcapSymbols } from "../hooks/useMarketcap";
 import { useQueryClient } from "@tanstack/react-query";
 
 // Import modular components
@@ -15,11 +14,12 @@ import {
 // Import results components
 import { ComparisonResults } from "../components/comparison/results";
 
+const DATASET_START_DATE = "2020-01-01";
+
 // Halaman comparison: mengatur alur input tanggal, eksekusi compare, dan render hasil.
 function ComparisonPage() {
   const { selectedSymbol } = useSymbol();
   const queryClient = useQueryClient();
-  const { data: symbolsData } = useMarketcapSymbols();
 
   // Track simbol yang sedang aktif saat comparison dijalankan
   const comparedSymbolRef = useRef(null);
@@ -40,13 +40,7 @@ function ComparisonPage() {
   const [endDate, setEndDate] = useState(formatDate(today));
   const [displayData, setDisplayData] = useState(null);
 
-  const symbolMeta = Array.isArray(symbolsData)
-    ? symbolsData.find((item) => item?.symbol === selectedSymbol)
-    : null;
-
-  const minHistoricalDate = symbolMeta?.listingDate
-    ? formatDate(new Date(symbolMeta.listingDate))
-    : null;
+  const minHistoricalDate = DATASET_START_DATE;
 
   const maxSelectableDate = formatDate(today);
 

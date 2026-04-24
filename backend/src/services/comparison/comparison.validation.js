@@ -53,6 +53,8 @@
  * })
  * // Returns: { isValid: false, error: { message: "...", example: "2024-01-01" } }
  */
+const DATASET_MIN_START_DATE = new Date("2020-01-01T00:00:00Z");
+
 function validateComparisonParams({ symbol, startDate, endDate }) {
   // ═══════════════════════════════════════════════════════════════
   // ✅ VALIDASI 1: Check symbol
@@ -115,6 +117,16 @@ function validateComparisonParams({ symbol, startDate, endDate }) {
 
   const start = new Date(startDate);
   const end = new Date(endDate);
+
+  if (start < DATASET_MIN_START_DATE) {
+    return {
+      isValid: false,
+      error: {
+        message: `startDate (${startDate}) tidak boleh lebih kecil dari 2020-01-01`,
+        example: "Gunakan startDate >= 2020-01-01",
+      },
+    };
+  }
 
   if (start >= end) {
     return {
