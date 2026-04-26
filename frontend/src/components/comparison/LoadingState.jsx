@@ -96,7 +96,7 @@ export function LoadingState({
             <span className="text-xs text-gray-500">2/3</span>
           </div>
 
-          <div
+          {/* <div
             className={`flex items-center justify-between p-2 md:p-3 rounded-lg ${
               isDarkMode ? "bg-gray-700" : "bg-gray-50"
             }`}
@@ -115,7 +115,7 @@ export function LoadingState({
               </span>
             </div>
             <span className="text-xs text-gray-500">3/3</span>
-          </div>
+          </div> */}
         </div>
       </div>
     </div>

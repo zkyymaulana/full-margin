@@ -95,7 +95,7 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
                 `ROI: ${data.performance?.roi?.toFixed(2)}%\n` +
                 `Win Rate: ${data.performance?.winRate?.toFixed(2)}%\n` +
                 `Trades: ${data.performance?.trades}\n\n` +
-                `Halaman akan di-refresh untuk menampilkan hasil terbaru.`
+                `Halaman akan di-refresh untuk menampilkan hasil terbaru.`,
             );
             window.location.reload();
           }, 1000);
@@ -106,7 +106,7 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
           // Cek jika timeout
           if (error.code === "ECONNABORTED") {
             console.log(
-              "⏰ Request timeout - optimasi masih berjalan di backend"
+              "⏰ Request timeout - optimasi masih berjalan di backend",
             );
 
             // Update modal dengan pesan timeout
@@ -122,11 +122,11 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
             setShowProgressModal(false);
             alert(
               `❌ Optimasi gagal!\n\n` +
-                `Error: ${error.response?.data?.message || error.message}`
+                `Error: ${error.response?.data?.message || error.message}`,
             );
           }
         },
-      }
+      },
     );
   };
 
@@ -152,7 +152,7 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
     };
 
     return `${formatShortDate(startDateReadable)} - ${formatShortDate(
-      endDateReadable
+      endDateReadable,
     )}`;
   };
 
@@ -186,12 +186,12 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
             ? "text-green-400"
             : "text-green-600"
           : performance.sharpeRatio > 1
-          ? isDarkMode
-            ? "text-blue-400"
-            : "text-blue-600"
-          : isDarkMode
-          ? "text-yellow-400"
-          : "text-yellow-600",
+            ? isDarkMode
+              ? "text-blue-400"
+              : "text-blue-600"
+            : isDarkMode
+              ? "text-yellow-400"
+              : "text-yellow-600",
     },
     {
       label: "Max Drawdown",
@@ -221,8 +221,8 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
             ? "text-green-400"
             : "text-green-600"
           : isDarkMode
-          ? "text-red-400"
-          : "text-red-600",
+            ? "text-red-400"
+            : "text-red-600",
     },
   ];
 
@@ -248,7 +248,7 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
                   isDarkMode ? "text-white" : "text-gray-900"
                 }`}
               >
-                Backtest Performance ({bestCombo})
+                Backtest Performance (Optimization Period)
               </h3>
               {formatDateRange() && (
                 <p
@@ -278,14 +278,9 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
                   Backtest Results
                 </p>
                 <p>
-                  The results of testing the trading strategy using historical
-                  data. The best strategy is selected based on the highest ROI
-                  from indicator combinations.
-                </p>
-                <p className="mt-2">
-                  <strong>Sharpe Ratio:</strong> Measures risk-adjusted returns.
-                  A value &gt; 1 is considered good, &gt; 2 is considered very
-                  good.
+                  The results represent backtesting during the weight
+                  optimization process. The best strategy is selected based on
+                  the highest ROI from historical data within this period.
                 </p>
               </div>
             </div>
@@ -340,8 +335,8 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
                   {optimizationProgress.status === "background"
                     ? "Optimasi Berjalan di Background"
                     : optimizationProgress.status === "completed"
-                    ? "Optimasi Selesai!"
-                    : "Optimasi Berjalan"}
+                      ? "Optimasi Selesai!"
+                      : "Optimasi Berjalan"}
                 </h3>
                 <p
                   className={`text-sm ${

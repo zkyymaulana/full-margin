@@ -111,18 +111,6 @@ function SignalsHeader({
             {timeframe || "1h"}
           </span>
         </span>
-        {bestCombo && (
-          <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
-            Best Strategy:{" "}
-            <span
-              className={`font-semibold ${
-                isDarkMode ? "text-blue-400" : "text-blue-600"
-              }`}
-            >
-              {bestCombo}
-            </span>
-          </span>
-        )}
       </div>
     </div>
   );

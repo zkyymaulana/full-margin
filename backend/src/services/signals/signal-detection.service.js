@@ -5,6 +5,7 @@ import {
   calculateMultiIndicatorScore,
 } from "../../utils/indicator.utils.js";
 import { fetchLatestIndicatorData } from "../../utils/db.utils.js";
+import { backtestWithWeights } from "../multiIndicator/index.js";
 
 const parsedSignalConcurrency = Number.parseInt(
   process.env.SIGNAL_DETECTION_CONCURRENCY || "1",
@@ -174,6 +175,77 @@ export async function detectAndNotifyMultiIndicatorSignals(
       `${signal === "neutral" ? "⚪" : signal.includes("buy") ? "🟢" : "🔴"} ${symbol} ${signalLabel} | finalScore: ${finalScore.toFixed(3)}`,
     );
 
+    // ===============================
+    // 📊 HITUNG PERFORMANCE 1 TAHUN
+    // ===============================
+
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setFullYear(endDate.getFullYear() - 1);
+
+    let performance;
+
+    try {
+      const indicators = await prisma.indicator.findMany({
+        where: {
+          coinId: coin.id,
+          timeframeId: timeframeRecord.id,
+          time: {
+            gte: BigInt(startDate.getTime()),
+            lte: BigInt(endDate.getTime()),
+          },
+        },
+        orderBy: { time: "asc" },
+      });
+
+      const candles = await prisma.candle.findMany({
+        where: {
+          coinId: coin.id,
+          timeframeId: timeframeRecord.id,
+          time: {
+            gte: BigInt(startDate.getTime()),
+            lte: BigInt(endDate.getTime()),
+          },
+        },
+        orderBy: { time: "asc" },
+        select: { close: true },
+      });
+
+      if (indicators.length < 50 || candles.length < 50) {
+        throw new Error("Not enough data");
+      }
+
+      const data = indicators
+        .map((ind, i) => ({
+          ...ind,
+          close: candles[i]?.close,
+        }))
+        .filter((d) => d.close !== undefined);
+
+      const resultBacktest = await backtestWithWeights(
+        data,
+        latestWeights.weights,
+      );
+
+      performance = {
+        roi: resultBacktest.roi,
+        winRate: resultBacktest.winRate,
+        maxDrawdown: resultBacktest.maxDrawdown,
+        sharpeRatio: resultBacktest.sharpeRatio || 0,
+        trades: resultBacktest.trades,
+      };
+    } catch (err) {
+      console.log("⚠️ fallback ke data lama");
+
+      performance = {
+        roi: latestWeights.testROI || latestWeights.roi,
+        winRate: latestWeights.testWinRate || latestWeights.winRate,
+        maxDrawdown: latestWeights.testMaxDrawdown || latestWeights.maxDrawdown,
+        sharpeRatio: latestWeights.testSharpe || latestWeights.sharpeRatio || 0,
+        trades: latestWeights.testTrades || latestWeights.trades,
+      };
+    }
+
     // 🔔 SEND TELEGRAM NOTIFICATION — only to users who watch this coin
     const result = await sendSignalToWatchers({
       coinId: coin.id,
@@ -188,13 +260,7 @@ export async function detectAndNotifyMultiIndicatorSignals(
         name: k,
         weight: w,
       })),
-      performance: {
-        roi: latestWeights.testROI || latestWeights.roi,
-        winRate: latestWeights.testWinRate || latestWeights.winRate,
-        maxDrawdown: latestWeights.testMaxDrawdown || latestWeights.maxDrawdown,
-        sharpeRatio: latestWeights.testSharpe || latestWeights.sharpeRatio || 0,
-        trades: latestWeights.testTrades || latestWeights.trades,
-      },
+      performance,
       timeframe,
     });
 

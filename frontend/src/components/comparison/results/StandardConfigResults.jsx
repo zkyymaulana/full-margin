@@ -360,7 +360,7 @@ export function StandardConfigResults({ displayData }) {
         )}
 
         {/* Voting Strategy Card */}
-        {displayData.comparison?.voting && (
+        {/* {displayData.comparison?.voting && (
           <div
             className={`p-4 ${
               isDarkMode
@@ -496,7 +496,7 @@ export function StandardConfigResults({ displayData }) {
               </div>
             </div>
           </div>
-        )}
+        )} */}
       </div>
 
       {/* Desktop Table View */}
@@ -761,7 +761,7 @@ export function StandardConfigResults({ displayData }) {
                 </tr>
               )}
               {/* Voting Strategy Row */}
-              {displayData.comparison?.voting && (
+              {/* {displayData.comparison?.voting && (
                 <tr
                   className={`border-b font-medium ${
                     isDarkMode
@@ -848,7 +848,7 @@ export function StandardConfigResults({ displayData }) {
                       : "N/A"}
                   </td>
                 </tr>
-              )}
+              )} */}
             </tbody>
           </table>
         </div>

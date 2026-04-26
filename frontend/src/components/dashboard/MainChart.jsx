@@ -200,13 +200,13 @@ function MainChart({
 
     const chart = createChart(chartContainerRef.current, chartOptions);
 
-    // ✅ Configure time formatting
+    // Configure time formatting
     chart.applyOptions({
       watermark: {
         visible: false,
       },
       timeScale: {
-        timeVisible: false, // ❌ Sembunyikan jam di time scale bawah
+        timeVisible: false,
         secondsVisible: false,
       },
     });

@@ -155,6 +155,23 @@ export function formatTelegramSignalMessage({
   const direction =
     signal === "sell" ? "SELL" : signal === "buy" ? "BUY" : "NEUTRAL";
 
+  const oneYearAgo = new Date(now);
+  oneYearAgo.setFullYear(now.getFullYear() - 1);
+
+  const startDateStr = oneYearAgo.toLocaleDateString("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+    timeZone: "Asia/Jakarta",
+  });
+
+  const endDateStr = now.toLocaleDateString("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+    timeZone: "Asia/Jakarta",
+  });
+
   // Susunan pesan (Markdown) harus sama
   const message = `${signalEmoji} *${signalLabel.toUpperCase()}* ${signalEmoji}
 
@@ -170,8 +187,8 @@ export function formatTelegramSignalMessage({
 • Momentum: ${categoryScores.momentum >= 0 ? "+" : ""}${categoryScores.momentum.toFixed(2)} (${interpretMomentumScore(categoryScores.momentum)})
 • Volatility: ${categoryScores.volatility >= 0 ? "+" : ""}${categoryScores.volatility.toFixed(2)} (${interpretVolatilityScore(categoryScores.volatility)})
 
-📈 *Backtest Performance Metrics:*
-1 Januari 2020 - 1 Januari 2025
+📈 *Historical Strategy Performance (Recent 1 Year):*
+${startDateStr} - ${endDateStr}
 • ROI: ${performance.roi.toFixed(2)}%
 • Win Rate: ${performance.winRate.toFixed(2)}%
 • Max Drawdown: ${maxDrawdown}%
@@ -181,6 +198,7 @@ export function formatTelegramSignalMessage({
 💡 *Insight:*
 ${insight}
 
+⚠️ _Performance reflects recent historical data (recent 1 year) and may vary with market conditions._
 ⚠️ _Decision Support Only — Not Financial Advice_`;
 
   return message;

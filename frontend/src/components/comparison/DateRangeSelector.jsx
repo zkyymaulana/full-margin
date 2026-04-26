@@ -114,7 +114,7 @@ export function DateRangeSelector({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 items-center">
+      {/* <div className="flex flex-wrap gap-2 items-center">
         <span
           className={`text-xs md:text-sm self-center hidden md:inline ${
             isDarkMode ? "text-gray-400" : "text-gray-600"
@@ -174,7 +174,7 @@ export function DateRangeSelector({
         >
           1M = 1 Month | 3M = 3 Months | 6M = 6 Months | 1Y = 1 Year
         </span>
-      </div>
+      </div> */}
     </>
   );
 }

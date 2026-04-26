@@ -21,7 +21,7 @@ function MarketCapHeader({ isDarkMode, onRefresh }) {
         </p>
       </div>
 
-      <button
+      {/* <button
         onClick={onRefresh}
         className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 text-sm ${
           isDarkMode
@@ -30,7 +30,7 @@ function MarketCapHeader({ isDarkMode, onRefresh }) {
         } shadow-md hover:shadow-lg`}
       >
         🔄 Refresh Data
-      </button>
+      </button> */}
     </div>
   );
 }

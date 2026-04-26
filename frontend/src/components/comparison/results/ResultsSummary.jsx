@@ -95,7 +95,7 @@ export function ResultsSummary({ displayData }) {
       </div>
 
       {/* Stats Cards Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
         <div
           className={`rounded-lg p-3 md:p-4 ${
             isDarkMode ? "bg-gray-800" : "bg-white"
@@ -175,7 +175,7 @@ export function ResultsSummary({ displayData }) {
           </div>
         </div>
 
-        <div
+        {/* <div
           className={`rounded-lg p-3 md:p-4 ${
             isDarkMode ? "bg-gray-800" : "bg-white"
           }`}
@@ -202,7 +202,7 @@ export function ResultsSummary({ displayData }) {
           >
             Majority
           </div>
-        </div>
+        </div> */}
 
         <div
           className={`rounded-lg p-3 md:p-4 ${
@@ -299,7 +299,7 @@ export function ResultsSummary({ displayData }) {
                 </span>
               </div>
               {/* Voting Strategy Comparison */}
-              {displayData.comparison?.voting &&
+              {/* {displayData.comparison?.voting &&
                 displayData.analysis.votingComparison && (
                   <div
                     className={`text-xs md:text-sm mt-2 pt-2 border-t ${
@@ -336,7 +336,7 @@ export function ResultsSummary({ displayData }) {
                       </span>
                     )}
                   </div>
-                )}
+                )} */}
             </div>
           </div>
         </div>
