@@ -1,18 +1,11 @@
 import { FiBarChart2, FiInfo, FiTrendingUp, FiRefreshCw } from "react-icons/fi";
-import { useState, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { useSymbol } from "../../contexts/SymbolContext";
-import { useForceReoptimization } from "../../hooks/useOptimization";
-import { getOptimizationEstimate } from "../../services/api.service";
 import { formatPercent, formatRatio } from "../../utils/indicatorParser";
 
 // BacktestPanel: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
-function BacktestPanel({ performance, bestCombo, isDarkMode }) {
+export function BacktestPanel({ performance, isDarkMode }) {
   const { selectedSymbol } = useSymbol();
-  const queryClient = useQueryClient();
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [estimate, setEstimate] = useState(null);
-  const [loadingEstimate, setLoadingEstimate] = useState(false);
 
   // 🆕 Progress tracking states
   const [showProgressModal, setShowProgressModal] = useState(false);
@@ -23,112 +16,9 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
     eta: "Calculating...",
     bestROI: 0,
   });
-
-  const { mutate: forceReoptimize, isPending: isReoptimizing } =
-    useForceReoptimization();
+  console.log({ performance });
 
   if (!performance || Object.keys(performance).length === 0) return null;
-
-  // 🆕 Fetch estimate saat modal dibuka
-  const handleRestartOptimization = async () => {
-    setShowConfirmModal(true);
-    setLoadingEstimate(true);
-
-    try {
-      const estimateData = await getOptimizationEstimate(selectedSymbol, "1h");
-      if (estimateData.success) {
-        setEstimate(estimateData.estimate);
-      }
-    } catch (error) {
-      console.error("Error fetching estimate:", error);
-      // Fallback to default estimate if API fails
-      setEstimate({
-        formatted: "2-5 menit",
-        estimatedRange: {
-          minFormatted: "2 menit",
-          maxFormatted: "5 menit",
-        },
-      });
-    } finally {
-      setLoadingEstimate(false);
-    }
-  };
-
-  const confirmRestart = () => {
-    setShowConfirmModal(false);
-
-    // 🆕 Show info modal bahwa optimasi berjalan di background
-    setShowProgressModal(true);
-    setOptimizationProgress({
-      current: 0,
-      total: 390625,
-      percentage: 0,
-      eta: estimate?.formatted || "~50-60 menit",
-      bestROI: 0,
-      status: "running",
-    });
-
-    // 🆕 Kirim request tanpa menunggu response (fire and forget)
-    forceReoptimize(
-      { symbol: selectedSymbol, timeframe: "1h" },
-      {
-        onSuccess: (data) => {
-          console.log("✅ Reoptimization berhasil:", data);
-
-          // Update status di modal
-          setOptimizationProgress((prev) => ({
-            ...prev,
-            status: "completed",
-            percentage: 100,
-            eta: "0s",
-          }));
-
-          // Auto-refresh data
-          queryClient.invalidateQueries(["candles", selectedSymbol]);
-          queryClient.invalidateQueries(["indicator", selectedSymbol]);
-
-          // Tutup modal dan show success
-          setTimeout(() => {
-            setShowProgressModal(false);
-            alert(
-              `✅ Optimasi berhasil!\n\n` +
-                `ROI: ${data.performance?.roi?.toFixed(2)}%\n` +
-                `Win Rate: ${data.performance?.winRate?.toFixed(2)}%\n` +
-                `Trades: ${data.performance?.trades}\n\n` +
-                `Halaman akan di-refresh untuk menampilkan hasil terbaru.`,
-            );
-            window.location.reload();
-          }, 1000);
-        },
-        onError: (error) => {
-          console.error("❌ Reoptimization gagal:", error);
-
-          // Cek jika timeout
-          if (error.code === "ECONNABORTED") {
-            console.log(
-              "⏰ Request timeout - optimasi masih berjalan di backend",
-            );
-
-            // Update modal dengan pesan timeout
-            setOptimizationProgress((prev) => ({
-              ...prev,
-              status: "background",
-              eta: estimate?.formatted || "~50-60 menit",
-            }));
-
-            // Jangan tutup modal, kasih instruksi ke user
-          } else {
-            // Error lain
-            setShowProgressModal(false);
-            alert(
-              `❌ Optimasi gagal!\n\n` +
-                `Error: ${error.response?.data?.message || error.message}`,
-            );
-          }
-        },
-      },
-    );
-  };
 
   const formatCurrency = (value) => {
     if (!value && value !== 0) return "N/A";
@@ -155,6 +45,7 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
       endDateReadable,
     )}`;
   };
+  console.log({ formatDateRange });
 
   const metrics = [
     {
@@ -250,13 +141,14 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
               >
                 Backtest Performance (Optimization Period)
               </h3>
-              {formatDateRange() && (
+              {performance?.trainingPeriod && (
                 <p
                   className={`text-xs ${
                     isDarkMode ? "text-gray-400" : "text-gray-600"
                   }`}
                 >
-                  Period: {formatDateRange()}
+                  Period: {performance?.trainingPeriod?.startDateReadable} -{" "}
+                  {performance?.trainingPeriod?.endDateReadable}
                 </p>
               )}
             </div>
@@ -586,6 +478,3 @@ function BacktestPanel({ performance, bestCombo, isDarkMode }) {
     </>
   );
 }
-
-export { BacktestPanel };
-export default BacktestPanel;

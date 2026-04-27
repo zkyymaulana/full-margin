@@ -40,7 +40,6 @@ function SignalsPage() {
     stopOptimization,
     clearAllProgress,
     progressData,
-    isOptimizationActive,
     optimizationSymbol,
   } = useOptimizationContext();
 
@@ -55,6 +54,7 @@ function SignalsPage() {
     // Refetch dipakai setelah optimasi selesai.
     refetch: refetchIndicatorData,
   } = useIndicator(selectedSymbol, "latest", "1h");
+  console.log({ indicatorData });
 
   // Ambil estimasi durasi optimasi saat user akan menjalankan optimize.
   const { data: estimateData, refetch: refetchEstimate } =
@@ -92,9 +92,6 @@ function SignalsPage() {
     }
   }, [isOptimizationCompleted]);
 
-  // Debug: Log data
-  console.log("📊 Unified Indicator Data:", indicatorData);
-
   // Parse payload latestSignal menjadi format UI yang mudah dirender.
   const {
     parsedIndicators,
@@ -107,9 +104,9 @@ function SignalsPage() {
     performance,
     timeframe,
     signalCounts,
-    isOptimized,
   } = useMemo(() => {
     const latestSignal = indicatorData?.latestSignal;
+    console.log({ latestSignal });
 
     if (!latestSignal) {
       console.warn("⚠️ No latestSignal available");

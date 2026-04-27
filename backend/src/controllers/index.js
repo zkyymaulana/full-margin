@@ -44,8 +44,6 @@ export {
 
 export {
   startSchedulers, // Jalankan semua scheduler
-  stopSchedulers, // Hentikan semua scheduler
-  getStatus, // Ambil status scheduler saat ini
   updateListingDates, // Perbarui listing date semua coin
 } from "./scheduler.controller.js";
 

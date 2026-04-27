@@ -71,56 +71,47 @@ function isValidListingDate(listingDate, cutoffDate = LISTING_CUTOFF_DATE) {
   return Boolean(listingDate && listingDate < cutoffDate);
 }
 
-/**
- * Ambil Top 30 dari CMC → Pairing Top 20 dengan Coinbase → Simpan ke DB
- * Include logo dari tabel Coin
- */
+// Tampmilkan Aset ke halaman marketcap live dengan data harga dan volume real-time dari Coinbase
 export async function getMarketcapRealtime() {
   try {
-    const stablecoinPrefixFilters = Array.from(STABLECOIN_SYMBOLS).map(
-      (symbol) => ({ symbol: { startsWith: `${symbol}-` } }),
-    );
-
-    // Ambil TopCoin dengan JOIN ke Coin untuk dapat rank, name, symbol, logo
+    // 1. Ambil semua data topCoin dari database
+    // include: coin → untuk ambil data relasi (name, rank, logo, dll)
     const topCoins = await prisma.topCoin.findMany({
-      where: {
+      include: {
+        coin: true,
+      },
+      // Urutkan berdasarkan rank (kecil → besar, rank 1 paling atas)
+      orderBy: {
         coin: {
-          rank: { lte: 30 }, // Hanya ambil rank <= 30 dari tabel Coin
-          NOT: {
-            OR: stablecoinPrefixFilters,
-          },
+          rank: "asc",
         },
       },
-      include: {
-        coin: true, // Include data dari tabel Coin
-      },
-      take: TARGET_TOP_COINS,
     });
 
-    // Sort berdasarkan rank dari tabel Coin
-    const sortedCoins = topCoins.sort(
-      (a, b) => (a.coin.rank || 999) - (b.coin.rank || 999),
-    );
-
-    const coinsWithLogo = sortedCoins.map((topCoin) => ({
-      rank: topCoin.coin.rank,
-      name: topCoin.coin.name,
-      symbol: topCoin.coin.symbol,
-      price: topCoin.price,
-      marketCap: topCoin.marketCap,
-      volume24h: topCoin.volume24h,
-      logo: topCoin.coin.logo, // Logo dari tabel Coin
+    // 2. Format data agar lebih rapi untuk response API
+    const coins = topCoins.map((item) => ({
+      rank: item.coin.rank, // ranking dari CMC
+      name: item.coin.name, // nama coin
+      symbol: item.coin.symbol, // symbol pair (contoh: BTC-USD)
+      price: item.price, // harga terbaru
+      marketCap: item.marketCap, // market cap
+      volume24h: item.volume24h, // volume 24 jam
+      logo: item.coin.logo, // logo coin
     }));
 
+    // 3. Return hasil ke client
     return {
       success: true,
-      total: coinsWithLogo.length,
-      message: `Berhasil pairing ${coinsWithLogo.length} coin dengan rank dari CMC`,
-      coins: coinsWithLogo,
+      total: coins.length, // total coin (harusnya 10 sesuai hasil sync)
+      coins,
     };
   } catch (e) {
-    console.error("Sync error:", e.message);
-    return { success: false, message: e.message };
+    console.error("Error:", e.message);
+
+    return {
+      success: false,
+      message: e.message,
+    };
   }
 }
 

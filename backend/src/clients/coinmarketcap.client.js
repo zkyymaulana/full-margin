@@ -40,7 +40,7 @@ function getAuthHeaders() {
 }
 
 // Ambil daftar koin berdasarkan market cap dari endpoint listings/latest.
-export async function getTopCoins(limit = 50) {
+export async function getTopCoins(limit = 20) {
   try {
     // Query daftar coin dari ranking market cap tertinggi.
     const { data } = await axios.get(

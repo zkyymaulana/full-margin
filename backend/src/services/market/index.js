@@ -6,8 +6,11 @@
 
 export {
   syncTopCoins, // Sinkronisasi top coin dari CoinMarketCap ke database
-  syncTopCoinRanksFromCmc, // Sinkronisasi rank CMC ke coin yang terhubung topCoin
 } from "./syncTopCoins.service.js";
+
+export {
+  syncTopCoinRanksFromCmc, // Sinkronisasi rank CMC ke coin yang terhubung topCoin
+} from "./syncCoinRanks.service.js";
 
 export {
   fetchTicker, // Ambil ticker dan stats market dari Coinbase

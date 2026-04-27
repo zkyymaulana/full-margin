@@ -40,7 +40,6 @@ export {
 
 export {
   useOptimization, // Hook jalankan optimasi
-  useForceReoptimization, // Hook paksa re-optimasi full
   useOptimizationEstimate, // Hook estimasi durasi optimasi
   useOptimizationProgress, // Hook progres optimasi via SSE
 } from "./useOptimization";

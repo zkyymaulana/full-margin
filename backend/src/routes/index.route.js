@@ -11,16 +11,12 @@ import schedulerRoute from "./scheduler.route.js";
 import userRoute from "./user.route.js";
 import telegramRoute from "./telegram.route.js";
 import watchlistRoute from "./watchlist.route.js";
-import healthRoute from "./health.route.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
 // Authentication
 router.use("/auth", authRoute);
-
-// Lightweight health check
-router.use("/health", healthRoute);
 
 // Market data
 router.use("/marketcap", authMiddleware, marketcapRoute);
@@ -34,7 +30,7 @@ router.use("/watchlist", authMiddleware, watchlistRoute);
 // Analysis & Visualization
 router.use("/chart", authMiddleware, chartRoute);
 router.use("/indicator", authMiddleware, indicatorRoute);
-router.use("/multiIndicator", multiIndicatorRoute); // ✅ Auth handled per-route (SSE needs query token)
+router.use("/multiIndicator", multiIndicatorRoute);
 router.use("/singleIndicator", authMiddleware, singleIndicatorRoute);
 router.use("/comparison", authMiddleware, comparisonRoute);
 

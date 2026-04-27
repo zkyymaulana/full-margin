@@ -35,20 +35,6 @@ export function useOptimization() {
   });
 }
 
-// Hook untuk memaksa re-optimasi full meskipun bobot lama sudah ada.
-export function useForceReoptimization() {
-  return useMutation({
-    mutationFn: ({ symbol, timeframe = "1h" }) =>
-      forceReoptimization(symbol, timeframe),
-    onSuccess: (data) => {
-      console.log("✅ Force reoptimization completed:", data);
-    },
-    onError: (error) => {
-      console.error("❌ Force reoptimization failed:", error);
-    },
-  });
-}
-
 // Hook untuk mengambil estimasi durasi optimasi sebelum proses dijalankan.
 export function useOptimizationEstimate(
   symbol,

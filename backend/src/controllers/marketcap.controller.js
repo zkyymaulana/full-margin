@@ -5,7 +5,7 @@ import {
 import {
   syncTopCoins,
   syncTopCoinRanksFromCmc,
-} from "../services/market/syncTopCoins.service.js";
+} from "../services/market/index.js";
 import { prisma } from "../lib/prisma.js";
 
 const TARGET_TOP_SYMBOLS = 20;
