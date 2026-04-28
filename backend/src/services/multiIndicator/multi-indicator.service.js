@@ -236,7 +236,6 @@ function backtestWithWeightsCached(
  */
 export async function optimizeIndicatorWeights(
   data,
-  symbol = "BTC-USD",
   onProgress = null,
   checkCancel = null,
   options = {},
@@ -255,32 +254,20 @@ export async function optimizeIndicatorWeights(
   };
   const initialEstimateSeconds = Number(options.initialEstimateSeconds || 0);
 
-  console.log(`\n🔍 Full Exhaustive Search: ${symbol}`);
-  console.log(`📊 Dataset: ${data.length} candles`);
-  console.log(
-    `📅 Training Window: ${trainingWindow.startISO} → ${trainingWindow.endISO}`,
-  );
-  console.log(
-    `📎 Effective Data: ${effectiveRange.start} → ${effectiveRange.end}`,
-  );
-  console.log(`🧮 Combinations: ${totalCombinations.toLocaleString()}`);
-
-  // 🧮 Precompute semua indicators SEKALI untuk speed
+  // Precompute semua indikator satu kali untuk mempercepat proses backtest
   const cache = computeAllIndicators(data);
-  console.log(
-    `✅ Precomputed in ${((performance.now() - startTime) / 1000).toFixed(2)}s\n`,
-  );
 
   let best = null;
   let currentCandleIndex = 0;
 
-  // MAIN LOOP: Iterate through semua 5^8 kombinasi
+  // Loop utama untuk menguji semua kombinasi bobot (5^8)
   for (let i = 0; i < totalCombinations; i++) {
-    // ✅ Yield to event loop to reduce blocking and improve scheduler responsiveness.
+    // Memberi kesempatan event loop berjalan agar tidak blocking
     if (i % OPTIMIZATION_YIELD_EVERY === 0) {
       // Yield ke event loop untuk allow cancel request diproses
       await new Promise((resolve) => setImmediate(resolve));
 
+      // Cek apakah proses dibatalkan oleh user
       if (checkCancel && typeof checkCancel === "function") {
         const shouldCancel = checkCancel();
         if (shouldCancel) {
@@ -297,27 +284,26 @@ export async function optimizeIndicatorWeights(
       }
     }
 
-    // 🎲 Generate weight combination untuk index i
+    // Generate kombinasi bobot berdasarkan indeks
     const weights = getWeightCombination(i, ALL_INDICATORS);
 
-    // ⚡ Fast backtest dengan weights
+    // Jalankan backtest menggunakan data yang sudah di-cache
     const result = backtestWithWeightsCached(cache, weights);
 
-    // 🏆 Track best result (highest ROI)
+    // Simpan hasil terbaik berdasarkan ROI tertinggi
     if (!best || result.roi > best.roi) {
       best = { weights, ...result };
     }
 
-    // Simulate progress (candle index untuk progress visualization)
+    // Simulasi progres berdasarkan jumlah kombinasi yang telah diuji
     currentCandleIndex = Math.floor(
       ((i + 1) / totalCombinations) * totalCandles,
     );
 
-    // 📊 Send progress update setiap 1000 kombinasi
+    // Update progress setiap 1000 iterasi atau pada iterasi terakhir
     if ((i + 1) % 1000 === 0 || i === totalCombinations - 1) {
-      // Double check cancel
+      // Cek ulang pembatalan
       if (checkCancel && checkCancel()) {
-        console.log(`\n🛑 Cancelled before progress callback`);
         return {
           success: false,
           cancelled: true,
@@ -362,30 +348,18 @@ export async function optimizeIndicatorWeights(
         },
       };
 
-      // Log setiap 10,000 kombinasi untuk cleaner console
-      if ((i + 1) % 10000 === 0 || i === totalCombinations - 1) {
-        console.log(
-          `   Candle ${currentCandleIndex.toLocaleString()}/${totalCandles.toLocaleString()} (${progress}%) | ` +
-            `Best ROI: ${best.roi.toFixed(2)}% | ETA: ${progressData.eta}`,
-        );
-      }
-
-      // Call progress callback
+      // Kirim progres melalui callback jika tersedia
       if (onProgress && typeof onProgress === "function") {
         try {
           onProgress(progressData);
         } catch (callbackError) {
-          console.error(`⚠️ Progress callback error:`, callbackError.message);
+          // Abaikan error pada callback agar tidak menghentikan proses utama
         }
       }
     }
   }
 
   const totalTime = (performance.now() - startTime) / 1000;
-  console.log(`\n✅ Completed in ${totalTime.toFixed(2)}s`);
-  console.log(
-    `🏆 Best: ROI ${best.roi.toFixed(2)}% | WinRate ${best.winRate.toFixed(2)}% | MDD ${best.maxDrawdown.toFixed(2)}%`,
-  );
 
   return {
     success: true,
