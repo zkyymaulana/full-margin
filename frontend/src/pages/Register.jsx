@@ -55,7 +55,7 @@ function Register() {
       },
       {
         onSuccess: () => {
-          showSuccessToast("Registration successful! Welcome aboard!");
+          showSuccessToast("Registration successful!");
         },
         onError: (error) => {
           showErrorToast(

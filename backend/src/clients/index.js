@@ -1,10 +1,3 @@
-/**
- * File: src/clients/index.js
- * -------------------------------------------------
- * Tujuan: Satu pintu export untuk semua fungsi client.
- * Format dibuat eksplisit agar pemula mudah melihat fungsi yang tersedia.
- */
-
 export {
   fetchCoinbasePairs, // Ambil daftar pair aktif dari Coinbase
   fetchLastCandle, // Ambil candle terbaru dari Coinbase

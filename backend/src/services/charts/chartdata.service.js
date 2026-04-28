@@ -1,4 +1,5 @@
 import { prisma } from "../../lib/prisma.js";
+import { formatMultiSignalFromDB } from "../../utils/multiSignal-formater.js";
 
 function getIndicatorDelegate() {
   // Support both Prisma model naming variants: `Indicator` and `Indicators`.
@@ -303,105 +304,6 @@ function formatIndicators(ind) {
       value: ind.psar,
       signal: ind.psarSignal || "neutral",
     },
-  };
-}
-
-/**
- * Format multi-signal from database
- */
-function formatMultiSignalFromDB(ind, weights = null) {
-  if (!ind) return null;
-
-  const dbFinalScore = ind.finalScore ?? 0;
-  const dbStrength = ind.signalStrength ?? 0;
-
-  let signal = "neutral";
-  let finalScore = dbFinalScore;
-  let strength = dbStrength;
-  const STRONG_BUY_THRESHOLD = 0.6;
-  const STRONG_SELL_THRESHOLD = -0.6;
-
-  // Klasifikasi sinyal mengikuti aturan proposal: strong threshold ±0.6.
-  if (finalScore >= STRONG_BUY_THRESHOLD) {
-    signal = "strong_buy";
-  } else if (finalScore > 0) {
-    signal = "buy";
-  } else if (finalScore <= STRONG_SELL_THRESHOLD) {
-    signal = "strong_sell";
-  } else if (finalScore < 0) {
-    signal = "sell";
-  } else {
-    signal = "neutral";
-    strength = 0;
-  }
-
-  let signalLabel = "NEUTRAL";
-  if (signal === "strong_buy") {
-    signalLabel = "STRONG BUY";
-  } else if (signal === "buy") {
-    signalLabel = "BUY";
-  } else if (signal === "strong_sell") {
-    signalLabel = "STRONG SELL";
-  } else if (signal === "sell") {
-    signalLabel = "SELL";
-  }
-
-  let categoryScores = { trend: 0, momentum: 0, volatility: 0 };
-
-  if (weights) {
-    const signalToScore = (sig) => {
-      if (!sig) return 0;
-      const normalized = sig.toLowerCase();
-      if (normalized === "buy" || normalized === "strong_buy") return 1;
-      if (normalized === "sell" || normalized === "strong_sell") return -1;
-      return 0;
-    };
-
-    const trendScore =
-      signalToScore(ind.smaSignal) * (weights.SMA || 0) +
-      signalToScore(ind.emaSignal) * (weights.EMA || 0) +
-      signalToScore(ind.psarSignal) * (weights.PSAR || 0);
-    const trendWeight =
-      (weights.SMA || 0) + (weights.EMA || 0) + (weights.PSAR || 0);
-
-    const momentumScore =
-      signalToScore(ind.rsiSignal) * (weights.RSI || 0) +
-      signalToScore(ind.macdSignal) * (weights.MACD || 0) +
-      signalToScore(ind.stochSignal) * (weights.Stochastic || 0) +
-      signalToScore(ind.stochRsiSignal) * (weights.StochasticRSI || 0);
-    const momentumWeight =
-      (weights.RSI || 0) +
-      (weights.MACD || 0) +
-      (weights.Stochastic || 0) +
-      (weights.StochasticRSI || 0);
-
-    const volatilityScore =
-      signalToScore(ind.bbSignal) * (weights.BollingerBands || 0);
-    const volatilityWeight = weights.BollingerBands || 0;
-
-    categoryScores = {
-      trend: parseFloat(
-        (trendWeight > 0 ? trendScore / trendWeight : 0).toFixed(2),
-      ),
-      momentum: parseFloat(
-        (momentumWeight > 0 ? momentumScore / momentumWeight : 0).toFixed(2),
-      ),
-      volatility: parseFloat(
-        (volatilityWeight > 0 ? volatilityScore / volatilityWeight : 0).toFixed(
-          2,
-        ),
-      ),
-    };
-  }
-
-  return {
-    signal,
-    strength: parseFloat(strength.toFixed(3)),
-    finalScore: parseFloat(finalScore.toFixed(2)),
-    signalLabel,
-    categoryScores,
-    isOptimized: Boolean(weights),
-    source: "db",
   };
 }
 

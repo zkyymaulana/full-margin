@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import api, {
-  forceReoptimization,
+import {
+  getOptimizationEstimate,
   requestOptimization,
 } from "../services/api.service";
 import { useState, useEffect, useRef } from "react";
@@ -44,10 +44,7 @@ export function useOptimizationEstimate(
   return useQuery({
     queryKey: ["optimizationEstimate", symbol, timeframe],
     queryFn: async () => {
-      const response = await api.get(
-        `/multiIndicator/${symbol}/estimate?timeframe=${timeframe}`,
-      );
-      return response.data;
+      return await getOptimizationEstimate(symbol, timeframe);
     },
     enabled: enabled && !!symbol,
     staleTime: 5 * 60 * 1000, // Data estimasi dianggap fresh 5 menit.

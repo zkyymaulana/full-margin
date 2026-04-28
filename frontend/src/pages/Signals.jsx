@@ -188,13 +188,32 @@ function SignalsPage() {
 
   // Handle klik tombol optimize: ambil estimate lalu minta konfirmasi user.
   const handleOptimization = async () => {
-    const { data: estimate } = await refetchEstimate();
+    const estimateResult = await refetchEstimate();
+    const estimate = estimateResult?.data;
+    const estimateError = estimateResult?.error;
+    const status = estimateError?.response?.status;
+    const backendMessage =
+      estimateError?.response?.data?.message ||
+      estimate?.message ||
+      estimateError?.message;
 
-    if (!estimate?.success) {
+    if (estimateResult?.isError || !estimate?.success) {
+      if (status === 401 || status === 403) {
+        Swal.fire({
+          icon: "error",
+          title: "Akses Ditolak",
+          text: backendMessage || "Sesi tidak valid. Silakan login kembali.",
+          confirmButtonColor: "#3085d6",
+        }).then(() => {
+          window.location.href = "/login";
+        });
+        return;
+      }
+
       Swal.fire({
         icon: "error",
         title: "Oops...",
-        text: "Failed to calculate optimization estimate",
+        text: backendMessage || "Failed to calculate optimization estimate",
       });
       return;
     }

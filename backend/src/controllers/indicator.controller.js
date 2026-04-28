@@ -1,117 +1,18 @@
 import { prisma } from "../lib/prisma.js";
+import { formatMultiSignalFromDB } from "../utils/multiSignal-formater.js";
+import {
+  formatIndicatorStructure,
+  formatPerformanceData,
+} from "../services/indicators/indicator.formatter.js";
 import {
   getCoinAndTimeframeIds,
   getLatestSignalData,
-  formatIndicatorStructure,
-  formatPerformanceData,
   organizeIndicatorData,
   buildIndicatorPagination,
   getPaginatedSignalData,
   buildLatestSignal,
   buildResponseMetadata,
 } from "../services/indicators/indicator.service.js";
-
-// Format data multi-signal dari database untuk kebutuhan response API.
-function formatMultiSignalFromDB(ind, weights = null) {
-  if (!ind) return null;
-
-  // Ambil nilai final langsung dari database tanpa hitung ulang.
-  const finalScore = ind.finalScore ?? 0;
-  const strength = ind.signalStrength ?? 0;
-
-  // Kelaskan sinyal berdasarkan threshold skor akhir.
-  let signal = "neutral";
-  let signalLabel = "NEUTRAL";
-  let signalEmoji = "⚪";
-
-  const STRONG_BUY_THRESHOLD = 0.6;
-  const STRONG_SELL_THRESHOLD = -0.6;
-
-  if (finalScore >= STRONG_BUY_THRESHOLD) {
-    signal = "strong_buy";
-    signalLabel = "STRONG BUY";
-    signalEmoji = "🟢🟢";
-  } else if (finalScore > 0) {
-    signal = "buy";
-    signalLabel = "BUY";
-    signalEmoji = "🟢";
-  } else if (finalScore <= STRONG_SELL_THRESHOLD) {
-    signal = "strong_sell";
-    signalLabel = "STRONG SELL";
-    signalEmoji = "🔴🔴";
-  } else if (finalScore < 0) {
-    signal = "sell";
-    signalLabel = "SELL";
-    signalEmoji = "🔴";
-  } else {
-    // Kondisi ini berlaku saat finalScore = 0.
-    signal = "neutral";
-    signalLabel = "NEUTRAL";
-    signalEmoji = "⚪";
-  }
-
-  // Hitung kontribusi kategori jika bobot tersedia.
-  let categoryScores = { trend: 0, momentum: 0, volatility: 0 };
-
-  if (weights) {
-    const signalToScore = (sig) => {
-      if (!sig) return 0;
-      const normalized = sig.toLowerCase();
-      if (normalized === "buy" || normalized === "strong_buy") return 1;
-      if (normalized === "sell" || normalized === "strong_sell") return -1;
-      return 0;
-    };
-
-    // Kategori trend: SMA + EMA + PSAR.
-    const trendScore =
-      signalToScore(ind.smaSignal) * (weights.SMA || 0) +
-      signalToScore(ind.emaSignal) * (weights.EMA || 0) +
-      signalToScore(ind.psarSignal) * (weights.PSAR || 0);
-    const trendWeight =
-      (weights.SMA || 0) + (weights.EMA || 0) + (weights.PSAR || 0);
-
-    // Kategori momentum: RSI + MACD + Stochastic + StochasticRSI.
-    const momentumScore =
-      signalToScore(ind.rsiSignal) * (weights.RSI || 0) +
-      signalToScore(ind.macdSignal) * (weights.MACD || 0) +
-      signalToScore(ind.stochSignal) * (weights.Stochastic || 0) +
-      signalToScore(ind.stochRsiSignal) * (weights.StochasticRSI || 0);
-    const momentumWeight =
-      (weights.RSI || 0) +
-      (weights.MACD || 0) +
-      (weights.Stochastic || 0) +
-      (weights.StochasticRSI || 0);
-
-    // Kategori volatility: Bollinger Bands.
-    const volatilityScore =
-      signalToScore(ind.bbSignal) * (weights.BollingerBands || 0);
-    const volatilityWeight = weights.BollingerBands || 0;
-
-    categoryScores = {
-      trend: parseFloat(
-        (trendWeight > 0 ? trendScore / trendWeight : 0).toFixed(2),
-      ),
-      momentum: parseFloat(
-        (momentumWeight > 0 ? momentumScore / momentumWeight : 0).toFixed(2),
-      ),
-      volatility: parseFloat(
-        (volatilityWeight > 0 ? volatilityScore / volatilityWeight : 0).toFixed(
-          2,
-        ),
-      ),
-    };
-  }
-
-  return {
-    signal,
-    strength: parseFloat(strength.toFixed(3)),
-    finalScore: parseFloat(finalScore.toFixed(3)),
-    signalLabel,
-    signalEmoji,
-    categoryScores,
-    source: "db",
-  };
-}
 
 // Ambil data sinyal indikator dengan mode latest atau paginated.
 export async function getSignals(req, res) {

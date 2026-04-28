@@ -2,6 +2,16 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { login, logout, register } from "../services/api.service";
 import { useNavigate } from "react-router-dom";
+import { showErrorToast, showSuccessToast } from "../utils/notifications";
+
+function clearAuthSession() {
+  localStorage.removeItem("authToken");
+  localStorage.removeItem("userId");
+  localStorage.removeItem("userEmail");
+  localStorage.removeItem("userName");
+  localStorage.removeItem("user");
+  localStorage.removeItem("lastLogin");
+}
 
 // Hook login: kirim kredensial, simpan sesi, lalu redirect ke dashboard.
 export const useLogin = () => {
@@ -50,21 +60,29 @@ export const useLogout = () => {
 
   return useMutation({
     mutationFn: logout,
-    onSuccess: () => {
+    onSuccess: (data) => {
+      showSuccessToast(data?.message || "Logout berhasil");
+
       // Bersihkan data autentikasi lokal.
-      localStorage.clear();
+      clearAuthSession();
 
       // Bersihkan cache query agar data user lama tidak tersisa.
       queryClient.clear();
 
       // Kembalikan user ke halaman login.
-      navigate("/login");
+      setTimeout(() => navigate("/login"), 150);
     },
-    onError: () => {
+    onError: (error) => {
+      const backendMessage =
+        error?.response?.data?.message || error?.message || "Logout gagal";
+      showErrorToast(backendMessage);
+
       // Jika logout server gagal, data lokal tetap harus dibersihkan.
-      localStorage.clear();
+      clearAuthSession();
       queryClient.clear();
-      navigate("/login");
+
+      // Tetap redirect karena user memang men-trigger logout.
+      setTimeout(() => navigate("/login"), 150);
     },
   });
 };

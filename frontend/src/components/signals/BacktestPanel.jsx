@@ -147,8 +147,7 @@ export function BacktestPanel({ performance, isDarkMode }) {
                     isDarkMode ? "text-gray-400" : "text-gray-600"
                   }`}
                 >
-                  Period: {performance?.trainingPeriod?.startDateReadable} -{" "}
-                  {performance?.trainingPeriod?.endDateReadable}
+                  Period: {formatDateRange()}
                 </p>
               )}
             </div>

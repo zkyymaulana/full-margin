@@ -40,7 +40,6 @@ export {
 // Export dari chart.indicator.js untuk formatting indikator dan sinyal.
 export {
   formatIndicators, // Format individual indicators
-  formatMultiSignalFromDB, // Format multi-signal dengan weights
 } from "./chart.indicator.js";
 
 // Export dari chart.metadata.js untuk metadata statistik dan pagination.

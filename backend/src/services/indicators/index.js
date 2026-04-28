@@ -8,13 +8,15 @@ import { createStochasticCalculator } from "./stochastic.service.js";
 import { createStochasticRSICalculator } from "./stochRsi.service.js";
 
 import { createBollingerBandsCalculator } from "./bollinger.service.js";
+import {
+  formatIndicatorStructure,
+  formatPerformanceData,
+} from "./indicator.formatter.js";
 
 import {
   calculateAndSaveIndicators,
   getCoinAndTimeframeIds,
   getLatestSignalData,
-  formatIndicatorStructure,
-  formatPerformanceData,
   getPaginatedIndicators,
   getCandlePrices,
   organizeIndicatorData,

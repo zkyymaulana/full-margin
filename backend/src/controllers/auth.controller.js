@@ -26,7 +26,7 @@ export async function register(req, res) {
 
     res.status(201).json({
       success: true,
-      message: "Registrasi berhasil",
+      message: "Registration successful",
       token,
       user: mapAuthUser(user),
     });
@@ -44,7 +44,7 @@ export async function login(req, res) {
 
     res.json({
       success: true,
-      message: "Login berhasil",
+      message: "Login successful",
       token,
       user: mapAuthUser(user),
     });
@@ -71,7 +71,7 @@ export async function logout(req, res) {
 
     // Service logout hanya mencatat aktivitas logout di auth log.
     await logoutService(decoded.id);
-    res.json({ success: true, message: "Logout berhasil" });
+    res.json({ success: true, message: "Logout successful" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

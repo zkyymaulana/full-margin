@@ -14,9 +14,6 @@ const formatDate = (t) =>
 
 // Ambil data indikator dan harga candle dalam rentang waktu backtest.
 async function getIndicatorsWithPrices(symbol, timeframe) {
-  console.log(
-    `📊 Fetching dataset for ${symbol} (${timeframe}) between 2020–2025...`,
-  );
   const start = Date.now();
 
   // Gunakan rentang data historis 2020 sampai awal 2025.

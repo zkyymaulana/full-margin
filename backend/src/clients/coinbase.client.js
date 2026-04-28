@@ -9,19 +9,6 @@ const COINBASE_API =
 const API_TIMEOUT = parseInt(process.env.API_TIMEOUT || "10000", 10);
 const GRANULARITY_SECONDS = 3600; // default 1 jam
 
-const GRANULARITY_BY_TIMEFRAME = {
-  "1m": 60,
-  "5m": 300,
-  "15m": 900,
-  "1h": 3600,
-  "6h": 21600,
-  "1d": 86400,
-};
-
-function getGranularityByTimeframe(timeframe = "1h") {
-  return GRANULARITY_BY_TIMEFRAME[timeframe] || GRANULARITY_SECONDS;
-}
-
 // Bangun rentang waktu 1 candle terakhir berdasarkan waktu saat ini.
 function buildLatestCandleRange(now) {
   return {
@@ -74,32 +61,50 @@ export async function fetchLastCandle(symbol) {
   return mapCoinbaseCandle(data[0]);
 }
 
-// Ambil candle live terbaru berdasarkan timeframe yang diminta.
-export async function fetchLastCandleByTimeframe(symbol, timeframe = "1h") {
-  const granularity = getGranularityByTimeframe(timeframe);
-  const now = new Date();
-  const end = now.toISOString();
-  const start = new Date(now.getTime() - granularity * 2 * 1000).toISOString();
+// Ambil candle terbaru timeframe 1 jam dari Coinbase
+export async function fetchLastCandleByTimeframe(symbol) {
+  try {
+    const GRANULARITY = 3600; // 1 jam
 
-  const { data } = await axios.get(
-    `${COINBASE_API}/products/${symbol}/candles`,
-    {
-      params: { start, end, granularity },
-      timeout: API_TIMEOUT,
-    },
-  );
+    const now = new Date();
+    const end = now.toISOString();
 
-  if (!Array.isArray(data) || data.length === 0) return null;
+    // Ambil range 2 candle terakhir (biar aman)
+    const start = new Date(
+      now.getTime() - GRANULARITY * 2 * 1000,
+    ).toISOString();
 
-  const latest = [...data].sort((a, b) => b[0] - a[0])[0];
-  const mapped = mapCoinbaseCandle(latest);
+    const { data } = await axios.get(
+      `${COINBASE_API}/products/${symbol}/candles`,
+      {
+        params: {
+          start,
+          end,
+          granularity: GRANULARITY,
+        },
+        timeout: API_TIMEOUT,
+      },
+    );
 
-  return {
-    ...mapped,
-    bucketStartMs: new Date(mapped.time).getTime(),
-    timeframe,
-    granularity,
-  };
+    if (!Array.isArray(data) || data.length === 0) return null;
+
+    // Ambil candle terbaru (tanpa sort → lebih cepat)
+    const latest = data.reduce((a, b) => (a[0] > b[0] ? a : b));
+
+    // Mapping tetap dipisah (clean & reusable)
+    const mapped = mapCoinbaseCandle(latest);
+
+    return {
+      ...mapped,
+      symbol,
+      timeframe: "1h",
+      granularity: GRANULARITY,
+      bucketStartMs: new Date(mapped.time).getTime(),
+    };
+  } catch (err) {
+    console.error("fetchLastCandle error:", err.message);
+    return null;
+  }
 }
 
 // Ambil data ticker dan stats mentah untuk satu pair.

@@ -1,4 +1,3 @@
-import { prisma } from "../lib/prisma.js";
 import {
   getChartDataNewest,
   getCoinAndTimeframe,
@@ -11,12 +10,16 @@ import {
 import { getCoinLiveDetail } from "../services/market/index.js";
 import { fetchLastCandleByTimeframe } from "../clients/index.js";
 
-// Ambil harga live ringan untuk satu simbol (dipakai polling frontend running candle).
+// Endpoint untuk mengambil data ticker (harga live) berdasarkan symbol
 export async function getChartLiveTicker(req, res) {
   try {
+    // Ambil symbol dari parameter URL, default ke BTC-USD jika tidak ada
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
+
+    // Ambil data live dari service (misalnya Coinbase / API lain)
     const live = await getCoinLiveDetail(symbol);
 
+    // Jika data tidak ditemukan atau response tidak valid
     if (!live?.success || !live?.data) {
       return res.status(404).json({
         success: false,
@@ -25,15 +28,21 @@ export async function getChartLiveTicker(req, res) {
       });
     }
 
+    // Jika berhasil, kirim response ke client
     return res.json({
       success: true,
       symbol,
-      timestamp: Date.now(),
-      data: live.data,
+      timestamp: Date.now(), // waktu response dikirim
+      data: live.data, // data harga live
     });
   } catch (err) {
+    // Handle error server
     console.error("Chart live ticker error:", err.message);
-    return res.status(500).json({ success: false, message: err.message });
+
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 }
 

@@ -2,29 +2,18 @@ import { cleanTickerData } from "../../utils/dataCleaner.js";
 import { fetchTicker as fetchTickerClient } from "../../clients/coinbase.client.js";
 
 /**
- * File: src/services/market/coinbase.service.js
- * -------------------------------------------------
- * Tujuan: Menyimpan business logic terkait data ticker Coinbase.
- * - Service hanya melakukan parsing, transformasi, dan data cleaning.
- * - Semua HTTP request ke Coinbase berada di src/clients/coinbase.client.js
- */
-
-/**
- * Ambil data harga dan OHLC dari Coinbase.
- *
- * Parameter:
- *
- * Return:
+ * Ambil data ticker (harga, volume, OHLC) berdasarkan symbol.
+ * Return data bersih atau null jika gagal.
  */
 export async function fetchTicker(symbol) {
   try {
-    // Semua request eksternal berada di client
+    // Ambil data mentah ticker dari API Coinbase
     const res = await fetchTickerClient(symbol);
     if (!res) return null;
 
     const { ticker, stats } = res;
 
-    // Parsing menjadi null jika tidak ada, BUKAN 0 (behavior dipertahankan)
+    // Parsing menjadi null jika tidak ada, BUKAN 0
     const price = ticker?.price != null ? Number(ticker.price) : null;
 
     const volume =

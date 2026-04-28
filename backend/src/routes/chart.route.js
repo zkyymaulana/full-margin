@@ -14,6 +14,6 @@ router.get("/:symbol/live", getChartLiveTicker);
 router.get("/:symbol/live-ohlcv", getChartLiveOHLCV);
 
 // Ambil data chart lengkap (candlestick + indikator + harga live)
-router.get("/:symbol?", getChart);
+router.get("/:symbol?", getChart); //blom
 
 export default router;
