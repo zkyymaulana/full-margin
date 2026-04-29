@@ -10,6 +10,8 @@ const SCHEDULER_TIMEZONE = "Asia/Jakarta";
 export async function startAllSchedulers() {
   console.log("🚀 Starting schedulers...");
 
+  await checkAndSyncHistoricalData({ ensureFromStart: true });
+
   // 1. Main sync tiap jam
   cron.schedule("0 * * * *", () => runMainSyncJob({ isBackup: false }), {
     timezone: SCHEDULER_TIMEZONE,

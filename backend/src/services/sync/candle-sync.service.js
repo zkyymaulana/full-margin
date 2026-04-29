@@ -488,7 +488,9 @@ export function getCacheStatus() {
 export async function syncHistoricalData(
   symbols = [],
   startDate = "2020-01-01",
+  options = {},
 ) {
+  const forceFromStart = options.forceFromStart === true;
   console.log(`📚 Starting FAST historical data sync from ${startDate}...`);
   console.log(`📊 Processing ${symbols.length} symbols...`);
 
@@ -544,6 +546,17 @@ export async function syncHistoricalData(
         select: { time: true },
       });
 
+      const earliestCandle = forceFromStart
+        ? await prisma.candle.findFirst({
+            where: {
+              coinId: coin.id,
+              timeframeId: timeframeRecord.id,
+            },
+            orderBy: { time: "asc" },
+            select: { time: true },
+          })
+        : null;
+
       const oneHour = 60 * 60 * 1000;
       const currentHour = Math.floor(currentTime / oneHour) * oneHour;
       let fetchStartTime;
@@ -570,17 +583,30 @@ export async function syncHistoricalData(
         fetchStartTime = targetStartTime;
         console.log(`📥 Fetching from ${startDate} to now`);
       } else {
-        // Has data - fetch from last candle onwards
-        const newestTime =
-          newestCandle.time instanceof Date
-            ? newestCandle.time.getTime()
-            : Number(newestCandle.time);
+        if (forceFromStart) {
+          const earliestTime = earliestCandle
+            ? Number(earliestCandle.time)
+            : null;
 
-        fetchStartTime = newestTime + oneHour; // Start after last candle
+          if (!earliestTime || earliestTime > targetStartTime) {
+            fetchStartTime = targetStartTime;
+            console.log(`📥 Backfill from ${startDate} to now`);
+          }
+        }
+
+        if (fetchStartTime == null) {
+          // Has data - fetch from last candle onwards
+          const newestTime =
+            newestCandle.time instanceof Date
+              ? newestCandle.time.getTime()
+              : Number(newestCandle.time);
+
+          fetchStartTime = newestTime + oneHour; // Start after last candle
+        }
 
         // Check if already up to date
         if (fetchStartTime >= currentHour) {
-          console.log(`Already up to date`);
+          console.log(`⏭️ ${symbol}: Already up to date`);
           results.skipped++;
           continue;
         }
