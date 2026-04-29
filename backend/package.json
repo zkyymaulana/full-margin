@@ -35,7 +35,8 @@
     "imagekit": "^6.0.0",
     "jsonwebtoken": "^9.0.2",
     "node-cron": "^4.2.1",
-    "prisma": "^6.17.0"
+    "prisma": "^6.17.0",
+    "ws": "^8.20.0"
   },
   "devDependencies": {
     "eslint": "^8.52.0",

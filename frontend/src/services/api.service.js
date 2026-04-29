@@ -92,26 +92,6 @@ export const fetchCandlesWithPagination = async (
   return data;
 };
 
-// Ambil harga live ringan untuk satu simbol chart.
-export const fetchChartLiveTicker = async (symbol = "BTC-USD") => {
-  const { data } = await get(`/chart/${symbol}/live`, {
-    timeout: 10000,
-  });
-  return data;
-};
-
-// Ambil OHLCV live per timeframe langsung dari endpoint chart.
-export const fetchChartLiveOHLCV = async (
-  symbol = "BTC-USD",
-  timeframe = "1h",
-) => {
-  const { data } = await get(`/chart/${symbol}/live-ohlcv`, {
-    params: { timeframe },
-    timeout: 10000,
-  });
-  return data;
-};
-
 // Ambil data candle dari URL pagination full (next/prev).
 export const fetchCandlesByUrl = async (url, signal = null) => {
   // apiClient sudah punya baseURL, jadi URL absolut harus dipotong ke path relatif.

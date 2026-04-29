@@ -14,8 +14,6 @@ export {
 
 export {
   getChart, // Ambil data chart lengkap dengan indikator
-  getChartLiveTicker, // Ambil ticker live ringan untuk chart
-  getChartLiveOHLCV, // Ambil OHLCV live per timeframe dari Coinbase
 } from "./chart.controller.js";
 
 export {

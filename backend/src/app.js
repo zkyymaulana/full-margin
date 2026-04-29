@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import http from "http";
 
 import routes from "./routes/index.route.js";
 import { prisma } from "./lib/prisma.js";
@@ -12,10 +13,15 @@ import {
   syncTopCoinRanksFromCmc,
 } from "./services/market/index.js";
 import { startAllSchedulers } from "./services/scheduler/index.js";
+import {
+  initTickerWebsocket,
+  shutdownTickerWebsocket,
+} from "./services/websocket/websocket.service.js";
 
 dotenv.config();
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 8000;
 const ENV = process.env.NODE_ENV || "development";
 const BG_START_DELAY = Number(process.env.BG_START_DELAY || 3000);
@@ -70,8 +76,11 @@ async function runStartupBackgroundJobs() {
 }
 
 // Jalankan server
-app.listen(PORT, async () => {
+server.listen(PORT, async () => {
   console.log("🚀 Server running on port", PORT);
+
+  // Inisialisasi WebSocket backend + koneksi Coinbase (hanya satu koneksi).
+  initTickerWebsocket(server);
 
   try {
     await prisma.$connect();
@@ -94,6 +103,7 @@ process.on("uncaughtException", (err) => {
 // Graceful shutdown (Ctrl + C)
 process.on("SIGINT", async () => {
   console.log("\n Shutting down gracefully...");
+  shutdownTickerWebsocket();
   await prisma.$disconnect();
   console.log("Database disconnected. See you!");
   process.exit(0);
@@ -101,6 +111,7 @@ process.on("SIGINT", async () => {
 
 process.on("SIGTERM", async () => {
   console.log("\n SIGTERM received, shutting down gracefully...");
+  shutdownTickerWebsocket();
   await prisma.$disconnect();
   console.log("Database disconnected. See you!");
   process.exit(0);

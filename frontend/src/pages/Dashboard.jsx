@@ -2,11 +2,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSymbol } from "../contexts/SymbolContext";
 import { useMarketCapLive } from "../hooks/useMarketcap";
-import {
-  fetchCandlesWithPagination,
-  fetchChartLiveTicker,
-  fetchChartLiveOHLCV,
-} from "../services/api.service";
+import { useCryptoWebSocket } from "../hooks/useCryptoWebSocket";
+import { fetchCandlesWithPagination } from "../services/api.service";
 import { useChartSync } from "../hooks/useChartSync";
 import { useChartPagination } from "../hooks/useChartPagination";
 import { useLiveRunningCandle } from "../hooks/useLiveRunningCandle";
@@ -29,14 +26,13 @@ function DashboardPage() {
   const seriesRef = useRef(null);
   const oscillatorChartsRef = useRef({});
   const syncCleanupRef = useRef(null);
-  const wsRef = useRef(null);
-  const lastWsEmitRef = useRef(0);
   const seriesMetaRef = useRef({
     initialized: false,
     minTime: null,
     maxTime: null,
     length: 0,
   });
+  const lastCandlesKeyRef = useRef(null);
 
   // Hook custom untuk sinkronisasi chart dan infinite scroll candle.
   const chartSync = useChartSync();
@@ -47,117 +43,15 @@ function DashboardPage() {
     queryKey: ["candles", selectedSymbol, timeframe],
     queryFn: () =>
       fetchCandlesWithPagination(selectedSymbol, timeframe, 1, 1000),
-    staleTime: 10000, // ✅ 10 seconds cache tolerance
-    cacheTime: 120000, // ✅ Keep in memory for 2 minutes
-    refetchOnMount: false, // ✅ Don't refetch if data is fresh
-    refetchOnWindowFocus: false, // ❌ Don't refetch on window focus
+    staleTime: 10000,
+    cacheTime: 120000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
     enabled: !!selectedSymbol,
   });
 
   const { data: marketCapData } = useMarketCapLive();
-  const { data: chartLiveTickerData } = useQuery({
-    queryKey: ["chart-live-ticker", selectedSymbol],
-    queryFn: () => fetchChartLiveTicker(selectedSymbol),
-    enabled: !!selectedSymbol,
-    refetchInterval: 2000,
-    staleTime: 1000,
-    refetchOnWindowFocus: false,
-  });
-
-  const { data: chartLiveOhlcvData } = useQuery({
-    queryKey: ["chart-live-ohlcv", selectedSymbol, timeframe],
-    queryFn: () => fetchChartLiveOHLCV(selectedSymbol, timeframe),
-    enabled: !!selectedSymbol,
-    refetchInterval: 2000,
-    staleTime: 1000,
-    refetchOnWindowFocus: false,
-  });
-
-  const [wsLivePrice, setWsLivePrice] = useState(null);
-  const [wsTickKey, setWsTickKey] = useState(null);
-  const [wsTickTimestamp, setWsTickTimestamp] = useState(null);
-
-  useEffect(() => {
-    setWsLivePrice(null);
-    setWsTickKey(null);
-    setWsTickTimestamp(null);
-    lastWsEmitRef.current = 0;
-
-    if (!selectedSymbol) return;
-
-    let isActive = true;
-
-    try {
-      const ws = new WebSocket("wss://ws-feed.exchange.coinbase.com");
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        ws.send(
-          JSON.stringify({
-            type: "subscribe",
-            product_ids: [selectedSymbol],
-            channels: ["ticker"],
-          }),
-        );
-      };
-
-      ws.onmessage = (event) => {
-        if (!isActive) return;
-
-        try {
-          const data = JSON.parse(event.data);
-          if (data?.type !== "ticker" || data?.product_id !== selectedSymbol) {
-            return;
-          }
-
-          const price = Number(data.price);
-          if (!Number.isFinite(price)) return;
-
-          const now = Date.now();
-          if (now - lastWsEmitRef.current < 500) return;
-          lastWsEmitRef.current = now;
-
-          const tickTs = data.time ? new Date(data.time).getTime() : now;
-
-          setWsLivePrice(price);
-          setWsTickKey(now);
-          setWsTickTimestamp(tickTs);
-        } catch (e) {
-          // ignore parse errors from non-json frames
-        }
-      };
-
-      ws.onerror = () => {
-        // fallback polling tetap berjalan jika websocket gagal.
-      };
-    } catch (e) {
-      // fallback polling tetap berjalan jika websocket tidak tersedia.
-    }
-
-    return () => {
-      isActive = false;
-
-      const ws = wsRef.current;
-      if (ws) {
-        try {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(
-              JSON.stringify({
-                type: "unsubscribe",
-                product_ids: [selectedSymbol],
-                channels: ["ticker"],
-              }),
-            );
-          }
-          ws.close();
-        } catch (e) {
-          // ignore close errors
-        }
-      }
-
-      wsRef.current = null;
-    };
-  }, [selectedSymbol]);
+  const { ticks: wsTicks, candles: wsCandles } = useCryptoWebSocket();
 
   const liveTicker = useMemo(() => {
     if (!marketCapData?.success || !Array.isArray(marketCapData.data)) {
@@ -166,32 +60,25 @@ function DashboardPage() {
     return marketCapData.data.find((coin) => coin.symbol === selectedSymbol);
   }, [marketCapData, selectedSymbol]);
 
-  const wsPrice = Number(wsLivePrice);
-  const directLivePrice = Number(chartLiveTickerData?.data?.price);
-  const liveOhlcvClose = Number(chartLiveOhlcvData?.data?.close);
+  const wsPrice = Number(wsTicks?.[selectedSymbol]?.price);
   const fallbackLivePrice = Number(liveTicker?.price);
-  const livePrice = Number.isFinite(liveOhlcvClose)
-    ? liveOhlcvClose
-    : Number.isFinite(wsPrice)
-      ? wsPrice
-      : Number.isFinite(directLivePrice)
-        ? directLivePrice
-        : fallbackLivePrice;
+  const livePrice = Number.isFinite(wsPrice) ? wsPrice : fallbackLivePrice;
 
-  const polledTickTs = Number(chartLiveTickerData?.data?.time);
   const marketTickTs = marketCapData?.timestamp
     ? new Date(marketCapData.timestamp).getTime()
     : null;
 
-  const tickTimestampMs = Number.isFinite(Number(wsTickTimestamp))
-    ? Number(wsTickTimestamp)
-    : Number.isFinite(polledTickTs)
-      ? polledTickTs
+  const tickTimestampMs = Number.isFinite(
+    Number(wsCandles?.[selectedSymbol]?.time),
+  )
+    ? Number(wsCandles?.[selectedSymbol]?.time)
+    : Number.isFinite(Number(wsTicks?.[selectedSymbol]?.time))
+      ? Number(wsTicks?.[selectedSymbol]?.time)
       : marketTickTs;
 
   const liveTickKey =
-    wsTickKey ||
-    chartLiveTickerData?.timestamp ||
+    wsCandles?.[selectedSymbol]?.time ||
+    wsTicks?.[selectedSymbol]?.time ||
     marketCapData?.timestamp ||
     null;
 
@@ -199,7 +86,7 @@ function DashboardPage() {
     setCandles: setAllCandlesData,
     timeframe,
     livePrice,
-    liveOhlcv: chartLiveOhlcvData?.data || null,
+    liveOhlcv: wsCandles?.[selectedSymbol] || null,
     tickKey: liveTickKey,
     tickTimestampMs,
     enabled: !!selectedSymbol && Number.isFinite(livePrice),
@@ -216,32 +103,35 @@ function DashboardPage() {
     };
   }, [allCandlesData.length]);
 
-  // Inisialisasi data candle setiap kali response API terbaru datang.
+  // Reset state saat symbol/timeframe berubah agar data tidak tercampur.
   useEffect(() => {
-    if (candlesData?.success && candlesData.data?.length) {
-      console.log("🔄 [DATA REFRESH] New candles data received from API");
-      console.log(`📊 Total candles: ${candlesData.data.length}`);
+    setAllCandlesData([]);
+    seriesMetaRef.current = {
+      initialized: false,
+      minTime: null,
+      maxTime: null,
+      length: 0,
+    };
+    lastCandlesKeyRef.current = `${selectedSymbol || ""}-${timeframe}`;
+  }, [selectedSymbol, timeframe]);
 
-      // Bersihkan state dulu untuk mencegah data lama tertinggal.
-      setAllCandlesData([]);
+  // Inisialisasi data candle saat response API pertama datang.
+  useEffect(() => {
+    if (!candlesData?.success || !candlesData.data?.length) return;
 
-      setTimeout(() => {
-        // Isi ulang dengan data baru dari backend.
-        setAllCandlesData(candlesData.data);
-        console.log("✅ [STATE RESET] allCandlesData updated with fresh data");
+    const currentKey = `${selectedSymbol || ""}-${timeframe}`;
+    if (lastCandlesKeyRef.current !== currentKey) {
+      lastCandlesKeyRef.current = currentKey;
+      setAllCandlesData(candlesData.data);
+      pagination.initializePagination(candlesData);
+      return;
+    }
 
-        // Debug: Log first candle's multiSignal
-        if (candlesData.data[0]?.multiSignal) {
-          console.log("🔍 [FIRST CANDLE SIGNAL]", {
-            time: new Date(Number(candlesData.data[0].time)).toISOString(),
-            multiSignal: candlesData.data[0].multiSignal,
-          });
-        }
-      }, 0);
-
+    if (allCandlesData.length === 0) {
+      setAllCandlesData(candlesData.data);
       pagination.initializePagination(candlesData);
     }
-  }, [candlesData]);
+  }, [candlesData, selectedSymbol, timeframe, allCandlesData.length]);
 
   // Pasang listener pagination agar scroll kiri bisa memuat data historis.
   useEffect(() => {
@@ -462,11 +352,25 @@ function DashboardPage() {
     );
   };
 
-  // Kartu OHLCV/indikator dikunci ke data API agar konsisten saat refresh.
-  const latestCandle =
-    candlesData?.success && candlesData.data?.length > 0
-      ? candlesData.data[0]
-      : null;
+  // Kartu OHLCV/indikator mengikuti candle terbaru yang sudah di-update live.
+  const latestCandle = useMemo(() => {
+    if (!allCandlesData.length) {
+      return candlesData?.data?.[0] || null;
+    }
+
+    let latest = null;
+    let latestTime = Number.NEGATIVE_INFINITY;
+    for (const candle of allCandlesData) {
+      const time = Number(candle.time);
+      if (!Number.isFinite(time)) continue;
+      if (time > latestTime) {
+        latestTime = time;
+        latest = candle;
+      }
+    }
+
+    return latest || candlesData?.data?.[0] || null;
+  }, [allCandlesData, candlesData?.data]);
 
   // Ambil 5 coin teratas dari data market cap live.
   const topCoins = marketCapData?.success ? marketCapData.data.slice(0, 5) : [];

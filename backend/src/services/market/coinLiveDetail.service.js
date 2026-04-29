@@ -1,6 +1,7 @@
 // detail live per coin
 import { prisma } from "../../lib/prisma.js";
 import { fetchTicker } from "./coinbase.service.js";
+import { getLastTicker } from "../websocket/websocket.service.js";
 
 /**
  * Ambil detail harga live coin
@@ -10,6 +11,14 @@ import { fetchTicker } from "./coinbase.service.js";
  */
 export async function getCoinLiveDetail(symbol) {
   try {
+    const cachedTicker = getLastTicker(symbol);
+    if (cachedTicker) {
+      return {
+        success: true,
+        data: cachedTicker,
+      };
+    }
+
     // Ambil data live dari API
     const t = await fetchTicker(symbol);
 

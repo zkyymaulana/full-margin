@@ -146,15 +146,29 @@ export const useLiveRunningCandle = ({
           const lockedLatest = { ...latest, isLiveCandle: false };
           nextCandles[latestIndex] = lockedLatest;
 
-          const nextOpen = price;
+          const shouldUseLiveOhlcv =
+            hasLiveOhlcv && liveBucketTime === activeBucketStart;
+          const nextOpen = shouldUseLiveOhlcv ? Number(liveOhlcv.open) : price;
+          const nextHigh = shouldUseLiveOhlcv
+            ? Number(liveOhlcv.high)
+            : nextOpen;
+          const nextLow = shouldUseLiveOhlcv ? Number(liveOhlcv.low) : nextOpen;
+          const nextClose = shouldUseLiveOhlcv
+            ? Number(liveOhlcv.close)
+            : nextOpen;
+
           const nextCandle = {
             ...latest,
             time: String(activeBucketStart),
             open: nextOpen,
-            high: nextOpen,
-            low: nextOpen,
-            close: nextOpen,
-            volume: 0,
+            high: nextHigh,
+            low: nextLow,
+            close: nextClose,
+            volume: shouldUseLiveOhlcv
+              ? Number.isFinite(Number(liveOhlcv?.volume))
+                ? Number(liveOhlcv.volume)
+                : latest.volume
+              : 0,
             isLiveCandle: true,
           };
 

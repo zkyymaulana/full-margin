@@ -39,6 +39,10 @@ export {
 } from "./useMarketcap";
 
 export {
+  useCryptoWebSocket, // Hook websocket harga crypto
+} from "./useCryptoWebSocket";
+
+export {
   useOptimization, // Hook jalankan optimasi
   useOptimizationEstimate, // Hook estimasi durasi optimasi
   useOptimizationProgress, // Hook progres optimasi via SSE

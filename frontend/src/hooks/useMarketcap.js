@@ -1,18 +1,54 @@
 // Kumpulan hook data marketcap.
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   fetchMarketCapLive,
   getMarketcapSymbols,
 } from "../services/api.service";
+import { useCryptoWebSocket } from "./useCryptoWebSocket";
 
 // Ambil data marketcap live (20 coin dari backend).
 export const useMarketCapLive = () => {
-  return useQuery({
+  const ws = useCryptoWebSocket();
+  const query = useQuery({
     queryKey: ["marketcap", "live"],
     queryFn: () => fetchMarketCapLive(),
-    refetchInterval: 3000, // Refresh tiap 3 detik.
-    staleTime: 2000,
+    staleTime: 60 * 1000,
   });
+
+  const merged = useMemo(() => {
+    const payload = query.data;
+    if (!payload?.data || !Array.isArray(payload.data)) return payload;
+
+    const nextData = payload.data.map((coin) => {
+      const ticker = ws.ticks?.[coin.symbol];
+      if (!ticker || !Number.isFinite(Number(ticker.price))) return coin;
+
+      const nextPrice = Number(ticker.price);
+      const open = Number(coin.open);
+      const change24h =
+        Number.isFinite(open) && open > 0
+          ? Number((((nextPrice - open) / open) * 100).toFixed(2))
+          : coin.change24h;
+
+      return {
+        ...coin,
+        price: nextPrice,
+        change24h: Number.isFinite(change24h) ? change24h : coin.change24h,
+      };
+    });
+
+    return {
+      ...payload,
+      data: nextData,
+      timestamp: payload.timestamp || new Date().toISOString(),
+    };
+  }, [query.data, ws.ticks]);
+
+  return {
+    ...query,
+    data: merged,
+  };
 };
 
 // Ambil ringkasan marketcap global dari payload live.
@@ -20,8 +56,7 @@ export const useMarketCapSummary = () => {
   return useQuery({
     queryKey: ["marketcap", "summary"],
     queryFn: () => fetchMarketCapLive(),
-    refetchInterval: 3000,
-    staleTime: 2000,
+    staleTime: 60 * 1000,
     select: (data) => ({
       summary: data?.summary || {
         totalMarketCap: 0,
