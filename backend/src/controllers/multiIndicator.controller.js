@@ -24,6 +24,7 @@ import {
   removeSSEClient,
 } from "../services/multiIndicator/index.js";
 import { calculateCategoryScores } from "../utils/multiindicator-score.utils.js";
+import { prisma } from "../lib/prisma.js";
 import jwt from "jsonwebtoken";
 
 // Verifikasi token JWT untuk endpoint SSE (token dikirim via query).
