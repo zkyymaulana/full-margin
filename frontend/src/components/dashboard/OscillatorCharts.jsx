@@ -483,7 +483,6 @@ function OscillatorCharts({
       updateChartData(seriesRefs.current.macdHistogram, histogramData);
     }
 
-    console.log(`📊 Oscillators updated: ${allCandlesData.length} points`);
   }, [allCandlesData, activeIndicators]);
 
   return (

@@ -30,7 +30,6 @@ function MarketCapPage() {
 
   // Pilih coin lalu arahkan user ke dashboard dengan simbol terpilih.
   const handleCoinClick = (symbol) => {
-    console.log("🎯 Coin selected:", symbol);
     setSelectedSymbol(symbol);
 
     const toast = document.createElement("div");

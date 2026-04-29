@@ -109,7 +109,6 @@ export const parseIndicators = (indicators = {}, price = 0, weights = null) => {
       "⚠️ [PARSE WARNING] Weights belum dioptimasi. Weight akan ditampilkan sebagai '-'",
     );
   } else {
-    console.log("✅ [Parse] Using optimized weights:", finalWeights);
   }
 
   const parsed = {

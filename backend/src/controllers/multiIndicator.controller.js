@@ -267,6 +267,53 @@ export async function optimizeIndicatorWeightsController(req, res) {
       });
     }
 
+    if (!forceReoptimize) {
+      const [coin, timeframeRecord] = await Promise.all([
+        prisma.coin.findUnique({
+          where: { symbol },
+          select: { id: true },
+        }),
+        prisma.timeframe.findUnique({
+          where: { timeframe },
+          select: { id: true },
+        }),
+      ]);
+
+      if (!coin || !timeframeRecord) {
+        return res.status(404).json({
+          success: false,
+          message: `Symbol or timeframe not found for ${symbol}`,
+        });
+      }
+
+      const existingWeight = await prisma.indicatorWeight.findFirst({
+        where: {
+          coinId: coin.id,
+          timeframeId: timeframeRecord.id,
+        },
+        orderBy: { updatedAt: "desc" },
+      });
+
+      if (existingWeight) {
+        return res.status(200).json({
+          success: true,
+          message: `Asset already optimized for ${symbol}.`,
+          symbol,
+          timeframe,
+          lastOptimized: existingWeight.updatedAt,
+          performance: {
+            roi: existingWeight.roi,
+            winRate: existingWeight.winRate,
+            maxDrawdown: existingWeight.maxDrawdown,
+            sharpeRatio: existingWeight.sharpeRatio,
+            trades: existingWeight.trades,
+            finalCapital: existingWeight.finalCapital,
+          },
+          weights: existingWeight.weights,
+        });
+      }
+    }
+
     // Langkah 1: buat job dan set status running sebelum optimasi dimulai.
     createJob(symbol);
     updateJob(symbol, {

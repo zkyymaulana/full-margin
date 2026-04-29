@@ -15,7 +15,6 @@ export function useOptimization() {
       return await requestOptimization(symbol, timeframe);
     },
     onSuccess: (data) => {
-      console.log("✅ Optimization completed:", data);
     },
     onError: (error) => {
       console.error("❌ Optimization failed:", error);
@@ -148,11 +147,9 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
 
     // Buka koneksi hanya jika fitur aktif dan simbol tersedia.
     if (!enabled || !symbol) {
-      console.log(`⏹️ [SSE] Connection disabled or no symbol provided`);
 
       // Saat dinonaktifkan manual, progres dibersihkan agar UI kembali netral.
       if (manualCloseRef.current) {
-        console.log(`🧹 [SSE] Clearing progress after manual close`);
         setProgress(null);
         manualCloseRef.current = false;
       }
@@ -166,9 +163,6 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
 
     // Cegah duplikasi koneksi SSE untuk simbol yang sama.
     if (isConnectedRef.current && eventSourceRef.current) {
-      console.log(
-        `⚠️ [SSE] Already connected for ${symbol}, skipping duplicate connection`,
-      );
       return;
     }
 
@@ -188,7 +182,6 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
     }/multiIndicator/${symbol}/optimize-stream?token=${encodeURIComponent(
       token,
     )}`;
-    console.log(`📡 [SSE] Opening connection for ${symbol}...`);
 
     try {
       const eventSource = new EventSource(sseUrl);
@@ -197,7 +190,6 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
 
       // Event saat koneksi berhasil dibuka.
       eventSource.onopen = () => {
-        console.log(`✅ [SSE] Connection opened for ${symbol}`);
         retryCountRef.current = 0;
       };
 
@@ -216,15 +208,11 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
           const data = JSON.parse(event.data);
           const eventType = data.type || "unknown";
 
-          console.log(`📨 [SSE] Received: ${eventType}`, data);
 
           // Proses payload berdasarkan jenis event.
           switch (eventType) {
             case "status":
               // Event status bersifat informasi, set tampilan menunggu.
-              console.log(
-                `ℹ️ [SSE] Status: ${data.status} - ${data.message || ""}`,
-              );
 
               // Jangan menimpa state terminal (completed/cancelled/error).
               if (["completed", "cancelled", "error"].includes(data.status)) {
@@ -250,12 +238,6 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
               break;
 
             case "start":
-              console.log(`🚀 [SSE] Optimization started:`, {
-                symbol: data.symbol,
-                dataPoints: data.dataPoints,
-                totalCombinations: data.totalCombinations,
-                datasetRange: data.datasetRange,
-              });
 
               // Inisialisasi state running + metadata dataset.
               setProgress({
@@ -298,14 +280,10 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
 
               // Log milestone setiap 10% untuk membantu monitoring.
               if (percentage % 10 === 0 || tested === total) {
-                console.log(
-                  `📈 [SSE] Progress: ${tested}/${total} (${percentage}%) | Best: ${bestROI}% | ETA: ${eta}`,
-                );
               }
               break;
 
             case "cancelled":
-              console.log(`🛑 [SSE] Optimization cancelled:`, data);
 
               // Tidak tampilkan modal; langsung bersihkan state progres.
               setProgress(null);
@@ -319,7 +297,6 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
               break;
 
             case "completed":
-              console.log(`✅ [SSE] Optimization completed:`, data);
 
               // Set state final selesai.
               setProgress({
@@ -333,7 +310,6 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
 
               // Bersihkan progres 3 detik setelah selesai.
               setTimeout(() => {
-                console.log(`🧹 [SSE] Cleaning up after completion`);
                 setProgress(null);
                 closeEventSource();
               }, 3000);
@@ -413,7 +389,6 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
 
     // Cleanup saat komponen unmount atau simbol berubah.
     return () => {
-      console.log(`🔌 [SSE] Cleaning up connection for ${symbol}`);
       isMountedRef.current = false;
 
       clearReconnectTimeout();

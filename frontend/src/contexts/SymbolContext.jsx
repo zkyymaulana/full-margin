@@ -31,7 +31,6 @@ export function SymbolProvider({ children }) {
       if (selectedSymbol && isValidSymbol(selectedSymbol)) {
         // Simpan simbol aktif agar konsisten antar halaman/reload.
         localStorage.setItem(STORAGE_KEY, selectedSymbol);
-        console.log("💾 Saved symbol to localStorage:", selectedSymbol);
       }
     } catch (error) {
       console.error("❌ Error saving to localStorage:", error);
@@ -55,7 +54,6 @@ export function SymbolProvider({ children }) {
       // Selalu reset ke simbol default.
       setSelectedSymbol(DEFAULT_SYMBOL);
       localStorage.removeItem(STORAGE_KEY);
-      console.log("🗑️ Symbol reset to default:", DEFAULT_SYMBOL);
     } catch (error) {
       console.error("❌ Error resetting symbol:", error);
       setSelectedSymbol(DEFAULT_SYMBOL);

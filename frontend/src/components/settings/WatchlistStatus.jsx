@@ -9,7 +9,6 @@ export function WatchlistStatus({
   t,
 }) {
   const navigate = useNavigate();
-  console.log(watchlistSymbols);
 
   return (
     <div

@@ -29,7 +29,6 @@ export function OptimizationProvider({ children }) {
   // Simpan hasil saat status selesai.
   useEffect(() => {
     if (progressData?.status === "completed") {
-      console.log("✅ Optimization completed, storing result");
       setOptimizationResult(progressData);
       // Jangan auto-close, biarkan user menutup panel secara manual.
     }
@@ -41,14 +40,12 @@ export function OptimizationProvider({ children }) {
     if (!isOptimizationActive) return;
     if (!["completed", "cancelled", "error"].includes(status)) return;
 
-    console.log(`🧹 Optimization reached terminal status: ${status}`);
     setIsOptimizationActive(false);
     setOptimizationSymbol(null);
   }, [progressData, isOptimizationActive]);
 
   // Mulai optimasi untuk simbol tertentu.
   const startOptimization = (symbol) => {
-    console.log(`🚀 Starting global optimization for ${symbol}`);
     setOptimizationSymbol(symbol);
     setIsOptimizationActive(true);
     setOptimizationResult(null);
@@ -57,7 +54,6 @@ export function OptimizationProvider({ children }) {
 
   // Hentikan optimasi global dan bersihkan state terkait.
   const stopOptimization = () => {
-    console.log("🛑 Stopping global optimization");
     setIsOptimizationActive(false);
     setOptimizationSymbol(null);
     // Saat stop manual, progres lama langsung dibersihkan.
@@ -66,7 +62,6 @@ export function OptimizationProvider({ children }) {
 
   // Bersihkan seluruh state optimasi (progres + hasil + simbol).
   const clearAllProgress = () => {
-    console.log("🧹 Clearing all progress data");
     setLastProgressData(null);
     setOptimizationResult(null);
     setIsOptimizationActive(false);

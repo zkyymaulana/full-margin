@@ -31,7 +31,6 @@ export function useWatchlist() {
         // Backend mengembalikan object, kita ambil coinId saja.
         const coinIds = res.data.map((e) => e.coinId);
         setWatchlist(coinIds);
-        console.log("✅ Watchlist refreshed:", coinIds);
       }
     } catch (err) {
       console.error("Failed to load watchlist:", err);
@@ -50,14 +49,12 @@ export function useWatchlist() {
   // Auto-refresh saat jendela fokus / tab kembali aktif.
   useEffect(() => {
     const handleFocus = () => {
-      console.log("🔄 Window focused, refreshing watchlist...");
       // Refresh senyap tanpa menampilkan loading utama.
       fetchWatchlist(false);
     };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        console.log("👁️ Tab visible, refreshing watchlist...");
         fetchWatchlist(false);
       }
     };

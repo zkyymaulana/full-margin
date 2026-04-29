@@ -20,7 +20,6 @@ const PublicRoute = ({ children }) => {
   const { isAuthenticated } = useAuth();
 
   if (isAuthenticated) {
-    console.log("✅ User already authenticated, redirecting to dashboard");
     return <Navigate to="/dashboard" replace />;
   }
 

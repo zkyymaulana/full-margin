@@ -55,9 +55,6 @@ function ComparisonPage() {
 
   // ✅ Reset semua hasil saat simbol berubah
   useEffect(() => {
-    console.log(
-      `[Comparison] Symbol changed → ${selectedSymbol}, resetting results`,
-    );
     setDisplayData(null);
     resetComparison();
     queryClient.removeQueries({ queryKey: ["comparison"] });
@@ -75,9 +72,6 @@ function ComparisonPage() {
       return;
     }
 
-    console.log(
-      `[Comparison] ✅ Result accepted for symbol: ${selectedSymbol}`,
-    );
     setDisplayData(comparisonData);
   }, [comparisonData]);
 
@@ -102,7 +96,6 @@ function ComparisonPage() {
 
     // Catat simbol mana yang sedang di-compare
     comparedSymbolRef.current = selectedSymbol;
-    console.log(`[Comparison] Running comparison for: ${selectedSymbol}`);
 
     // Reset hasil lama agar UI hanya menampilkan hasil terbaru.
     setDisplayData(null);

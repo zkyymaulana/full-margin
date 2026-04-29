@@ -15,7 +15,6 @@ export function CoinTable({
   isWatched,
   toggleWatchlist,
 }) {
-  console.log(isWatched);
 
   return (
     <div className="hidden md:block overflow-x-auto">

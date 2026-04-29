@@ -44,7 +44,6 @@ export const DarkModeProvider = ({ children }) => {
     updateMetaThemeColor(isDarkMode ? "#111827" : "#ffffff");
 
     // Log sederhana untuk bantu debugging tema.
-    console.log(`🎨 Dark Mode: ${isDarkMode ? "ON 🌙" : "OFF ☀️"}`);
   }, [isDarkMode]);
 
   // Toggle status dark mode.

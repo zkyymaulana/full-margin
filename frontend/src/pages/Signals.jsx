@@ -54,7 +54,6 @@ function SignalsPage() {
     // Refetch dipakai setelah optimasi selesai.
     refetch: refetchIndicatorData,
   } = useIndicator(selectedSymbol, "latest", "1h");
-  console.log({ indicatorData });
 
   // Ambil estimasi durasi optimasi saat user akan menjalankan optimize.
   const { data: estimateData, refetch: refetchEstimate } =
@@ -68,13 +67,11 @@ function SignalsPage() {
   // Refresh data indikator otomatis ketika optimasi selesai.
   useMemo(() => {
     if (isOptimizationCompleted && optimizationSymbol === selectedSymbol) {
-      console.log("✅ Optimization completed - refreshing data...");
       setShowCompletedCard(true);
 
       // Beri jeda agar backend selesai menyimpan data terbaru.
       setTimeout(() => {
         refetchIndicatorData();
-        console.log("🔄 Data refreshed after optimization");
       }, 1000);
     }
   }, [
@@ -87,7 +84,6 @@ function SignalsPage() {
   // Pastikan kartu status selesai tetap ditampilkan setelah optimize complete.
   useMemo(() => {
     if (isOptimizationCompleted) {
-      console.log("✅ Optimization completed - keeping card visible");
       setShowCompletedCard(true);
     }
   }, [isOptimizationCompleted]);
@@ -106,7 +102,6 @@ function SignalsPage() {
     signalCounts,
   } = useMemo(() => {
     const latestSignal = indicatorData?.latestSignal;
-    console.log({ latestSignal });
 
     if (!latestSignal) {
       console.warn("⚠️ No latestSignal available");
@@ -151,9 +146,6 @@ function SignalsPage() {
     // Hitung distribusi sinyal untuk statistik ringkas.
     const counts = countSignalsFromDB(indicators);
 
-    console.log("✅ [SIGNALS PAGE] Multi Signal Data:", signalData);
-    console.log("🔍 [DEBUG] Has Optimization:", hasOptimization);
-    console.log("📊 Signal Counts:", counts);
 
     // Jika belum optimize, bobot dibuat null agar UI menampilkan status yang tepat.
     const finalWeights = hasOptimization ? weightsData : null;
@@ -244,7 +236,6 @@ function SignalsPage() {
         throw new Error("Authentication required. Please login again.");
       }
 
-      console.log("🔑 Starting optimization process...");
 
       const controller = new AbortController();
       // Beri waktu backend untuk create job sebelum request di-abort.
@@ -327,7 +318,6 @@ function SignalsPage() {
       }
 
       if (shouldOpenSSE) {
-        console.log("📡 Opening SSE connection for real-time progress...");
         startOptimization(selectedSymbol);
       }
     } catch (error) {
@@ -369,14 +359,10 @@ function SignalsPage() {
       if (result.isConfirmed) {
         try {
           setIsCancelling(true);
-          console.log(
-            `🛑 Cancelling optimization for ${optimizationSymbol}...`,
-          );
 
           // Kirim request cancel ke backend.
           await cancelOptimization(optimizationSymbol);
 
-          console.log(`✅ Cancel request sent successfully`);
 
           // Tutup stream SSE di frontend agar status berhenti segera.
           stopOptimization();
@@ -412,7 +398,6 @@ function SignalsPage() {
 
   // Handle tombol close pada kartu progress.
   const handleCloseProgressCard = () => {
-    console.log("❌ User closed progress card - clearing all data");
     setShowCompletedCard(false);
     clearAllProgress();
   };

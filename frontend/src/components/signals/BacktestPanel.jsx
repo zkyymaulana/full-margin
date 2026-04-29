@@ -16,7 +16,6 @@ export function BacktestPanel({ performance, isDarkMode }) {
     eta: "Calculating...",
     bestROI: 0,
   });
-  console.log({ performance });
 
   if (!performance || Object.keys(performance).length === 0) return null;
 
@@ -45,7 +44,6 @@ export function BacktestPanel({ performance, isDarkMode }) {
       endDateReadable,
     )}`;
   };
-  console.log({ formatDateRange });
 
   const metrics = [
     {

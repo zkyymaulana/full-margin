@@ -263,7 +263,6 @@ function DashboardPage() {
     // Sinkronisasi butuh minimal 2 chart.
     if (allCharts.length < 2) return;
 
-    console.log(`[ChartSync] Setup sync for ${allCharts.length} charts`);
 
     const cleanupFunctions = [];
     allCharts.forEach((chart, index) => {
@@ -282,13 +281,11 @@ function DashboardPage() {
       });
     };
 
-    console.log("[ChartSync] ✅ Sync setup complete!");
   }, [chartSync]);
 
   // Callback saat chart oscillator selesai dibuat.
   const handleChartReady = useCallback(
     (chartKey, chart) => {
-      console.log(`[ChartSync] Chart ready: ${chartKey}`);
 
       // Samakan visible range chart baru dengan main chart.
       if (chartRef.current) {

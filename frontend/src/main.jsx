@@ -28,10 +28,8 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 registerSW({
   immediate: true,
   onOfflineReady() {
-    console.log("📦 PWA ready for offline usage");
   },
   onNeedRefresh() {
-    console.log("🔄 New app version available. Refresh to update.");
   },
 });
 

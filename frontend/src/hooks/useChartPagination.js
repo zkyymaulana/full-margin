@@ -38,9 +38,6 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
     // Tambahkan data baru di depan karena pagination bergerak ke data lebih lama.
     const merged = [...uniqueNewData, ...existingData];
 
-    console.log(
-      `📦 [MERGE] Added ${uniqueNewData.length} new candles (total: ${merged.length})`,
-    );
     return merged;
   }, []);
 
@@ -49,7 +46,6 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
     async (chartRef) => {
       // Hard lock mencegah request paralel yang bisa membuat data dobel.
       if (fetchLockRef.current) {
-        console.log("🔒 [HARD LOCK] Fetch already in progress, skipping");
         return;
       }
 
@@ -63,18 +59,12 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
 
       // Lewati request jika URL ini sudah pernah berhasil diambil.
       if (fetchedUrlsRef.current.has(nextUrlRef.current)) {
-        console.log(
-          `⏭️ [DEDUP] URL already fetched, skipping: ${nextUrlRef.current}`,
-        );
         return;
       }
 
       // Jeda minimal antar request untuk menghindari spam API.
       const now = Date.now();
       if (now - lastFetchTimeRef.current < 600) {
-        console.log(
-          `⏸️ [DEBOUNCE] Too soon (${now - lastFetchTimeRef.current}ms < 600ms)`,
-        );
         return;
       }
 
@@ -87,13 +77,11 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
       // Batalkan request sebelumnya jika masih berjalan.
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
-        console.log("❌ [ABORT] Cancelled previous fetch request");
       }
 
       // Buat AbortController baru untuk request saat ini.
       abortControllerRef.current = new AbortController();
 
-      console.log(`🔄 [FETCH] Loading: ${nextUrlRef.current}`);
 
       try {
         const prevTotal = allCandlesData.length;
@@ -107,9 +95,6 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
         );
 
         if (response?.success && response.data?.length > 0) {
-          console.log(
-            `✅ [FETCH] Got ${response.data.length} candles (Page ${response.page}/${response.totalPages})`,
-          );
 
           // Catat URL ini sebagai sudah diproses.
           fetchedUrlsRef.current.add(nextUrlRef.current);
@@ -157,7 +142,6 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
               }, 100);
             }
           } else {
-            console.log("⏭️ [SKIP] No new data added, state unchanged");
           }
 
           const hasNext = response.pagination?.next?.url != null;
@@ -183,7 +167,6 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
       } catch (error) {
         // Error abort dianggap normal saat request lama dibatalkan.
         if (error.name === "AbortError") {
-          console.log("⚠️ [ABORT] Fetch aborted");
         } else {
           console.error("❌ [ERROR] Fetch failed:", error);
         }
@@ -239,9 +222,6 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
               hasMoreDataRef.current &&
               !isLoadingMoreRef.current
             ) {
-              console.log(
-                `📍 [SCROLL] Bars before visible: ${barsBefore} → Preloading...`,
-              );
               fetchMoreData(chart);
             }
           } catch (error) {
@@ -283,9 +263,6 @@ export const useChartPagination = (allCandlesData, setAllCandlesData) => {
         hasMore: response.pagination.next?.url != null,
       });
 
-      console.log(
-        `🎯 [INIT] Pagination ready (Page ${response.page}/${response.totalPages})`,
-      );
     }
   }, []);
 

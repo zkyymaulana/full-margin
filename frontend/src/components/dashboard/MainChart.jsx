@@ -466,9 +466,6 @@ function MainChart({
       }
     });
 
-    console.log(
-      `📊 Overlay indicators updated from ${allCandlesData.length} candles`,
-    );
   }, [activeIndicators, allCandlesData]);
 
   // 🆕 Update nilai price line saat crosshair hover, kembalikan ke lastCandle saat keluar
@@ -648,8 +645,6 @@ function MainChart({
   useEffect(() => {
     if (!seriesRef.current || !allCandlesData.length) return;
 
-    console.log("🔍 [MARKER] Rendering database signals...");
-    console.log(`📊 Total candles: ${allCandlesData.length}`);
 
     // 1️⃣ Filter ONLY database signals (strict validation)
     const validSignals = allCandlesData.filter((candle) => {
@@ -681,14 +676,6 @@ function MainChart({
       );
     });
 
-    console.log(
-      `✅ [DB SIGNALS] ${validSignals.length} valid signals from database`,
-    );
-    console.log(
-      `   Filtered out: ${
-        allCandlesData.length - validSignals.length
-      } (not optimized + neutral + weak + non-db)`,
-    );
 
     // 2️⃣ Sort by time ascending (oldest first)
     const sortedSignals = [...validSignals].sort(
@@ -709,16 +696,6 @@ function MainChart({
       }
     });
 
-    console.log(
-      `📍 [SIGNAL CHANGES] ${signalChanges.length} direction changes`,
-    );
-    console.log(
-      `   BUY: ${
-        signalChanges.filter((c) => c.multiSignal.signal === "buy").length
-      } | SELL: ${
-        signalChanges.filter((c) => c.multiSignal.signal === "sell").length
-      }`,
-    );
 
     // 4️⃣ Convert to lightweight-charts marker format
     const markers = signalChanges.map((c) => {
@@ -738,12 +715,9 @@ function MainChart({
     seriesRef.current.setMarkers(markers);
 
     if (markers.length > 0) {
-      console.log(`✅ [MARKERS APPLIED] ${markers.length} markers rendered`);
     } else {
-      console.log(`⚠️ [NO MARKERS] All signals filtered out`);
     }
 
-    console.log("─────────────────────────────────────────────────────");
   }, [allCandlesData]);
 
   return (

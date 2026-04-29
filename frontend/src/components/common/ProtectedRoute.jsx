@@ -38,17 +38,12 @@ function ProtectedRoute({ children }) {
 
   // Jika tidak authenticated, redirect ke login
   if (!isAuthenticated) {
-    console.log(
-      "🚫 [ProtectedRoute] User not authenticated, redirecting to login"
-    );
-    console.log("📍 [ProtectedRoute] Attempted to access:", location.pathname);
 
     // Simpan current location untuk redirect setelah login
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // Jika authenticated, render children
-  console.log("✅ [ProtectedRoute] User authenticated:", user?.email);
   return children;
 }
 

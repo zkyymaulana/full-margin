@@ -140,7 +140,6 @@ export const useChartSync = () => {
     (chart, allCharts, chartType = "unknown") => {
       if (!chart) return null;
 
-      console.log(`[ChartSync] Setting up sync for "${chartType}" chart`);
 
       const timeScale = chart.timeScale();
       const otherCharts = allCharts.filter((c) => c !== chart);
@@ -193,7 +192,6 @@ export const useChartSync = () => {
       );
 
       return () => {
-        console.log(`[ChartSync] Cleaning up sync for "${chartType}" chart`);
         isDisposed = true;
         // Pastikan source dibersihkan saat chart dibongkar.
         if (syncSourceRef.current === chart) syncSourceRef.current = null;
