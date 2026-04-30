@@ -273,10 +273,3 @@ export function getLiveCandle(symbol) {
   if (!symbol) return null;
   return liveCandles.get(String(symbol).toUpperCase()) || null;
 }
-
-export default {
-  initTickerWebsocket,
-  shutdownTickerWebsocket,
-  getLastTicker,
-  getAllTickersSnapshot,
-};

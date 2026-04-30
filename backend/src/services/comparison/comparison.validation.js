@@ -1,65 +1,8 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- * ✅ COMPARISON VALIDATION MODULE
- * ═══════════════════════════════════════════════════════════════
- *
- * Modul ini bertanggung jawab untuk:
- * • Validasi parameter request dari user
- * • Pengecekan format tanggal (ISO 8601)
- * • Pengecekan symbol cryptocurrency yang valid
- * • Error handling dan error response formatting
- * • Memberikan contoh format yang benar untuk error messages
- *
- * Tujuan:
- * - Ensure input data valid sebelum proses backtesting
- * - Provide helpful error messages dengan contoh
- * - Prevent invalid data dari entering comparison pipeline
- * ═══════════════════════════════════════════════════════════════
- */
-
-/**
- * ✅ Validasi parameter request comparison
- *
- * Tujuan:
- * - Check apakah semua required parameters ada
- * - Validate format dari setiap parameter
- * - Ensure date logic valid (startDate < endDate)
- * - Provide helpful error messages
- *
- * Validasi yang dilakukan:
- * 1. Check symbol tidak empty dan valid format
- * 2. Check startDate dan endDate ada
- * 3. Check format ISO 8601 (YYYY-MM-DD atau ISO full)
- * 4. Check startDate < endDate (logical order)
- * 5. Check date range tidak terlalu pendek (min 7 hari)
- *
- *
- *
- * @example
- * // ✅ Valid request
- * validateComparisonParams({
- *   symbol: "BTC-USD",
- *   startDate: "2024-01-01",
- *   endDate: "2024-12-31"
- * })
- * // Returns: { isValid: true }
- *
- * @example
- * // ❌ Invalid date format
- * validateComparisonParams({
- *   symbol: "BTC-USD",
- *   startDate: "01/01/2024",
- *   endDate: "31/12/2024"
- * })
- * // Returns: { isValid: false, error: { message: "...", example: "2024-01-01" } }
- */
+// fungsi untuk validasi parameter comparison/backtest
 const DATASET_MIN_START_DATE = new Date("2020-01-01T00:00:00Z");
 
-function validateComparisonParams({ symbol, startDate, endDate }) {
-  // ═══════════════════════════════════════════════════════════════
-  // ✅ VALIDASI 1: Check symbol
-  // ═══════════════════════════════════════════════════════════════
-
+export function validateComparisonParams({ symbol, startDate, endDate }) {
+  // cek symbol
   if (!symbol || typeof symbol !== "string" || symbol.trim() === "") {
     return {
       isValid: false,
@@ -70,10 +13,7 @@ function validateComparisonParams({ symbol, startDate, endDate }) {
     };
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // ✅ VALIDASI 2: Check startDate dan endDate ada
-  // ═══════════════════════════════════════════════════════════════
-
+  // cek startDate dan endDate
   if (!startDate || !endDate) {
     return {
       isValid: false,
@@ -84,18 +24,14 @@ function validateComparisonParams({ symbol, startDate, endDate }) {
     };
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // ✅ VALIDASI 3: Check format ISO 8601
-  // ═══════════════════════════════════════════════════════════════
-
-  // ✅ Pattern untuk ISO 8601: YYYY-MM-DD atau lengkap dengan waktu
+  // cek format ISO
   const isoPattern = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(.\d{3})?Z?)?$/;
 
   if (!isoPattern.test(startDate)) {
     return {
       isValid: false,
       error: {
-        message: `startDate "${startDate}" tidak valid. Format harus ISO 8601`,
+        message: `startDate "${startDate}" tidak valid`,
         example: "2024-01-01 atau 2024-01-01T00:00:00Z",
       },
     };
@@ -105,97 +41,60 @@ function validateComparisonParams({ symbol, startDate, endDate }) {
     return {
       isValid: false,
       error: {
-        message: `endDate "${endDate}" tidak valid. Format harus ISO 8601`,
+        message: `endDate "${endDate}" tidak valid`,
         example: "2024-01-01 atau 2024-01-01T00:00:00Z",
       },
     };
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // ✅ VALIDASI 4: Check startDate < endDate (logical order)
-  // ═══════════════════════════════════════════════════════════════
-
   const start = new Date(startDate);
   const end = new Date(endDate);
 
+  // cek batas minimal dataset
   if (start < DATASET_MIN_START_DATE) {
     return {
       isValid: false,
       error: {
-        message: `startDate (${startDate}) tidak boleh lebih kecil dari 2020-01-01`,
+        message: "startDate tidak boleh sebelum 2020-01-01",
         example: "Gunakan startDate >= 2020-01-01",
       },
     };
   }
 
+  // cek urutan tanggal
   if (start >= end) {
     return {
       isValid: false,
       error: {
-        message: `startDate (${startDate}) harus lebih kecil dari endDate (${endDate})`,
+        message: "startDate harus lebih kecil dari endDate",
         example: "startDate: 2024-01-01, endDate: 2024-12-31",
       },
     };
   }
 
+  // cek minimal range 7 hari
   const rangeMs = end - start;
+  const minRangeMs = 7 * 24 * 60 * 60 * 1000;
 
-  // ═══════════════════════════════════════════════════════════════
-  // ✅ VALIDASI 5: Check date range tidak terlalu pendek (min 7 hari)
-  // ═══════════════════════════════════════════════════════════════
-
-  const minRangeMs = 7 * 24 * 60 * 60 * 1000; // 7 hari
   if (rangeMs < minRangeMs) {
     return {
       isValid: false,
       error: {
-        message: `Date range terlalu pendek (${Math.round(rangeMs / (1000 * 60 * 60 * 24))} hari < 7 hari)`,
-        example: "Minimal 7 hari untuk meaningful backtest",
+        message: "Range minimal 7 hari",
+        example: "Gunakan rentang >= 7 hari",
       },
     };
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // ✅ SEMUA VALIDASI PASSED
-  // ═══════════════════════════════════════════════════════════════
-
   return { isValid: true };
 }
 
-/**
- * ❌ Penanganan error pada service comparison
- *
- * Tujuan:
- * - Catch errors dari backtesting process
- * - Map error ke response yang sesuai
- * - Provide helpful error messages ke user
- * - Log error untuk debugging
- *
- * Error categories:
- * 1. Database errors (data not found, query errors)
- * 2. Validation errors (invalid input)
- * 3. Processing errors (backtest fail, calculation error)
- * 4. System errors (unknown/unexpected errors)
- *
- *
- *
- * @example
- * try {
- *   // some operation
- * } catch (error) {
- *   const { statusCode, response } = handleComparisonError(error);
- *   return res.status(statusCode).json(response);
- * }
- */
-function handleComparisonError(error) {
-  console.error("❌ Comparison Error:", error);
+// menangani error dari proses comparison/backtest
+export function handleComparisonError(error) {
+  console.error("Comparison Error:", error);
 
-  // ═══════════════════════════════════════════════════════════════
-  // ERROR TYPE 1: Database Errors
-  // ═══════════════════════════════════════════════════════════════
-
+  // error database (data tidak ditemukan)
   if (error.code === "P2025") {
-    // Prisma "not found" error
     return {
       statusCode: 404,
       response: {
@@ -206,10 +105,7 @@ function handleComparisonError(error) {
     };
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // ERROR TYPE 2: Validation Errors
-  // ═══════════════════════════════════════════════════════════════
-
+  // error validasi input
   if (
     error.message?.includes("validation") ||
     error.message?.includes("valid")
@@ -224,10 +120,7 @@ function handleComparisonError(error) {
     };
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // ERROR TYPE 3: Processing Errors (Backtest, Calculation)
-  // ═══════════════════════════════════════════════════════════════
-
+  // error saat proses backtest / perhitungan
   if (
     error.message?.includes("backtest") ||
     error.message?.includes("calculation") ||
@@ -243,10 +136,7 @@ function handleComparisonError(error) {
     };
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // ERROR TYPE 4: Unknown/System Errors
-  // ═══════════════════════════════════════════════════════════════
-
+  // error lain (default)
   return {
     statusCode: 500,
     response: {
@@ -256,9 +146,3 @@ function handleComparisonError(error) {
     },
   };
 }
-
-// ═══════════════════════════════════════════════════════════════
-// 📤 EXPORTS
-// ═══════════════════════════════════════════════════════════════
-
-export { validateComparisonParams, handleComparisonError };

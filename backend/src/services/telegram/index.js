@@ -1,9 +1,3 @@
-/**
- * File: src/services/telegram/index.js
- * -------------------------------------------------
- * Tujuan: Satu pintu export untuk semua service Telegram.
- */
-
 export {
   sendSignalToWatchers, // Kirim sinyal ke user watcher coin tertentu
   testTelegramConnectionForUser, // Uji koneksi untuk satu user login

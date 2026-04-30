@@ -115,21 +115,10 @@ export async function getMarketcapRealtime() {
   }
 }
 
-/**
- * Ambil harga live + candle terakhir untuk coin teratas + history + summary
- * Return ONLY Top 20 paired coins (guaranteed count)
- * Filter hanya symbol dengan format BASE-QUOTE (mengandung "-")
- * Summary dan data SELALU menampilkan 20 coin teratas
- *
- * FILTERING LOGIC:
- * - Uses listingDate from Coin table which represents EARLIEST CANDLE DATE from Coinbase
- * - This is the actual date when historical data becomes available on Coinbase
- * - We filter by launch date < Jan 1, 2025 to ensure coins have sufficient historical data
- * - Coins without listingDate (new coins) will be included until historical sync sets it
- */
+// Ambil data market 20 coin teratas dengan data historis valid
 export async function getMarketcapLive() {
   try {
-    // Get timeframe ID for "1h"
+    // ambil timeframe "1h"
     const timeframeRecord = await prisma.timeframe.findUnique({
       where: { timeframe: "1h" },
       select: { id: true },
@@ -142,11 +131,7 @@ export async function getMarketcapLive() {
       };
     }
 
-    // ✅ Filter coins by earliest candle date from Coinbase
-    // This ensures we only analyze coins with sufficient historical data
-    // Note: listingDate = earliest candle date from Coinbase, NOT from CoinMarketCap
-    // Ambil kandidat by rank, lalu filter listingDate valid.
-    // Jika ada coin invalid (null atau > cutoff), otomatis lanjut ke rank berikutnya.
+    // ambil kandidat coin berdasarkan ranking
     let rankedCandidates = await getRankedTopCoinCandidates(
       INITIAL_CANDIDATE_LIMIT,
     );

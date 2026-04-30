@@ -3,19 +3,15 @@ import { syncHistoricalData } from "../sync/candle-sync.service.js";
 import { getSymbolsCache, refreshSymbolsCache } from "./cache.js";
 import { getActiveSymbols } from "../sync/candle-sync.service.js";
 
-/**
- * Cek apakah data historis sudah lengkap / outdated
- * Jika belum → lakukan backfill
- */
+// Cek apakah data historis sudah lengkap atau sudah usang, Jika belum, maka lakukan backfill.
 export async function checkAndSyncHistoricalData(options = {}) {
   const targetStart =
     options.startDate || process.env.CANDLE_START_DATE || "2020-01-01";
+
   const targetStartTime = new Date(targetStart).getTime();
-  const ensureFromStart = options.ensureFromStart === true;
 
   let symbols = getSymbolsCache();
 
-  // Jika cache kosong → refresh dulu
   if (!symbols.length) {
     await refreshSymbolsCache(getActiveSymbols);
     symbols = getSymbolsCache();
@@ -23,71 +19,70 @@ export async function checkAndSyncHistoricalData(options = {}) {
 
   console.log(`Checking historical data (${symbols.length} symbols)...`);
 
-  const outdated = [];
-  const needsFullHistory = [];
+  // timeframe 1h (ms)
+  const tfMs = 60 * 60 * 1000;
+  const now = Date.now();
 
-  // Loop semua symbol
+  const gaps = [];
+
   for (const s of symbols) {
     try {
-      // Ambil coin dari DB
       const coin = await prisma.coin.findUnique({
         where: { symbol: s },
         select: { id: true },
       });
 
-      if (!coin) {
-        outdated.push(s);
-        continue;
-      }
+      if (!coin) continue;
 
-      // Ambil candle terakhir
       const last = await prisma.candle.findFirst({
         where: { coinId: coin.id },
         orderBy: { time: "desc" },
+        select: { time: true },
       });
 
-      const time = last ? Number(last.time) : 0;
+      const lastTime = last ? Number(last.time) : null;
 
-      if (ensureFromStart) {
-        const first = await prisma.candle.findFirst({
-          where: { coinId: coin.id },
-          orderBy: { time: "asc" },
-          select: { time: true },
+      // CASE 1: belum ada data sama sekali
+      if (!lastTime) {
+        gaps.push({
+          symbol: s,
+          startTime: targetStartTime,
+          endTime: now,
+          reason: "no_data",
         });
-        const firstTime = first ? Number(first.time) : null;
-
-        if (!firstTime || firstTime > targetStartTime) {
-          needsFullHistory.push(s);
-        }
+        continue;
       }
 
-      // Jika data lebih dari 3 jam tidak update → dianggap outdated
-      if (time < Date.now() - 3 * 3600 * 1000) {
-        outdated.push(s);
+      // CASE 2: ada gap (candle hilang)
+      const missingCandles = Math.floor((now - lastTime) / tfMs);
+
+      if (missingCandles > 0) {
+        gaps.push({
+          symbol: s,
+          startTime: lastTime + tfMs,
+          endTime: now,
+          missingCandles,
+        });
       }
     } catch (err) {
-      console.error(`❌ ${s} error:`, err.message);
-      outdated.push(s);
+      console.error(`${s} error:`, err.message);
     }
   }
 
-  if (ensureFromStart && needsFullHistory.length) {
+  // SYNC SEMUA GAP
+  for (const item of gaps) {
     console.log(
-      `Syncing ${needsFullHistory.length} symbols from ${targetStart}...`,
+      `${item.symbol} → syncing ${item.missingCandles || "full"} candles...`,
     );
-    await syncHistoricalData(needsFullHistory, targetStart, {
-      forceFromStart: true,
-    });
-  }
 
-  const recentOutdated = outdated.filter(
-    (symbol) => !needsFullHistory.includes(symbol),
-  );
-
-  // Jika ada data outdated → lakukan sync
-  if (recentOutdated.length) {
-    console.log(`Syncing ${recentOutdated.length} outdated symbols...`);
-    await syncHistoricalData(recentOutdated, targetStart);
+    await syncHistoricalData(
+      [item.symbol],
+      new Date(item.startTime).toISOString(),
+      {
+        endTime: item.endTime,
+        forceFromStart: item.reason === "no_data",
+      },
+    );
   }
 
   console.log("Historical check selesai");

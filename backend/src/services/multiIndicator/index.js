@@ -1,64 +1,38 @@
-/**
- * 📦 Barrel File - Domain Multi-Indicator
- * ================================================================
- * File ini mengumpulkan semua export dari service di folder multiIndicator
- * agar file lain cukup melakukan import dari folder saja.
- *
- * Manfaat:
- * ✓ Struktur import lebih bersih dan konsisten
- * ✓ Menghindari import path yang panjang dan berbelit
- * ✓ Mempermudah refactoring (perubahan struktur internal tidak mempengaruhi consumer)
- * ✓ Dokumentasi yang jelas tentang public API
- *
- * Contoh penggunaan:
- * import { runOptimization, createJob, setupSSE } from "@/services/multiIndicator";
- *
- * Alih-alih:
- * import * as optimizationService from "../services/multiIndicator/optimization.service.js";
- * ================================================================
- */
-
-// 🎯 Export dari optimization.service.js
-// Service untuk orkestrasi workflow optimization end-to-end
+// service utama optimasi
 export {
-  getOptimizationEstimate, // Hitung estimasi durasi optimasi
-  runOptimization, // Jalankan proses optimasi utama
-  runBacktestWithOptimizedWeights, // Backtest dengan bobot hasil optimasi
-  optimizeAllCoins, // Optimasi massal untuk semua top coin
+  getOptimizationEstimate, // hitung estimasi durasi optimasi
+  runOptimization, // jalankan proses optimasi utama
+  runBacktestWithOptimizedWeights, // backtest dengan bobot hasil optimasi
+  optimizeAllCoins, // optimasi untuk banyak coin sekaligus
 } from "./optimization.service.js";
 
-// 📋 Export dari optimization-job.service.js
-// Service untuk manajemen state jobs yang sedang berjalan
+// service untuk manajemen job optimasi
 export {
-  createJob, // Buat job optimasi baru
-  getJob, // Ambil data job berdasarkan simbol
-  updateJob, // Perbarui status/progress job
-  addSSEClient, // Tambah client SSE ke job
-  removeSSEClient, // Lepas client SSE dari job
-  cancelJob, // Tandai job untuk dibatalkan
-  isCancelRequested, // Cek apakah cancel diminta
-  removeJob, // Hapus job dari memori
-  getSSEClients, // Ambil semua client SSE pada job
-  getRunningJobs, // Ambil daftar job yang sedang berjalan
-  clearAllJobs, // Hapus semua job dari memori
+  createJob, // buat job baru
+  getJob, // ambil data job
+  updateJob, // update status atau progress job
+  addSSEClient, // tambah client SSE ke job
+  removeSSEClient, // hapus client SSE dari job
+  cancelJob, // tandai job untuk dibatalkan
+  isCancelRequested, // cek apakah job diminta cancel
+  removeJob, // hapus job dari memory
+  getSSEClients, // ambil semua client SSE dalam job
+  getRunningJobs, // ambil daftar job yang sedang berjalan
+  clearAllJobs, // hapus semua job
 } from "./optimization-job.service.js";
 
-// 📡 Export dari sse.service.js
-// Service untuk handling Server-Sent Events streaming
+// service untuk SSE (streaming realtime)
 export {
-  setupSSE, // Siapkan header koneksi SSE
-  sendEvent, // Kirim satu event SSE ke client
-  broadcastEvent, // Broadcast event SSE ke banyak client
-  setupHeartbeat, // Kirim heartbeat agar koneksi SSE tetap hidup
-  closeSSE, // Tutup satu koneksi SSE
-  closeAllSSE, // Tutup seluruh koneksi SSE
+  setupSSE, // setup koneksi SSE
+  sendEvent, // kirim event ke client
+  broadcastEvent, // kirim event ke banyak client
+  setupHeartbeat, // kirim heartbeat agar koneksi tetap hidup
+  closeSSE, // tutup satu koneksi SSE
+  closeAllSSE, // tutup semua koneksi SSE
 } from "./sse.service.js";
 
-// 🎯 Export dari multi-indicator.service.js
-// Service untuk core algorithm optimization dan backtesting
-// ⚠️ CATATAN: computeAllIndicators, getWeightCombination, dan backtestWithWeightsCached
-// adalah internal utility functions dan tidak di-export karena hanya digunakan internally
+// service core multi-indicator (algoritma optimasi & backtest)
 export {
-  optimizeIndicatorWeights, // Cari bobot indikator terbaik
-  backtestWithWeights, // Uji performa dengan bobot tertentu
+  optimizeIndicatorWeights, // mencari kombinasi bobot terbaik
+  backtestWithWeights, // uji performa dengan bobot tertentu
 } from "./multi-indicator.service.js";

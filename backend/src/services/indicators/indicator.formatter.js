@@ -1,6 +1,3 @@
-// File formatter indikator.
-// Tujuan: memisahkan pembentukan response API agar service utama fokus ke alur data.
-
 /**
  * Format indicators structure from database record
  */

@@ -1,10 +1,3 @@
-/**
- * File: src/services/auth/index.js
- * -------------------------------------------------
- * Tujuan: Satu pintu export untuk semua service auth.
- * Format explicit memudahkan pemula melihat fungsi yang tersedia.
- */
-
 export {
   registerService, // Registrasi user baru
   loginService, // Login user dengan email dan password

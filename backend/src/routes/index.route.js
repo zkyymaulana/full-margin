@@ -31,7 +31,7 @@ router.use("/watchlist", authMiddleware, watchlistRoute);
 router.use("/chart", authMiddleware, chartRoute);
 router.use("/indicator", authMiddleware, indicatorRoute);
 router.use("/multiIndicator", multiIndicatorRoute);
-router.use("/singleIndicator", authMiddleware, singleIndicatorRoute);
+// router.use("/singleIndicator", authMiddleware, singleIndicatorRoute);
 router.use("/comparison", authMiddleware, comparisonRoute);
 
 // Scheduler management

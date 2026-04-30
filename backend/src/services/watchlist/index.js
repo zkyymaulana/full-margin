@@ -1,9 +1,3 @@
-/**
- * File: src/services/watchlist/index.js
- * -------------------------------------------------
- * Tujuan: Satu pintu export untuk modul watchlist.
- */
-
 export {
   getWatchlist, // Ambil daftar watchlist user
   addToWatchlist, // Tambah coin ke watchlist user

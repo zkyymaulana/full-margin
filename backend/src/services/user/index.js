@@ -1,9 +1,3 @@
-/**
- * File: src/services/user/index.js
- * -------------------------------------------------
- * Tujuan: Satu pintu export untuk service user.
- */
-
 export {
   getUserProfile, // Ambil profil user berdasarkan userId
   updateUserProfile, // Update data profil user

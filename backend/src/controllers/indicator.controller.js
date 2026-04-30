@@ -78,7 +78,7 @@ export async function getSignals(req, res) {
 
     if (requestedShowAll && !allowAllMode) {
       console.warn(
-        `⏭️ showAll request ignored for ${symbol} (ALLOW_INDICATOR_ALL_MODE=false)`,
+        `showAll request ignored for ${symbol} (ALLOW_INDICATOR_ALL_MODE=false)`,
       );
     }
 

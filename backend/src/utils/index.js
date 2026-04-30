@@ -1,10 +1,3 @@
-/**
- * File: src/utils/index.js
- * -------------------------------------------------
- * Tujuan: Satu pintu export untuk utilitas backend.
- * Format explicit memudahkan pemula melihat fungsi yang tersedia.
- */
-
 export {
   cleanTopCoinData, // Bersihkan data top coin dari CMC
   cleanTickerData, // Bersihkan data ticker agar valid diproses

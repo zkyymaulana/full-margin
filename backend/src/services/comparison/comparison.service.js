@@ -1,62 +1,8 @@
-/**
- * ═══════════════════════════════════════════════════════════════════════════
- * 📊 COMPARISON SERVICE - MAIN ORCHESTRATION
- * ═══════════════════════════════════════════════════════════════════════════
- *
- * Based on: Sukma & Namahoot (2025)
- * "Enhancing Trading Strategies: A Multi-Indicator Analysis
- *  for Profitable Algorithmic Trading"
- *
- * ✅ NO NORMALIZATION - All ROI values are raw from backtest
- * ✅ Mathematical consistency enforced
- * ✅ Academic-ready data structure
- *
- * ═══════════════════════════════════════════════════════════════════════════
- * TUJUAN MODUL:
- * ═══════════════════════════════════════════════════════════════════════════
- *
- * Modul ini adalah orchestrator utama untuk fitur comparison strategy.
- * Tanggung jawab:
- * • Validasi input request parameter
- * • Orchestrate tahapan-tahapan backtesting
- * • Koordinasi antara berbagai sub-module (validation, metrics, backtest, data)
- * • Format dan build response object final
- * • Determine best strategy dari 3 alternatif (single, multi, voting)
- *
- * ═══════════════════════════════════════════════════════════════════════════
- * ALUR PROSES BACKTESTING:
- * ═══════════════════════════════════════════════════════════════════════════
- *
- * 1️⃣ VALIDASI PARAMETER
- *    ↓
- * 2️⃣ LOAD DATA (Indicator + Candle dari database)
- *    ↓
- * 3️⃣ MERGE DATA (Indicator + Close Price)
- *    ↓
- * 4️⃣ GET BOBOT (Optimal weights dari database atau default)
- *    ↓
- * 5️⃣ BACKTEST SINGLE INDICATORS (8 individual backtests)
- *    ↓
- * 6️⃣ BACKTEST MULTI-INDICATOR WEIGHTED (execution threshold = 0)
- *    ↓
- * 7️⃣ BACKTEST VOTING STRATEGY (majority voting baseline)
- *    ↓
- * 8️⃣ FORMAT RESULTS (Ensure consistency dan precision)
- *    ↓
- * 9️⃣ CALCULATE METRICS (Sharpe, Sortino untuk voting strategy)
- *    ↓
- * 🔟 COMPARATIVE ANALYSIS (Compare performance 3 strategies)
- *    ↓
- * 1️⃣1️⃣ BUILD RESPONSE (Final JSON structure)
- *
- * ═══════════════════════════════════════════════════════════════════════════
- */
-
+// service utama untuk membandingkan 3 strategi: single, multi, voting
 import { prisma } from "../../lib/prisma.js";
 import { backtestAllIndicators } from "../backtest/backtest.service.js";
 import { backtestWithWeights } from "../multiIndicator/index.js";
 
-// Import sub-module functions
 import {
   validateComparisonParams,
   handleComparisonError,
@@ -75,61 +21,6 @@ import {
   getBestWeights,
 } from "./comparison.data.js";
 
-/**
- * 🎯 MAIN COMPARISON FUNCTION - Orchestrator Utama
- *
- * ═════════════════════════════════════════════════════════════════════════════
- * TUJUAN:
- * ═════════════════════════════════════════════════════════════════════════════
- *
- * Fungsi ini adalah entry point untuk fitur perbandingan strategi trading.
- * Melakukan backtesting pada 3 strategi berbeda dan membandingkan performanya:
- *
- * 1. SINGLE INDICATOR (8 variants)
- *    - Test masing-masing dari 8 technical indicators secara individual
- *    - Hanya menggunakan 1 indicator per backtest
- *    - Baseline termudah untuk comparison
- *
- * 2. MULTI-INDICATOR WEIGHTED
- *    - Kombinasi 8 indicators dengan optimized weights
- *    - Entry saat FinalScore > 0
- *    - Exit saat FinalScore < 0
- *    - Label Strong Buy/Strong Sell (±0.6) dipakai untuk tingkat keyakinan
- *    - Lebih robust dan selective
- *    - Main strategy dari research paper
- *
- * 3. VOTING STRATEGY
- *    - Simple majority voting dari 8 indicators
- *    - Entry ketika BUY votes > SELL votes
- *    - Exit ketika SELL votes > BUY votes
- *    - Lebih agresif, lebih banyak trades
- *    - Baseline pembanding untuk menunjukkan keunggulan weighted approach
- *
- * ═════════════════════════════════════════════════════════════════════════════
- * PARAMETER INPUT:
- * ═════════════════════════════════════════════════════════════════════════════
- *
- *
- * ═════════════════════════════════════════════════════════════════════════════
- * OUTPUT STRUCTURE:
- * ═════════════════════════════════════════════════════════════════════════════
- *
- * {
- *   success: boolean,
- *   symbol: string,
- *   timeframe: string,
- *   period: { start, end, days },
- *   comparison: {
- *     single: { [indicator]: { roi, winRate, maxDrawdown, ... } },
- *     multi: { roi, winRate, finalCapital, maxDrawdown, sharpeRatio },
- *     voting: { roi, winRate, finalCapital, maxDrawdown, sharpeRatio }
- *   },
- *   bestStrategy: { name, roi },
- *   analysis: { periodDays, candles, dataPoints, bestSingle, ... }
- * }
- *
- * ═════════════════════════════════════════════════════════════════════════════
- */
 export async function compareStrategies(
   symbol,
   startDate,
@@ -137,19 +28,14 @@ export async function compareStrategies(
   _threshold = 0,
 ) {
   const executionThreshold = 0;
-  // Sesuai metodologi skripsi: rule eksekusi final score menggunakan ambang 0.
-  // Parameter threshold sengaja tidak dipakai agar hasil pembandingan tetap apple-to-apple.
-
-  console.log(
-    `📊 Comparison started for ${symbol} with execution threshold ${executionThreshold}`,
-  );
   const timeframe = "1h";
 
-  try {
-    // ═══════════════════════════════════════════════════════════════════════
-    // 1️⃣ VALIDASI PARAMETER
-    // ═══════════════════════════════════════════════════════════════════════
+  console.log(
+    `Comparison started for ${symbol} with execution threshold ${executionThreshold}`,
+  );
 
+  try {
+    // validasi input
     const validation = validateComparisonParams({
       symbol,
       startDate,
@@ -164,11 +50,7 @@ export async function compareStrategies(
       };
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // 2️⃣ LOAD DATA DARI DATABASE
-    // ═══════════════════════════════════════════════════════════════════════
-
-    // ✅ Get coin dan timeframe dari database
+    // ambil coin dan timeframe dari database
     const coin = await prisma.coin.findUnique({
       where: { symbol },
       select: { id: true },
@@ -198,7 +80,7 @@ export async function compareStrategies(
       timeframeId: timeframeRecord.id,
     };
 
-    // ✅ Query indicator dan candle data dari database
+    // ambil data indicator dan candle
     const start = BigInt(new Date(startDate).getTime());
     const end = BigInt(new Date(endDate).getTime());
 
@@ -220,55 +102,37 @@ export async function compareStrategies(
         message: `No data found for ${symbol} in the specified period`,
       };
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // 3️⃣ MERGE DATA (Indicator + Close Price)
-    // ═══════════════════════════════════════════════════════════════════════
-
+    // gabungkan indicator dan harga
     const data = mergeIndicatorsWithCandles(indicators, candles);
     if (!data.length)
       return { success: false, message: "Unable to merge indicator data" };
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // 4️⃣ GET BOBOT INDIKATOR
-    // ═══════════════════════════════════════════════════════════════════════
-
+    // ambil bobot terbaik
     const { weights: bestWeights, source: weightSource } = await getBestWeights(
       symbol,
       timeframe,
     );
 
-    console.log(`✅ Using ${weightSource} weights`, bestWeights);
+    console.log(`Using ${weightSource} weights`, bestWeights);
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // 5️⃣ BACKTEST SINGLE INDICATORS
-    // ═══════════════════════════════════════════════════════════════════════
-
-    console.log("🚀 Running single indicator backtests...");
+    // backtest single indicator
+    console.log("Running single indicator backtests...");
     const singleResults = await backtestAllIndicators(data, { fastMode: true });
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // 6️⃣ BACKTEST MULTI-INDICATOR WEIGHTED
-    // ═══════════════════════════════════════════════════════════════════════
-
+    // backtest multi-indicator weighted
     console.log(
-      `🚀 Running multi indicator backtest with threshold ${executionThreshold}...`,
+      `Running multi indicator backtest with threshold ${executionThreshold}...`,
     );
     const multiResult = await backtestWithWeights(data, bestWeights, {
       fastMode: true,
       threshold: executionThreshold,
     });
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // 7️⃣ BACKTEST VOTING STRATEGY
-    // ═══════════════════════════════════════════════════════════════════════
-
-    console.log("🚀 Running voting strategy backtest...");
+    // backtest voting strategy
+    console.log("Running voting strategy backtest...");
     const votingResult = backtestVotingStrategy(data);
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // 8️⃣ FORMAT RESULTS
-    // ═══════════════════════════════════════════════════════════════════════
-
+    // format hasil
     console.log("📋 Formatting results with raw ROI values...");
     const singleFormatted = {};
 
@@ -286,31 +150,25 @@ export async function compareStrategies(
     }
 
     console.log(
-      `📊 Successfully formatted ${Object.keys(singleFormatted).length} indicators`,
+      `Successfully formatted ${Object.keys(singleFormatted).length} indicators`,
     );
 
     const multiFormatted = formatResult(multiResult);
     const votingFormatted = formatResult(votingResult);
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // 9️⃣ HITUNG SHARPE RATIO
-    // ═══════════════════════════════════════════════════════════════════════
-
-    // ✅ Voting strategy Sharpe Ratio
+    // hitung sharpe ratio voting
     const votingReturns = calculateReturns(votingResult.equityCurve);
     votingFormatted.sharpeRatio = +calcSharpe(votingReturns).toFixed(2);
 
-    console.log(`📊 Multi-indicator Sharpe: ${multiFormatted.sharpeRatio}`);
-    console.log(`📊 Voting Strategy Sharpe: ${votingFormatted.sharpeRatio}`);
+    console.log(`Multi-indicator Sharpe: ${multiFormatted.sharpeRatio}`);
+    console.log(`Voting Strategy Sharpe: ${votingFormatted.sharpeRatio}`);
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // 🔟 IDENTIFIKASI BEST SINGLE INDICATOR
-    // ═══════════════════════════════════════════════════════════════════════
-
+    // cari single indicator terbaik
     const validSingles =
       singleResults.results?.filter((r) => r.success && r.performance) || [];
+
     console.log(
-      `🔍 Finding best single indicator from ${validSingles.length} valid results...`,
+      `Finding best single indicator from ${validSingles.length} valid results...`,
     );
 
     const bestSingle = validSingles.reduce(
@@ -333,16 +191,13 @@ export async function compareStrategies(
 
     if (bestSingleData) {
       console.log(
-        `🏆 Best single indicator: ${bestSingleData.indicator} with ${bestSingleData.roi}% ROI and $${bestSingleData.finalCapital} final capital`,
+        `Best single indicator: ${bestSingleData.indicator} with ${bestSingleData.roi}% ROI and $${bestSingleData.finalCapital} final capital`,
       );
     } else {
-      console.warn("⚠️ No valid single indicator results found!");
+      console.warn("No valid single indicator results found!");
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // 1️⃣1️⃣ DETERMINE BEST STRATEGY
-    // ═══════════════════════════════════════════════════════════════════════
-
+    // tentukan strategi terbaik
     const strategies = [
       { name: "single", roi: bestSingleData?.roi ?? -Infinity },
       { name: "multi", roi: multiFormatted.roi },
@@ -353,7 +208,7 @@ export async function compareStrategies(
       cur.roi > best.roi ? cur : best,
     );
 
-    console.log(`\n🏆 STRATEGY COMPARISON:`);
+    console.log(`\nSTRATEGY COMPARISON:`);
     console.log(
       `   Single (${bestSingleData?.indicator}): ${bestSingleData?.roi}% ROI, $${bestSingleData?.finalCapital}`,
     );
@@ -363,12 +218,9 @@ export async function compareStrategies(
     console.log(
       `   Voting: ${votingFormatted.roi}% ROI, $${votingFormatted.finalCapital}`,
     );
-    console.log(`   🏆 Winner: ${bestStrategy.name.toUpperCase()}`);
+    console.log(`   Winner: ${bestStrategy.name.toUpperCase()}`);
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // BUILD COMPARATIVE ANALYSIS
-    // ═══════════════════════════════════════════════════════════════════════
-
+    // build analisis tambahan
     const startObj = new Date(Number(candles[0].time));
     const endObj = new Date(Number(candles[candles.length - 1].time));
     const days = Math.ceil((endObj - startObj) / (1000 * 60 * 60 * 24));
@@ -405,12 +257,9 @@ export async function compareStrategies(
       },
     };
 
-    console.log("✅ Comparison finished successfully");
+    console.log("Comparison finished successfully");
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // BUILD FINAL RESPONSE
-    // ═══════════════════════════════════════════════════════════════════════
-
+    // return response akhir
     return {
       success: true,
       symbol,

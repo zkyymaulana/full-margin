@@ -3,24 +3,10 @@ import { getWatchersForCoin } from "../watchlist/watchlist.service.js";
 import { formatTelegramSignalMessage } from "./telegram.message.js";
 import { sendTelegramMessage } from "./telegram.broadcast.js";
 
-/**
- * File: telegram.service.js
- * -------------------------------------------------
- * Tujuan: Orchestrator utama notifikasi Telegram.
- * - Mengatur alur pengiriman sinyal (multi-indicator) ke user
- * - Mengelola pengiriman notifikasi sinyal ke user yang eligible
- * - Berinteraksi dengan database untuk mencari user yang eligible
- * - Memanggil modul broadcast untuk pengiriman ke Telegram API
- *
- * ✅ PERSISTENT CACHE (Database):
- * - Cache disimpan di tabel SignalCache
- * - Survive server restart, deployment, scaling
- * - Production-ready untuk Render.com
- */
+// file ini mengatur alur utama pengiriman notifikasi Telegram
+// termasuk pengelolaan cache sinyal di database
 
-/**
- * 💾 Update signal cache in database
- */
+// simpan atau update cache sinyal di database
 async function updateSignalCacheDB(symbol, cacheType, signal) {
   try {
     await prisma.signalCache.upsert({
@@ -37,41 +23,30 @@ async function updateSignalCacheDB(symbol, cacheType, signal) {
       },
     });
   } catch (error) {
-    console.error(`❌ Error updating signal cache:`, error.message);
+    console.error(`Error updating signal cache:`, error.message);
   }
 }
 
-/**
- * Membersihkan cache sinyal dari DATABASE.
- *
- * Cara kerja cache:
- * - Menyimpan sinyal terakhir per symbol di tabel SignalCache
- * - Jika sinyal sama muncul lagi, notifikasi akan di-skip
- * - Persistent across server restarts
- *
- */
+// hapus cache sinyal di database (per symbol atau semua)
 export async function clearSignalCache(symbol = null) {
   try {
     if (symbol) {
-      // Delete cache for specific symbol (both watchlist & broadcast)
+      // hapus cache untuk symbol tertentu
       await prisma.signalCache.deleteMany({
         where: { symbol },
       });
-      console.log(`🧹 Cleared database signal cache for ${symbol}`);
+      console.log(`Cleared database signal cache for ${symbol}`);
     } else {
-      // Delete all cache
+      // hapus seluruh cache
       await prisma.signalCache.deleteMany();
-      console.log("🧹 Cleared all database signal cache");
+      console.log("Cleared all database signal cache");
     }
   } catch (error) {
-    console.error("❌ Error clearing signal cache:", error.message);
+    console.error("Error clearing signal cache:", error.message);
   }
 }
 
-/**
- * Test koneksi Telegram untuk SATU user (bukan broadcast).
- *
- */
+// Test koneksi Telegram untuk SATU user (bukan broadcast).
 export async function testTelegramConnectionForUser(userId) {
   if (!userId) {
     return {
@@ -133,18 +108,7 @@ Time: ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}
   };
 }
 
-/**
- * Mengirim sinyal ke user yang mem-watch koin tertentu.
- *
- * Alur:
- * 1) Ambil watchers via watchlist service
- * 2) Filter yang telegramEnabled & punya chatId
- * 3) Format pesan dengan formatter yang sama
- * 4) Kirim satu per satu dengan delay (anti rate limit)
- *
- * 🎯 PENGIRIMAN SINYAL:
- * - Semua sinyal hasil deteksi dikirim ke watcher yang eligible
- */
+// kirim sinyal ke user yang memantau (watchlist) koin tertentu
 export async function sendSignalToWatchers({
   coinId,
   symbol,
@@ -164,24 +128,27 @@ export async function sendSignalToWatchers({
   timeframe = "1h",
 }) {
   try {
-    console.log(`🔔 [${symbol}] Sending watchlist signal: ${signal}`);
+    console.log(` [${symbol}] Sending watchlist signal: ${signal}`);
 
+    // ambil semua user yang mem-watch koin ini
     const watchers = await getWatchersForCoin(coinId);
 
     if (!watchers.length) {
-      console.log(`📭 No watchers for coin ${symbol} (id: ${coinId})`);
+      console.log(`No watchers for coin ${symbol} (id: ${coinId})`);
       return { success: true, sent: 0, total: 0 };
     }
 
+    // filter hanya user yang aktif telegram dan punya chatId
     const eligibleWatchers = watchers.filter(
       (w) => w.user.telegramEnabled && w.user.telegramChatId,
     );
 
     if (!eligibleWatchers.length) {
-      console.log(`📭 No Telegram-enabled watchers for coin ${symbol}`);
+      console.log(`No Telegram-enabled watchers for coin ${symbol}`);
       return { success: true, sent: 0, total: watchers.length };
     }
 
+    // tentukan label sinyal (fallback jika tidak ada)
     let displayLabel = signalLabel;
     if (!displayLabel) {
       if (signal === "buy")
@@ -191,6 +158,7 @@ export async function sendSignalToWatchers({
       else displayLabel = "Neutral";
     }
 
+    // format pesan telegram
     const message = formatTelegramSignalMessage({
       symbol,
       signal,
@@ -205,11 +173,13 @@ export async function sendSignalToWatchers({
 
     const results = { sent: 0, failed: 0, errors: [] };
 
+    // kirim ke setiap watcher satu per satu
     for (const watcher of eligibleWatchers) {
       const result = await sendTelegramMessage(
         message.trim(),
         watcher.user.telegramChatId,
       );
+
       if (result.success) {
         results.sent++;
       } else {
@@ -220,18 +190,21 @@ export async function sendSignalToWatchers({
           reason: result.reason,
         });
       }
+
+      // delay untuk hindari rate limit
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
 
     console.log(
-      `✅ Watchlist signal sent for ${symbol}: ${results.sent}/${eligibleWatchers.length} watchers notified`,
+      `Watchlist signal sent for ${symbol}: ${results.sent}/${eligibleWatchers.length} watchers notified`,
     );
 
+    // update cache jika ada yang berhasil dikirim
     if (results.sent > 0) {
       await updateSignalCacheDB(symbol, "watchlist", signal);
     } else {
       console.warn(
-        `⚠️ [${symbol}] No successful watchlist sends, cache not updated`,
+        `[${symbol}] No successful watchlist sends, cache not updated`,
       );
     }
 
@@ -243,10 +216,7 @@ export async function sendSignalToWatchers({
       eligible: eligibleWatchers.length,
     };
   } catch (error) {
-    console.error("❌ Error sending signal to watchers:", error.message);
+    console.error("Error sending signal to watchers:", error.message);
     return { success: false, reason: "error", error: error.message };
   }
 }
-
-// Export sendTelegramMessage untuk kompatibilitas (tanpa ubah controller lama)
-export { sendTelegramMessage };

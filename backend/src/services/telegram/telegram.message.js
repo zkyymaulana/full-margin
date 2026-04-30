@@ -1,18 +1,4 @@
-/**
- * File: telegram.message.js
- * -------------------------------------------------
- * Tujuan: Mengisolasi seluruh logika pembentukan pesan Telegram.
- * - Interpretasi skor indikator (trend/momentum/volatility)
- * - Pembuatan insight dari categoryScores
- * - Formatting message trading signal menjadi teks Markdown
- *
- * Refactor ini hanya memindahkan kode (tanpa mengubah format pesan/algoritma).
- */
-
-/**
- * Interpretasi skor trend menjadi teks yang mudah dibaca.
- *
- */
+// Interpretasi skor trend menjadi teks yang mudah dibaca.
 export function interpretTrendScore(score) {
   if (score >= 3) return "Very Strong Uptrend";
   if (score >= 1) return "Strong Uptrend";
@@ -23,10 +9,7 @@ export function interpretTrendScore(score) {
   return "Very Strong Downtrend";
 }
 
-/**
- * Interpretasi skor momentum menjadi teks yang mudah dibaca.
- *
- */
+// Interpretasi skor momentum menjadi teks yang mudah dibaca.
 export function interpretMomentumScore(score) {
   if (score >= 4) return "Extreme Bullish Momentum";
   if (score >= 2) return "Strong Bullish Momentum";
@@ -37,10 +20,7 @@ export function interpretMomentumScore(score) {
   return "Extreme Bearish Momentum";
 }
 
-/**
- * Interpretasi skor volatility menjadi teks yang mudah dibaca.
- *
- */
+// Interpretasi skor volatility menjadi teks yang mudah dibaca.
 export function interpretVolatilityScore(score) {
   if (score >= 2) return "High Volatility (Bullish)";
   if (score >= 0.5) return "Elevated Volatility (Bullish)";
@@ -49,18 +29,11 @@ export function interpretVolatilityScore(score) {
   return "High Volatility (Bearish)";
 }
 
-/**
- * Membuat kalimat insight berdasarkan categoryScores.
- *
- * Aturan (tetap sama seperti sebelumnya):
- * - Faktor dominan dipilih berdasarkan nilai absolut (trend>=1, momentum>=1, volatility>=0.5)
- * - Bias mengikuti arah signal (buy/sell/neutral)
- *
- */
+// menghasilkan kalimat insight berdasarkan skor kategori indikator
 export function generateInsight(categoryScores, signal) {
   const { trend, momentum, volatility } = categoryScores;
 
-  // Menentukan faktor dominan (nilai absolut besar)
+  // tentukan faktor dominan berdasarkan nilai absolut
   const dominantFactors = [];
 
   if (Math.abs(trend) >= 1) {
@@ -75,26 +48,21 @@ export function generateInsight(categoryScores, signal) {
     dominantFactors.push(volatility > 0 ? "high volatility" : "low volatility");
   }
 
-  // Menyusun bias berdasarkan signal
+  // tentukan bias dari signal
   const bias =
     signal === "buy" ? "Bullish" : signal === "sell" ? "Bearish" : "Neutral";
 
+  // jika tidak ada faktor dominan
   if (dominantFactors.length === 0) {
     return `${bias} bias with mixed signals across indicators.`;
   }
 
+  // gabungkan faktor dominan menjadi kalimat
   const factorsText = dominantFactors.join(" and ");
   return `${bias} bias supported mainly by ${factorsText}.`;
 }
 
-/**
- * Membangun format pesan Telegram untuk trading signal.
- *
- * Penting:
- * - Format Markdown dan susunan pesan harus sama persis seperti sebelumnya.
- * - Fungsi ini hanya bertugas membuat string pesan (tanpa mengirim).
- *
- */
+// fungsi untuk format pesan sinyal Telegram dengan semua informasi yang diperlukan
 export function formatTelegramSignalMessage({
   symbol,
   signal,

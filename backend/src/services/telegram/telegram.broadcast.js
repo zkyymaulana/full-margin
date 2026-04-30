@@ -1,13 +1,3 @@
-/**
- * File: telegram.broadcast.js
- * -------------------------------------------------
- * Tujuan: Mengisolasi logika pengiriman pesan ke Telegram dan broadcast ke banyak user.
- * - Mengirim pesan via Telegram Bot API
- * - Loop broadcast ke banyak user dengan delay (anti rate-limit)
- *
- * Refactor ini hanya memindahkan kode (tanpa mengubah behavior/query/format pesan).
- */
-
 import axios from "axios";
 import { prisma } from "../../lib/prisma.js";
 
@@ -21,38 +11,38 @@ function isTelegramEnabled() {
 }
 
 // Log konfigurasi (tetap sama, hanya pindah file)
-console.log(`📱 Telegram Configuration:`);
-console.log(`   Enabled: ${isTelegramEnabled()}`);
+console.log(`Telegram Configuration:`);
+console.log(`Enabled: ${isTelegramEnabled()}`);
 console.log(
   `   Bot Token: ${TELEGRAM_BOT_TOKEN ? "✅ Configured" : "❌ Missing"}`,
 );
 console.log(`   Mode: Multi-Indicator Only`);
 
-/**
- * Mengirim pesan ke Telegram (wajib menyertakan chatId).
- *
- */
+// kirim pesan ke Telegram menggunakan Bot API
 export async function sendTelegramMessage(message, chatId, options = {}) {
-  // WAJIB: chatId harus ada, tidak ada fallback
+  // chatId wajib ada
   if (!chatId) {
-    console.error("❌ Chat ID is required");
+    console.error("Chat ID is required");
     return { success: false, reason: "no_chat_id" };
   }
 
+  // cek apakah fitur telegram aktif
   if (!isTelegramEnabled()) {
-    console.log("⚠️ Telegram notifications disabled (TELEGRAM_ENABLED=false)");
+    console.log("Telegram notifications disabled (TELEGRAM_ENABLED=false)");
     return { success: false, reason: "disabled" };
   }
 
+  // cek token bot tersedia
   if (!TELEGRAM_BOT_TOKEN) {
-    console.error("❌ Telegram bot token not configured");
+    console.error("Telegram bot token not configured");
     return { success: false, reason: "not_configured" };
   }
 
   try {
-    // Call Telegram Bot API
+    // endpoint Telegram Bot API
     const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
 
+    // kirim request ke Telegram
     const response = await axios.post(url, {
       chat_id: chatId,
       text: message,
@@ -60,37 +50,34 @@ export async function sendTelegramMessage(message, chatId, options = {}) {
       disable_web_page_preview: options.disablePreview !== false,
     });
 
+    // jika berhasil
     if (response.data.ok) {
-      console.log(`✅ Telegram message sent to ${chatId}`);
+      console.log(`Telegram message sent to ${chatId}`);
       return { success: true, messageId: response.data.result.message_id };
     }
 
-    console.error("❌ Telegram API returned error:", response.data);
+    // jika API mengembalikan error
+    console.error("Telegram API returned error:", response.data);
     return { success: false, reason: "api_error", error: response.data };
   } catch (error) {
-    console.error("❌ Failed to send Telegram message:", error.message);
+    // jika terjadi error network / request
+    console.error("Failed to send Telegram message:", error.message);
+
     if (error.response) {
-      console.error("   Response status:", error.response.status);
-      console.error("   Response data:", error.response.data);
+      console.error("Response status:", error.response.status);
+      console.error("Response data:", error.response.data);
     }
+
     return { success: false, reason: "network_error", error: error.message };
   }
 }
 
-/**
- * Broadcast pesan ke semua user yang mengaktifkan notifikasi Telegram.
- *
- * Cara kerja:
- * 1) Query user yang telegramEnabled=true dan telegramChatId != null
- * 2) Kirim pesan satu per satu
- * 3) Tambah delay kecil untuk menghindari rate limiting dari Telegram
- *
- */
+// kirim pesan ke semua user yang mengaktifkan notifikasi Telegram
 export async function broadcastTelegram(message, options = {}) {
   try {
-    console.log("📣 Broadcasting Telegram message to all enabled users...");
+    console.log("Broadcasting Telegram message to all enabled users...");
 
-    // Ambil semua user yang mengaktifkan notifikasi Telegram
+    // ambil user dengan telegram aktif dan punya chatId
     const enabledUsers = await prisma.user.findMany({
       where: {
         telegramEnabled: true,
@@ -103,8 +90,9 @@ export async function broadcastTelegram(message, options = {}) {
       },
     });
 
+    // jika tidak ada user
     if (enabledUsers.length === 0) {
-      console.log("⚠️ No users with Telegram enabled");
+      console.log("No users with Telegram enabled");
       return {
         success: true,
         sent: 0,
@@ -113,7 +101,7 @@ export async function broadcastTelegram(message, options = {}) {
       };
     }
 
-    console.log(`📤 Sending to ${enabledUsers.length} users...`);
+    console.log(`Sending to ${enabledUsers.length} users...`);
 
     const results = {
       sent: 0,
@@ -121,7 +109,7 @@ export async function broadcastTelegram(message, options = {}) {
       errors: [],
     };
 
-    // Kirim pesan ke setiap user
+    // kirim pesan ke setiap user satu per satu
     for (const user of enabledUsers) {
       try {
         const result = await sendTelegramMessage(
@@ -132,7 +120,7 @@ export async function broadcastTelegram(message, options = {}) {
 
         if (result.success) {
           results.sent++;
-          console.log(`  ✅ Sent to ${user.email} (${user.telegramChatId})`);
+          console.log(`  Sent to ${user.email} (${user.telegramChatId})`);
         } else {
           results.failed++;
           results.errors.push({
@@ -140,10 +128,10 @@ export async function broadcastTelegram(message, options = {}) {
             email: user.email,
             reason: result.reason,
           });
-          console.log(`  ❌ Failed to send to ${user.email}: ${result.reason}`);
+          console.log(`  Failed to send to ${user.email}: ${result.reason}`);
         }
 
-        // Delay kecil untuk menghindari rate limiting (Telegram punya limit request per detik)
+        // delay kecil untuk menghindari rate limit Telegram
         await new Promise((resolve) => setTimeout(resolve, 100));
       } catch (error) {
         results.failed++;
@@ -152,12 +140,12 @@ export async function broadcastTelegram(message, options = {}) {
           email: user.email,
           error: error.message,
         });
-        console.error(`  ❌ Error sending to ${user.email}:`, error.message);
+        console.error(`  Error sending to ${user.email}:`, error.message);
       }
     }
 
     console.log(
-      `✅ Broadcast completed: ${results.sent} sent, ${results.failed} failed`,
+      `Broadcast completed: ${results.sent} sent, ${results.failed} failed`,
     );
 
     return {
@@ -168,7 +156,7 @@ export async function broadcastTelegram(message, options = {}) {
       errors: results.errors,
     };
   } catch (error) {
-    console.error("❌ Broadcast error:", error.message);
+    console.error("Broadcast error:", error.message);
     return {
       success: false,
       error: error.message,

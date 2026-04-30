@@ -1,15 +1,3 @@
-/**
- * 🎯 Utility Helper untuk Multi-Indicator Scoring
- * ================================================================
- * Helper functions untuk kategori scoring dan signal conversion.
- *
- * Tanggung Jawab:
- * - Convert signal strings ke numeric values
- * - Hitung category scores (trend, momentum, volatility)
- * - Stateless helper utilities
- * ================================================================
- */
-
 // Convert sinyal string menjadi nilai numerik agar bisa dihitung.
 export function toSignalValue(signal) {
   if (!signal) return 0;
@@ -22,7 +10,7 @@ export function toSignalValue(signal) {
 
 // Hitung skor kategori trend, momentum, dan volatility berdasarkan bobot indikator.
 export function calculateCategoryScores(indicators, weights) {
-  // 🔧 Safe weight extraction dengan default 0
+  // Safe weight extraction dengan default 0
   const w = {
     SMA: weights?.SMA || 0,
     EMA: weights?.EMA || 0,
@@ -34,7 +22,7 @@ export function calculateCategoryScores(indicators, weights) {
     BollingerBands: weights?.BollingerBands || 0,
   };
 
-  // 📍 Extract signals dari indicators
+  // Extract signals dari indicators
   // Konversi string signals ke numeric values
   const signals = {
     sma: toSignalValue(indicators?.sma?.signal),
@@ -47,7 +35,7 @@ export function calculateCategoryScores(indicators, weights) {
     bb: toSignalValue(indicators?.bollingerBands?.signal),
   };
 
-  // 📈 TREND CATEGORY (SMA + EMA + PSAR)
+  // TREND CATEGORY (SMA + EMA + PSAR)
   // Indikator yang track long-term trend direction
   const trendWeightSum = w.SMA + w.EMA + w.PSAR;
   const trendScore =
@@ -56,7 +44,7 @@ export function calculateCategoryScores(indicators, weights) {
         trendWeightSum
       : 0;
 
-  // 🚀 MOMENTUM CATEGORY (RSI + MACD + Stochastic + StochasticRSI)
+  // MOMENTUM CATEGORY (RSI + MACD + Stochastic + StochasticRSI)
   // Indikator yang track kecepatan perubahan harga
   const momentumWeightSum = w.RSI + w.MACD + w.Stochastic + w.StochasticRSI;
   const momentumScore =
@@ -68,7 +56,7 @@ export function calculateCategoryScores(indicators, weights) {
         momentumWeightSum
       : 0;
 
-  // 📊 VOLATILITY CATEGORY (BollingerBands only)
+  // VOLATILITY CATEGORY (BollingerBands only)
   // Indikator yang track market volatility
   const volatilityWeightSum = w.BollingerBands;
   const volatilityScore =

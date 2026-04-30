@@ -57,7 +57,7 @@ export async function getOptimizationEstimateController(req, res) {
       estimate,
     });
   } catch (err) {
-    console.error("❌ Error getting estimate:", err.message);
+    console.error("Error getting estimate:", err.message);
     res.status(500).json({
       success: false,
       message: err.message,
@@ -81,11 +81,11 @@ export async function streamOptimizationProgressController(req, res) {
     }
 
     const user = await verifySSEToken(token);
-    console.log(`📡 [SSE] Authenticated user: ${user.email} for ${symbol}`);
+    console.log(`[SSE] Authenticated user: ${user.email} for ${symbol}`);
 
     // Langkah 1: siapkan header SSE.
     setupSSE(res);
-    console.log(`📡 [SSE] SSE headers configured for ${symbol}`);
+    console.log(`[SSE] SSE headers configured for ${symbol}`);
 
     // Langkah 2: ambil/buat job lalu daftarkan client ke job.
     if (!getJob(symbol)) {
@@ -95,31 +95,31 @@ export async function streamOptimizationProgressController(req, res) {
     const job = getJob(symbol);
 
     console.log(
-      `📡 [SSE] Client added to job for ${symbol}. Total clients: ${getSSEClients(symbol).size}`,
+      `[SSE] Client added to job for ${symbol}. Total clients: ${getSSEClients(symbol).size}`,
     );
 
     // Langkah 3: kirim status job saat ini ke client yang baru connect.
     if (job?.status === "running" && job?.progress) {
-      console.log(`📡 [SSE] Job running, sending current progress`);
+      console.log(`[SSE] Job running, sending current progress`);
       sendEvent(res, "progress", job.progress);
     }
     // Jika job sudah selesai, kirim hasil lalu tutup stream.
     else if (job?.status === "completed" && job?.result) {
-      console.log(`📡 [SSE] Job completed, sending result`);
+      console.log(`[SSE] Job completed, sending result`);
       sendEvent(res, "completed", job.result);
       res.end();
       return;
     }
     // Jika job error, kirim pesan error lalu tutup stream.
     else if (job?.status === "error" && job?.error) {
-      console.log(`📡 [SSE] Job error, sending error message`);
+      console.log(`[SSE] Job error, sending error message`);
       sendEvent(res, "error", { message: job.error });
       res.end();
       return;
     }
     // Selain kondisi di atas, kirim status menunggu.
     else {
-      console.log(`📡 [SSE] Job waiting, sending status message`);
+      console.log(`[SSE] Job waiting, sending status message`);
       sendEvent(res, "status", {
         status: job?.status || "waiting",
         message: "Waiting for optimization to start...",
@@ -131,19 +131,19 @@ export async function streamOptimizationProgressController(req, res) {
 
     // Langkah 5: bersihkan resource ketika client disconnect.
     req.on("close", () => {
-      console.log(`📡 [SSE] Client disconnected for ${symbol}`);
+      console.log(`[SSE] Client disconnected for ${symbol}`);
       clearInterval(heartbeatInterval);
       removeSSEClient(symbol, res);
       // Job tidak dihapus karena bisa masih dipakai client lain.
     });
 
     req.on("error", (err) => {
-      console.error(`📡 [SSE] Client error for ${symbol}:`, err.message);
+      console.error(`[SSE] Client error for ${symbol}:`, err.message);
       clearInterval(heartbeatInterval);
       removeSSEClient(symbol, res);
     });
   } catch (err) {
-    console.error(`❌ [SSE] Error in stream controller:`, err.message);
+    console.error(`[SSE] Error in stream controller:`, err.message);
     res.status(401).json({
       success: false,
       message: err.message,
@@ -189,7 +189,7 @@ export async function cancelOptimizationController(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
 
-    console.log(`🛑 [CONTROLLER] Cancel request for ${symbol}`);
+    console.log(`[CONTROLLER] Cancel request for ${symbol}`);
 
     // Cek job aktif sebelum proses pembatalan.
     const job = getJob(symbol);
@@ -233,7 +233,7 @@ export async function cancelOptimizationController(req, res) {
       message: `Optimization for ${symbol} has been cancelled`,
     });
   } catch (err) {
-    console.error("❌ Error cancelling optimization:", err.message);
+    console.error("Error cancelling optimization:", err.message);
     res.status(500).json({
       success: false,
       message: err.message,
@@ -333,7 +333,7 @@ export async function optimizeIndicatorWeightsController(req, res) {
         // Broadcast progress ke semua client SSE yang terhubung.
         const clients = getSSEClients(symbol);
         console.log(
-          `📡 Broadcasting progress to ${clients.size} clients for ${symbol}`,
+          `Broadcasting progress to ${clients.size} clients for ${symbol}`,
         );
         broadcastEvent(clients, "progress", progressData);
       }
@@ -353,7 +353,7 @@ export async function optimizeIndicatorWeightsController(req, res) {
 
     if (result.cancelled) {
       // Jika dibatalkan: broadcast event cancelled dan cleanup.
-      console.log(`🛑 Optimization cancelled for ${symbol}`);
+      console.log(`Optimization cancelled for ${symbol}`);
       const clients = getSSEClients(symbol);
       broadcastEvent(clients, "cancelled", {
         message: "Optimization cancelled by user",
@@ -390,7 +390,7 @@ export async function optimizeIndicatorWeightsController(req, res) {
     // Broadcast hasil akhir ke client SSE.
     const clients = getSSEClients(symbol);
     console.log(
-      `📡 Broadcasting completion to ${clients.size} clients for ${symbol}`,
+      `Broadcasting completion to ${clients.size} clients for ${symbol}`,
     );
     broadcastEvent(clients, "completed", {
       success: true,
@@ -424,7 +424,7 @@ export async function optimizeIndicatorWeightsController(req, res) {
       latestIndicator: result.latestIndicator,
     });
   } catch (err) {
-    console.error("❌ Error in optimization:", err.message);
+    console.error("Error in optimization:", err.message);
 
     // Jika gagal: ubah status job ke error, broadcast, lalu cleanup.
     const errorSymbol = (req.params.symbol || "BTC-USD").toUpperCase();
@@ -438,7 +438,7 @@ export async function optimizeIndicatorWeightsController(req, res) {
       // Kirim error ke client SSE.
       const clients = getSSEClients(errorSymbol);
       console.log(
-        `📡 Broadcasting error to ${clients.size} clients for ${errorSymbol}`,
+        `Broadcasting error to ${clients.size} clients for ${errorSymbol}`,
       );
       broadcastEvent(clients, "error", {
         message: err.message,
@@ -470,7 +470,7 @@ export async function optimizeAllCoinsController(req, res) {
 
     res.json(result);
   } catch (err) {
-    console.error("❌ Error optimizing all coins:", err.message);
+    console.error("Error optimizing all coins:", err.message);
     res.status(500).json({
       success: false,
       message: err.message,
@@ -493,7 +493,7 @@ export async function backtestWithOptimizedWeightsController(req, res) {
 
     res.json(result);
   } catch (err) {
-    console.error("❌ Error in backtest:", err.message);
+    console.error("Error in backtest:", err.message);
     res.status(500).json({
       success: false,
       message: err.message,
@@ -503,12 +503,12 @@ export async function backtestWithOptimizedWeightsController(req, res) {
 
 // Tangani graceful shutdown agar job berjalan berhenti dengan aman.
 function handleServerShutdown() {
-  console.log("\n🛑 Server shutting down, cancelling all optimizations...");
+  console.log("\nServer shutting down, cancelling all optimizations...");
 
   // Kirim event shutdown ke semua job yang masih berjalan.
   const runningJobs = getRunningJobs();
   for (const job of runningJobs) {
-    console.log(`📡 Broadcasting shutdown for ${job.symbol}`);
+    console.log(`Broadcasting shutdown for ${job.symbol}`);
 
     broadcastEvent(job.sseClients, "cancelled", {
       type: "cancelled",

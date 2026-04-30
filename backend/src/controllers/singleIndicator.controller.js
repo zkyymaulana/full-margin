@@ -87,7 +87,7 @@ export async function backtestSingleIndicatorController(req, res) {
     }
 
     console.log(
-      `\n📊 Starting single indicator backtest for ${symbol} - ${indicator}`,
+      `\nStarting single indicator backtest for ${symbol} - ${indicator}`,
     );
     const { data, total, range, dataset } = await getIndicatorsWithPrices(
       symbol,
@@ -121,7 +121,7 @@ export async function backtestSingleIndicatorController(req, res) {
       ...result,
     });
   } catch (err) {
-    console.error("❌ backtestSingleIndicator:", err.message);
+    console.error("backtestSingleIndicator:", err.message);
     res.status(500).json({
       success: false,
       message: err.message,
@@ -137,7 +137,7 @@ export async function backtestAllIndicatorsController(req, res) {
     const timeframe = "1h";
 
     console.log(
-      `\n📊 Starting all indicators backtest for ${symbol} (${timeframe})`,
+      `\nStarting all indicators backtest for ${symbol} (${timeframe})`,
     );
     const { data, total, range, dataset } = await getIndicatorsWithPrices(
       symbol,
@@ -170,7 +170,7 @@ export async function backtestAllIndicatorsController(req, res) {
       ...result,
     });
   } catch (err) {
-    console.error("❌ backtestAllIndicators:", err.message);
+    console.error("backtestAllIndicators:", err.message);
     res.status(500).json({
       success: false,
       message: err.message,

@@ -1,9 +1,3 @@
-/**
- * File: src/services/market/index.js
- * -------------------------------------------------
- * Tujuan: Satu pintu export untuk semua service market.
- */
-
 export {
   syncTopCoins, // Sinkronisasi top coin dari CoinMarketCap ke database
 } from "./syncTopCoins.service.js";

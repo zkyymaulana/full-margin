@@ -154,7 +154,7 @@ export async function getCoinSymbols(req, res) {
     // Jika hasil masih kurang 20, lakukan top-up sinkronisasi lalu ulangi seleksi.
     if (topCoins.length < TARGET_TOP_SYMBOLS) {
       console.warn(
-        `⚠️ Valid symbols only ${topCoins.length}/${TARGET_TOP_SYMBOLS}. Running top-up sync...`,
+        `Valid symbols only ${topCoins.length}/${TARGET_TOP_SYMBOLS}. Running top-up sync...`,
       );
 
       await syncTopCoins();
@@ -189,7 +189,7 @@ export async function getCoinSymbols(req, res) {
 
     // Logging ringkas untuk membantu monitoring hasil query.
     console.log(
-      `✅ Found ${symbols.length} symbols in database (listed before Jan 1, 2025)`,
+      `Found ${symbols.length} symbols in database (listed before Jan 1, 2025)`,
     );
 
     res.json({

@@ -1,18 +1,12 @@
-/**
- * 📊 Analisis Sinyal Per Indikator
- * Setiap indikator menghasilkan sinyal "buy", "sell", atau "neutral"
- * berdasarkan aturan standar analisis teknikal.
- */
-
 // Hitung sinyal per indikator dari data indikator dan harga terbaru.
 export function calculateSignals(indicators, price) {
   const signals = {};
   const hasPrice = price != null;
 
-  // === 1. Simple Moving Average (SMA)
-  // BUY: harga dan SMA20 berada di atas SMA50 → tren naik
-  // SELL: harga dan SMA20 berada di bawah SMA50 → tren turun
-  // Gunakan cek null eksplisit agar nilai 0 tidak dianggap data kosong.
+  // === 1. SMA
+  // BUY: harga dan SMA20 di atas SMA50 (tren naik)
+  // SELL: harga dan SMA20 di bawah SMA50 (tren turun)
+  // Pakai cek null agar nilai 0 tidak dianggap kosong.
   if (indicators.sma20 != null && indicators.sma50 != null && hasPrice) {
     if (price > indicators.sma50 && indicators.sma20 > indicators.sma50) {
       signals.smaSignal = "buy";
@@ -24,8 +18,8 @@ export function calculateSignals(indicators, price) {
     } else signals.smaSignal = "neutral";
   }
 
-  // === 2. Exponential Moving Average (EMA)
-  // Berdasarkan flowchart skripsi: sinyal EMA ditentukan dari relasi EMA20 vs EMA50.
+  // === 2. EMA
+  // Sinyal EMA ditentukan dari relasi EMA20 vs EMA50.
   if (indicators.ema20 != null && indicators.ema50 != null && hasPrice) {
     if (indicators.ema20 > indicators.ema50) {
       signals.emaSignal = "buy";
@@ -34,9 +28,9 @@ export function calculateSignals(indicators, price) {
     } else signals.emaSignal = "neutral";
   }
 
-  // === 3. Relative Strength Index (RSI)
-  // BUY: RSI < 30 (oversold)
-  // SELL: RSI > 70 (overbought)
+  // === 3. RSI
+  // BUY: RSI < 30 (jenuh jual)
+  // SELL: RSI > 70 (jenuh beli)
   if (indicators.rsi !== null) {
     if (indicators.rsi > 70) signals.rsiSignal = "sell";
     else if (indicators.rsi < 30) signals.rsiSignal = "buy";
@@ -85,7 +79,7 @@ export function calculateSignals(indicators, price) {
   }
 
   // === 7. Stochastic RSI
-  // Sama prinsipnya: 80+ → SELL, 20- → BUY
+  // Prinsip sama: 80+ -> SELL, 20- -> BUY
   if (indicators.stochRsiK !== null && indicators.stochRsiD !== null) {
     if (indicators.stochRsiK > 80 && indicators.stochRsiD > 80)
       signals.stochRsiSignal = "sell";
@@ -95,8 +89,8 @@ export function calculateSignals(indicators, price) {
   }
 
   // === 8. Parabolic SAR
-  // BUY: harga di atas titik SAR → tren naik
-  // SELL: harga di bawah titik SAR → tren turun
+  // BUY: harga di atas titik SAR (tren naik)
+  // SELL: harga di bawah titik SAR (tren turun)
   if (indicators.psar != null && hasPrice) {
     if (price > indicators.psar) signals.psarSignal = "buy";
     else if (price < indicators.psar) signals.psarSignal = "sell";

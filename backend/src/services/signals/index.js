@@ -1,9 +1,3 @@
-/**
- * File: src/services/signals/index.js
- * -------------------------------------------------
- * Tujuan: Satu pintu export untuk service analisis sinyal.
- */
-
 export {
   calculateSignals, // Hitung sinyal per indikator dari data terkini
 } from "./signalAnalyzer.js";

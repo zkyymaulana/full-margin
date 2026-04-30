@@ -1,10 +1,3 @@
-/**
- * File: src/services/backtest/index.js
- * -------------------------------------------------
- * Tujuan: Satu pintu export untuk modul backtest.
- * Format explicit membantu pemula memahami API yang tersedia.
- */
-
 export {
   backtestSingleIndicator, // Jalankan backtest untuk satu indikator
   backtestAllIndicators, // Jalankan backtest untuk semua indikator

@@ -1,114 +1,31 @@
-/**
- * 📦 BARREL EXPORT - Module Comparison
- * ================================================================
- * File ini adalah entry point untuk modul comparison.
- * Menyediakan akses terpusat ke semua functions dari sub-modules.
- *
- * MENGAPA EXPLICIT EXPORTS?
- * ────────────────────────
- * ✅ API yang jelas dan terdokumentasi
- * ✅ Hanya export public functions yang intended
- * ✅ Mudah untuk tree-shaking dan optimization
- * ✅ Refactoring lebih aman
- *
- * PENGGUNAAN:
- * ──────────
- * import {
- *   compareStrategies,
- *   validateComparisonParams,
- *   handleComparisonError
- * } from "@/services/comparison";
- * ================================================================
- */
+// service utama untuk menjalankan proses comparison
+export { compareStrategies } from "./comparison.service.js";
 
-// ═══════════════════════════════════════════════════════════════
-// 🎯 MAIN ORCHESTRATION SERVICE
-// ═══════════════════════════════════════════════════════════════
-
-import { compareStrategies } from "./comparison.service.js";
-
-// ═══════════════════════════════════════════════════════════════
-// ✅ VALIDATION & ERROR HANDLING
-// ═══════════════════════════════════════════════════════════════
-
-import {
-  validateComparisonParams,
-  handleComparisonError,
+// fungsi untuk validasi input dan penanganan error
+export {
+  validateComparisonParams, // validasi parameter input comparison
+  handleComparisonError, // menangani error dari proses comparison
 } from "./comparison.validation.js";
 
-// ═══════════════════════════════════════════════════════════════
-// 📊 METRICS & FINANCIAL CALCULATIONS
-// ═══════════════════════════════════════════════════════════════
-
-import {
-  mean,
-  stddev,
-  calcSharpe,
-  calculateReturns,
-  calculateMaxDrawDown,
-  formatResult,
+// fungsi-fungsi untuk perhitungan metrics dan analisis performa
+export {
+  mean, // menghitung rata-rata
+  stddev, // menghitung standar deviasi
+  calcSharpe, // menghitung rasio sharpe
+  calculateReturns, // menghitung return dari equity curve
+  calculateMaxDrawDown, // menghitung drawdown maksimum
+  formatResult, // merapikan hasil backtest
 } from "./comparison.metrics.js";
 
-// ═══════════════════════════════════════════════════════════════
-// 🗳️ VOTING STRATEGY
-// ═══════════════════════════════════════════════════════════════
+// fungsi untuk voting strategy (logika sinyal dan backtest)
+export {
+  votingSignal, // menghasilkan sinyal berdasarkan voting indikator
+  backtestVotingStrategy, // menjalankan backtest voting strategy
+} from "./comparison.backtest.js";
 
-import { votingSignal, backtestVotingStrategy } from "./comparison.backtest.js";
-
-// ═══════════════════════════════════════════════════════════════
-// 📥 DATA LOADING & MERGING
-// ═══════════════════════════════════════════════════════════════
-
-import {
-  mergeIndicatorsWithCandles,
-  getBestWeights,
-  defaultWeights,
+// fungsi untuk pengolahan data (merge data dan ambil bobot indikator)
+export {
+  mergeIndicatorsWithCandles, // menggabungkan data indikator dan candle
+  getBestWeights, // mengambil bobot terbaik dari database atau default
+  defaultWeights, // bobot default indikator
 } from "./comparison.data.js";
-
-// ═══════════════════════════════════════════════════════════════
-// 📤 EXPLICIT EXPORTS
-// ═══════════════════════════════════════════════════════════════
-
-// ─────────────────────────────────────────────────────────────
-// 🎯 Main Orchestration
-// ─────────────────────────────────────────────────────────────
-export {
-  compareStrategies, // Fungsi utama untuk membandingkan 3 strategi
-};
-
-// ─────────────────────────────────────────────────────────────
-// ✅ Validation & Error Handling
-// ─────────────────────────────────────────────────────────────
-export {
-  validateComparisonParams, // Validasi parameter request perbandingan
-  handleComparisonError, // Handler error terpusat untuk comparison
-};
-
-// ─────────────────────────────────────────────────────────────
-// 📊 Metrics & Financial Calculations
-// ─────────────────────────────────────────────────────────────
-export {
-  mean, // Hitung rata-rata aritmatika
-  stddev, // Hitung standar deviasi
-  calcSharpe, // Hitung rasio Sharpe
-  calculateReturns, // Hitung return dari equity curve
-  calculateMaxDrawDown, // Hitung drawdown maksimum
-  formatResult, // Format hasil backtest agar rapi
-};
-
-// ─────────────────────────────────────────────────────────────
-// 🗳️ Voting Strategy
-// ─────────────────────────────────────────────────────────────
-export {
-  votingSignal, // Buat sinyal voting dari banyak indikator
-  backtestVotingStrategy, // Backtest strategi voting indikator
-};
-
-// ─────────────────────────────────────────────────────────────
-// 📥 Data Loading & Merging
-// ─────────────────────────────────────────────────────────────
-export {
-  mergeIndicatorsWithCandles, // Gabungkan data indikator dan candle
-  getBestWeights, // Ambil bobot terbaik dari DB atau default
-  defaultWeights, // Konstanta bobot default
-};

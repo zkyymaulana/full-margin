@@ -5,17 +5,12 @@ import {
   syncHistoricalData,
 } from "../sync/candle-sync.service.js";
 import { calculateAndSaveIndicators } from "../indicators/indicator.service.js";
-import {
-  detectAndNotifyAllSymbols,
-  autoOptimizeCoinsWithoutWeights,
-} from "../signals/signal-detection.service.js";
+import { detectAndNotifyAllSymbols } from "../signals/signal-detection.service.js";
 import { prisma } from "../../lib/prisma.js";
 import { getRunningJobs } from "../multiIndicator/optimization-job.service.js";
-import { syncTopCoins, syncTopCoinRanksFromCmc } from "../market/index.js";
+import { syncTopCoinRanksFromCmc } from "../market/index.js";
 
-/* ============================================================
-   🧠 Global Cache & Job Tracker
-============================================================ */
+// Cache Global dan Pelacak Job
 const activeJobs = new Map();
 let symbolsCache = [];
 let symbolsCacheTime = 0;
@@ -25,69 +20,68 @@ const SCHEDULER_TIMEZONE = process.env.SCHEDULER_TIMEZONE || "Asia/Jakarta";
 const HOURLY_SYNC_CRON = process.env.HOURLY_SYNC_CRON || "0 * * * *";
 const STARTUP_NOTIFICATION_MUTE_MS = 15 * 60 * 1000;
 
+// Ambil nilai boolean dari environment dengan fallback.
 function getEnvBool(name, defaultValue = false) {
   const raw = process.env[name];
   if (raw == null) return defaultValue;
   return raw.toLowerCase() === "true";
 }
 
-let isMainSyncRunning = false;
 let schedulerStartedAt = 0;
 
+// Cek apakah ada job optimasi yang masih berjalan.
 function hasActiveOptimization() {
   return getRunningJobs().length > 0;
 }
 
-/* ============================================================
-   🚀 Start All Scheduler Jobs
-============================================================ */
-// Menyalakan semua scheduler utama backend.
+// Start Semua Scheduler
+// Menyalakan semua scheduler utama di backend.
 export async function startAllSchedulers() {
   if (activeJobs.size > 0) {
-    console.log("ℹ️ Scheduler already running. Skip duplicate initialization.");
+    console.log("Scheduler already running. Skip duplicate initialization.");
     return;
   }
 
-  console.log("🚀 Starting crypto schedulers...");
+  console.log("Starting crypto schedulers...");
 
   try {
     schedulerStartedAt = Date.now();
     await refreshSymbolsCache();
     await checkAndSyncHistoricalData({ forceBackfill: true });
 
-    // Buat daftar job yang akan dijalankan
+    // Siapkan daftar job yang akan dijalankan.
     const jobs = [
       {
         name: "hourly-candle-sync",
         schedule: HOURLY_SYNC_CRON,
         task: () => runMainSyncJob({ isBackup: false }),
-        desc: "🕐 Hourly sync every hour (minute 0)",
+        desc: "Hourly sync every hour (minute 0)",
       },
       getEnvBool("ENABLE_BACKUP_SYNC", false) && {
         name: "backup-sync",
         schedule: "0 2 * * * *",
         task: () => runMainSyncJob({ isBackup: true }),
-        desc: "🔄 Backup sync (2 minutes after close)",
+        desc: "Backup sync (2 minutes after close)",
       },
       {
         name: "symbols-refresh",
         schedule: "0 */30 * * * *",
         task: refreshSymbolsCache,
-        desc: "♻️ Refresh symbols cache (every 30 min)",
+        desc: "Refresh symbols cache (every 30 min)",
       },
       getEnvBool("ENABLE_DAILY_HISTORICAL_CHECK", false) && {
         name: "daily-historical-check",
         schedule: "0 0 3 * * *",
         task: checkAndSyncHistoricalData,
-        desc: "📆 Daily historical check (3 AM)",
+        desc: "Daily historical check (3 AM)",
       },
     ].filter(Boolean);
 
-    // Jalankan semua job
+    // Jalankan semua job.
     jobs.forEach(({ name, schedule, task, desc }) => {
       if (!cron.validate(schedule)) {
         console.error(
-          `❌ Invalid cron expression for ${name}: ${schedule}. Job skipped.`,
+          `Invalid cron expression for ${name}: ${schedule}. Job skipped.`,
         );
         return;
       }
@@ -96,7 +90,7 @@ export async function startAllSchedulers() {
         schedule,
         async () => {
           console.log(
-            `⏰ [${new Date().toISOString()}] Executing ${name} | expr="${schedule}" | tz="${SCHEDULER_TIMEZONE}"`,
+            `[${new Date().toISOString()}] Executing ${name} | expr="${schedule}" | tz="${SCHEDULER_TIMEZONE}"`,
           );
           await task();
         },
@@ -106,19 +100,18 @@ export async function startAllSchedulers() {
       job.start();
       activeJobs.set(name, job);
       console.log(
-        `📅 [${new Date().toISOString()}] Scheduled ${name} | expr="${schedule}" | tz="${SCHEDULER_TIMEZONE}" | ${desc}`,
+        `[${new Date().toISOString()}] Scheduled ${name} | expr="${schedule}" | tz="${SCHEDULER_TIMEZONE}" | ${desc}`,
       );
     });
 
-    console.log("✅ All schedulers started successfully!");
+    console.log("All schedulers started successfully!");
   } catch (err) {
-    console.error("❌ Failed to start schedulers:", err.message);
+    console.error("Failed to start schedulers:", err.message);
   }
 }
 
-/* ============================================================
-   🔁 Main Sync Process (Candle → Indicators → Signals)
-============================================================ */
+// Proses Sync Utama (Candle -> Indikator -> Sinyal)
+// Jalankan proses sync utama untuk candle, indikator, dan sinyal.
 async function runMainSyncJob(options = {}) {
   const { isBackup = false, ignoreStartupMute = false } = options;
 
@@ -136,11 +129,11 @@ async function runMainSyncJob(options = {}) {
   isMainSyncRunning = true;
   console.time(perfLabel);
   console.log(
-    `🚦 [${perf.startedAtIso}] ${syncType} sync started | symbolsCached=${symbolsCache.length}`,
+    `[${perf.startedAtIso}] ${syncType} sync started | symbolsCached=${symbolsCache.length}`,
   );
 
   try {
-    // Refresh symbols cache jika expired
+    // Refresh cache simbol jika sudah kedaluwarsa.
     if (
       Date.now() - symbolsCacheTime > SYMBOLS_CACHE_TTL ||
       !symbolsCache.length
@@ -149,11 +142,11 @@ async function runMainSyncJob(options = {}) {
       await refreshSymbolsCache();
       perf.refreshSymbolsMs = Date.now() - refreshStart;
       console.log(
-        `⏱️ [${new Date().toISOString()}] ${syncType} sync phase: refreshSymbols done in ${perf.refreshSymbolsMs}ms`,
+        `[${new Date().toISOString()}] ${syncType} sync phase: refreshSymbols done in ${perf.refreshSymbolsMs}ms`,
       );
     }
 
-    if (!symbolsCache.length) throw new Error("No active symbols found");
+    if (!symbolsCache.length) throw new Error("Tidak ada simbol aktif");
 
     console.log(`🎯 ${syncType} sync for ${symbolsCache.length} symbols...`);
 
@@ -163,41 +156,41 @@ async function runMainSyncJob(options = {}) {
     perf.rankSyncMs = Date.now() - rankSyncStart;
     if (!rankSync?.success) {
       console.warn(
-        `⚠️ ${syncType} sync phase: rank sync gagal (${rankSync?.error || "unknown error"})`,
+        `${syncType} sync phase: rank sync gagal (${rankSync?.error || "unknown error"})`,
       );
     } else {
       console.log(
-        `⏱️ [${new Date().toISOString()}] ${syncType} sync phase: rank sync done in ${perf.rankSyncMs}ms (updated=${rankSync.updatedCount}, nullFixed=${rankSync.fixedNullCount})`,
+        `[${new Date().toISOString()}] ${syncType} sync phase: rank sync done in ${perf.rankSyncMs}ms (updated=${rankSync.updatedCount}, nullFixed=${rankSync.fixedNullCount})`,
       );
     }
 
-    // 1️⃣ Sinkronisasi candle (indicators calculated automatically inside)
+    // Sinkronisasi candle (indikator dihitung otomatis di dalamnya).
     const candleSyncStart = Date.now();
     await syncLatestCandles(symbolsCache);
     perf.candleSyncMs = Date.now() - candleSyncStart;
     console.log(
-      `⏱️ [${new Date().toISOString()}] ${syncType} sync phase: candle sync + indicator calculation done in ${perf.candleSyncMs}ms`,
+      `[${new Date().toISOString()}] ${syncType} sync phase: candle sync + indicator calculation done in ${perf.candleSyncMs}ms`,
     );
 
-    // 2️⃣ Deteksi sinyal & kirim notifikasi Telegram (hanya untuk main job)
-    // Always use "multi" mode - single indicator removed
+    // Deteksi sinyal dan kirim notifikasi Telegram (hanya main job).
+    // Selalu gunakan mode "multi".
     if (!isBackup) {
       const isWithinStartupMuteWindow =
         Date.now() - schedulerStartedAt < STARTUP_NOTIFICATION_MUTE_MS;
 
       if (!ignoreStartupMute && isWithinStartupMuteWindow) {
         console.log(
-          "🔕 Skip Telegram notification during startup stabilization window",
+          "Skip Telegram notification during startup stabilization window",
         );
       } else {
         console.log(
-          `⏱️ [${new Date().toISOString()}] ${syncType} sync phase: notification dispatch starting`,
+          `[${new Date().toISOString()}] ${syncType} sync phase: notification dispatch starting`,
         );
         const notifyStart = Date.now();
         await detectAndNotifyAllSymbols(symbolsCache, "multi");
         perf.notificationMs = Date.now() - notifyStart;
         console.log(
-          `⏱️ [${new Date().toISOString()}] ${syncType} sync phase: notification dispatch done in ${perf.notificationMs}ms`,
+          `[${new Date().toISOString()}] ${syncType} sync phase: notification dispatch done in ${perf.notificationMs}ms`,
         );
       }
     }
@@ -209,9 +202,8 @@ async function runMainSyncJob(options = {}) {
   }
 }
 
-/* ============================================================
-  🧩 Supporting Jobs
-============================================================ */
+// Job Pendukung
+// Refresh cache simbol dari database.
 async function refreshSymbolsCache() {
   try {
     symbolsCache = await getActiveSymbols();
@@ -222,14 +214,13 @@ async function refreshSymbolsCache() {
   }
 }
 
-/* ============================================================
-   🕒 Historical Data Check
-============================================================ */
+// Cek Data Historis
+// Cek data historis dan jalankan backfill jika perlu.
 async function checkAndSyncHistoricalData(options = {}) {
   const { forceBackfill = false } = options;
 
   if (hasActiveOptimization()) {
-    console.warn("⏭️ Historical check skipped: optimization job is running");
+    console.warn("Historical check skipped: optimization job is running");
     return;
   }
 
@@ -238,48 +229,45 @@ async function checkAndSyncHistoricalData(options = {}) {
   // Jika kuota simbol aktif sudah terpenuhi, skip backfill historis berat.
   if (!forceBackfill && symbolsCache.length >= TARGET_ACTIVE_SYMBOLS) {
     console.log(
-      `⏭️ Historical backfill skipped: active symbols already meet target (${symbolsCache.length}/${TARGET_ACTIVE_SYMBOLS})`,
+      `Historical backfill skipped: active symbols already meet target (${symbolsCache.length}/${TARGET_ACTIVE_SYMBOLS})`,
     );
     return;
   }
 
-  console.log(
-    `🔍 Checking historical data for ${symbolsCache.length} symbols...`,
-  );
+  console.log(`Checking historical data for ${symbolsCache.length} symbols...`);
 
   const targetStart = process.env.CANDLE_START_DATE || "2020-01-01T00:00:00Z";
-  const targetStartTime = new Date(targetStart).getTime();
   const now = Date.now();
 
   const outdated = [];
   const missingIndicators = [];
 
-  // Get timeframe ID once
+  // Ambil id timeframe sekali saja.
   const timeframeRecord = await prisma.timeframe.findUnique({
     where: { timeframe: "1h" },
     select: { id: true },
   });
 
   if (!timeframeRecord) {
-    console.error('❌ Timeframe "1h" not found in database');
+    console.error('Timeframe "1h" not found in database');
     return;
   }
 
   for (const s of symbolsCache) {
     try {
-      // Get coin ID
+      // Ambil id coin.
       const coin = await prisma.coin.findUnique({
         where: { symbol: s },
         select: { id: true },
       });
 
       if (!coin) {
-        console.log(`⚠️ ${s}: Coin not found in database`);
+        console.log(`${s}: Coin not found in database`);
         outdated.push(s);
         continue;
       }
 
-      // Check candle data
+      // Cek data candle.
       const last = await prisma.candle.findFirst({
         where: {
           coinId: coin.id,
@@ -291,7 +279,7 @@ async function checkAndSyncHistoricalData(options = {}) {
       const time = last ? Number(last.time) : 0;
       if (time < now - 3 * 3600 * 1000) outdated.push(s);
 
-      // ✅ NEW: Check if indicators are missing for existing candles
+      // Cek apakah ada candle yang belum punya indikator.
       if (last) {
         const candleCount = await prisma.candle.count({
           where: {
@@ -306,7 +294,7 @@ async function checkAndSyncHistoricalData(options = {}) {
           },
         });
 
-        // If we have more candles than indicators (accounting for 50-period warmup)
+        // Jika jumlah indikator lebih sedikit dari candle (warmup 50 periode).
         if (candleCount > 50 && indicatorCount < candleCount - 50) {
           const missing = candleCount - indicatorCount - 50;
           console.log(`⚠️ ${s}: Found ${missing} candles without indicators`);
@@ -314,7 +302,7 @@ async function checkAndSyncHistoricalData(options = {}) {
         }
       }
     } catch (err) {
-      console.error(`❌ ${s}: Check failed -`, err.message);
+      console.error(`${s}: Check failed -`, err.message);
       outdated.push(s);
     }
   }
@@ -324,10 +312,10 @@ async function checkAndSyncHistoricalData(options = {}) {
     await syncHistoricalData(outdated, targetStart.split("T")[0]);
   } else console.log("✅ All symbols up-to-date!");
 
-  // ✅ NEW: Calculate missing indicators ONE BY ONE (tidak sekaligus)
+  // Hitung indikator yang hilang satu per satu.
   if (missingIndicators.length) {
     console.log(
-      `📊 Calculating indicators for ${missingIndicators.length} symbols...`,
+      `Calculating indicators for ${missingIndicators.length} symbols...`,
     );
     console.log(`⏱️ This may take a while for large datasets...`);
 
@@ -339,36 +327,36 @@ async function checkAndSyncHistoricalData(options = {}) {
         );
         await calculateAndSaveIndicators(symbol, "1h");
 
-        // ✅ Small delay between symbols to prevent overload
+        // Jeda kecil antar simbol agar tidak overload.
         if (i < missingIndicators.length - 1) {
           await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       } catch (err) {
         console.error(
-          `❌ ${symbol}: Failed to calculate indicators -`,
+          `${symbol}: Failed to calculate indicators -`,
           err.message,
         );
-        // Continue with next symbol instead of crashing
+        // Lanjut ke simbol berikutnya agar proses tidak berhenti.
         continue;
       }
     }
 
-    console.log(`\n✅ Finished processing ${missingIndicators.length} symbols`);
+    console.log(`\Finished processing ${missingIndicators.length} symbols`);
   }
 }
 
 /* ============================================================
-   ⏹️ Stop & Status
+  Stop dan Status
 ============================================================ */
 // Menghentikan seluruh scheduler yang sedang aktif.
 export function stopAllSchedulers() {
-  console.log("⏹️ Stopping schedulers...");
+  console.log("Stopping schedulers...");
   for (const [name, job] of activeJobs) {
     job.destroy();
-    console.log(`⏹️ Stopped ${name}`);
+    console.log(`Stopped ${name}`);
   }
   activeJobs.clear();
-  console.log("✅ All stopped");
+  console.log("All stopped");
 }
 
 // Mengambil status scheduler, statistik job, dan informasi cache simbol.
@@ -384,12 +372,12 @@ export const getSchedulerStatus = () => ({
 });
 
 /* ============================================================
-   🧘 Graceful Shutdown
+  Shutdown yang Rapi
 ============================================================ */
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 function shutdown() {
-  console.log("\n🛑 Graceful shutdown...");
+  console.log("\n Graceful shutdown...");
   stopAllSchedulers();
   process.exit(0);
 }

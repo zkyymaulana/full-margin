@@ -216,7 +216,7 @@ export async function telegramWebhookController(req, res) {
     const text = message.text;
     const from = message.from;
 
-    console.log(`📨 Message from ${from.first_name} (${chatId}): ${text}`);
+    console.log(`Message from ${from.first_name} (${chatId}): ${text}`);
 
     // Tangani perintah /start.
     if (text === "/start") {
@@ -232,7 +232,7 @@ To enable notifications:
 2. Go to your profile settings
 3. Paste the Chat ID and enable notifications
 
-You'll start receiving *Multi-Indicator* trading signals automatically! 📊
+You'll start receiving *Multi-Indicator* trading signals automatically! 
 `;
 
       await axios.post(
@@ -244,7 +244,7 @@ You'll start receiving *Multi-Indicator* trading signals automatically! 📊
         },
       );
 
-      console.log(`✅ Sent welcome message to ${chatId}`);
+      console.log(`Sent welcome message to ${chatId}`);
     }
 
     // Tangani perintah /connect untuk mengaitkan chatId ke user.
@@ -257,7 +257,7 @@ You'll start receiving *Multi-Indicator* trading signals automatically! 📊
           `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
           {
             chat_id: chatId,
-            text: "❌ Invalid user ID. Use: /connect <userId>",
+            text: "Invalid user ID. Use: /connect <userId>",
           },
         );
         return res.json({ success: true });
@@ -275,7 +275,7 @@ You'll start receiving *Multi-Indicator* trading signals automatically! 📊
             `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
             {
               chat_id: chatId,
-              text: "❌ This Telegram chat is already connected to a different account.",
+              text: "This Telegram chat is already connected to a different account.",
             },
           );
           return res.json({ success: true });
@@ -294,18 +294,18 @@ You'll start receiving *Multi-Indicator* trading signals automatically! 📊
           `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
           {
             chat_id: chatId,
-            text: `✅ *Telegram Connected!*\n\nAccount: ${user.email}\nNotifications: Enabled\nSignal Mode: Multi-Indicator\n\nYou'll now receive trading signals! 📊`,
+            text: `*Telegram Connected!*\n\nAccount: ${user.email}\nNotifications: Enabled\nSignal Mode: Multi-Indicator\n\nYou'll now receive trading signals! `,
             parse_mode: "Markdown",
           },
         );
 
-        console.log(`✅ Connected Telegram for user ${userId} (${user.email})`);
+        console.log(`Connected Telegram for user ${userId} (${user.email})`);
       } catch (error) {
         await axios.post(
           `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
           {
             chat_id: chatId,
-            text: `❌ Error: ${error.message}`,
+            text: `Error: ${error.message}`,
           },
         );
       }
@@ -320,10 +320,10 @@ You'll start receiving *Multi-Indicator* trading signals automatically! 📊
 
       if (user) {
         const statusMessage = `
-📊 *Your Status*
+ *Your Status*
 
 Email: ${user.email}
-Notifications: ${user.telegramEnabled ? "✅ Enabled" : "❌ Disabled"}
+Notifications: ${user.telegramEnabled ? "Enabled" : "Disabled"}
 Signal Mode: Multi-Indicator
 Chat ID: \`${chatId}\`
 `;
@@ -340,7 +340,7 @@ Chat ID: \`${chatId}\`
           `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
           {
             chat_id: chatId,
-            text: "❌ No account connected. Use /start to get your Chat ID.",
+            text: "No account connected. Use /start to get your Chat ID.",
           },
         );
       }
@@ -348,7 +348,7 @@ Chat ID: \`${chatId}\`
 
     return res.json({ success: true });
   } catch (error) {
-    console.error("❌ Webhook error:", error.message);
+    console.error("Webhook error:", error.message);
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -377,7 +377,7 @@ export async function broadcastController(req, res) {
       result,
     });
   } catch (error) {
-    console.error("❌ Broadcast error:", error.message);
+    console.error("Broadcast error:", error.message);
     return res.status(500).json({
       success: false,
       message: error.message,

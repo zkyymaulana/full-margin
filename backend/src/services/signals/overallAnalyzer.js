@@ -1,25 +1,3 @@
-/**
- * 📊 OVERALL SIGNAL ANALYZER - WEIGHTED SCORING (REFACTORED)
- * ===============================================
- * ✅ SESUAI PROPOSAL SKRIPSI - Menggunakan Single Source of Truth
- * ✅ FinalScore ternormalisasi ke rentang [-1, +1]
- * ✅ Multi-level threshold: STRONG_BUY, BUY, NEUTRAL, SELL, STRONG_SELL
- * ✅ Konsisten dengan calculateMultiIndicatorScore() di indicator.utils.js
- *
- * Formula (NORMALIZED):
- * finalScore = Σ(weight_i × signal_i) / Σ(weight_i)
- * strength = |finalScore|
- *
- * Signal Classification:
- * - finalScore >= 0.6  → STRONG_BUY
- * - finalScore > 0     → BUY
- * - finalScore == 0    → NEUTRAL
- * - finalScore < 0     → SELL
- * - finalScore <= -0.6 → STRONG_SELL
- *
- */
-
-// ✅ Import core algorithm tanpa alias
 import { calculateMultiIndicatorScore } from "../../utils/indicator.utils.js";
 
 // Hitung sinyal overall berbobot dari sinyal indikator individual.
@@ -29,7 +7,7 @@ export async function calculateOverallSignal(
   timeframe,
   cachedWeights = null,
 ) {
-  // ✅ Use cached weights if provided (for batch processing)
+  // Pakai bobot cache jika tersedia (untuk batch).
   if (cachedWeights) {
     return buildOverallSignal(signals, cachedWeights);
   }
@@ -37,14 +15,14 @@ export async function calculateOverallSignal(
   // Import prisma di sini untuk menghindari circular dependency
   const { prisma } = await import("../../lib/prisma.js");
 
-  // Get coin and timeframe IDs
+  // Ambil id coin dan timeframe.
   const coin = await prisma.coin.findUnique({
     where: { symbol },
     select: { id: true },
   });
 
   if (!coin) {
-    // Fallback: equal weights if coin not found
+    // Fallback: bobot sama jika coin tidak ada.
     const equalWeight = 1;
     const weights = {
       SMA: equalWeight,
@@ -65,7 +43,7 @@ export async function calculateOverallSignal(
   });
 
   if (!timeframeRecord) {
-    // Fallback: equal weights if timeframe not found
+    // Fallback: bobot sama jika timeframe tidak ada.
     const equalWeight = 1;
     const weights = {
       SMA: equalWeight,
@@ -80,7 +58,7 @@ export async function calculateOverallSignal(
     return buildOverallSignal(signals, weights);
   }
 
-  // ✅ Step 1: Get optimized weights from database
+  // Ambil bobot optimasi terbaru dari database.
   const weightRecord = await prisma.indicatorWeight.findFirst({
     where: {
       coinId: coin.id,
@@ -90,7 +68,7 @@ export async function calculateOverallSignal(
   });
 
   if (!weightRecord || !weightRecord.weights) {
-    // Fallback: equal weights
+    // Fallback: bobot sama jika data bobot kosong.
     const equalWeight = 1;
     const weights = {
       SMA: equalWeight,
@@ -106,28 +84,15 @@ export async function calculateOverallSignal(
     return buildOverallSignal(signals, weights);
   }
 
-  // ✅ Use optimized weights from database
+  // Gunakan bobot optimasi dari database.
   return buildOverallSignal(signals, weightRecord.weights);
 }
 
-/**
- * 🎯 BUILD OVERALL SIGNAL FROM DATABASE SIGNALS (ORCHESTRATION)
- * ================================================================
- * Fungsi orchestration yang meng-convert database signal format
- * ke format yang diterima oleh calculateMultiIndicatorScore() di utils.
- *
- * PERAN FUNGSI INI:
- * - Adapter/converter antara database format dan core algorithm
- * - Perhitungan inti dilakukan oleh calculateMultiIndicatorScore()
- * - Memastikan konsistensi dengan backtest dan realtime signal
- *
- * TIDAK mengubah logika perhitungan, hanya format data.
- * ================================================================
- */
+// format data agar sesuai dengan kebutuhan algoritma inti, lalu panggil algoritma untuk hitung sinyal overall.
 function buildOverallSignal(signals, weights) {
-  // ✅ Convert database signal format to core algorithm format
+  // Ubah format sinyal database ke format algoritma inti.
   // Database: { smaSignal, emaSignal, rsiSignal, ... }
-  // Core Algorithm: { SMA, EMA, RSI, ... }
+  // Algoritma inti: { SMA, EMA, RSI, ... }
 
   const signalsForCalculation = {
     SMA: signals.smaSignal || "neutral",
@@ -140,17 +105,17 @@ function buildOverallSignal(signals, weights) {
     PSAR: signals.psarSignal || "neutral",
   };
 
-  // ✅ Call core algorithm (single source of truth)
+  // Panggil algoritma inti (satu sumber perhitungan).
   const result = calculateMultiIndicatorScore(signalsForCalculation, weights);
 
-  // ✅ Return in expected format for database storage
-  // Result dari core: { finalScore, strength, signal, signalLabel, normalized }
+  // Kembalikan format yang dibutuhkan untuk penyimpanan database.
+  // Hasil algoritma inti: { finalScore, strength, signal, signalLabel, normalized }
   return {
     overallSignal: result.signal, // 'buy'/'sell'/'neutral'/'strong_buy'/'strong_sell'
-    signalStrength: result.strength, // Confidence [0, 1]
-    finalScore: result.finalScore, // Normalized [-1, +1]
+    signalStrength: result.strength, // Tingkat keyakinan [0, 1]
+    finalScore: result.finalScore, // Nilai ternormalisasi [-1, +1]
   };
 }
 
-// ✅ Export dengan nama yang jelas (untuk backward compatibility jika diperlukan)
+// Export dengan nama yang jelas untuk kompatibilitas bila diperlukan.
 export { buildOverallSignal };

@@ -1,26 +1,3 @@
-/**
- * ═══════════════════════════════════════════════════════════════════════════
- * 📦 CHART SERVICE - BARREL EXPORT
- * ═══════════════════════════════════════════════════════════════════════════
- *
- * TUJUAN MODUL:
- * ─────────────
- * File ini mengeksport semua fungsi dari sub-modules chart service
- * untuk memudahkan import dari file lain.
- *
- * Struktur:
- * • chart.service.js    → Candle data access & persistence
- * • chart.data.js       → Database retrieval & indicator merging
- * • chart.indicator.js  → Indicator formatting & signal calculation
- * • chart.metadata.js   → Statistics & pagination utilities
- *
- * Catatan: Menggunakan named exports (BUKAN wildcard export)
- * untuk explicit dan tree-shakeable imports.
- *
- * ═══════════════════════════════════════════════════════════════════════════
- */
-
-// Export dari chart.service.js untuk query dan simpan candle data.
 export {
   getLastCandleTime, // Ambil waktu candle terakhir
   getCandleCount, // Hitung total candle

@@ -1,10 +1,3 @@
-/**
- * File: src/controllers/index.js
- * -------------------------------------------------
- * Tujuan: Satu pintu export untuk semua controller.
- * Format explicit membuat fungsi yang tersedia lebih mudah dipelajari pemula.
- */
-
 export {
   register, // Registrasi user baru
   login, // Login user dengan email dan password
