@@ -197,7 +197,7 @@ function ProfilePage() {
         </div>
       </div>
 
-      <div className="flex justify-end mt-8">
+      {/* <div className="flex justify-end mt-8">
         <button
           onClick={handleLogout}
           className="flex items-center gap-2 px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
@@ -217,7 +217,7 @@ function ProfilePage() {
           </svg>
           Logout
         </button>
-      </div>
+      </div> */}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { WebSocket, WebSocketServer } from "ws";
+import { fetchLastCandleByTimeframe } from "../../clients/coinbase.client.js";
 
 const COINBASE_WS_URL = "wss://ws-feed.exchange.coinbase.com";
 const COINBASE_PRODUCTS = [
@@ -23,6 +24,7 @@ const CANDLE_TIMEFRAME_MS = 60 * 60 * 1000;
 const frontendClients = new Set();
 const lastTickers = new Map();
 const liveCandles = new Map();
+const candleSeedBuckets = new Map();
 
 let backendWss = null;
 let coinbaseWs = null;
@@ -59,6 +61,43 @@ function broadcastToClients(payload) {
     if (client.readyState === WebSocket.OPEN) {
       client.send(message);
     }
+  }
+}
+
+async function seedCandleFromCoinbase(symbol, bucketStart) {
+  try {
+    const latest = await fetchLastCandleByTimeframe(symbol);
+    if (!latest) return;
+
+    const resolvedBucket =
+      bucketStart == null ? latest.bucketStartMs : bucketStart;
+    const lastSeed = candleSeedBuckets.get(symbol);
+    if (lastSeed === resolvedBucket) return;
+
+    if (latest.bucketStartMs !== resolvedBucket) return;
+
+    candleSeedBuckets.set(symbol, resolvedBucket);
+
+    const seededCandle = {
+      symbol,
+      timeframe: CANDLE_TIMEFRAME,
+      time: latest.bucketStartMs,
+      open: Number(latest.open),
+      high: Number(latest.high),
+      low: Number(latest.low),
+      close: Number(latest.close),
+      volume: Number(latest.volume),
+    };
+
+    liveCandles.set(symbol, seededCandle);
+    broadcastToClients({
+      type: "candle",
+      product_id: symbol,
+      timeframe: CANDLE_TIMEFRAME,
+      data: seededCandle,
+    });
+  } catch (err) {
+    console.warn(`Failed to seed candle for ${symbol}:`, err.message);
   }
 }
 
@@ -103,6 +142,8 @@ function handleCoinbaseTicker(message) {
       low: price,
       close: price,
     };
+
+    void seedCandleFromCoinbase(symbol, bucketStart);
   } else {
     const high = Math.max(Number(existingCandle.high), price);
     const low = Math.min(Number(existingCandle.low), price);
@@ -175,6 +216,10 @@ function connectToCoinbase() {
       );
       hasSubscribed = true;
     }
+
+    COINBASE_PRODUCTS.forEach((product) => {
+      void seedCandleFromCoinbase(product, null);
+    });
   });
 
   coinbaseWs.on("message", (data) => {

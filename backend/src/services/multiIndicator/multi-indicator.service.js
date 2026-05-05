@@ -183,6 +183,7 @@ export async function optimizeIndicatorWeights(
 
   let best = null;
   let currentCandleIndex = 0;
+  let lastLoggedPercent = -1;
 
   // loop semua kombinasi bobot
   for (let i = 0; i < totalCombinations; i++) {
@@ -270,6 +271,14 @@ export async function optimizeIndicatorWeights(
           end: effectiveRange.end,
         },
       };
+
+      const progressBucket = Math.floor(progressData.percentage);
+      if (progressBucket !== lastLoggedPercent) {
+        lastLoggedPercent = progressBucket;
+        console.log(
+          `Optimization progress: ${progressData.percentage.toFixed(1)}% (ETA ${progressData.eta})`,
+        );
+      }
 
       // kirim progress ke callback
       if (onProgress && typeof onProgress === "function") {

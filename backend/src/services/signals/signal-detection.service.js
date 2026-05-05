@@ -67,7 +67,7 @@ export async function detectAndNotifyMultiIndicatorSignals(
         coinId: coin.id,
         timeframeId: timeframeRecord.id,
       },
-      orderBy: { updatedAt: "desc" },
+      orderBy: { createdAt: "desc" },
     });
 
     if (!latestWeights) return { success: false, reason: "no_weights" };
@@ -164,9 +164,10 @@ export async function detectAndNotifyMultiIndicatorSignals(
         where: {
           coinId: coin.id,
           timeframeId: timeframeRecord.id,
+          // Using half-open interval [start, end) to avoid overlap and data leakage
           time: {
             gte: BigInt(startDate.getTime()),
-            lte: BigInt(endDate.getTime()),
+            lt: BigInt(endDate.getTime()),
           },
         },
         orderBy: { time: "asc" },
@@ -176,9 +177,10 @@ export async function detectAndNotifyMultiIndicatorSignals(
         where: {
           coinId: coin.id,
           timeframeId: timeframeRecord.id,
+          // Using half-open interval [start, end) to avoid overlap and data leakage
           time: {
             gte: BigInt(startDate.getTime()),
-            lte: BigInt(endDate.getTime()),
+            lt: BigInt(endDate.getTime()),
           },
         },
         orderBy: { time: "asc" },

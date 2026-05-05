@@ -190,6 +190,9 @@ export function buildLatestSignal(
   return {
     time: Number(latestIndicator.time),
     price: latestPrice,
+    lastOptimizedAt: latestWeight?.updatedAt
+      ? new Date(latestWeight.updatedAt).getTime()
+      : null,
     multiSignal,
     weights: latestWeight?.weights ?? null,
     performance: latestWeight

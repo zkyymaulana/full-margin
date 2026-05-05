@@ -96,6 +96,7 @@ function SignalsPage() {
     multiSignalData,
     latestPrice,
     latestTime,
+    lastOptimizedAt,
     weights,
     performance,
     timeframe,
@@ -118,6 +119,7 @@ function SignalsPage() {
         },
         latestPrice: null,
         latestTime: null,
+        lastOptimizedAt: null,
         weights: {},
         performance: null,
         timeframe: "1h",
@@ -134,6 +136,7 @@ function SignalsPage() {
       multiSignal: signalData,
       price,
       time,
+      lastOptimizedAt: lastOptimizedAtValue,
     } = latestSignal;
 
     // Cek apakah bobot/performance sudah tersedia dari hasil optimasi.
@@ -145,7 +148,6 @@ function SignalsPage() {
 
     // Hitung distribusi sinyal untuk statistik ringkas.
     const counts = countSignalsFromDB(indicators);
-
 
     // Jika belum optimize, bobot dibuat null agar UI menampilkan status yang tepat.
     const finalWeights = hasOptimization ? weightsData : null;
@@ -170,6 +172,7 @@ function SignalsPage() {
       },
       latestPrice: price,
       latestTime: time,
+      lastOptimizedAt: lastOptimizedAtValue,
       weights: finalWeights || {},
       performance: performanceData,
       timeframe: indicatorData?.timeframe || "1h",
@@ -236,7 +239,6 @@ function SignalsPage() {
         throw new Error("Authentication required. Please login again.");
       }
 
-
       const controller = new AbortController();
       // Beri waktu backend untuk create job sebelum request di-abort.
       const quickCheckTimeout = setTimeout(() => controller.abort(), 5000);
@@ -289,9 +291,7 @@ function SignalsPage() {
 
           Swal.fire({
             title: "Already Optimized!",
-            text: `${selectedSymbol} was last optimized on ${formattedDate}. ROI: ${data.performance?.roi?.toFixed(
-              2,
-            )}%`,
+            text: `${selectedSymbol} was last optimized on ${formattedDate}.`,
             icon: "info",
           });
 
@@ -363,7 +363,6 @@ function SignalsPage() {
           // Kirim request cancel ke backend.
           await cancelOptimization(optimizationSymbol);
 
-
           // Tutup stream SSE di frontend agar status berhenti segera.
           stopOptimization();
 
@@ -429,8 +428,9 @@ function SignalsPage() {
   }, [activeCategories]);
 
   // Format waktu update terakhir untuk ditampilkan di UI.
-  const lastUpdate = latestTime
-    ? new Date(latestTime).toLocaleString("id-ID", {
+  const lastUpdateEpoch = lastOptimizedAt ?? latestTime;
+  const lastUpdate = lastUpdateEpoch
+    ? new Date(lastUpdateEpoch).toLocaleString("id-ID", {
         dateStyle: "medium",
         timeStyle: "short",
       })
@@ -485,19 +485,48 @@ function SignalsPage() {
   // Normalize indicator names for cleaner display
   const allIndicators = normalizeIndicatorName(allIndicatorsRaw);
 
+  const formatDateRange = () => {
+    if (!performance?.trainingPeriod) return null;
+
+    const { startDate, endDate, startDateReadable, endDateReadable } =
+      performance.trainingPeriod;
+
+    const formatShortDate = (dateStr) => {
+      if (!dateStr) return "";
+      return dateStr.split(" pukul ")[0];
+    };
+
+    const formatMinusOneDay = (timestamp) => {
+      if (!timestamp && timestamp !== 0) return null;
+      const date = new Date(Number(timestamp));
+      if (Number.isNaN(date.getTime())) return null;
+      date.setDate(date.getDate() - 1);
+      return new Intl.DateTimeFormat("id-ID", {
+        dateStyle: "long",
+        timeZone: "Asia/Jakarta",
+      }).format(date);
+    };
+
+    const start = formatShortDate(startDateReadable);
+    const end = formatMinusOneDay(endDate) ?? formatShortDate(endDateReadable);
+
+    if (!start || !end) return null;
+    return `${start} - ${end}`;
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Section with Optimization Button */}
       <SignalsHeader
         selectedSymbol={selectedSymbol}
-        methodology="Weighted Multi-Indicator Strategy"
+        methodology={`Backtest Period: ${formatDateRange() || "N/A"}`}
         lastUpdate={lastUpdate}
         price={latestPrice}
         timeframe={timeframe}
         bestCombo={bestCombo}
         isDarkMode={isDarkMode}
-        onOptimize={handleOptimization} // ✅ Pass handler
-        isOptimizing={isOptimizationRunning} // ✅ Pass status
+        onOptimize={handleOptimization}
+        isOptimizing={isOptimizationRunning}
       />
 
       {/* ✅ NEW: Optimization Progress Card */}

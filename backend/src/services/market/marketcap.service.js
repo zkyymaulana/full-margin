@@ -6,7 +6,7 @@ import { syncTopCoins } from "./syncTopCoins.service.js";
 
 dotenv.config();
 
-const TARGET_TOP_COINS = Number(process.env.TARGET_ASSET_LIMIT || "10");
+const TARGET_TOP_COINS = Number(process.env.TARGET_ASSET_LIMIT || "7");
 const LISTING_CUTOFF_DATE = new Date("2025-01-01T00:00:00.000Z");
 const INITIAL_CANDIDATE_LIMIT = 100;
 const RETRY_CANDIDATE_LIMIT = 150;

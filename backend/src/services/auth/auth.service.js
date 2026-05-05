@@ -1,8 +1,6 @@
-import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { generateToken } from "../../utils/jwt.js";
-
-const prisma = new PrismaClient();
+import { prisma } from "../../lib/prisma.js";
 
 // Registrasi user baru dan kembalikan token login.
 export async function registerService(email, password, name) {
@@ -56,12 +54,20 @@ export async function registerService(email, password, name) {
 
 // Login user, update lastLogin, lalu kembalikan token.
 export async function loginService(email, password) {
+  if (!email || !password) {
+    throw new Error("Email dan password wajib diisi");
+  }
+
+  const emailNormalized = String(email).trim().toLowerCase();
+
   // Cari user berdasarkan email.
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findUnique({
+    where: { email: emailNormalized },
+  });
   if (!user) throw new Error("Akun tidak terdaftar");
 
   // Verifikasi password dengan hash di database.
-  if (!(await bcrypt.compare(password, user.passwordHash)))
+  if (!(await bcrypt.compare(String(password), user.passwordHash)))
     throw new Error("Password salah");
 
   // Jalankan update lastLogin dan pencatatan auth log secara paralel.

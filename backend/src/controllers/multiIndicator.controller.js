@@ -272,7 +272,7 @@ export async function optimizeIndicatorWeightsController(req, res) {
       const [coin, timeframeRecord] = await Promise.all([
         prisma.coin.findUnique({
           where: { symbol },
-          select: { id: true },
+          select: { id: true, listingDate: true },
         }),
         prisma.timeframe.findUnique({
           where: { timeframe },
@@ -286,22 +286,21 @@ export async function optimizeIndicatorWeightsController(req, res) {
           message: `Symbol or timeframe not found for ${symbol}`,
         });
       }
-
       const existingWeight = await prisma.indicatorWeight.findFirst({
         where: {
           coinId: coin.id,
           timeframeId: timeframeRecord.id,
         },
-        orderBy: { updatedAt: "desc" },
+        orderBy: { createdAt: "desc" },
       });
 
       if (existingWeight) {
         return res.status(200).json({
           success: true,
-          message: `Asset already optimized for ${symbol}.`,
+          message: `Asset has already been optimized for ${symbol}.`,
           symbol,
           timeframe,
-          lastOptimized: existingWeight.updatedAt,
+          lastOptimized: existingWeight.createdAt,
           performance: {
             roi: existingWeight.roi,
             winRate: existingWeight.winRate,

@@ -51,6 +51,9 @@ export async function getSignals(req, res) {
         latestSignal: {
           time: Number(indicator.time),
           price,
+          lastOptimizedAt: weight?.updatedAt
+            ? new Date(weight.updatedAt).getTime()
+            : null,
           multiSignal: multiSignal || {
             signal: "neutral",
             strength: 0,

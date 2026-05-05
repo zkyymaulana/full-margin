@@ -1,6 +1,7 @@
 // service utama optimasi
 export {
   getOptimizationEstimate, // hitung estimasi durasi optimasi
+  resolveTrainingWindow, // hitung window training
   runOptimization, // jalankan proses optimasi utama
   runBacktestWithOptimizedWeights, // backtest dengan bobot hasil optimasi
   optimizeAllCoins, // optimasi untuk banyak coin sekaligus

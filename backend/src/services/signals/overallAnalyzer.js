@@ -64,7 +64,7 @@ export async function calculateOverallSignal(
       coinId: coin.id,
       timeframeId: timeframeRecord.id,
     },
-    orderBy: { updatedAt: "desc" },
+    orderBy: { createdAt: "desc" },
   });
 
   if (!weightRecord || !weightRecord.weights) {

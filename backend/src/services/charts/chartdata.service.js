@@ -171,7 +171,7 @@ export async function getCoinAndTimeframe(symbol, timeframe) {
 export async function getLatestWeights(coinId, timeframeId) {
   const weightRecord = await prisma.indicatorWeight.findFirst({
     where: { coinId, timeframeId },
-    orderBy: { updatedAt: "desc" },
+    orderBy: { createdAt: "desc" },
   });
 
   return weightRecord?.weights || null;
@@ -196,11 +196,16 @@ export async function getIndicatorsForTimeRange(
     );
   }
 
+  const oneHourMs = 60 * 60 * 1000;
+  const currentHour = Math.floor(Date.now() / oneHourMs) * oneHourMs;
+  const effectiveMaxTime = Math.min(maxTime, currentHour - 1);
+
   let indicators = await indicatorDelegate.findMany({
     where: {
       coinId,
       timeframeId,
-      time: { gte: BigInt(minTime), lte: BigInt(maxTime) },
+      // Using half-open interval [start, end) to avoid overlap and data leakage
+      time: { gte: BigInt(minTime), lte: BigInt(effectiveMaxTime) },
     },
     orderBy: { time: "asc" },
   });
@@ -221,7 +226,8 @@ export async function getIndicatorsForTimeRange(
         where: {
           coinId,
           timeframeId,
-          time: { gte: BigInt(minTime), lte: BigInt(maxTime) },
+          // Using half-open interval [start, end) to avoid overlap and data leakage
+          time: { gte: BigInt(minTime), lte: BigInt(effectiveMaxTime) },
         },
         orderBy: { time: "asc" },
       });

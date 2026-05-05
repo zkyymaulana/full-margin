@@ -26,9 +26,10 @@ async function getIndicatorsWithPrices(symbol, timeframe) {
       where: {
         symbol,
         timeframe,
+        // Using half-open interval [start, end) to avoid overlap and data leakage
         time: {
           gte: startTime,
-          lte: endTime,
+          lt: endTime,
         },
       },
       orderBy: { time: "asc" },
@@ -37,9 +38,10 @@ async function getIndicatorsWithPrices(symbol, timeframe) {
       where: {
         symbol,
         timeframe,
+        // Using half-open interval [start, end) to avoid overlap and data leakage
         time: {
           gte: startTime,
-          lte: endTime,
+          lt: endTime,
         },
       },
       orderBy: { time: "asc" },

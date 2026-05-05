@@ -8,7 +8,6 @@ function SignalsHeader({
   lastUpdate,
   price,
   timeframe,
-  bestCombo,
   isDarkMode,
   onOptimize, // ✅ NEW: Optimization handler
   isOptimizing, // ✅ NEW: Optimization status

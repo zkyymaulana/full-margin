@@ -46,13 +46,13 @@ export async function getBestWeights(symbol, timeframe) {
     };
   }
 
-  // Ambil hasil optimasi terbaru berdasarkan updatedAt.
+  // Ambil hasil optimasi terbaru berdasarkan createdAt.
   const latest = await prisma.indicatorWeight.findFirst({
     where: {
       coinId: coin.id,
       timeframeId: timeframeRecord.id,
     },
-    orderBy: { updatedAt: "desc" },
+    orderBy: { createdAt: "desc" },
   });
 
   if (!latest) {
@@ -67,7 +67,7 @@ export async function getBestWeights(symbol, timeframe) {
 
   // Log detail optimasi.
   console.log(
-    `Using latest optimization for ${symbol} (updated: ${latest.updatedAt.toISOString()})`,
+    `Using latest optimization for ${symbol} (created: ${latest.createdAt.toISOString()})`,
   );
   console.log(
     `ROI: ${latest.roi.toFixed(2)}%, WinRate: ${latest.winRate.toFixed(2)}%`,
@@ -76,7 +76,7 @@ export async function getBestWeights(symbol, timeframe) {
   return {
     weights: latest.weights,
     source: "latest_optimization",
-    optimizedAt: latest.updatedAt,
+    optimizedAt: latest.createdAt,
     performance: {
       roi: latest.roi,
       winRate: latest.winRate,

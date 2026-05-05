@@ -29,6 +29,7 @@ export async function testTelegramController(req, res) {
         "invalid_user",
         "no_chat_id",
         "telegram_disabled",
+        "disabled",
       ]);
       const statusCode = badRequestReasons.has(result.reason) ? 400 : 500;
 
@@ -143,8 +144,10 @@ export async function clearCacheController(req, res) {
 // Mengambil status konfigurasi Telegram pada server.
 export async function getTelegramConfigController(req, res) {
   try {
+    const rawEnabled = process.env.TELEGRAM_ENABLED;
+    const enabled = rawEnabled == null ? true : rawEnabled === "true";
     const config = {
-      enabled: process.env.TELEGRAM_ENABLED === "true",
+      enabled,
       configured: !!process.env.TELEGRAM_BOT_TOKEN,
       signalMode: "multi", // Fixed to multi only
     };

@@ -81,16 +81,24 @@ export async function compareStrategies(
     };
 
     // ambil data indicator dan candle
-    const start = BigInt(new Date(startDate).getTime());
-    const end = BigInt(new Date(endDate).getTime());
+    const start = BigInt(new Date(startDate + "T00:00:00Z").getTime());
 
+    const endDateObj = new Date(endDate + "T00:00:00Z");
+    endDateObj.setUTCDate(endDateObj.getUTCDate() + 1);
+
+    const end = BigInt(endDateObj.getTime());
+    console.log(
+      `Normalized range: ${new Date(Number(start)).toISOString()} → ${new Date(Number(end)).toISOString()}`,
+    );
     const [indicators, candles] = await Promise.all([
       prisma.indicator.findMany({
-        where: { coinId, timeframeId, time: { gte: start, lte: end } },
+        // Using half-open interval [start, end) to avoid overlap and data leakage
+        where: { coinId, timeframeId, time: { gte: start, lt: end } },
         orderBy: { time: "asc" },
       }),
       prisma.candle.findMany({
-        where: { coinId, timeframeId, time: { gte: start, lte: end } },
+        // Using half-open interval [start, end) to avoid overlap and data leakage
+        where: { coinId, timeframeId, time: { gte: start, lt: end } },
         orderBy: { time: "asc" },
         select: { time: true, close: true },
       }),

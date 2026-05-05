@@ -103,10 +103,10 @@ export async function getCoinAndTimeframe(symbol, timeframe) {
  * ────────────────────────────────────────────────────────────
  */
 export async function getLatestWeights(coinId, timeframeId) {
-  // ✅ Query weights terbaru (ordered by updatedAt DESC)
+  // ✅ Query weights terbaru (ordered by createdAt DESC)
   const weightRecord = await prisma.indicatorWeight.findFirst({
     where: { coinId, timeframeId },
-    orderBy: { updatedAt: "desc" }, // Ambil yang paling update
+    orderBy: { createdAt: "desc" },
   });
 
   // ✅ Return weights atau null jika tidak ada
@@ -144,12 +144,17 @@ export async function getIndicatorsForTimeRange(
   maxTime,
   expectedCount,
 ) {
+  const oneHourMs = 60 * 60 * 1000;
+  const currentHour = Math.floor(Date.now() / oneHourMs) * oneHourMs;
+  const effectiveMaxTime = Math.min(maxTime, currentHour - 1);
+
   // ✅ Query indicator dari database untuk time range
   let indicators = await prisma.indicator.findMany({
     where: {
       coinId,
       timeframeId,
-      time: { gte: BigInt(minTime), lte: BigInt(maxTime) }, // Range time
+      // Using half-open interval [start, end) to avoid overlap and data leakage
+      time: { gte: BigInt(minTime), lte: BigInt(effectiveMaxTime) },
     },
     orderBy: { time: "asc" },
   });
@@ -173,7 +178,8 @@ export async function getIndicatorsForTimeRange(
         where: {
           coinId,
           timeframeId,
-          time: { gte: BigInt(minTime), lte: BigInt(maxTime) },
+          // Using half-open interval [start, end) to avoid overlap and data leakage
+          time: { gte: BigInt(minTime), lte: BigInt(effectiveMaxTime) },
         },
         orderBy: { time: "asc" },
       });

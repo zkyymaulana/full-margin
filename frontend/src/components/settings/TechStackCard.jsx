@@ -6,15 +6,15 @@ export function TechStackCard({ t, cardClass }) {
         <h2
           className={`text-lg md:text-xl font-semibold mb-4 ${t(
             "text-white",
-            "text-gray-900"
+            "text-gray-900",
           )}`}
         >
-          Technology Stack
+          Technology
         </h2>
         <div
           className={`text-xs md:text-sm ${t(
             "text-gray-400",
-            "text-gray-600"
+            "text-gray-600",
           )}`}
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

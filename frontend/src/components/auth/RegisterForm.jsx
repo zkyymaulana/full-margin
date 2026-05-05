@@ -26,7 +26,7 @@ export function RegisterForm({ formData, isLoading, onSubmit, onChange }) {
               ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
               : "border-gray-300"
           }`}
-          placeholder="John Doe"
+          placeholder="Satoshi Nakamoto"
           required
         />
       </div>
@@ -51,7 +51,7 @@ export function RegisterForm({ formData, isLoading, onSubmit, onChange }) {
               ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
               : "border-gray-300"
           }`}
-          placeholder="user@example.com"
+          placeholder="admin@crypto.com"
           required
         />
       </div>

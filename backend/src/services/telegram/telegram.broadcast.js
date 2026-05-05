@@ -4,10 +4,9 @@ import { prisma } from "../../lib/prisma.js";
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
 function isTelegramEnabled() {
-  return (
-    process.env.TELEGRAM_ENABLED === "true" ||
-    process.env.TELEGRAM_ENABLED === true
-  );
+  const raw = process.env.TELEGRAM_ENABLED;
+  if (raw == null) return true;
+  return raw === "true" || raw === true;
 }
 
 // Log konfigurasi (tetap sama, hanya pindah file)

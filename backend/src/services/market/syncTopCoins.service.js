@@ -10,7 +10,7 @@ import {
 dotenv.config();
 
 const TARGET_BUFFER = Number(process.env.TARGET_ASSET_BUFFER_LIMIT || 20);
-const TARGET_VALID = Number(process.env.TARGET_VALID_COINS || 10);
+const TARGET_VALID = Number(process.env.TARGET_VALID_COINS || 7);
 const CUTOFF_DATE = new Date("2025-01-01");
 
 let isSyncTopCoinsRunning = false;

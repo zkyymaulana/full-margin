@@ -106,7 +106,7 @@ export async function findLatestWeightRecord(
 ) {
   return prisma.indicatorWeight.findFirst({
     where: { coinId, timeframeId },
-    orderBy: { updatedAt: "desc" },
+    orderBy: { createdAt: "desc" },
     ...(select ? { select } : {}),
   });
 }
@@ -119,7 +119,7 @@ export async function findLatestSignalDataBundle(coinId, timeframeId) {
     }),
     prisma.indicatorWeight.findFirst({
       where: { coinId, timeframeId },
-      orderBy: { updatedAt: "desc" },
+      orderBy: { createdAt: "desc" },
     }),
     prisma.candle.findFirst({
       where: { coinId, timeframeId },
@@ -198,7 +198,7 @@ export async function findPaginatedSignalDataBundle(
       }),
       prisma.indicatorWeight.findFirst({
         where: { coinId, timeframeId },
-        orderBy: { updatedAt: "desc" },
+        orderBy: { createdAt: "desc" },
       }),
     ],
   );

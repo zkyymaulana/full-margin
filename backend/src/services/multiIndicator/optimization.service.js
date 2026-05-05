@@ -5,15 +5,11 @@ import {
   backtestWithWeights,
 } from "./multi-indicator.service.js";
 
-// const FIXED_START_EPOCH = Date.parse("2025-01-01T00:00:00Z");
-// const FIXED_START_EPOCH = Date.parse("2024-12-01T00:00:00Z");
+// Using half-open interval [start, end) to avoid overlap and edge-case bugs
 const FIXED_START_EPOCH = Date.parse("2020-01-01T00:00:00Z");
-// const FIXED_END_EPOCH = Date.parse("2026-01-01T00:00:00Z");
-const FIXED_END_EPOCH = Date.parse("2025-01-01T00:00:00Z");
+const FIXED_END_EPOCH = Date.parse("2026-01-01T00:00:00Z");
 
-// Fixed training window untuk semua optimization
-// const FIXED_START_EPOCH = Date.parse("2020-01-01T00:00:00Z");
-// const FIXED_END_EPOCH = Date.parse("2025-01-01T00:00:00Z");
+const DEFAULT_WINDOW_MODE = "fixed";
 
 const BENCHMARK_DATA_POINTS = 45893;
 const BENCHMARK_MINUTES = 78;
@@ -27,25 +23,32 @@ function toEpochMs(value) {
 }
 
 // tentukan rentang waktu training berdasarkan listing date
-function resolveTrainingWindow(listingDate) {
+export function resolveTrainingWindow(
+  listingDate,
+  { mode = DEFAULT_WINDOW_MODE, nowEpoch = Date.now() } = {},
+) {
   const listingEpoch = toEpochMs(listingDate);
 
-  // gunakan tanggal paling besar antara listingDate dan batas minimum
-  const startEpoch = listingEpoch
-    ? Math.max(FIXED_START_EPOCH, listingEpoch)
-    : FIXED_START_EPOCH;
+  if (mode === "fixed") {
+    // gunakan tanggal paling besar antara listingDate dan batas minimum
+    const startEpoch = listingEpoch
+      ? Math.max(FIXED_START_EPOCH, listingEpoch)
+      : FIXED_START_EPOCH;
 
-  // validasi agar tidak melewati batas akhir
-  if (startEpoch > FIXED_END_EPOCH) {
-    throw new Error("Listing date is outside configured training window");
+    // validasi agar tidak melewati batas akhir
+    if (startEpoch > FIXED_END_EPOCH) {
+      throw new Error("Listing date is outside configured training window");
+    }
+
+    return {
+      startEpoch,
+      endEpoch: FIXED_END_EPOCH,
+      startISO: new Date(startEpoch).toISOString(),
+      endISO: new Date(FIXED_END_EPOCH).toISOString(),
+    };
   }
 
-  return {
-    startEpoch,
-    endEpoch: FIXED_END_EPOCH,
-    startISO: new Date(startEpoch).toISOString(),
-    endISO: new Date(FIXED_END_EPOCH).toISOString(),
-  };
+  throw new Error("Unsupported training window mode");
 }
 
 // estimasi durasi optimasi berdasarkan jumlah data dibanding benchmark
@@ -133,7 +136,13 @@ export async function getOptimizationEstimate(symbol, timeframe) {
     }
 
     // tentukan range data yang digunakan
-    const trainingWindow = resolveTrainingWindow(coin.listingDate);
+    const trainingWindow = resolveTrainingWindow(coin.listingDate, {
+      mode: DEFAULT_WINDOW_MODE,
+    });
+
+    console.log(
+      `Training window: ${trainingWindow.startISO} → ${trainingWindow.endISO}`,
+    );
 
     // hitung jumlah data indikator dan candle dalam range
     const [indicatorCount, candleCount] = await Promise.all([
@@ -141,9 +150,10 @@ export async function getOptimizationEstimate(symbol, timeframe) {
         where: {
           coinId: coin.id,
           timeframeId: timeframeRecord.id,
+          // Using half-open interval [start, end) to avoid overlap and edge-case bugs
           time: {
             gte: BigInt(trainingWindow.startEpoch),
-            lte: BigInt(trainingWindow.endEpoch),
+            lt: BigInt(trainingWindow.endEpoch),
           },
         },
       }),
@@ -151,9 +161,10 @@ export async function getOptimizationEstimate(symbol, timeframe) {
         where: {
           coinId: coin.id,
           timeframeId: timeframeRecord.id,
+          // Using half-open interval [start, end) to avoid overlap and edge-case bugs
           time: {
             gte: BigInt(trainingWindow.startEpoch),
-            lte: BigInt(trainingWindow.endEpoch),
+            lt: BigInt(trainingWindow.endEpoch),
           },
         },
       }),
@@ -189,6 +200,9 @@ export async function getOptimizationEstimate(symbol, timeframe) {
 // ambil data indikator dan candle lalu gabungkan berdasarkan timestamp
 async function prepareOptimizationData(coinId, timeframeId, trainingWindow) {
   console.log(`Preparing data for optimization...`);
+  console.log(
+    `Training window: ${trainingWindow.startISO} → ${trainingWindow.endISO}`,
+  );
 
   // ambil data indikator dan candle dalam range waktu
   const [indicators, candles] = await Promise.all([
@@ -196,9 +210,10 @@ async function prepareOptimizationData(coinId, timeframeId, trainingWindow) {
       where: {
         coinId,
         timeframeId,
+        // Using half-open interval [start, end) to avoid overlap and edge-case bugs
         time: {
           gte: BigInt(trainingWindow.startEpoch),
-          lte: BigInt(trainingWindow.endEpoch),
+          lt: BigInt(trainingWindow.endEpoch),
         },
       },
       orderBy: { time: "asc" },
@@ -207,9 +222,10 @@ async function prepareOptimizationData(coinId, timeframeId, trainingWindow) {
       where: {
         coinId,
         timeframeId,
+        // Using half-open interval [start, end) to avoid overlap and edge-case bugs
         time: {
           gte: BigInt(trainingWindow.startEpoch),
-          lte: BigInt(trainingWindow.endEpoch),
+          lt: BigInt(trainingWindow.endEpoch),
         },
       },
       orderBy: { time: "asc" },
@@ -256,7 +272,13 @@ async function prepareOptimizationData(coinId, timeframeId, trainingWindow) {
 export async function runOptimization(
   symbol,
   timeframe,
-  { forceReoptimize = false, onProgress = null, checkCancel = null } = {},
+  {
+    forceReoptimize = false,
+    onProgress = null,
+    checkCancel = null,
+    windowMode = DEFAULT_WINDOW_MODE,
+    nowEpoch = Date.now(),
+  } = {},
 ) {
   const startTime = Date.now();
 
@@ -286,17 +308,13 @@ export async function runOptimization(
       throw new Error(`Timeframe ${timeframe} not found in database`);
     }
 
-    const trainingWindow = resolveTrainingWindow(coin.listingDate);
-
     // cek apakah sudah ada hasil optimasi sebelumnya
     const existingWeight = await prisma.indicatorWeight.findFirst({
       where: {
         coinId: coin.id,
         timeframeId: timeframeRecord.id,
-        startTest: BigInt(trainingWindow.startEpoch),
-        endTest: BigInt(trainingWindow.endEpoch),
       },
-      orderBy: { updatedAt: "desc" },
+      orderBy: { createdAt: "desc" },
     });
 
     let performanceData, weightsData, lastOptimizedDate;
@@ -315,8 +333,17 @@ export async function runOptimization(
         finalCapital: existingWeight.finalCapital,
       };
       weightsData = existingWeight.weights;
-      lastOptimizedDate = existingWeight.updatedAt;
+      lastOptimizedDate = existingWeight.createdAt;
     } else {
+      const trainingWindow = resolveTrainingWindow(coin.listingDate, {
+        mode: windowMode,
+        nowEpoch,
+      });
+
+      console.log(
+        `Training window: ${trainingWindow.startISO} → ${trainingWindow.endISO}`,
+      );
+
       // jalankan optimasi baru
       if (forceReoptimize && existingWeight) {
         console.log(`Forcing reoptimization despite existing weights...`);
@@ -337,7 +364,6 @@ export async function runOptimization(
       // jalankan algoritma optimasi
       const result = await optimizeIndicatorWeights(
         data,
-        symbol,
         onProgress,
         checkCancel,
         {
@@ -358,41 +384,35 @@ export async function runOptimization(
       }
 
       // simpan hasil ke database
-      console.log(`Saving to database...`);
-      await prisma.indicatorWeight.upsert({
+      const existing = await prisma.indicatorWeight.findFirst({
         where: {
-          coinId_timeframeId_startTest_endTest: {
-            coinId: coin.id,
-            timeframeId: timeframeRecord.id,
-            startTest: BigInt(trainingWindow.startEpoch),
-            endTest: BigInt(trainingWindow.endEpoch),
-          },
-        },
-        update: {
-          weights: result.bestWeights,
-          roi: result.performance.roi,
-          winRate: result.performance.winRate,
-          maxDrawdown: result.performance.maxDrawdown,
-          sharpeRatio: result.performance.sharpeRatio,
-          trades: result.performance.trades,
-          finalCapital: result.performance.finalCapital,
-          candleCount: data.length,
-        },
-        create: {
           coinId: coin.id,
           timeframeId: timeframeRecord.id,
           startTest: BigInt(trainingWindow.startEpoch),
           endTest: BigInt(trainingWindow.endEpoch),
-          weights: result.bestWeights,
-          roi: result.performance.roi,
-          winRate: result.performance.winRate,
-          maxDrawdown: result.performance.maxDrawdown,
-          sharpeRatio: result.performance.sharpeRatio,
-          trades: result.performance.trades,
-          finalCapital: result.performance.finalCapital,
-          candleCount: data.length,
         },
       });
+
+      if (!existing) {
+        await prisma.indicatorWeight.create({
+          data: {
+            coinId: coin.id,
+            timeframeId: timeframeRecord.id,
+            startTest: BigInt(trainingWindow.startEpoch),
+            endTest: BigInt(trainingWindow.endEpoch),
+            weights: result.bestWeights,
+            roi: result.performance.roi,
+            winRate: result.performance.winRate,
+            maxDrawdown: result.performance.maxDrawdown,
+            sharpeRatio: result.performance.sharpeRatio,
+            trades: result.performance.trades,
+            finalCapital: result.performance.finalCapital,
+            candleCount: data.length,
+          },
+        });
+      } else {
+        console.log("Same optimization window already exists, skipping insert");
+      }
 
       // refresh cache bobot
       invalidateWeightsCache(symbol, timeframe);
@@ -480,18 +500,13 @@ export async function runBacktestWithOptimizedWeights(symbol, timeframe) {
       throw new Error(`Timeframe ${timeframe} not found`);
     }
 
-    // tentukan range data yang digunakan
-    const trainingWindow = resolveTrainingWindow(coin.listingDate);
-
     // ambil bobot hasil optimasi terbaru
     const weights = await prisma.indicatorWeight.findFirst({
       where: {
         coinId: coin.id,
         timeframeId: timeframeRecord.id,
-        startTest: BigInt(trainingWindow.startEpoch),
-        endTest: BigInt(trainingWindow.endEpoch),
       },
-      orderBy: { updatedAt: "desc" },
+      orderBy: { createdAt: "desc" },
     });
 
     if (!weights) {
@@ -499,6 +514,22 @@ export async function runBacktestWithOptimizedWeights(symbol, timeframe) {
         "No optimized weights found. Please run optimization first.",
       );
     }
+
+    // tentukan range data yang digunakan berdasarkan bobot terakhir
+    const trainingWindow = weights
+      ? {
+          startEpoch: Number(weights.startTest),
+          endEpoch: Number(weights.endTest),
+          startISO: new Date(Number(weights.startTest)).toISOString(),
+          endISO: new Date(Number(weights.endTest)).toISOString(),
+        }
+      : resolveTrainingWindow(coin.listingDate, {
+          mode: DEFAULT_WINDOW_MODE,
+        });
+
+    console.log(
+      `Training window: ${trainingWindow.startISO} → ${trainingWindow.endISO}`,
+    );
 
     // siapkan data untuk backtest
     const prepared = await prepareOptimizationData(
@@ -576,17 +607,21 @@ export async function optimizeAllCoins(timeframe) {
         console.log(`${progress} Optimizing ${symbol}...`);
 
         // tentukan range data
-        const trainingWindow = resolveTrainingWindow(coin.listingDate);
+        const trainingWindow = resolveTrainingWindow(coin.listingDate, {
+          mode: "fixed",
+        });
+
+        console.log(
+          `${progress} Training window: ${trainingWindow.startISO} → ${trainingWindow.endISO}`,
+        );
 
         // cek apakah sudah pernah dioptimasi
         const existingWeight = await prisma.indicatorWeight.findFirst({
           where: {
             coinId: coin.id,
             timeframeId: timeframeRecord.id,
-            startTest: BigInt(trainingWindow.startEpoch),
-            endTest: BigInt(trainingWindow.endEpoch),
           },
-          orderBy: { updatedAt: "desc" },
+          orderBy: { createdAt: "desc" },
         });
 
         // jika sudah ada, skip
@@ -618,17 +653,11 @@ export async function optimizeAllCoins(timeframe) {
 
         // jalankan optimasi
         const estimateInfo = estimateDuration(data.length);
-        const result = await optimizeIndicatorWeights(
-          data,
-          symbol,
-          null,
-          null,
-          {
-            trainingWindow,
-            effectiveRange: prepared.effectiveRange,
-            initialEstimateSeconds: estimateInfo.estimatedSeconds,
-          },
-        );
+        const result = await optimizeIndicatorWeights(data, null, null, {
+          trainingWindow,
+          effectiveRange: prepared.effectiveRange,
+          initialEstimateSeconds: estimateInfo.estimatedSeconds,
+        });
 
         // simpan hasil ke database
         await prisma.indicatorWeight.create({

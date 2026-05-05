@@ -29,22 +29,6 @@ export function BacktestPanel({ performance, isDarkMode }) {
     }).format(value);
   };
 
-  const formatDateRange = () => {
-    if (!performance.trainingPeriod) return null;
-
-    const { startDateReadable, endDateReadable } = performance.trainingPeriod;
-    if (!startDateReadable || !endDateReadable) return null;
-
-    const formatShortDate = (dateStr) => {
-      if (!dateStr) return "";
-      return dateStr.split(" pukul ")[0];
-    };
-
-    return `${formatShortDate(startDateReadable)} - ${formatShortDate(
-      endDateReadable,
-    )}`;
-  };
-
   const metrics = [
     {
       label: "ROI",
@@ -117,7 +101,7 @@ export function BacktestPanel({ performance, isDarkMode }) {
 
   return (
     <>
-      <div
+      {/* <div
         className={`rounded-xl shadow-sm border p-6 ${
           isDarkMode
             ? "bg-linear-to-r from-blue-900 to-purple-900 border-blue-700"
@@ -131,24 +115,7 @@ export function BacktestPanel({ performance, isDarkMode }) {
                 isDarkMode ? "text-blue-300" : "text-blue-700"
               }`}
             />
-            <div>
-              <h3
-                className={`text-lg font-semibold ${
-                  isDarkMode ? "text-white" : "text-gray-900"
-                }`}
-              >
-                Backtest Performance (Optimization Period)
-              </h3>
-              {performance?.trainingPeriod && (
-                <p
-                  className={`text-xs ${
-                    isDarkMode ? "text-gray-400" : "text-gray-600"
-                  }`}
-                >
-                  Period: {formatDateRange()}
-                </p>
-              )}
-            </div>
+
             <div className="group relative mb-4">
               <FiInfo
                 className={`text-sm cursor-help ${
@@ -192,7 +159,7 @@ export function BacktestPanel({ performance, isDarkMode }) {
             </div>
           ))}
         </div>
-      </div>
+      </div> */}
 
       {/* 🆕 PROGRESS MODAL - Menampilkan Status Background */}
       {showProgressModal && (

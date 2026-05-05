@@ -1,68 +1,102 @@
-// Interpretasi skor trend menjadi teks yang mudah dibaca.
+// ==============================
+// GLOBAL THRESHOLD
+// ==============================
+const THRESHOLD = 0.6;
+
+// ==============================
+// INTERPRETATION FUNCTIONS
+// ==============================
+
+// Trend
 export function interpretTrendScore(score) {
-  if (score >= 3) return "Very Strong Uptrend";
-  if (score >= 1) return "Strong Uptrend";
-  if (score >= 0.5) return "Moderate Uptrend";
-  if (score > -0.5) return "Sideways";
-  if (score > -1) return "Moderate Downtrend";
-  if (score > -3) return "Strong Downtrend";
-  return "Very Strong Downtrend";
+  if (score >= THRESHOLD) return "Strong Uptrend";
+  if (score > -THRESHOLD) return "Sideways";
+  return "Strong Downtrend";
 }
 
-// Interpretasi skor momentum menjadi teks yang mudah dibaca.
+// Momentum
 export function interpretMomentumScore(score) {
-  if (score >= 4) return "Extreme Bullish Momentum";
-  if (score >= 2) return "Strong Bullish Momentum";
-  if (score >= 0.5) return "Moderate Bullish Momentum";
-  if (score > -0.5) return "Neutral Momentum";
-  if (score > -2) return "Moderate Bearish Momentum";
-  if (score > -4) return "Strong Bearish Momentum";
-  return "Extreme Bearish Momentum";
+  if (score >= THRESHOLD) return "Strong Bullish Momentum";
+  if (score > -THRESHOLD) return "Neutral Momentum";
+  return "Strong Bearish Momentum";
 }
 
-// Interpretasi skor volatility menjadi teks yang mudah dibaca.
+// Volatility (non-directional)
 export function interpretVolatilityScore(score) {
-  if (score >= 2) return "High Volatility (Bullish)";
-  if (score >= 0.5) return "Elevated Volatility (Bullish)";
-  if (score > -0.5) return "Normal Volatility";
-  if (score > -2) return "Elevated Volatility (Bearish)";
-  return "High Volatility (Bearish)";
+  if (score >= THRESHOLD) return "High Volatility";
+  if (score > -THRESHOLD) return "Normal Volatility";
+  return "Low Volatility";
 }
 
-// menghasilkan kalimat insight berdasarkan skor kategori indikator
-export function generateInsight(categoryScores, signal) {
+// ==============================
+// HELPER
+// ==============================
+function simplifyLabel(label) {
+  return label.toLowerCase();
+}
+
+// ==============================
+// INSIGHT GENERATOR
+// ==============================
+export function generateInsight(categoryScores, signal, finalScore = 0) {
   const { trend, momentum, volatility } = categoryScores;
 
-  // tentukan faktor dominan berdasarkan nilai absolut
-  const dominantFactors = [];
+  const aligned = [];
+  const conflicting = [];
 
-  if (Math.abs(trend) >= 1) {
-    dominantFactors.push(trend > 0 ? "positive trend" : "negative trend");
+  const isBullish = signal === "buy";
+  const isBearish = signal === "sell";
+
+  // ===== TREND =====
+  const trendLabel = simplifyLabel(interpretTrendScore(trend));
+  if (Math.abs(trend) >= THRESHOLD) {
+    if ((trend > 0 && isBullish) || (trend < 0 && isBearish)) {
+      aligned.push(trendLabel);
+    } else {
+      conflicting.push(trendLabel);
+    }
   }
 
-  if (Math.abs(momentum) >= 1) {
-    dominantFactors.push(momentum > 0 ? "strong momentum" : "weak momentum");
+  // ===== MOMENTUM =====
+  const momentumLabel = simplifyLabel(interpretMomentumScore(momentum));
+  if (Math.abs(momentum) >= THRESHOLD) {
+    if ((momentum > 0 && isBullish) || (momentum < 0 && isBearish)) {
+      aligned.push(momentumLabel);
+    } else {
+      conflicting.push(momentumLabel);
+    }
   }
 
-  if (Math.abs(volatility) >= 0.5) {
-    dominantFactors.push(volatility > 0 ? "high volatility" : "low volatility");
+  // ===== VOLATILITY (neutral) =====
+  const volatilityLabel = simplifyLabel(interpretVolatilityScore(volatility));
+  if (Math.abs(volatility) >= THRESHOLD) {
+    aligned.push(volatilityLabel);
   }
 
-  // tentukan bias dari signal
   const bias =
     signal === "buy" ? "Bullish" : signal === "sell" ? "Bearish" : "Neutral";
 
-  // jika tidak ada faktor dominan
-  if (dominantFactors.length === 0) {
-    return `${bias} bias with mixed signals across indicators.`;
+  let sentence = "";
+
+  if (aligned.length === 0 && conflicting.length === 0) {
+    sentence = `${bias} bias with mixed signals across indicators.`;
+  } else if (aligned.length > 0 && conflicting.length === 0) {
+    sentence = `${bias} bias supported by ${aligned.join(" and ")}.`;
+  } else if (aligned.length === 0 && conflicting.length > 0) {
+    sentence = `${bias} bias despite ${conflicting.join(" and ")}.`;
+  } else {
+    sentence = `${bias} bias supported by ${aligned.join(
+      " and ",
+    )}, but conflicting with ${conflicting.join(" and ")}.`;
   }
 
-  // gabungkan faktor dominan menjadi kalimat
-  const factorsText = dominantFactors.join(" and ");
-  return `${bias} bias supported mainly by ${factorsText}.`;
-}
+  // Weak signal warning
+  if (Math.abs(finalScore) < 0.2) {
+    sentence += " Signal is weak and should be confirmed.";
+  }
 
-// fungsi untuk format pesan sinyal Telegram dengan semua informasi yang diperlukan
+  return sentence;
+}
 export function formatTelegramSignalMessage({
   symbol,
   signal,
@@ -74,7 +108,6 @@ export function formatTelegramSignalMessage({
   timeframe = "1h",
   performance,
 }) {
-  // Format price dengan mata uang
   const formatCurrency = (value) => {
     return `$${value.toLocaleString("en-US", {
       minimumFractionDigits: 2,
@@ -82,14 +115,15 @@ export function formatTelegramSignalMessage({
     })}`;
   };
 
-  // Format date & time (timezone Asia/Jakarta)
   const now = new Date();
+
   const dateStr = now.toLocaleDateString("en-US", {
     month: "2-digit",
     day: "2-digit",
     year: "numeric",
     timeZone: "Asia/Jakarta",
   });
+
   const timeStr = now.toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
@@ -97,7 +131,6 @@ export function formatTelegramSignalMessage({
     timeZone: "Asia/Jakarta",
   });
 
-  // Format maxDrawdown secara aman
   const maxDrawdown =
     performance.maxDrawdown !== undefined &&
     performance.maxDrawdown !== null &&
@@ -105,21 +138,13 @@ export function formatTelegramSignalMessage({
       ? performance.maxDrawdown.toFixed(2)
       : "0.00";
 
-  // Generate insight berdasarkan category scores
-  const insight = generateInsight(categoryScores, signal);
+  const insight = generateInsight(categoryScores, signal, finalScore);
 
-  // Emoji sinyal (sesuai aturan sebelumnya)
   const signalEmoji = signal === "buy" ? "🟢" : signal === "sell" ? "🔴" : "⚪";
 
-  // Normalize strength display so sign always follows signal direction.
   const absoluteStrength = Math.abs(strength || 0);
-  const displayStrength =
-    signal === "sell"
-      ? -absoluteStrength
-      : signal === "buy"
-        ? absoluteStrength
-        : 0;
-  const percent = Math.abs(displayStrength * 100).toFixed(0);
+  const percent = Math.abs(absoluteStrength * 100).toFixed(0);
+
   const direction =
     signal === "sell" ? "SELL" : signal === "buy" ? "BUY" : "NEUTRAL";
 
@@ -140,8 +165,7 @@ export function formatTelegramSignalMessage({
     timeZone: "Asia/Jakarta",
   });
 
-  // Susunan pesan (Markdown) harus sama
-  const message = `${signalEmoji} *${signalLabel.toUpperCase()}* ${signalEmoji}
+  return `${signalEmoji} *${signalLabel.toUpperCase()}* ${signalEmoji}
 
 💲 ${symbol}
 • *Price:* ${formatCurrency(price)}
@@ -166,8 +190,6 @@ ${startDateStr} - ${endDateStr}
 💡 *Insight:*
 ${insight}
 
-⚠️ _Performance reflects recent historical data (recent 1 year) and may vary with market conditions._
+⚠️ _Performance reflects recent historical data and may vary with market conditions._
 ⚠️ _Decision Support Only — Not Financial Advice_`;
-
-  return message;
 }

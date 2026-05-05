@@ -20,7 +20,7 @@ const SYNC_CONCURRENCY = Number.isFinite(parsedSyncConcurrency)
   ? Math.max(1, parsedSyncConcurrency)
   : 2;
 // Jumlah aset final yang diproses/sinkron ke DB.
-const TARGET_ASSET_LIMIT = Number(process.env.TARGET_ASSET_LIMIT || "10");
+const TARGET_ASSET_LIMIT = Number(process.env.TARGET_ASSET_LIMIT || "7");
 // Buffer kandidat dari ranking teratas sebelum dipotong ke target final.
 const TARGET_ASSET_BUFFER_LIMIT = Number(
   process.env.TARGET_ASSET_BUFFER_LIMIT || "20",
