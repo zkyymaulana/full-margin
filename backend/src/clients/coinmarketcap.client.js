@@ -1,11 +1,3 @@
-/**
- * File: src/clients/coinmarketcap.client.js
- * -------------------------------------------------
- * Tujuan: Client HTTP untuk CoinMarketCap.
- * - Hanya berisi axios request, headers, params, endpoint URL, dan error handling.
- * - Business logic tetap di service layer.
- */
-
 import axios from "axios";
 import dotenv from "dotenv";
 

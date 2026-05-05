@@ -89,6 +89,14 @@ export async function calculateAndSaveIndicators(symbol, timeframe = "1h") {
     return;
   }
 
+  // DATA AWAL INPUT INDIKATOR: sample candle pertama dan total candle.
+  console.log("[DATA AWAL INPUT INDIKATOR]", {
+    symbol,
+    timeframe,
+    total: candles.length,
+    sample: candles[0],
+  });
+
   let existingTimes;
   let missingCandles;
 

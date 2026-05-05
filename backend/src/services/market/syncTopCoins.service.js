@@ -62,9 +62,20 @@ export async function syncTopCoins() {
     const data = await getTopCoins(TARGET_BUFFER);
     if (!data?.data) throw new Error("Data CMC kosong");
 
+    // DATA AWAL CMC: hasil pertama dari endpoint listings/latest.
+    // console.log("[DATA AWAL CMC] sample:", data.data[0]);
+
     // 2. Ambil pair Coinbase
     const activePairs = await fetchPairs();
     if (!activePairs.size) throw new Error("Pair Coinbase kosong");
+    console.log({ activePairs });
+
+    // DATA AWAL COINBASE: daftar pair aktif pertama kali.
+    // console.log("[DATA AWAL COINBASE] total:", activePairs.size);
+    // console.log(
+    //   "[DATA AWAL COINBASE] sample:",
+    //   Array.from(activePairs).slice(0, 5),
+    // );
 
     const results = [];
 
@@ -104,7 +115,10 @@ export async function syncTopCoins() {
       try {
         const base = symbol;
         const info = await getCoinLogos(base);
+        // console.log({ info });
+
         logo = info?.data?.[base]?.[0]?.logo;
+        console.log({ logo });
       } catch {
         console.warn(`gagal ambil logo ${symbol}`);
       }

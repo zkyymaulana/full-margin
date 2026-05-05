@@ -94,6 +94,9 @@ export async function fetchLastCandleByTimeframe(symbol) {
     // Mapping tetap dipisah (clean & reusable)
     const mapped = mapCoinbaseCandle(latest);
 
+    // DATA AWAL COINBASE LIVE: candle terbaru yang dipakai perhitungan.
+    console.log("[DATA AWAL COINBASE LIVE]", mapped);
+
     return {
       ...mapped,
       symbol,

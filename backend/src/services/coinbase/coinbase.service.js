@@ -38,6 +38,7 @@ export async function fetchHistoricalCandles(symbol, start, end, options = {}) {
   const allCandles = [];
   let current = start;
   let batchCount = 1;
+  let loggedSample = false;
 
   console.log(
     `🚀 Fetch ${symbol} candles: ${new Date(start).toISOString()} → ${new Date(end).toISOString()}`,
@@ -75,6 +76,13 @@ export async function fetchHistoricalCandles(symbol, start, end, options = {}) {
           }))
           // Hanya ambil candle yang sudah close penuh
           .filter((c) => c.time < Date.now() - HOUR_MS);
+
+        if (!loggedSample && data.length > 0) {
+          // DATA AWAL COINBASE (OHLCV mentah & terkonversi).
+          console.log("[DATA AWAL COINBASE OHLCV] raw:", data[0]);
+          // console.log("[DATA AWAL COINBASE OHLCV] mapped:", candles[0]);
+          loggedSample = true;
+        }
 
         if (candles.length > 0) {
           const orderedCandles = candles.reverse(); // urut lama → baru

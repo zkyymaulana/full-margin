@@ -41,6 +41,18 @@ export async function processIndicators(
         timeframe,
       );
 
+      if (results.length === 0) {
+        // DATA AWAL OUTPUT INDIKATOR: hasil indikator pertama yang dihitung.
+        console.log("[DATA AWAL OUTPUT INDIKATOR]", {
+          symbol,
+          timeframe,
+          time,
+          indicators,
+          signals,
+          overall: overallAnalysis,
+        });
+      }
+
       results.push({
         coinId,
         timeframeId,
@@ -127,6 +139,18 @@ export async function calculateInBatches(
       symbol,
       timeframe,
     );
+
+    if (results.length === 0 && totalSaved === 0) {
+      // DATA AWAL OUTPUT INDIKATOR: hasil indikator pertama yang dihitung.
+      console.log("[DATA AWAL OUTPUT INDIKATOR]", {
+        symbol,
+        timeframe,
+        time,
+        indicators,
+        signals,
+        overall: overallAnalysis,
+      });
+    }
 
     results.push({
       coinId,
