@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import Swal from "sweetalert2";
 import { useComparison } from "../hooks/useComparison";
 import { useSymbol } from "../contexts/SymbolContext";
 import { useQueryClient } from "@tanstack/react-query";
@@ -15,6 +16,7 @@ import {
 import { ComparisonResults } from "../components/comparison/results";
 
 const DATASET_START_DATE = "2020-01-01";
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 // Halaman comparison: mengatur alur input tanggal, eksekusi compare, dan render hasil.
 export default function ComparisonPage() {
@@ -33,11 +35,9 @@ export default function ComparisonPage() {
   };
 
   const today = new Date();
-  const oneYearAgo = new Date();
-  oneYearAgo.setFullYear(today.getFullYear() - 1);
 
-  const [startDate, setStartDate] = useState(formatDate(oneYearAgo));
-  const [endDate, setEndDate] = useState(formatDate(today));
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [displayData, setDisplayData] = useState(null);
 
   const minHistoricalDate = DATASET_START_DATE;
@@ -78,11 +78,11 @@ export default function ComparisonPage() {
   useEffect(() => {
     if (!minHistoricalDate) return;
 
-    if (startDate < minHistoricalDate) {
+    if (startDate && startDate < minHistoricalDate) {
       setStartDate(minHistoricalDate);
     }
 
-    if (endDate < minHistoricalDate) {
+    if (endDate && endDate < minHistoricalDate) {
       setEndDate(minHistoricalDate);
     }
   }, [minHistoricalDate, startDate, endDate]);
@@ -90,7 +90,22 @@ export default function ComparisonPage() {
   // Jalankan comparison berdasarkan simbol aktif dan rentang tanggal.
   const handleCompare = () => {
     if (!startDate || !endDate) {
-      alert("Please select start and end date");
+      Swal.fire({
+        icon: "info",
+        title: "Parameter belum lengkap",
+        text: "Silakan pilih start date dan end date terlebih dahulu.",
+        confirmButtonText: "OK",
+      });
+      return;
+    }
+
+    if (!DATE_PATTERN.test(startDate) || !DATE_PATTERN.test(endDate)) {
+      Swal.fire({
+        icon: "info",
+        title: "Format tanggal belum valid",
+        text: "Gunakan format YYYY-MM-DD untuk start date dan end date.",
+        confirmButtonText: "OK",
+      });
       return;
     }
 

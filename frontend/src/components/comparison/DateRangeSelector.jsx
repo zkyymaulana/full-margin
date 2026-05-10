@@ -13,6 +13,16 @@ export function DateRangeSelector({
   const { isDarkMode } = useDarkMode();
   const { selectedSymbol } = useSymbol();
 
+  const normalizeDateInput = (value) => {
+    if (!value) return "";
+    const digitsOnly = value.replace(/[^0-9]/g, "");
+    const limited = digitsOnly.slice(0, 8);
+    const year = limited.slice(0, 4);
+    const month = limited.slice(4, 6);
+    const day = limited.slice(6, 8);
+    return [year, month, day].filter(Boolean).join("-");
+  };
+
   const formatToYYYYMMDD = (date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");

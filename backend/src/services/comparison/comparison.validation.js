@@ -7,7 +7,7 @@ export function validateComparisonParams({ symbol, startDate, endDate }) {
     return {
       isValid: false,
       error: {
-        message: "Symbol harus berupa string dan tidak boleh kosong",
+        message: "Symbol must be a non-empty string",
         example: "BTC-USD, ETH-USD, SOL-USD",
       },
     };
@@ -18,7 +18,7 @@ export function validateComparisonParams({ symbol, startDate, endDate }) {
     return {
       isValid: false,
       error: {
-        message: "startDate dan endDate harus disediakan",
+        message: "startDate and endDate are required",
         example: 'startDate: "2024-01-01", endDate: "2024-12-31"',
       },
     };
@@ -31,8 +31,8 @@ export function validateComparisonParams({ symbol, startDate, endDate }) {
     return {
       isValid: false,
       error: {
-        message: `startDate "${startDate}" tidak valid`,
-        example: "2024-01-01 atau 2024-01-01T00:00:00Z",
+        message: `startDate "${startDate}" is invalid`,
+        example: "2024-01-01 or 2024-01-01T00:00:00Z",
       },
     };
   }
@@ -41,8 +41,8 @@ export function validateComparisonParams({ symbol, startDate, endDate }) {
     return {
       isValid: false,
       error: {
-        message: `endDate "${endDate}" tidak valid`,
-        example: "2024-01-01 atau 2024-01-01T00:00:00Z",
+        message: `endDate "${endDate}" is invalid`,
+        example: "2024-01-01 or 2024-01-01T00:00:00Z",
       },
     };
   }
@@ -55,8 +55,8 @@ export function validateComparisonParams({ symbol, startDate, endDate }) {
     return {
       isValid: false,
       error: {
-        message: "startDate tidak boleh sebelum 2020-01-01",
-        example: "Gunakan startDate >= 2020-01-01",
+        message: "startDate must not be earlier than 2020-01-01",
+        example: "Use startDate >= 2020-01-01",
       },
     };
   }
@@ -66,7 +66,7 @@ export function validateComparisonParams({ symbol, startDate, endDate }) {
     return {
       isValid: false,
       error: {
-        message: "startDate harus lebih kecil dari endDate",
+        message: "startDate must be earlier than endDate",
         example: "startDate: 2024-01-01, endDate: 2024-12-31",
       },
     };
@@ -80,8 +80,8 @@ export function validateComparisonParams({ symbol, startDate, endDate }) {
     return {
       isValid: false,
       error: {
-        message: "Range minimal 7 hari",
-        example: "Gunakan rentang >= 7 hari",
+        message: "Minimum range is 7 days",
+        example: "Use a range of at least 7 days",
       },
     };
   }

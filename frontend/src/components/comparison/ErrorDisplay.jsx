@@ -20,70 +20,64 @@ export function ErrorDisplay({ error, isLoading, isPending }) {
 
   const fallbackMessage =
     error?.message === "Network Error"
-      ? "Tidak dapat terhubung ke server. Periksa koneksi internet atau backend Anda."
-      : "Terjadi kendala saat memproses backtest. Silakan coba lagi.";
+      ? "Unable to reach the server. Check your internet connection or backend."
+      : "We ran into an issue while running the backtest. Please try again.";
 
   const message = replaceIsoDatesInText(apiMessage || fallbackMessage);
   const exampleText = replaceIsoDatesInText(apiExample);
 
   const title =
     status === 400
-      ? "Parameter Backtest Tidak Valid"
+      ? "Invalid Backtest Parameters"
       : status === 401 || status === 403
-        ? "Sesi Login Tidak Valid"
+        ? "Session Not Valid"
         : status === 404
-          ? "Data Tidak Ditemukan"
+          ? "Data Not Found"
           : status >= 500
-            ? "Server Sedang Bermasalah"
-            : "Backtest Gagal Dijalankan";
+            ? "Server Issue"
+            : "Backtest Failed";
 
   const tips = [];
   if (status === 400) {
-    tips.push("Periksa kembali rentang tanggal Start Date dan End Date.");
-    tips.push(
-      "Pastikan format tanggal valid dan tidak melewati batas data historis.",
-    );
+    tips.push("Double-check the Start Date and End Date range.");
+    tips.push("Ensure the date format is valid and within the dataset range.");
   }
   if (status === 404) {
-    tips.push(
-      "Coba ganti simbol atau rentang tanggal yang memiliki data candle.",
-    );
+    tips.push("Try another symbol or a date range with available candles.");
   }
   if (!status || status >= 500) {
-    tips.push(
-      "Ulangi beberapa saat lagi atau cek log backend untuk detail error.",
-    );
+    tips.push("Try again in a moment or check backend logs for details.");
   }
 
   return (
     <div
       className={`relative overflow-hidden border rounded-xl md:rounded-2xl p-4 md:p-5 shadow-sm ${
         isDarkMode
-          ? "bg-red-950/25 border-red-800/70"
-          : "bg-red-50/80 border-red-200"
+          ? "bg-slate-900/40 border-sky-800/60"
+          : "bg-sky-50/80 border-sky-200"
       }`}
     >
       <div
         className={`absolute left-0 top-0 h-full w-1 ${
-          isDarkMode ? "bg-red-500/70" : "bg-red-500"
+          isDarkMode ? "bg-sky-500/70" : "bg-sky-500"
         }`}
       />
 
       <div
         className={`flex items-start justify-between gap-3 text-sm md:text-base mb-3 ${
-          isDarkMode ? "text-red-300" : "text-red-700"
+          isDarkMode ? "text-sky-200" : "text-sky-800"
         }`}
       >
         <div className="flex items-start gap-2.5">
-          <span className="text-lg md:text-xl leading-none">⚠️</span>
+          <span className="text-lg md:text-xl leading-none">ℹ️</span>
           <div>
             <p className="font-semibold leading-tight">{title}</p>
             <p
               className={`text-[11px] md:text-xs mt-1 ${
-                isDarkMode ? "text-red-400" : "text-red-600"
+                isDarkMode ? "text-sky-300" : "text-sky-700"
               }`}
             >
-              Mohon perbaiki input berikut sebelum menjalankan backtest.
+              Please review the details below before running the backtest.
             </p>
           </div>
         </div>
@@ -91,19 +85,19 @@ export function ErrorDisplay({ error, isLoading, isPending }) {
 
       <div
         className={`rounded-lg px-3 py-2.5 ${
-          isDarkMode ? "bg-red-950/35" : "bg-white/90"
+          isDarkMode ? "bg-slate-950/30" : "bg-white/90"
         }`}
       >
         <p
           className={`text-[11px] uppercase tracking-wide font-semibold mb-1 ${
-            isDarkMode ? "text-red-400" : "text-red-600"
+            isDarkMode ? "text-sky-300" : "text-sky-700"
           }`}
         >
-          Pesan
+          Message
         </p>
         <p
           className={`text-sm md:text-base leading-relaxed ${
-            isDarkMode ? "text-red-100" : "text-red-900"
+            isDarkMode ? "text-slate-100" : "text-slate-900"
           }`}
         >
           {message}
@@ -114,16 +108,16 @@ export function ErrorDisplay({ error, isLoading, isPending }) {
         <div
           className={`mt-2 text-xs md:text-sm rounded-lg px-3 py-2.5 ${
             isDarkMode
-              ? "bg-red-950/25 text-red-200"
-              : "bg-white/80 text-red-800"
+              ? "bg-slate-950/25 text-slate-200"
+              : "bg-white/80 text-slate-800"
           }`}
         >
           <p
             className={`text-[11px] uppercase tracking-wide font-semibold mb-1 ${
-              isDarkMode ? "text-red-400" : "text-red-600"
+              isDarkMode ? "text-sky-300" : "text-sky-700"
             }`}
           >
-            Contoh Input
+            Example
           </p>
           <p>{exampleText}</p>
         </div>
@@ -133,14 +127,14 @@ export function ErrorDisplay({ error, isLoading, isPending }) {
         <div className="mt-3">
           <p
             className={`text-[11px] uppercase tracking-wide font-semibold mb-1.5 ${
-              isDarkMode ? "text-red-400" : "text-red-600"
+              isDarkMode ? "text-sky-300" : "text-sky-700"
             }`}
           >
-            Saran Perbaikan
+            Suggestions
           </p>
           <ul
             className={`space-y-1.5 text-xs md:text-sm ${
-              isDarkMode ? "text-red-200" : "text-red-700"
+              isDarkMode ? "text-slate-200" : "text-slate-700"
             }`}
           >
             {tips.map((tip) => (
