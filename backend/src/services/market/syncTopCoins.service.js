@@ -12,6 +12,15 @@ dotenv.config();
 const TARGET_BUFFER = Number(process.env.TARGET_ASSET_BUFFER_LIMIT || 20);
 const TARGET_VALID = Number(process.env.TARGET_VALID_COINS || 7);
 const CUTOFF_DATE = new Date("2025-01-01");
+const DEFAULT_TOP_PAIRS = [
+  "BTC-USD",
+  "ETH-USD",
+  "XRP-USD",
+  "SOL-USD",
+  "DOGE-USD",
+  "ADA-USD",
+  "BCH-USD",
+];
 
 let isSyncTopCoinsRunning = false;
 
@@ -64,9 +73,9 @@ export async function syncTopCoins() {
     console.log("Start sync top coins...");
 
     // 1. Ambil top 20 dari CMC
-    const data = await getTopCoins(TARGET_BUFFER);
-    if (!data?.data) throw new Error("Data CMC kosong");
-
+    // const data = await getTopCoins(TARGET_BUFFER);
+    // if (!data?.data) throw new Error("Data CMC kosong");
+    //
     // DATA AWAL CMC: hasil pertama dari endpoint listings/latest.
     // console.log("[DATA AWAL CMC] sample:", data.data[0]);
 
@@ -85,29 +94,40 @@ export async function syncTopCoins() {
     const results = [];
 
     // loop satu persatu
-    for (const coin of data.data) {
+    // for (const coin of data.data) {
+    //   if (results.length >= TARGET_VALID) break;
+    //
+    //   const symbol = coin.symbol.toUpperCase();
+    //
+    //   // skip stablecoin
+    //   if (STABLECOINS.has(symbol)) {
+    //     // console.log(`${symbol} stablecoin`);
+    //     continue;
+    //   }
+    //
+    //   // 3. pairing
+    //   const possiblePairs = [
+    //     `${symbol}-USD`,
+    //     `${symbol}-USDT`,
+    //     `${symbol}-USDC`,
+    //   ];
+    //
+    //   const pair = possiblePairs.find((p) => activePairs.has(p));
+    //   if (!pair) {
+    //     console.log(`${symbol} tidak ada pair`);
+    //     continue;
+    //   }
+
+    // loop fixed pairs (default)
+    for (const pair of DEFAULT_TOP_PAIRS) {
       if (results.length >= TARGET_VALID) break;
 
-      const symbol = coin.symbol.toUpperCase();
-
-      // skip stablecoin
-      if (STABLECOINS.has(symbol)) {
-        // console.log(`${symbol} stablecoin`);
+      if (!activePairs.has(pair)) {
+        console.log(`${pair} tidak ada pair`);
         continue;
       }
 
-      // 3. pairing
-      const possiblePairs = [
-        `${symbol}-USD`,
-        `${symbol}-USDT`,
-        `${symbol}-USDC`,
-      ];
-
-      const pair = possiblePairs.find((p) => activePairs.has(p));
-      if (!pair) {
-        console.log(`${symbol} tidak ada pair`);
-        continue;
-      }
+      const symbol = pair.split("-")[0];
 
       // 4. cek listing date
       const listingDate = await getListingDate(pair);
@@ -131,11 +151,11 @@ export async function syncTopCoins() {
 
       const coinData = {
         symbol: pair,
-        name: coin.name,
-        rank: coin.cmc_rank,
-        price: coin?.quote?.USD?.price || 0,
-        marketCap: coin?.quote?.USD?.market_cap || 0,
-        volume24h: coin?.quote?.USD?.volume_24h || 0,
+        name: symbol,
+        rank: results.length + 1,
+        price: 0,
+        marketCap: 0,
+        volume24h: 0,
         listingDate,
         logo,
       };
