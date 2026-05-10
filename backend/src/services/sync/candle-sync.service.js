@@ -12,13 +12,9 @@ import {
 
 // Cache untuk menyimpan waktu update terakhir per simbol.
 const lastUpdateCache = new Map();
-const parsedSyncConcurrency = Number.parseInt(
-  process.env.SYNC_CONCURRENCY || "2",
-  10,
-);
-const SYNC_CONCURRENCY = Number.isFinite(parsedSyncConcurrency)
-  ? Math.max(1, parsedSyncConcurrency)
-  : 2;
+
+// Jumlah maksimal symbol yang diproses bersamaan.
+const SYNC_CONCURRENCY = 2;
 // Jumlah aset final yang diproses/sinkron ke DB.
 const TARGET_ASSET_LIMIT = Number(process.env.TARGET_ASSET_LIMIT || "7");
 // Buffer kandidat dari ranking teratas sebelum dipotong ke target final.
@@ -91,37 +87,57 @@ async function syncCoinListingDateFromCoinbase(coinId, symbol) {
   return listingDate;
 }
 
-// Jalankan proses paralel dengan batas concurrency.
+// Jalankan banyak async task dengan batas concurrency.
 async function runWithConcurrency(items, limit, worker) {
+  // Array untuk menyimpan hasil semua task.
   const results = new Array(items.length);
+
+  // Penanda item yang sedang diproses.
   let currentIndex = 0;
 
-  const workers = Array.from({ length: Math.min(limit, items.length) }).map(
-    async () => {
-      while (true) {
-        const index = currentIndex;
-        currentIndex += 1;
-        if (index >= items.length) break;
+  // Worker sesuai limit concurrency.
+  const workers = Array.from({
+    length: Math.min(limit, items.length),
+  }).map(async () => {
+    // Worker terus mengambil task sampai habis.
+    while (true) {
+      // Ambil index item berikutnya.
+      const index = currentIndex;
 
-        try {
-          const value = await worker(items[index], index);
-          results[index] = { status: "fulfilled", value };
-        } catch (reason) {
-          results[index] = { status: "rejected", reason };
-        }
+      // Geser antrean ke item selanjutnya.
+      currentIndex += 1;
+
+      // Stop jika semua item sudah diproses.
+      if (index >= items.length) break;
+
+      try {
+        // Jalankan worker async untuk item ini.
+        const value = await worker(items[index], index);
+
+        // Simpan hasil sukses.
+        results[index] = {
+          status: "fulfilled",
+          value,
+        };
+      } catch (reason) {
+        // Simpan hasil gagal/error.
+        results[index] = {
+          status: "rejected",
+          reason,
+        };
       }
-    },
-  );
+    }
+  });
 
+  // Tunggu semua worker selesai.
   await Promise.all(workers);
+
+  // Return semua hasil task.
   return results;
 }
 
-/**
- * Perbarui listingDate berdasarkan candle paling awal dari Coinbase.
- * Dipanggil setelah sync historis agar tanggal listing akurat.
- */
 // Perbarui listing date satu simbol berdasarkan candle paling awal di database.
+// Dipanggil setelah sync historis agar tanggal listing akurat.
 export async function updateListingDateFromCandles(symbol) {
   try {
     const coin = await prisma.coin.findUnique({
@@ -189,7 +205,7 @@ export async function updateAllListingDates() {
   console.log(`Updating listing dates for all coins...`);
 
   try {
-    // Ambil semua coin yang berbentuk pair (mengandung "-").
+    // Ambil semua coin yang berbentuk pair (yg mempunyai "-").
     const coins = await prisma.coin.findMany({
       where: {
         symbol: { contains: "-" },
@@ -242,7 +258,6 @@ export async function updateAllListingDates() {
 // Sinkronisasi candle terbaru untuk kumpulan simbol.
 export async function syncLatestCandles(symbols = []) {
   console.log(`Starting candle sync for ${symbols.length} symbols...`);
-  console.log(`Sync concurrency: ${SYNC_CONCURRENCY}`);
   const start = Date.now();
 
   try {
@@ -260,7 +275,6 @@ export async function syncLatestCandles(symbols = []) {
     );
     return { successful, failed, duration: Date.now() - start };
   } catch (error) {
-    console.error(`Candle sync error:`, error.message);
     throw error;
   }
 }
@@ -336,7 +350,6 @@ async function syncSymbolCandles(symbol) {
     // Jangan fetch jika sudah terbaru.
     const currentHour = Math.floor(now / oneHour) * oneHour;
     if (startTime >= currentHour) {
-      console.log(`⏭️ ${symbol}: Already up to date`);
       return { symbol, newCandles: 0 };
     }
 
@@ -344,7 +357,6 @@ async function syncSymbolCandles(symbol) {
     const newCandles = await fetchHistoricalCandles(symbol, startTime, now);
 
     if (newCandles.length === 0) {
-      console.log(`${symbol}: No new candles`);
       return { symbol, newCandles: 0 };
     }
 
@@ -355,7 +367,6 @@ async function syncSymbolCandles(symbol) {
     });
 
     if (completeCandles.length === 0) {
-      console.log(`${symbol}: No complete candles to save`);
       return { symbol, newCandles: 0 };
     }
 
@@ -386,7 +397,6 @@ async function syncSymbolCandles(symbol) {
       : candlesWithForwardFill;
 
     if (!candlesForSave.length) {
-      console.log(`${symbol}: No new candles after bridge normalization`);
       return { symbol, newCandles: 0 };
     }
 
@@ -488,7 +498,7 @@ export async function syncHistoricalData(
   options = {},
 ) {
   const forceFromStart = options.forceFromStart === true;
-  console.log(`Starting FAST historical data sync from ${startDate}...`);
+  console.log(`Start historical data sync from ${startDate}...`);
   console.log(`Processing ${symbols.length} symbols...`);
 
   const targetStartTime = new Date(startDate).getTime();
@@ -513,7 +523,7 @@ export async function syncHistoricalData(
     throw new Error('Timeframe "1h" not found in database');
   }
 
-  // Proses simbol satu per satu agar API tidak kewalahan.
+  // Proses simbol satu per satu agar API tidak berat.
   for (let i = 0; i < symbols.length; i++) {
     const symbol = symbols[i];
     console.log(`\n[${i + 1}/${symbols.length}] ${symbol}...`);
@@ -578,7 +588,6 @@ export async function syncHistoricalData(
 
         // Belum ada data, ambil semua dari tanggal awal.
         fetchStartTime = targetStartTime;
-        console.log(`Fetching from ${startDate} to now`);
       } else {
         if (forceFromStart) {
           const earliestTime = earliestCandle
@@ -587,7 +596,6 @@ export async function syncHistoricalData(
 
           if (!earliestTime || earliestTime > targetStartTime) {
             fetchStartTime = targetStartTime;
-            console.log(`Backfill from ${startDate} to now`);
           }
         }
 
@@ -607,10 +615,6 @@ export async function syncHistoricalData(
           results.skipped++;
           continue;
         }
-
-        console.log(
-          `Fetching from ${new Date(fetchStartTime).toISOString().split("T")[0]} onwards`,
-        );
       }
 
       // Fetch dan simpan per batch agar RAM tidak membengkak.
@@ -643,13 +647,15 @@ export async function syncHistoricalData(
             oneHour,
           );
 
-          // Jangan simpan ulang tail batch sebelumnya.
+          // Hindari overlap candle dari batch sebelumnya.
           const candlesForSave = previousBatchTail
             ? candlesWithForwardFill.filter(
+                // Ambil hanya candle yang lebih baru dari tail batch sebelumnya.
                 (c) => c.time > previousBatchTail.time,
               )
             : candlesWithForwardFill;
 
+          // lewati jika tidak ada candle baru untuk disimpan.
           if (!candlesForSave.length) return;
 
           const candleData = candlesForSave.map((candle) => ({
@@ -663,12 +669,16 @@ export async function syncHistoricalData(
             volume: candle.volume,
           }));
 
+          // Simpan candle ke database dan skip data duplicate.
           await prisma.candle.createMany({
             data: candleData,
             skipDuplicates: true,
           });
 
+          // Tambahkan total candle yang berhasil diproses.
           totalCompleteCandles += candlesForSave.length;
+
+          // Simpan timestamp candle paling awal yang berhasil disimpan.
           if (
             !earliestSavedTime ||
             candlesForSave[0].time < earliestSavedTime
@@ -676,15 +686,20 @@ export async function syncHistoricalData(
             earliestSavedTime = candlesForSave[0].time;
           }
 
+          // Ambil timestamp candle terakhir dari batch saat ini.
           const batchLastTime = candlesForSave[candlesForSave.length - 1].time;
+
+          // Simpan timestamp candle terbaru yang berhasil disimpan.
           if (!latestSavedTime || batchLastTime > latestSavedTime) {
             latestSavedTime = batchLastTime;
           }
 
+          // Simpan candle terakhir batch untuk mencegah overlap batch berikutnya.
           previousBatchTail = candlesForSave[candlesForSave.length - 1];
         },
       });
 
+      // Skip jika tidak ada candle yang berhasil diambil/disimpan.
       if (totalCompleteCandles === 0) {
         console.log(
           `No data available from API (pair may not have historical data)`,

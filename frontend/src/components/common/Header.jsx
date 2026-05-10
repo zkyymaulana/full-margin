@@ -41,12 +41,10 @@ function Header() {
   }, [symbolsData]);
   const user = profileData?.data || {};
 
-  // Fallback to localStorage for avatar if not in profile data
-  const userAvatar = user?.avatarUrl || localStorage.getItem("userAvatar");
-  const userName =
-    user?.name || localStorage.getItem("userName") || "Admin User";
-  const userEmail =
-    user?.email || localStorage.getItem("userEmail") || "admin@crypto.com";
+  const userAvatar = user?.avatarUrl || "";
+  const userName = user?.name || "";
+  const userEmail = user?.email || "";
+  const userInitial = userName ? userName.charAt(0) : "?";
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -366,14 +364,14 @@ function Header() {
                   isDarkMode ? "text-white" : "text-gray-900"
                 }`}
               >
-                {userName}
+                {userName || "—"}
               </div>
               <div
                 className={`text-xs ${
                   isDarkMode ? "text-gray-400" : "text-gray-500"
                 }`}
               >
-                {userEmail}
+                {userEmail || ""}
               </div>
             </div>
             <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold shadow-md">
@@ -385,7 +383,7 @@ function Header() {
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <span>{userName.charAt(0)}</span>
+                <span>{userInitial}</span>
               )}
             </div>
           </button>
@@ -414,7 +412,7 @@ function Header() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span>{userName.charAt(0)}</span>
+                      <span>{userInitial}</span>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -423,14 +421,14 @@ function Header() {
                         isDarkMode ? "text-white" : "text-gray-900"
                       }`}
                     >
-                      {userName}
+                      {userName || "—"}
                     </div>
                     <div
                       className={`text-xs truncate ${
                         isDarkMode ? "text-gray-400" : "text-gray-500"
                       }`}
                     >
-                      {userEmail}
+                      {userEmail || ""}
                     </div>
                   </div>
                 </div>

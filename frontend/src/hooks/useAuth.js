@@ -4,7 +4,7 @@ import { login, logout, register } from "../services/api.service";
 import { useNavigate } from "react-router-dom";
 import { showErrorToast, showSuccessToast } from "../utils/notifications";
 
-function clearAuthSession() {
+export function clearAuthSession() {
   localStorage.removeItem("authToken");
   localStorage.removeItem("userId");
   localStorage.removeItem("userEmail");

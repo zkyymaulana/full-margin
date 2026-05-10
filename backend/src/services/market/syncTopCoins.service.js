@@ -36,13 +36,18 @@ const STABLECOINS = new Set([
 const listingDateCache = new Map();
 
 async function getListingDate(symbol) {
+  // Cek apakah data sudah ada di cache
   if (listingDateCache.has(symbol)) {
+    // Jika sudah ada → langsung kembalikan
     return listingDateCache.get(symbol);
   }
 
+  // Jika belum ada → ambil dari API (cari candle paling awal)
   const earliest = await findEarliestCoinbaseCandleTime(symbol);
+  // Jika ada → ubah ke object Date, jika tidak → null
   const date = earliest ? new Date(earliest) : null;
 
+  // Simpan hasil ke cache
   listingDateCache.set(symbol, date);
   return date;
 }
@@ -56,7 +61,7 @@ export async function syncTopCoins() {
   isSyncTopCoinsRunning = true;
 
   try {
-    console.log("🚀 Start sync top coins...");
+    console.log("Start sync top coins...");
 
     // 1. Ambil top 20 dari CMC
     const data = await getTopCoins(TARGET_BUFFER);
@@ -68,7 +73,7 @@ export async function syncTopCoins() {
     // 2. Ambil pair Coinbase
     const activePairs = await fetchPairs();
     if (!activePairs.size) throw new Error("Pair Coinbase kosong");
-    console.log({ activePairs });
+    // console.log({ activePairs });
 
     // DATA AWAL COINBASE: daftar pair aktif pertama kali.
     // console.log("[DATA AWAL COINBASE] total:", activePairs.size);
@@ -79,6 +84,7 @@ export async function syncTopCoins() {
 
     const results = [];
 
+    // loop satu persatu
     for (const coin of data.data) {
       if (results.length >= TARGET_VALID) break;
 
@@ -86,7 +92,7 @@ export async function syncTopCoins() {
 
       // skip stablecoin
       if (STABLECOINS.has(symbol)) {
-        console.log(`${symbol} stablecoin`);
+        // console.log(`${symbol} stablecoin`);
         continue;
       }
 
@@ -118,7 +124,7 @@ export async function syncTopCoins() {
         // console.log({ info });
 
         logo = info?.data?.[base]?.[0]?.logo;
-        console.log({ logo });
+        // console.log({ logo });
       } catch {
         console.warn(`gagal ambil logo ${symbol}`);
       }
@@ -143,6 +149,7 @@ export async function syncTopCoins() {
     }
 
     // Update database dengan hasil sinkronisasi
+    // loop satu persatu
     for (const coin of results) {
       const updateData = {
         rank: coin.rank,
@@ -160,6 +167,7 @@ export async function syncTopCoins() {
         rank: coin.rank,
         name: coin.name,
         listingDate: coin.listingDate,
+        // Jika coin.logo ada (tidak null/undefined/false), maka: { logo: coin.logo }
         ...(coin.logo && { logo: coin.logo }),
       };
 

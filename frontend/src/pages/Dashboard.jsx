@@ -14,7 +14,7 @@ import DashboardHeader from "../components/dashboard/DashboardHeader";
 import DashboardChartSection from "../components/dashboard/DashboardChartSection";
 
 // Halaman dashboard: menampilkan chart utama, oscillator, indikator, dan top coin.
-function DashboardPage() {
+export default function DashboardPage() {
   const { selectedSymbol } = useSymbol();
   const [timeframe, setTimeframe] = useState("1h");
   const [activeIndicators, setActiveIndicators] = useState([]);
@@ -263,7 +263,6 @@ function DashboardPage() {
     // Sinkronisasi butuh minimal 2 chart.
     if (allCharts.length < 2) return;
 
-
     const cleanupFunctions = [];
     allCharts.forEach((chart, index) => {
       const chartName =
@@ -280,13 +279,11 @@ function DashboardPage() {
         if (fn) fn();
       });
     };
-
   }, [chartSync]);
 
   // Callback saat chart oscillator selesai dibuat.
   const handleChartReady = useCallback(
     (chartKey, chart) => {
-
       // Samakan visible range chart baru dengan main chart.
       if (chartRef.current) {
         try {
@@ -415,6 +412,3 @@ function DashboardPage() {
     </div>
   );
 }
-
-export { DashboardPage };
-export default DashboardPage;

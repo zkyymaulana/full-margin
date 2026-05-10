@@ -12,7 +12,7 @@ import {
 } from "../components/market";
 
 // Halaman market cap: menampilkan statistik market dan daftar coin interaktif.
-function MarketCapPage() {
+export default function MarketCapPage() {
   const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(10);
@@ -158,6 +158,3 @@ function MarketCapPage() {
     </div>
   );
 }
-
-export { MarketCapPage };
-export default MarketCapPage;

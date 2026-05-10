@@ -1,5 +1,9 @@
+import { useEffect, useRef } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth, clearAuthSession } from "../../hooks/useAuth";
+import { getUserProfile } from "../../services/api.service";
+import { showErrorToast } from "../../utils/notifications";
 
 /**
  * Protected Route Component
@@ -18,8 +22,38 @@ import { useAuth } from "../../hooks/useAuth";
  */
 // ProtectedRoute: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
 function ProtectedRoute({ children }) {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const location = useLocation();
+  const hasShownKickToast = useRef(false);
+
+  const { isFetching, isError, error } = useQuery({
+    queryKey: ["auth", "profile-check"],
+    queryFn: getUserProfile,
+    enabled: isAuthenticated,
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const errorMessage = error?.response?.data?.message;
+  const errorStatus = error?.response?.status;
+  const shouldForceLogin =
+    isAuthenticated &&
+    isError &&
+    (errorMessage === "Akun tidak terdaftar" ||
+      errorMessage === "Unauthorized" ||
+      errorMessage === "Token tidak ditemukan" ||
+      errorMessage === "Token tidak valid" ||
+      errorStatus === 401 ||
+      errorStatus === 403);
+
+  useEffect(() => {
+    if (!shouldForceLogin) return;
+    if (!hasShownKickToast.current) {
+      showErrorToast("Your session is no longer valid. Please sign in again.");
+      hasShownKickToast.current = true;
+    }
+    clearAuthSession();
+  }, [shouldForceLogin]);
 
   // Loading state - Jika auth masih di-check
   // Uncomment jika useAuth() memiliki loading state
@@ -37,10 +71,19 @@ function ProtectedRoute({ children }) {
   // }
 
   // Jika tidak authenticated, redirect ke login
-  if (!isAuthenticated) {
-
+  if (!isAuthenticated || shouldForceLogin) {
     // Simpan current location untuk redirect setelah login
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (isFetching) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-gray-600 dark:text-gray-400">
+          Memeriksa sesi akun...
+        </p>
+      </div>
+    );
   }
 
   // Jika authenticated, render children

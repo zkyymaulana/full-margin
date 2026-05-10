@@ -87,33 +87,40 @@ export function cleanTickerData(data) {
 export function cleanCandleData(candles = []) {
   if (!Array.isArray(candles) || candles.length === 0) return [];
 
-  // Filter candle rusak, rapikan presisi angka, lalu urutkan berdasarkan waktu.
-  return candles
-    .filter(
-      (c) =>
-        c &&
-        isFinite(c.open) &&
-        isFinite(c.close) &&
-        isFinite(c.high) &&
-        isFinite(c.low) &&
-        isFinite(c.volume) &&
-        c.volume >= 0 &&
-        c.low <= c.high &&
-        c.open > 0 &&
-        c.close > 0,
-    )
-    .map((c) => ({
-      time: Math.floor(c.time),
-      open: Number(c.open.toFixed(8)),
-      high: Number(c.high.toFixed(8)),
-      low: Number(c.low.toFixed(8)),
-      close: Number(c.close.toFixed(8)),
-      volume: Number(c.volume.toFixed(8)),
-    }))
-    .sort((a, b) => a.time - b.time);
+  // Filter candle yang rusak / tidak valid.
+  return (
+    candles
+      .filter(
+        (c) =>
+          c &&
+          isFinite(c.open) &&
+          isFinite(c.close) &&
+          isFinite(c.high) &&
+          isFinite(c.low) &&
+          isFinite(c.volume) &&
+          c.volume >= 0 &&
+          c.low <= c.high &&
+          c.open > 0 &&
+          c.close > 0,
+      )
+
+      // Rapikan format angka dan timestamp.
+      .map((c) => ({
+        // Bulatkan timestamp ke integer.
+        time: Math.floor(c.time),
+        // Batasi presisi angka hingga 8 digit desimal.
+        open: Number(c.open.toFixed(8)),
+        high: Number(c.high.toFixed(8)),
+        low: Number(c.low.toFixed(8)),
+        close: Number(c.close.toFixed(8)),
+        volume: Number(c.volume.toFixed(8)),
+      }))
+      // Urutkan candle berdasarkan waktu ascending.
+      .sort((a, b) => a.time - b.time)
+  );
 }
 
-/** Menghapus duplikat candle berdasarkan timestamp */
+// Menghapus duplikat candle berdasarkan timestamp
 export function removeDuplicateCandles(candles = []) {
   if (!Array.isArray(candles) || candles.length === 0) return [];
 
@@ -135,10 +142,12 @@ export function removeDuplicateCandles(candles = []) {
 export function fillMissingCandles(candles = [], intervalMs) {
   // Validasi input dasar agar fungsi aman dipakai ulang di berbagai service.
   if (!Array.isArray(candles) || candles.length === 0) return [];
+  // jika intervalMs bukan angka valid ATAU intervalMs <= 0
   if (!Number.isFinite(intervalMs) || intervalMs <= 0) return [...candles];
   if (candles.length === 1) return [...candles];
 
-  // Asumsi input sudah ascending; tetap buat salinan agar tidak mutasi data asli.
+  // Data diasumsikan sudah urut ascending berdasarkan waktu.
+  // Mulai result dengan candle pertama.
   const result = [candles[0]];
 
   for (let i = 1; i < candles.length; i++) {
@@ -151,17 +160,26 @@ export function fillMissingCandles(candles = [], intervalMs) {
       continue;
     }
 
-    // Isi gap antar candle menggunakan close candle sebelumnya.
+    // Hitung timestamp candle berikutnya yang seharusnya ada.
     let nextExpectedTime = prev.time + intervalMs;
+
+    // Selama masih ada gap sebelum candle current.
     while (nextExpectedTime < current.time) {
+      // Tambahkan candle hasil fill menggunakan harga close sebelumnya.
       result.push({
         time: nextExpectedTime,
+
+        // Asumsikan harga tidak berubah selama gap.
         open: prev.close,
         high: prev.close,
         low: prev.close,
         close: prev.close,
+
+        // Volume 0 karena tidak ada transaksi asli.
         volume: 0,
       });
+
+      // Geser ke interval waktu berikutnya.
       nextExpectedTime += intervalMs;
     }
 

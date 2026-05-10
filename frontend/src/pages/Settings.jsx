@@ -19,7 +19,7 @@ import {
 } from "../components/settings";
 
 // Halaman settings: kelola preferensi, integrasi Telegram, dan info aplikasi.
-function SettingsPage() {
+export default function SettingsPage() {
   const { user } = useAuth();
   const { isDarkMode, toggleDarkMode } = useDarkMode();
   const navigate = useNavigate();
@@ -204,6 +204,3 @@ function SettingsPage() {
     </div>
   );
 }
-
-export { SettingsPage };
-export default SettingsPage;

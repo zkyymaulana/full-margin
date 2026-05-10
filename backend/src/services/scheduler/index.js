@@ -8,22 +8,24 @@ const SCHEDULER_TIMEZONE = "Asia/Jakarta";
 export async function startAllSchedulers() {
   console.log("🚀 Starting schedulers...");
 
-  await checkAndSyncHistoricalData({ ensureFromStart: true });
+  try {
+    // Pastikan historical data lengkap saat startup.
+    await checkAndSyncHistoricalData({
+      ensureFromStart: true,
+    });
 
-  // Main sync tiap jam.
-  cron.schedule("0 * * * *", () => runMainSyncJob({ isBackup: false }), {
-    timezone: SCHEDULER_TIMEZONE,
-  });
+    // Main sync tiap jam.
+    cron.schedule("0 * * * *", runMainSyncJob, {
+      timezone: SCHEDULER_TIMEZONE,
+    });
 
-  // Backup sync (opsional).
-  cron.schedule("0 2 * * * *", () => runMainSyncJob({ isBackup: true }), {
-    timezone: SCHEDULER_TIMEZONE,
-  });
+    // Historical check harian jam 3 pagi.
+    cron.schedule("0 0 3 * * *", checkAndSyncHistoricalData, {
+      timezone: SCHEDULER_TIMEZONE,
+    });
 
-  // Historical check (harian).
-  cron.schedule("0 0 3 * * *", checkAndSyncHistoricalData, {
-    timezone: SCHEDULER_TIMEZONE,
-  });
-
-  console.log("Scheduler started");
+    console.log("Scheduler started");
+  } catch (err) {
+    console.error("Failed starting schedulers:", err.message);
+  }
 }

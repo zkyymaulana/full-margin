@@ -92,27 +92,42 @@ server.listen(PORT, async () => {
   }
 });
 
+// Menangkap error dari Promise yang tidak di-handle (tidak ada .catch)
 process.on("unhandledRejection", (reason) => {
   console.error("Unhandled Rejection:", reason);
 });
 
+// Menangkap error yang tidak tertangkap sama sekali (crash-level error)
 process.on("uncaughtException", (err) => {
   console.error("Uncaught Exception:", err);
 });
 
-// Graceful shutdown (Ctrl + C)
+// Graceful shutdown saat tekan Ctrl + C di terminal (development / manual stop)
 process.on("SIGINT", async () => {
   console.log("\n Shutting down gracefully...");
+
+  // Matikan koneksi WebSocket / stream data agar tidak menggantung
   shutdownTickerWebsocket();
+
+  // Tutup koneksi database (Prisma) agar tidak terjadi memory leak / connection leak
   await prisma.$disconnect();
   console.log("Database disconnected. See you!");
+
+  // Keluar dari proses dengan status sukses
   process.exit(0);
 });
 
+// Graceful shutdown saat server dimatikan oleh sistem (production / hosting)
 process.on("SIGTERM", async () => {
   console.log("\n SIGTERM received, shutting down gracefully...");
+
+  // Matikan WebSocket
   shutdownTickerWebsocket();
+
+  // Tutup koneksi database
   await prisma.$disconnect();
   console.log("Database disconnected. See you!");
+
+  // Keluar dari proses
   process.exit(0);
 });

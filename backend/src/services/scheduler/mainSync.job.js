@@ -12,7 +12,7 @@ import { getActiveSymbols } from "../sync/candle-sync.service.js";
 let isRunning = false;
 
 // Job utama: refresh simbol, sync candle, update rank, kirim sinyal
-export async function runMainSyncJob({ isBackup = false } = {}) {
+export async function runMainSyncJob() {
   // Cegah job ganda berjalan bersamaan.
   if (isRunning) {
     console.warn("Skip: previous sync masih berjalan");
@@ -35,18 +35,14 @@ export async function runMainSyncJob({ isBackup = false } = {}) {
 
     console.log(`Sync ${symbols.length} symbols...`);
 
-    // Update rank dari CMC (hanya untuk main job, bukan backup).
-    if (!isBackup) {
-      await syncTopCoinRanksFromCmc();
-    }
+    // Update rank dari CMC
+    await syncTopCoinRanksFromCmc();
 
     // Sync candle lalu hitung indikator.
     await syncLatestCandles(symbols);
 
     // Deteksi sinyal dan kirim notifikasi.
-    if (!isBackup) {
-      await detectAndNotifyAllSymbols(symbols, "multi");
-    }
+    await detectAndNotifyAllSymbols(symbols, "multi");
 
     console.log("Main sync selesai");
   } catch (err) {

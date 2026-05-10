@@ -13,7 +13,7 @@ import {
 } from "../components/profile";
 
 // Halaman profil: kelola data akun, avatar, dan perubahan password.
-function ProfilePage() {
+export default function ProfilePage() {
   const { data: profileData, isLoading } = useUserProfile();
   const { mutate: updateProfile, isLoading: isUpdating } = useUpdateProfile();
   const { logout } = useAuth();
@@ -221,6 +221,3 @@ function ProfilePage() {
     </div>
   );
 }
-
-export { ProfilePage };
-export default ProfilePage;

@@ -1,11 +1,13 @@
 // Modul service API frontend berbasis Axios.
 // Semua request HTTP dikumpulkan di sini agar pemakaian di komponen lebih rapi.
+// File ini masih monolitik agar kompatibel dengan impor lama.
 import axios from "axios";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 // Konfigurasi instance Axios global.
 // Timeout default dibuat panjang karena ada proses backend yang berat (analisis/backtest).
+// Jika endpoint butuh timeout khusus, override di helper request terkait.
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 120000,
@@ -16,6 +18,7 @@ const apiClient = axios.create({
 });
 
 // Sisipkan header Authorization tanpa interceptor agar message error tetap dari backend.
+// Struktur ini memudahkan migrasi ke token handling terpusat.
 const withAuthConfig = (config = {}) => {
   const token = localStorage.getItem("authToken");
   if (!token) return config;
@@ -29,6 +32,7 @@ const withAuthConfig = (config = {}) => {
   };
 };
 
+// Helper request agar konfigurasi auth konsisten.
 const get = (url, config = {}) => apiClient.get(url, withAuthConfig(config));
 const post = (url, body = {}, config = {}) =>
   apiClient.post(url, body, withAuthConfig(config));
@@ -63,7 +67,7 @@ export const fetchIndicator = async (
 // Deprecated: dipertahankan untuk kompatibilitas impor lama.
 export const fetchMultiIndicator = async (symbol = "BTC-USD") => {
   console.warn(
-    "⚠️ fetchMultiIndicator is deprecated. Use fetchIndicator with mode=latest instead.",
+    "fetchMultiIndicator is deprecated. Use fetchIndicator with mode=latest instead.",
   );
   // Alihkan ke endpoint baru agar perilaku tetap konsisten.
   return fetchIndicator(symbol, "latest", "1h");
@@ -111,7 +115,7 @@ export const fetchCandlesByUrl = async (url, signal = null) => {
   // Token auth ditambahkan oleh helper withAuthConfig.
   const { data } = await get(finalPath, {
     timeout: 10000,
-    signal, // ✅ Support AbortController signal
+    signal, // Mendukung AbortController untuk membatalkan request.
   });
 
   return data;
@@ -128,7 +132,7 @@ export const fetchMarketCapLive = async () => {
 // Jalankan comparison custom body (proses berat, timeout panjang).
 export const fetchComparison = async (requestBody) => {
   const { data } = await post("/comparison/compare", requestBody, {
-    timeout: 120000, // ✅ 2 minutes for backtesting analysis
+    timeout: 120000, // Dua menit untuk analisis backtesting.
   });
   return data;
 };
@@ -147,7 +151,7 @@ export const fetchQuickComparison = async (
       days,
     },
     {
-      timeout: 120000, // ✅ 2 minutes for backtesting analysis
+      timeout: 120000, // Dua menit untuk analisis backtesting.
     },
   );
   return data;

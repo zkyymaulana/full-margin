@@ -140,6 +140,7 @@ export async function fetchPairs() {
       data
         .filter((p) => p.status === "online" && !p.trading_disabled)
         .map((p) => p.id.toUpperCase()),
+      // Set { "BTC-USD", "ETH-USD", "SOL-USD", ... }
     );
   } catch (err) {
     // Kembalikan Set kosong agar caller tetap aman melanjutkan flow.

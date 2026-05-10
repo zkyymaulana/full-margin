@@ -14,7 +14,7 @@ import {
 const GOOGLE_AUTH_ENDPOINT = `${import.meta.env.VITE_API_BASE_URL}/auth/google`;
 
 // Halaman register: pendaftaran akun baru via form atau Google.
-function Register() {
+export default function RegisterPage() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -135,6 +135,3 @@ function Register() {
     </AuthLayout>
   );
 }
-
-export { Register };
-export default Register;

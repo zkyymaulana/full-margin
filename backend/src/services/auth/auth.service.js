@@ -6,7 +6,7 @@ import { prisma } from "../../lib/prisma.js";
 export async function registerService(email, password, name) {
   // Validasi input
   if (!email || !password || !name) {
-    throw new Error("Email, password, dan nama wajib diisi");
+    throw new Error("Email, password, and Name are required!");
   }
 
   const emailTrimmed = String(email).trim().toLowerCase();
@@ -15,11 +15,11 @@ export async function registerService(email, password, name) {
 
   // Validasi format nama dan password minimum.
   if (nameTrimmed.length < 2) {
-    throw new Error("Nama minimal 2 karakter");
+    throw new Error("Name must be at least 2 characters long");
   }
 
   if (passwordStr.length < 6) {
-    throw new Error("Password minimal 6 karakter");
+    throw new Error("Password must be at least 6 characters long");
   }
 
   // Cek apakah email sudah terdaftar
@@ -28,7 +28,7 @@ export async function registerService(email, password, name) {
   });
 
   if (existingUser) {
-    throw new Error("Email sudah terdaftar");
+    throw new Error("Email already registered");
   }
 
   // Hash password sebelum disimpan agar tidak tersimpan dalam bentuk plain text.
@@ -55,7 +55,7 @@ export async function registerService(email, password, name) {
 // Login user, update lastLogin, lalu kembalikan token.
 export async function loginService(email, password) {
   if (!email || !password) {
-    throw new Error("Email dan password wajib diisi");
+    throw new Error("Email and password are required");
   }
 
   const emailNormalized = String(email).trim().toLowerCase();
@@ -64,11 +64,11 @@ export async function loginService(email, password) {
   const user = await prisma.user.findUnique({
     where: { email: emailNormalized },
   });
-  if (!user) throw new Error("Akun tidak terdaftar");
+  if (!user) throw new Error("Incorrect Email or Password");
 
   // Verifikasi password dengan hash di database.
   if (!(await bcrypt.compare(String(password), user.passwordHash)))
-    throw new Error("Password salah");
+    throw new Error("Incorrect Email or Password");
 
   // Jalankan update lastLogin dan pencatatan auth log secara paralel.
   await Promise.all([
@@ -89,5 +89,5 @@ export async function logoutService(userId) {
   await prisma.authLog.create({
     data: { userId, action: "logout" },
   });
-  return { message: "Logout berhasil" };
+  return { message: "Logout successful" };
 }

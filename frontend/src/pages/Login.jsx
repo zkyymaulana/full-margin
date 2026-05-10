@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useLogin } from "../hooks/useAuth";
-import { useDarkMode } from "../contexts/DarkModeContext";
 import { showErrorToast, showSuccessToast } from "../utils/notifications";
 import {
   AuthLayout,
@@ -15,7 +14,7 @@ import {
 const GOOGLE_AUTH_ENDPOINT = `${import.meta.env.VITE_API_BASE_URL}/auth/google`;
 
 // Halaman login: autentikasi email/password atau Google.
-function LoginPage() {
+export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { mutate: login, isLoading } = useLogin();
@@ -106,6 +105,3 @@ function LoginPage() {
     </AuthLayout>
   );
 }
-
-export { LoginPage };
-export default LoginPage;

@@ -30,7 +30,7 @@ import {
 import { FiActivity, FiTrendingUp, FiZap } from "react-icons/fi";
 
 // Halaman sinyal: tampilkan hasil indikator terpadu + alur optimasi bobot.
-function SignalsPage() {
+export default function SignalsPage() {
   const { selectedSymbol } = useSymbol();
   const { isDarkMode } = useDarkMode();
 
@@ -622,6 +622,3 @@ function SignalsPage() {
     </div>
   );
 }
-
-export { SignalsPage };
-export default SignalsPage;

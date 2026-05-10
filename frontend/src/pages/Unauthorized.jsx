@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useDarkMode } from "../contexts/DarkModeContext";
 
 // Halaman unauthorized: tampil saat user tidak punya akses ke route tertentu.
-function Unauthorized() {
+export default function Unauthorized() {
   const navigate = useNavigate();
   const { isDarkMode } = useDarkMode();
 
@@ -95,6 +95,3 @@ function Unauthorized() {
     </div>
   );
 }
-
-export { Unauthorized };
-export default Unauthorized;

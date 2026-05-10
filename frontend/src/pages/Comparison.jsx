@@ -17,7 +17,7 @@ import { ComparisonResults } from "../components/comparison/results";
 const DATASET_START_DATE = "2020-01-01";
 
 // Halaman comparison: mengatur alur input tanggal, eksekusi compare, dan render hasil.
-function ComparisonPage() {
+export default function ComparisonPage() {
   const { selectedSymbol } = useSymbol();
   const queryClient = useQueryClient();
 
@@ -53,7 +53,7 @@ function ComparisonPage() {
     reset: resetComparison,
   } = useComparison();
 
-  // ✅ Reset semua hasil saat simbol berubah
+  // Reset semua hasil saat simbol berubah
   useEffect(() => {
     setDisplayData(null);
     resetComparison();
@@ -134,6 +134,3 @@ function ComparisonPage() {
     </div>
   );
 }
-
-export { ComparisonPage };
-export default ComparisonPage;

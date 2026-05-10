@@ -3,17 +3,15 @@ import { useAuth } from "./hooks/useAuth";
 import { SymbolProvider } from "./contexts/SymbolContext";
 import { SidebarProvider } from "./contexts/SidebarContext";
 import { Layout, ProtectedRoute } from "./components/common";
-import {
-  Login,
-  Register,
-  Dashboard,
-  Profile,
-  Unauthorized,
-  SignalsPage,
-  ComparisonPage,
-  MarketCapPage,
-  SettingsPage,
-} from "./pages";
+import LoginPage from "./pages/Login";
+import DashboardPage from "./pages/Dashboard";
+import ProfilePage from "./pages/Profile";
+import Unauthorized from "./pages/Unauthorized";
+import SignalsPage from "./pages/Signals";
+import ComparisonPage from "./pages/Comparison";
+import MarketCapPage from "./pages/MarketCap";
+import SettingsPage from "./pages/Settings";
+import RegisterPage from "./pages/Register";
 
 // Public Route (redirect if authenticated)
 const PublicRoute = ({ children }) => {
@@ -36,7 +34,7 @@ function App() {
             path="/login"
             element={
               <PublicRoute>
-                <Login />
+                <LoginPage />
               </PublicRoute>
             }
           />
@@ -44,7 +42,7 @@ function App() {
             path="/register"
             element={
               <PublicRoute>
-                <Register />
+                <RegisterPage />
               </PublicRoute>
             }
           />
@@ -62,11 +60,11 @@ function App() {
             }
           >
             <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="dashboard" element={<DashboardPage />} />
             <Route path="signals" element={<SignalsPage />} />
             <Route path="comparison" element={<ComparisonPage />} />
             <Route path="marketcap" element={<MarketCapPage />} />
-            <Route path="profile" element={<Profile />} />
+            <Route path="profile" element={<ProfilePage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
 

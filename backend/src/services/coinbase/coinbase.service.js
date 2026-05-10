@@ -167,30 +167,39 @@ async function fetchWindowCandles(symbol, startMs, endMs) {
     .filter((c) => c.time < Date.now() - HOUR_MS);
 }
 
-// Cari timestamp candle pertama yang benar-benar tersedia di Coinbase untuk sebuah pair.
-// Dipakai untuk memvalidasi eligibility historis agar tidak fetch dataset besar secara sia-sia.
+// Cari timestamp candle pertama yang benar-benar tersedia di Coinbase untuk pair.
 export async function findEarliestCoinbaseCandleTime(symbol, options = {}) {
+  // Batas awal pencarian
   const lowerBound = Number(
     options.lowerBoundMs || EARLIEST_LISTING_SEARCH_START_MS,
   );
+
+  // Waktu sekarang dibulatkan ke jam
   const nowHour = Math.floor(Date.now() / HOUR_MS) * HOUR_MS;
+
+  // Range pencarian (left = awal, right = akhir)
   let left = Math.floor(lowerBound / HOUR_MS) * HOUR_MS;
   let right = Math.max(left, nowHour - HOUR_MS);
   let firstWindowStart = null;
 
+  // Binary search: cari window pertama yang punya data
   while (left <= right) {
+    // Ambil titik tengah (dibulatkan ke jam)
     const mid = Math.floor((left + right) / (2 * HOUR_MS)) * HOUR_MS;
     const end = Math.min(mid + MAX_BATCH_SPAN_MS, nowHour);
 
     try {
       const candles = await fetchWindowCandles(symbol, mid, end);
       if (candles.length > 0) {
+        // Ada data → berarti listing sebelum ini
         firstWindowStart = mid;
         right = mid - HOUR_MS;
       } else {
+        // Tidak ada data → geser ke kanan
         left = mid + HOUR_MS;
       }
     } catch (err) {
+      // Kalau pair tidak ada → langsung berhenti
       if (err.response?.status === 404) {
         return null;
       }
@@ -200,15 +209,18 @@ export async function findEarliestCoinbaseCandleTime(symbol, options = {}) {
     }
   }
 
+  // Kalau tidak ketemu sama sekali
   if (firstWindowStart == null) {
     return null;
   }
 
+  // Refinement: ambil data lebih detail di window awal
   const refineEnd = Math.min(firstWindowStart + MAX_BATCH_SPAN_MS, nowHour);
   const refined = await fetchWindowCandles(symbol, firstWindowStart, refineEnd);
 
   if (!refined.length) return null;
 
+  // Ambil timestamp paling kecil (candle paling awal)
   return refined.reduce(
     (minTime, candle) => Math.min(minTime, candle.time),
     refined[0].time,

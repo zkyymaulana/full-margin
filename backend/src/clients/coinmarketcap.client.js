@@ -10,7 +10,7 @@ const CMC_INFO_URL = "https://pro-api.coinmarketcap.com/v2";
 const TIMEOUT_LISTINGS_MS = 30000;
 const TIMEOUT_INFO_MS = 30000;
 
-// Ambil pesan error paling relevan dari response axios.
+// penyesuaian response axios.
 function extractErrorMessage(err) {
   return (
     err?.response?.data?.status?.error_message ||
@@ -19,7 +19,7 @@ function extractErrorMessage(err) {
   );
 }
 
-// Siapkan header autentikasi untuk setiap request ke CoinMarketCap.
+// header autentikasi untuk setiap request ke CoinMarketCap.
 function getAuthHeaders() {
   if (!process.env.CMC_API_KEY) {
     throw new Error("CMC_API_KEY tidak ditemukan di .env");
