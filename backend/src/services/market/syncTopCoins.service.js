@@ -12,6 +12,7 @@ dotenv.config();
 const TARGET_BUFFER = Number(process.env.TARGET_ASSET_BUFFER_LIMIT || 20);
 const TARGET_VALID = Number(process.env.TARGET_VALID_COINS || 7);
 const CUTOFF_DATE = new Date("2025-01-01");
+const CMC_FIXED_LOOKUP_LIMIT = Number(process.env.CMC_FIXED_LOOKUP_LIMIT || 20);
 const DEFAULT_TOP_PAIRS = [
   "BTC-USD",
   "ETH-USD",
@@ -92,6 +93,26 @@ export async function syncTopCoins() {
     // );
 
     const results = [];
+    const cmcMap = new Map();
+
+    try {
+      const cmcSnapshot = await getTopCoins(CMC_FIXED_LOOKUP_LIMIT);
+      if (cmcSnapshot?.data) {
+        for (const coin of cmcSnapshot.data) {
+          const baseSymbol = String(coin.symbol || "").toUpperCase();
+          const quote = coin.quote?.USD || {};
+
+          cmcMap.set(baseSymbol, {
+            name: coin.name || baseSymbol,
+            rank: Number(coin.cmc_rank) || null,
+            marketCap: Number(quote.market_cap) || 0,
+            volume24h: Number(quote.volume_24h) || 0,
+          });
+        }
+      }
+    } catch (err) {
+      console.warn(`CMC lookup gagal: ${err.message}`);
+    }
 
     // loop satu persatu
     // for (const coin of data.data) {
@@ -128,6 +149,7 @@ export async function syncTopCoins() {
       }
 
       const symbol = pair.split("-")[0];
+      const cmcInfo = cmcMap.get(symbol);
 
       // 4. cek listing date
       const listingDate = await getListingDate(pair);
@@ -151,11 +173,11 @@ export async function syncTopCoins() {
 
       const coinData = {
         symbol: pair,
-        name: symbol,
-        rank: results.length + 1,
+        name: cmcInfo?.name || symbol,
+        rank: cmcInfo?.rank || results.length + 1,
         price: 0,
-        marketCap: 0,
-        volume24h: 0,
+        marketCap: cmcInfo?.marketCap || 0,
+        volume24h: cmcInfo?.volume24h || 0,
         listingDate,
         logo,
       };
