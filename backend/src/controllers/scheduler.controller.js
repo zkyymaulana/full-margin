@@ -23,7 +23,7 @@ export async function startSchedulers(req, res) {
 // Memperbarui listing date semua coin berdasarkan candle paling awal.
 export async function updateListingDates(req, res) {
   try {
-    console.log("📅 Manual listing date update triggered...");
+    console.log("Manual listing date update triggered...");
     const results = await updateAllListingDates();
 
     res.json({

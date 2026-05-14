@@ -47,11 +47,8 @@ export {
   testTelegramController, // Test koneksi Telegram bot
   testMultiSignalController, // Test deteksi multi-signal untuk satu simbol
   testAllSignalsController, // Test deteksi multi-signal untuk banyak simbol
-  clearCacheController, // Hapus cache sinyal
   getTelegramConfigController, // Ambil status konfigurasi Telegram
   toggleTelegramController, // Aktifkan/nonaktifkan notifikasi Telegram
-  telegramWebhookController, // Handler webhook Telegram
-  broadcastController, // Broadcast pesan Telegram ke semua user
 } from "./telegram.controller.js";
 
 export {

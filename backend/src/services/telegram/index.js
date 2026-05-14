@@ -1,12 +1,10 @@
 export {
   sendSignalToWatchers, // Kirim sinyal ke user watcher coin tertentu
   testTelegramConnectionForUser, // Uji koneksi untuk satu user login
-  clearSignalCache, // Hapus cache sinyal Telegram
 } from "./telegram.service.js";
 
 export {
   sendTelegramMessage, // Kirim satu pesan ke chat tertentu
-  broadcastTelegram, // Broadcast pesan ke banyak user
 } from "./telegram.broadcast.js";
 
 export {

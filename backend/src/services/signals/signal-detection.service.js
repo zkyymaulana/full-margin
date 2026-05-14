@@ -292,7 +292,7 @@ export async function detectAndNotifyAllSymbols(symbols, mode = "multi") {
         const r = await detectAndNotifyMultiIndicatorSignals(symbol);
         applyResult(r);
       } catch (err) {
-        console.error(`❌ Error processing ${symbol}:`, err.message);
+        console.error(`Error processing ${symbol}:`, err.message);
         results.multi.failed++;
       } finally {
         console.log(
@@ -349,62 +349,7 @@ export async function detectAndNotifyAllSymbols(symbols, mode = "multi") {
   return results;
 }
 
-// Cek aset yang belum punya bobot optimasi dan tandai untuk diproses.
-export async function autoOptimizeCoinsWithoutWeights(
-  symbols,
-  timeframe = "1h",
-) {
-  // Ambil timeframe id sekali saja.
-  const timeframeRecord = await prisma.timeframe.findUnique({
-    where: { timeframe },
-    select: { id: true },
-  });
-
-  if (!timeframeRecord) {
-    console.error(`Timeframe ${timeframe} not found in database`);
-    return { count: 0, needs: [] };
-  }
-
-  const needs = [];
-  for (const symbol of symbols) {
-    // Ambil id coin.
-    const coin = await prisma.coin.findUnique({
-      where: { symbol },
-      select: { id: true },
-    });
-
-    if (!coin) {
-      console.log(`${symbol}: Coin not found in database, skipping...`);
-      continue;
-    }
-
-    const existing = await prisma.indicatorWeight.findFirst({
-      where: {
-        coinId: coin.id,
-        timeframeId: timeframeRecord.id,
-      },
-    });
-
-    if (!existing) {
-      const count = await prisma.candle.count({
-        where: {
-          coinId: coin.id,
-          timeframeId: timeframeRecord.id,
-        },
-      });
-      if (count >= 1000) needs.push(symbol);
-      else console.log(`${symbol}: Only ${count}/1000 candles`);
-    }
-  }
-
-  if (!needs.length) return console.log("All coins optimized.");
-
-  console.log(`Coins needing optimization: ${needs.join(", ")}`);
-  return { count: needs.length, needs };
-}
-
 export default {
   detectAndNotifyMultiIndicatorSignals,
   detectAndNotifyAllSymbols,
-  autoOptimizeCoinsWithoutWeights,
 };

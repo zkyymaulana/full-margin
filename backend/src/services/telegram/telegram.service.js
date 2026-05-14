@@ -27,25 +27,6 @@ async function updateSignalCacheDB(symbol, cacheType, signal) {
   }
 }
 
-// hapus cache sinyal di database (per symbol atau semua)
-export async function clearSignalCache(symbol = null) {
-  try {
-    if (symbol) {
-      // hapus cache untuk symbol tertentu
-      await prisma.signalCache.deleteMany({
-        where: { symbol },
-      });
-      console.log(`Cleared database signal cache for ${symbol}`);
-    } else {
-      // hapus seluruh cache
-      await prisma.signalCache.deleteMany();
-      console.log("Cleared all database signal cache");
-    }
-  } catch (error) {
-    console.error("Error clearing signal cache:", error.message);
-  }
-}
-
 // Test koneksi Telegram untuk SATU user (bukan broadcast).
 export async function testTelegramConnectionForUser(userId) {
   if (!userId) {
