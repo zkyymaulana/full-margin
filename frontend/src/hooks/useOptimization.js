@@ -14,8 +14,7 @@ export function useOptimization() {
       // Panggil service optimasi dengan timeout panjang dari API layer.
       return await requestOptimization(symbol, timeframe);
     },
-    onSuccess: (data) => {
-    },
+    onSuccess: (data) => {},
     onError: (error) => {
       console.error("❌ Optimization failed:", error);
       // Log error detail untuk mempermudah debugging.
@@ -147,7 +146,6 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
 
     // Buka koneksi hanya jika fitur aktif dan simbol tersedia.
     if (!enabled || !symbol) {
-
       // Saat dinonaktifkan manual, progres dibersihkan agar UI kembali netral.
       if (manualCloseRef.current) {
         setProgress(null);
@@ -208,7 +206,6 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
           const data = JSON.parse(event.data);
           const eventType = data.type || "unknown";
 
-
           // Proses payload berdasarkan jenis event.
           switch (eventType) {
             case "status":
@@ -238,7 +235,6 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
               break;
 
             case "start":
-
               // Inisialisasi state running + metadata dataset.
               setProgress({
                 current: 0,
@@ -249,6 +245,7 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
                 status: "running",
                 dataPoints: data.dataPoints,
                 datasetRange: data.datasetRange,
+                effectiveRange: data.effectiveRange,
               });
               break;
 
@@ -276,6 +273,7 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
                 // Pertahankan metadata awal jika payload progress tidak mengirim ulang.
                 dataPoints: dataPoints || prev?.dataPoints,
                 datasetRange: datasetRange || prev?.datasetRange,
+                effectiveRange: data.effectiveRange || prev?.effectiveRange,
               }));
 
               // Log milestone setiap 10% untuk membantu monitoring.
@@ -284,7 +282,6 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
               break;
 
             case "cancelled":
-
               // Tidak tampilkan modal; langsung bersihkan state progres.
               setProgress(null);
 
@@ -297,7 +294,6 @@ export const useOptimizationProgress = (symbol, enabled = false) => {
               break;
 
             case "completed":
-
               // Set state final selesai.
               setProgress({
                 current: data.performance?.totalCombinations || 390625,

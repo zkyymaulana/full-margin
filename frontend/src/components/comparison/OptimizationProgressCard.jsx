@@ -44,15 +44,32 @@ export function OptimizationProgressCard({
   }
 
   const formatDateRange = () => {
-    if (!progressData.datasetRange) return null;
+    const startValue =
+      progressData.datasetRange?.start ||
+      estimateData?.trainingWindow?.startISO ||
+      progressData.effectiveRange?.start;
+    const rawEndValue =
+      progressData.effectiveRange?.end ||
+      progressData.datasetRange?.end ||
+      estimateData?.trainingWindow?.endISO;
 
-    const start = new Date(progressData.datasetRange.start);
-    const end = new Date(progressData.datasetRange.end);
+    if (!startValue || !rawEndValue) return null;
+
+    const endMs = new Date(rawEndValue).getTime();
+    if (!Number.isFinite(endMs)) return null;
+
+    const endValue = progressData.effectiveRange?.end
+      ? rawEndValue
+      : new Date(endMs - 1).toISOString();
+
+    const start = new Date(startValue);
+    const end = new Date(endValue);
 
     const formatOptions = {
       year: "numeric",
       month: "short",
       day: "numeric",
+      timeZone: "UTC",
     };
 
     return {

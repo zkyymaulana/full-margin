@@ -14,6 +14,10 @@ const DEFAULT_WINDOW_MODE = "fixed";
 const BENCHMARK_DATA_POINTS = 45893;
 const BENCHMARK_MINUTES = 78;
 
+function toExclusiveEndISO(endEpoch) {
+  return new Date(endEpoch - 1).toISOString();
+}
+
 // ubah input tanggal menjadi epoch dalam milidetik
 function toEpochMs(value) {
   if (!value) return null;
@@ -141,7 +145,9 @@ export async function getOptimizationEstimate(symbol, timeframe) {
     });
 
     console.log(
-      `Training window: ${trainingWindow.startISO} → ${trainingWindow.endISO}`,
+      `Training window: ${trainingWindow.startISO} → ${toExclusiveEndISO(
+        trainingWindow.endEpoch,
+      )}`,
     );
 
     // hitung jumlah data indikator dan candle dalam range
@@ -201,7 +207,9 @@ export async function getOptimizationEstimate(symbol, timeframe) {
 async function prepareOptimizationData(coinId, timeframeId, trainingWindow) {
   console.log(`Preparing data for optimization...`);
   console.log(
-    `Training window: ${trainingWindow.startISO} → ${trainingWindow.endISO}`,
+    `Training window: ${trainingWindow.startISO} → ${toExclusiveEndISO(
+      trainingWindow.endEpoch,
+    )}`,
   );
 
   // ambil data indikator dan candle dalam range waktu
@@ -341,7 +349,9 @@ export async function runOptimization(
       });
 
       console.log(
-        `Training window: ${trainingWindow.startISO} → ${trainingWindow.endISO}`,
+        `Training window: ${trainingWindow.startISO} → ${toExclusiveEndISO(
+          trainingWindow.endEpoch,
+        )}`,
       );
 
       // jalankan optimasi baru
@@ -528,7 +538,9 @@ export async function runBacktestWithOptimizedWeights(symbol, timeframe) {
         });
 
     console.log(
-      `Training window: ${trainingWindow.startISO} → ${trainingWindow.endISO}`,
+      `Training window: ${trainingWindow.startISO} → ${toExclusiveEndISO(
+        trainingWindow.endEpoch,
+      )}`,
     );
 
     // siapkan data untuk backtest
@@ -612,7 +624,9 @@ export async function optimizeAllCoins(timeframe) {
         });
 
         console.log(
-          `${progress} Training window: ${trainingWindow.startISO} → ${trainingWindow.endISO}`,
+          `${progress} Training window: ${trainingWindow.startISO} → ${toExclusiveEndISO(
+            trainingWindow.endEpoch,
+          )}`,
         );
 
         // cek apakah sudah pernah dioptimasi
