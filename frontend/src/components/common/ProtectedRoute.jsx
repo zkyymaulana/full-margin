@@ -80,7 +80,7 @@ function ProtectedRoute({ children }) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <p className="text-gray-600 dark:text-gray-400">
-          Memeriksa sesi akun...
+          Checking account sessions...
         </p>
       </div>
     );
