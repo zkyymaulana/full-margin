@@ -7,7 +7,7 @@ import {
 
 // Using half-open interval [start, end) to avoid overlap and edge-case bugs
 const FIXED_START_EPOCH = Date.parse("2020-01-01T00:00:00Z");
-const FIXED_END_EPOCH = Date.parse("2026-01-01T00:00:00Z");
+const FIXED_END_EPOCH = Date.parse("2025-01-01T00:00:00Z");
 
 const DEFAULT_WINDOW_MODE = "fixed";
 

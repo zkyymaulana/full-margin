@@ -14,6 +14,7 @@ export {
   updateJob, // update status atau progress job
   addSSEClient, // tambah client SSE ke job
   removeSSEClient, // hapus client SSE dari job
+  getSSEClientsByUser, // ambil client SSE per user
   cancelJob, // tandai job untuk dibatalkan
   isCancelRequested, // cek apakah job diminta cancel
   removeJob, // hapus job dari memory

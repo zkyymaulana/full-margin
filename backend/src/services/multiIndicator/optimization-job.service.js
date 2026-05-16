@@ -1,5 +1,5 @@
 // menyimpan semua job optimasi yang sedang berjalan
-// format: symbol -> { status, progress, result, sseClients, cancelRequested }
+// format: symbol -> { status, progress, result, sseClients, clientMeta, cancelRequested }
 const optimizationJobs = new Map();
 
 // buat job baru
@@ -11,6 +11,7 @@ export function createJob(symbol) {
     result: null,
     error: null,
     sseClients: new Set(),
+    clientMeta: new Map(),
     cancelRequested: false,
     startedAt: null,
     completedAt: null,
@@ -42,7 +43,7 @@ export function updateJob(symbol, updates) {
 }
 
 // tambah client SSE ke job
-export function addSSEClient(symbol, client) {
+export function addSSEClient(symbol, client, meta = {}) {
   let job = optimizationJobs.get(symbol);
 
   if (!job) {
@@ -53,7 +54,12 @@ export function addSSEClient(symbol, client) {
     job.sseClients = new Set();
   }
 
+  if (!job.clientMeta) {
+    job.clientMeta = new Map();
+  }
+
   job.sseClients.add(client);
+  job.clientMeta.set(client, meta);
   optimizationJobs.set(symbol, job);
 
   console.log(
@@ -68,6 +74,9 @@ export function removeSSEClient(symbol, client) {
   if (!job || !job.sseClients) return;
 
   job.sseClients.delete(client);
+  if (job.clientMeta) {
+    job.clientMeta.delete(client);
+  }
   console.log(
     `[JOB] SSE client dihapus untuk ${symbol} (sisa: ${job.sseClients.size})`,
   );
@@ -117,6 +126,22 @@ export function removeJob(symbol) {
 export function getSSEClients(symbol) {
   const job = optimizationJobs.get(symbol);
   return job?.sseClients || new Set();
+}
+
+// ambil semua client SSE milik user tertentu
+export function getSSEClientsByUser(symbol, userId) {
+  const job = optimizationJobs.get(symbol);
+  if (!job?.sseClients || !job?.clientMeta) return new Set();
+
+  const results = new Set();
+  for (const client of job.sseClients) {
+    const meta = job.clientMeta.get(client);
+    if (meta?.userId === userId) {
+      results.add(client);
+    }
+  }
+
+  return results;
 }
 
 // ambil semua job yang sedang running

@@ -9,11 +9,13 @@ import {
   updateJob,
   removeJob,
   getSSEClients,
+  getSSEClientsByUser,
   cancelJob,
   isCancelRequested,
   setupSSE,
   sendEvent,
   broadcastEvent,
+  closeSSE,
   closeAllSSE,
   setupHeartbeat,
   runBacktestWithOptimizedWeights,
@@ -91,7 +93,10 @@ export async function streamOptimizationProgressController(req, res) {
     if (!getJob(symbol)) {
       createJob(symbol);
     }
-    addSSEClient(symbol, res); // ← ADD CLIENT KE JOB!
+    addSSEClient(symbol, res, {
+      userId: user?.id,
+      email: user?.email,
+    }); // ← ADD CLIENT KE JOB!
     const job = getJob(symbol);
 
     console.log(
@@ -188,6 +193,7 @@ export async function getOptimizationStatusController(req, res) {
 export async function cancelOptimizationController(req, res) {
   try {
     const symbol = (req.params.symbol || "BTC-USD").toUpperCase();
+    const userId = req.user?.id;
 
     console.log(`[CONTROLLER] Cancel request for ${symbol}`);
 
@@ -208,29 +214,41 @@ export async function cancelOptimizationController(req, res) {
       });
     }
 
-    // Tandai job sebagai cancelled.
-    cancelJob(symbol);
+    const userClients = getSSEClientsByUser(symbol, userId);
 
-    // Kirim event pembatalan ke semua client SSE.
-    const clients = getSSEClients(symbol);
-    broadcastEvent(clients, "cancelled", {
-      message: "Optimization cancelled by user",
+    if (!userClients.size) {
+      return res.status(404).json({
+        success: false,
+        message: `No active SSE client found for this user on ${symbol}`,
+      });
+    }
+
+    // Kirim event pembatalan hanya ke client user ini.
+    broadcastEvent(userClients, "cancelled", {
+      message: "Optimization cancelled for your session",
       symbol,
     });
 
-    // Tutup koneksi SSE secara bertahap.
+    // Tutup koneksi SSE user ini dan hapus dari job.
     setTimeout(() => {
-      closeAllSSE(clients);
-    }, 1000);
+      userClients.forEach((client) => {
+        closeSSE(client);
+        removeSSEClient(symbol, client);
+      });
 
-    // Hapus job dari memori setelah jeda singkat.
-    setTimeout(() => {
-      removeJob(symbol);
-    }, 60 * 1000);
+      const remainingClients = getSSEClients(symbol);
+      if (remainingClients.size === 0) {
+        cancelJob(symbol);
+        setTimeout(() => {
+          removeJob(symbol);
+        }, 60 * 1000);
+      }
+    }, 500);
 
     res.json({
       success: true,
-      message: `Optimization for ${symbol} has been cancelled`,
+      message:
+        "Optimization cancelled for your session. Job will continue if other users are connected.",
     });
   } catch (err) {
     console.error("Error cancelling optimization:", err.message);
@@ -314,8 +332,10 @@ export async function optimizeIndicatorWeightsController(req, res) {
       }
     }
 
-    // Langkah 1: buat job dan set status running sebelum optimasi dimulai.
-    createJob(symbol);
+    // Langkah 1: pastikan job ada dan set status running sebelum optimasi dimulai.
+    if (!getJob(symbol)) {
+      createJob(symbol);
+    }
     updateJob(symbol, {
       status: "running",
       startedAt: new Date().toISOString(),

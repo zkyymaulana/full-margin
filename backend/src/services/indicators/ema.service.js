@@ -12,6 +12,7 @@ export function createEMACalculator(period) {
         // Sesuai rumus skripsi: EMA awal di-seed dari SMA periode yang sama.
         seedPrices.push(price);
 
+        // jika data belum cukup untuk periode, EMA belum bisa dihitung (null).
         if (seedPrices.length < period) {
           return null;
         }
