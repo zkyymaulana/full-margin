@@ -264,11 +264,16 @@ export async function detectAndNotifyMultiIndicatorSignals(
 }
 
 // Jalankan deteksi sinyal multi-indikator untuk banyak simbol secara berurutan.
-export async function detectAndNotifyAllSymbols(symbols, mode = "multi") {
+export async function detectAndNotifyAllSymbols(
+  symbols,
+  mode = "multi",
+  options = {},
+) {
   // Pastikan mode selalu "multi".
   mode = "multi";
 
   const startedAt = Date.now();
+  const includeTimings = options.includeTimings === true;
 
   console.log(
     `Detecting multi-indicator signals for ${symbols.length} symbols... (concurrency=${SIGNAL_DETECTION_CONCURRENCY}, interBatchDelay=${SIGNAL_DETECTION_INTER_BATCH_DELAY_MS}ms)`,
@@ -276,6 +281,23 @@ export async function detectAndNotifyAllSymbols(symbols, mode = "multi") {
 
   const results = {
     multi: { success: 0, failed: 0, neutral: 0, noWeights: 0 },
+  };
+
+  const perAssetTimings = [];
+
+  const recordTiming = ({ symbol, symbolStart, symbolEnd, result, error }) => {
+    if (!includeTimings) return;
+    const elapsedMs = symbolEnd - startedAt;
+    const durationMs = symbolEnd - symbolStart;
+    perAssetTimings.push({
+      symbol,
+      status: result?.success ? "sent" : "failed",
+      reason: result?.reason,
+      error: error?.message,
+      elapsedMs,
+      elapsedSeconds: Number((elapsedMs / 1000).toFixed(2)),
+      durationMs,
+    });
   };
 
   const applyResult = (r) => {
@@ -291,9 +313,21 @@ export async function detectAndNotifyAllSymbols(symbols, mode = "multi") {
       try {
         const r = await detectAndNotifyMultiIndicatorSignals(symbol);
         applyResult(r);
+        recordTiming({
+          symbol,
+          symbolStart,
+          symbolEnd: Date.now(),
+          result: r,
+        });
       } catch (err) {
         console.error(`Error processing ${symbol}:`, err.message);
         results.multi.failed++;
+        recordTiming({
+          symbol,
+          symbolStart,
+          symbolEnd: Date.now(),
+          error: err,
+        });
       } finally {
         console.log(
           `[${new Date().toISOString()}] Signal detection finished for ${symbol} in ${Date.now() - symbolStart}ms`,
@@ -312,9 +346,9 @@ export async function detectAndNotifyAllSymbols(symbols, mode = "multi") {
           const symbolStart = Date.now();
           try {
             const result = await detectAndNotifyMultiIndicatorSignals(symbol);
-            return { symbol, result };
+            return { symbol, result, symbolStart, symbolEnd: Date.now() };
           } catch (err) {
-            return { symbol, error: err };
+            return { symbol, error: err, symbolStart, symbolEnd: Date.now() };
           } finally {
             console.log(
               `⏱️ [${new Date().toISOString()}] Signal detection finished for ${symbol} in ${Date.now() - symbolStart}ms`,
@@ -327,9 +361,21 @@ export async function detectAndNotifyAllSymbols(symbols, mode = "multi") {
         if (item.error) {
           console.error(`Error processing ${item.symbol}:`, item.error.message);
           results.multi.failed++;
+          recordTiming({
+            symbol: item.symbol,
+            symbolStart: item.symbolStart,
+            symbolEnd: item.symbolEnd,
+            error: item.error,
+          });
           continue;
         }
         applyResult(item.result);
+        recordTiming({
+          symbol: item.symbol,
+          symbolStart: item.symbolStart,
+          symbolEnd: item.symbolEnd,
+          result: item.result,
+        });
       }
 
       console.log(
@@ -346,6 +392,9 @@ export async function detectAndNotifyAllSymbols(symbols, mode = "multi") {
   console.log(
     `[${new Date().toISOString()}] Detection total duration: ${Date.now() - startedAt}ms`,
   );
+  if (includeTimings) {
+    results.perAssetTimings = perAssetTimings;
+  }
   return results;
 }
 

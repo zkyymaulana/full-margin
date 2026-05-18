@@ -80,3 +80,23 @@ export async function getWatchersForCoin(coinId) {
     },
   });
 }
+
+// Ambil daftar simbol yang punya watcher dengan Telegram aktif.
+export async function getWatchlistSymbolsForTelegram() {
+  const rows = await prisma.userWatchlist.findMany({
+    where: {
+      user: {
+        telegramEnabled: true,
+        telegramChatId: { not: null },
+      },
+    },
+    distinct: ["coinId"],
+    select: {
+      coin: {
+        select: { symbol: true },
+      },
+    },
+  });
+
+  return rows.map((row) => row.coin?.symbol).filter(Boolean);
+}

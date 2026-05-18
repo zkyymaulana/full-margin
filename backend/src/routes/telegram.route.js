@@ -1,6 +1,7 @@
 import express from "express";
 import {
   testTelegramController,
+  testTelegramLatencyController,
   testMultiSignalController,
   testAllSignalsController,
   getTelegramConfigController,
@@ -17,6 +18,9 @@ router.post("/toggle", toggleTelegramController);
 
 // Test Telegram connection
 router.get("/test", testTelegramController);
+
+// Test Telegram latency
+router.get("/test-latency", testTelegramLatencyController);
 
 // Test multi-indicator signal detection (manual testing only)
 router.get("/test-multi/:symbol", testMultiSignalController);

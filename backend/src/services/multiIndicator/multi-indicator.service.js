@@ -164,33 +164,50 @@ export async function optimizeIndicatorWeights(
   checkCancel = null,
   options = {},
 ) {
+  // catat waktu mulai untuk menghitung durasi eksekusi
   const startTime = performance.now();
+
+  // total kombinasi bobot: 5 pilihan bobot × 8 indikator
   const totalCombinations = Math.pow(5, 8);
+
+  // jumlah data candle yang akan diproses
   const totalCandles = data.length;
 
+  // set rentang waktu training window (atau gunakan rentang data keseluruhan)
   const trainingWindow = options.trainingWindow || {
     startISO: new Date(Number(data[0].time)).toISOString(),
     endISO: new Date(Number(data[data.length - 1].time)).toISOString(),
   };
+
+  // set rentang waktu efektif (periode analisis)
   const effectiveRange = options.effectiveRange || {
     start: new Date(Number(data[0].time)).toISOString(),
     end: new Date(Number(data[data.length - 1].time)).toISOString(),
   };
+
+  // estimasi waktu awal (opsional, dari hasil run sebelumnya)
   const initialEstimateSeconds = Number(options.initialEstimateSeconds || 0);
 
-  // precompute indikator untuk mempercepat backtest
+  // precompute semua sinyal indikator untuk mempercepat backtest (hindari kalkulasi berulang)
   const cache = computeAllIndicators(data);
 
+  // menyimpan hasil terbaik ditemukan sejauh ini
   let best = null;
+
+  // index candle saat ini (untuk progress bar)
   let currentCandleIndex = 0;
+
+  // tracking persen terakhir yang di-log untuk menghindari spam log
   let lastLoggedPercent = -1;
 
-  // loop semua kombinasi bobot
+  // loop iterasi semua kombinasi bobot (0 hingga 5^8 - 1)
   for (let i = 0; i < totalCombinations; i++) {
-    // beri jeda agar event loop tetap jalan + cek cancel
+    // beri jeda setiap OPTIMIZATION_YIELD_EVERY iterasi agar event loop tetap responsif
     if (i % OPTIMIZATION_YIELD_EVERY === 0) {
+      // yield kontrol ke event loop
       await new Promise((resolve) => setImmediate(resolve));
 
+      // cek apakah user membatalkan proses optimasi
       if (checkCancel && typeof checkCancel === "function") {
         if (checkCancel()) {
           console.log(
@@ -206,24 +223,25 @@ export async function optimizeIndicatorWeights(
       }
     }
 
-    // generate bobot dari index
+    // generate kombinasi bobot indikator berdasarkan index i
     const weights = getWeightCombination(i, ALL_INDICATORS);
 
-    // jalankan backtest
+    // jalankan backtest dengan bobot ini menggunakan cache indikator
     const result = backtestWithWeightsCached(cache, weights);
 
-    // simpan hasil terbaik berdasarkan ROI
+    // update hasil terbaik jika ROI saat ini lebih tinggi
     if (!best || result.roi > best.roi) {
       best = { weights, ...result };
     }
 
-    // hitung progres simulasi
+    // hitung index candle virtual untuk progress bar (estimasi linear)
     currentCandleIndex = Math.floor(
       ((i + 1) / totalCombinations) * totalCandles,
     );
 
-    // update progress tiap 1000 iterasi
+    // update progress setiap 1000 iterasi atau di iterasi terakhir
     if ((i + 1) % 1000 === 0 || i === totalCombinations - 1) {
+      // cek cancel sekali lagi sebelum update progress
       if (checkCancel && checkCancel()) {
         return {
           success: false,
@@ -233,29 +251,38 @@ export async function optimizeIndicatorWeights(
         };
       }
 
+      // hitung presentase progres
       const progress = ((currentCandleIndex / totalCandles) * 100).toFixed(1);
+
+      // waktu yang sudah berjalan dalam detik
       const elapsed = (performance.now() - startTime) / 1000;
 
+      // perkiraan ETA berdasarkan kecepatan runtime saat ini
       const runtimeEtaSeconds =
         (elapsed / (i + 1)) * totalCombinations - elapsed;
+
+      // perkiraan ETA berdasarkan baseline estimate (jika tersedia)
       const baselineEtaSeconds = Math.max(0, initialEstimateSeconds - elapsed);
 
+      // gunakan baseline ETA jika tersedia dan masih di awal (< 5%)
       const useBaseline =
         initialEstimateSeconds > 0 &&
         i + 1 < Math.floor(totalCombinations * 0.05);
 
+      // pilih ETA yang lebih akurat: baseline atau runtime
       const selectedEtaSeconds = useBaseline
         ? baselineEtaSeconds
         : Math.max(0, runtimeEtaSeconds);
 
+      // struktur data progres untuk dikirim ke callback
       const progressData = {
-        tested: currentCandleIndex,
-        total: totalCandles,
-        dataPoints: data.length,
-        percentage: parseFloat(progress),
-        bestROI: parseFloat(best.roi.toFixed(2)),
-        etaSeconds: Math.ceil(selectedEtaSeconds),
-        eta: formatEta(selectedEtaSeconds),
+        tested: currentCandleIndex, // candle index yang sudah diproses
+        total: totalCandles, // total candle
+        dataPoints: data.length, // jumlah data point
+        percentage: parseFloat(progress), // persentase (0-100)
+        bestROI: parseFloat(best.roi.toFixed(2)), // ROI terbaik ditemukan
+        etaSeconds: Math.ceil(selectedEtaSeconds), // ETA dalam detik
+        eta: formatEta(selectedEtaSeconds), // ETA terformat (h/m/s)
         etaFormatted:
           selectedEtaSeconds > 3600
             ? `${(selectedEtaSeconds / 3600).toFixed(1)} hours`
@@ -272,42 +299,46 @@ export async function optimizeIndicatorWeights(
         },
       };
 
+      // cek apakah persentase berubah signifikan (minimal 1%)
       const progressBucket = Math.floor(progressData.percentage);
       if (progressBucket !== lastLoggedPercent) {
         lastLoggedPercent = progressBucket;
+        // log progress ke console
         console.log(
           `Optimization progress: ${progressData.percentage.toFixed(1)}% (ETA ${progressData.eta})`,
         );
       }
 
-      // kirim progress ke callback
+      // kirim data progres ke callback function (untuk UI update)
       if (onProgress && typeof onProgress === "function") {
         try {
           onProgress(progressData);
         } catch (callbackError) {
-          // abaikan error callback
+          // abaikan error dari callback, lanjutkan optimasi
         }
       }
     }
   }
 
+  // hitung total waktu eksekusi dalam detik
   const totalTime = (performance.now() - startTime) / 1000;
 
+  // kembalikan hasil optimasi lengkap
   return {
     success: true,
-    methodology: "Full Exhaustive (5^8)",
-    bestWeights: best.weights,
+    methodology: "Full Exhaustive (5^8)", // metode: brute force semua kombinasi
+    bestWeights: best.weights, // bobot terbaik
     performance: {
-      roi: best.roi,
-      winRate: best.winRate,
-      maxDrawdown: best.maxDrawdown,
-      sharpeRatio: best.sharpeRatio || null,
-      trades: best.trades,
-      wins: best.wins,
-      finalCapital: best.finalCapital,
+      roi: best.roi, // ROI dari bobot terbaik
+      winRate: best.winRate, // win rate (%)
+      maxDrawdown: best.maxDrawdown, // max drawdown (%)
+      sharpeRatio: best.sharpeRatio || null, // sharpe ratio
+      trades: best.trades, // total trades
+      wins: best.wins, // total trades yang profit
+      finalCapital: best.finalCapital, // modal akhir
     },
-    totalCombinationsTested: totalCombinations,
-    dataPoints: data.length,
+    totalCombinationsTested: totalCombinations, // 5^8 = 390,625 kombinasi
+    dataPoints: data.length, // jumlah data point
     datasetRange: {
       start: trainingWindow.startISO,
       end: trainingWindow.endISO,
@@ -316,7 +347,7 @@ export async function optimizeIndicatorWeights(
       start: effectiveRange.start,
       end: effectiveRange.end,
     },
-    executionTimeSeconds: +totalTime.toFixed(2),
+    executionTimeSeconds: +totalTime.toFixed(2), // total waktu eksekusi
   };
 }
 

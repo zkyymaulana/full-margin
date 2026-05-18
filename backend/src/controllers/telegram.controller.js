@@ -1,4 +1,5 @@
 import { testTelegramConnectionForUser } from "../services/telegram/index.js";
+import { runMainSyncJob } from "../services/scheduler/mainSync.job.js";
 import {
   detectAndNotifyMultiIndicatorSignals,
   detectAndNotifyAllSymbols,
@@ -39,6 +40,72 @@ export async function testTelegramController(req, res) {
       success: result.success,
       message: "Telegram test message sent successfully",
       result,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+// Menguji latency pengiriman pesan Telegram untuk user login.
+export async function testTelegramLatencyController(req, res) {
+  try {
+    const authUserId = Number(req.user?.id);
+
+    if (!authUserId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const startedAt = Date.now();
+    const jobResult = await runMainSyncJob({
+      includeTimings: true,
+      watchlistOnly: true,
+    });
+    const finishedAt = Date.now();
+
+    if (jobResult?.status === "skipped") {
+      return res.status(409).json({
+        success: false,
+        message:
+          jobResult.reason === "no_watchlist_symbols"
+            ? "No watchlist symbols with Telegram enabled"
+            : "Main sync is already running",
+        result: {
+          ...jobResult,
+          startedAt: new Date(startedAt).toISOString(),
+          finishedAt: new Date(finishedAt).toISOString(),
+          durationMs: finishedAt - startedAt,
+        },
+      });
+    }
+
+    if (jobResult?.status === "failed") {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to run main sync job",
+        result: {
+          ...jobResult,
+          startedAt: new Date(startedAt).toISOString(),
+          finishedAt: new Date(finishedAt).toISOString(),
+          durationMs: finishedAt - startedAt,
+        },
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Main sync job executed; Telegram signals dispatched",
+      result: {
+        ...jobResult,
+        startedAt: new Date(startedAt).toISOString(),
+        finishedAt: new Date(finishedAt).toISOString(),
+        durationMs: finishedAt - startedAt,
+      },
     });
   } catch (error) {
     return res.status(500).json({

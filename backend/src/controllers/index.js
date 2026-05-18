@@ -45,6 +45,7 @@ export {
 
 export {
   testTelegramController, // Test koneksi Telegram bot
+  testTelegramLatencyController, // Test latency pengiriman Telegram
   testMultiSignalController, // Test deteksi multi-signal untuk satu simbol
   testAllSignalsController, // Test deteksi multi-signal untuk banyak simbol
   getTelegramConfigController, // Ambil status konfigurasi Telegram

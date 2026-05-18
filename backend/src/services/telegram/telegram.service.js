@@ -27,8 +27,7 @@ async function updateSignalCacheDB(symbol, cacheType, signal) {
   }
 }
 
-// Test koneksi Telegram untuk SATU user (bukan broadcast).
-export async function testTelegramConnectionForUser(userId) {
+async function getTelegramUserForTest(userId) {
   if (!userId) {
     return {
       success: false,
@@ -71,6 +70,19 @@ export async function testTelegramConnectionForUser(userId) {
       message: "Telegram notifications are disabled for this user",
     };
   }
+
+  return { success: true, user };
+}
+
+// Test koneksi Telegram untuk SATU user (bukan broadcast).
+export async function testTelegramConnectionForUser(userId) {
+  const validation = await getTelegramUserForTest(userId);
+
+  if (!validation.success) {
+    return validation;
+  }
+
+  const { user } = validation;
 
   const message = `
 *CRYPTO ANALYZE CONNECTION TEST*
