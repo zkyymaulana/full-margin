@@ -25,6 +25,36 @@ const renderSignalIcon = (iconType, isDarkMode) => {
 };
 
 // IndicatorTable: fungsi/komponen ini menangani UI dan alur sesuai props yang diberikan.
+function IndicatorDescription({ name, description, isDarkMode }) {
+  const definitionText = description?.definition;
+  const ruleText = description?.rules;
+
+  return (
+    <div className="flex flex-col">
+      <span
+        className={`text-sm font-medium ${
+          isDarkMode ? "text-white" : "text-gray-900"
+        }`}
+      >
+        {name}
+      </span>
+      {(definitionText || ruleText) && (
+        <div className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+          {definitionText && <p>{definitionText}</p>}
+          {ruleText && (
+            <p className="mt-0.5 font-medium">
+              <span className="text-green-500">BUY:</span>{" "}
+              {ruleText.split("SELL:")[0].replace("BUY:", "").trim()}{" "}
+              <span className="text-red-500">SELL:</span>{" "}
+              {ruleText.split("SELL:")[1]?.trim()}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function IndicatorTable({ allIndicators, isDarkMode }) {
   if (allIndicators.length === 0) return null;
 
@@ -145,18 +175,18 @@ function IndicatorTable({ allIndicators, isDarkMode }) {
                 return (
                   <tr
                     key={indicator.key}
-                    className={`border-b transition-colors ${
+                    className={`border-b transition-colors text-justify ${
                       isDarkMode
                         ? "border-gray-700 hover:bg-gray-700"
                         : "border-gray-100 hover:bg-gray-50"
                     }`}
                   >
-                    <td
-                      className={`py-3 px-4 text-sm font-medium ${
-                        isDarkMode ? "text-white" : "text-gray-900"
-                      }`}
-                    >
-                      {indicator.name}
+                    <td className="py-3 px-4 ">
+                      <IndicatorDescription
+                        name={indicator.name}
+                        description={indicator.description}
+                        isDarkMode={isDarkMode}
+                      />
                     </td>
                     <td className="py-3 px-4 text-center">
                       <span
@@ -173,12 +203,12 @@ function IndicatorTable({ allIndicators, isDarkMode }) {
                               ? "bg-blue-900 text-blue-300"
                               : "bg-blue-100 text-blue-700"
                             : indicator.category === "Momentum"
-                            ? isDarkMode
-                              ? "bg-purple-900 text-purple-300"
-                              : "bg-purple-100 text-purple-700"
-                            : isDarkMode
-                            ? "bg-green-900 text-green-300"
-                            : "bg-green-100 text-green-700"
+                              ? isDarkMode
+                                ? "bg-purple-900 text-purple-300"
+                                : "bg-purple-100 text-purple-700"
+                              : isDarkMode
+                                ? "bg-green-900 text-green-300"
+                                : "bg-green-100 text-green-700"
                         }`}
                       >
                         {indicator.category}

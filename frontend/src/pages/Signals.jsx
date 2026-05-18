@@ -482,8 +482,57 @@ export default function SignalsPage() {
     })),
   ];
 
+  const indicatorDescriptions = {
+    SMA: {
+      definition: "Compares the average price movement over 20 and 50 periods.",
+      rules:
+        "BUY: SMA 20 crosses above SMA 50. SELL: SMA 20 crosses below SMA 50.",
+    },
+    EMA: {
+      definition:
+        "Compares the exponential average price movement over 20 and 50 periods.",
+      rules:
+        "BUY: EMA 20 crosses above EMA 50. SELL: EMA 20 crosses below EMA 50.",
+    },
+    RSI: {
+      definition: "Measures the magnitude of recent price changes.",
+      rules: "BUY: Value drops below 30. SELL: Value rises above 70.",
+    },
+    MACD: {
+      definition: "Shows the relationship between the 12 and 26-period EMA.",
+      rules:
+        "BUY: MACD line crosses above the Signal line. SELL: MACD line crosses below the Signal line.",
+    },
+    Stochastic: {
+      definition: "Compares a closing price to its price range.",
+      rules:
+        "BUY: %K crosses above %D below 20. SELL: %K crosses below %D above 80.",
+    },
+    StochasticRSI: {
+      definition:
+        "Applies the Stochastic formula to RSI values to identify extremes.",
+      rules: "BUY: Value crosses above 20. SELL: Value crosses below 80.",
+    },
+    BollingerBands: {
+      definition:
+        "Measures volatility using a 20-period SMA and upper/lower bands.",
+      rules:
+        "BUY: Price touches the lower band. SELL: Price touches the upper band.",
+    },
+    PSAR: {
+      definition: "Determines trend direction and potential reversal points.",
+      rules:
+        "BUY: Dots appear below the price. SELL: Dots appear above the price.",
+    },
+  };
+
   // Normalize indicator names for cleaner display
-  const allIndicators = normalizeIndicatorName(allIndicatorsRaw);
+  const allIndicators = normalizeIndicatorName(allIndicatorsRaw).map(
+    (indicator) => ({
+      ...indicator,
+      description: indicatorDescriptions[indicator.key] || null,
+    }),
+  );
 
   const formatDateRange = () => {
     if (!performance?.trainingPeriod) return null;

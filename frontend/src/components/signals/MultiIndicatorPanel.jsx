@@ -338,7 +338,7 @@ function MultiIndicatorPanel({
 
         {/* ✅ TOTAL SCORE - Moved to Bottom */}
         <div
-          className={`pt-4 border-t ${
+          className={`py-4 border-y ${
             isDarkMode ? "border-gray-700" : "border-gray-200"
           }`}
         >
@@ -369,12 +369,47 @@ function MultiIndicatorPanel({
               {formatNumber(finalScore, 2)}
             </span>
           </div>
-          <div
+          {/* <div
             className={`text-xs mt-1 text-right ${
               isDarkMode ? "text-gray-500" : "text-gray-400"
             }`}
           >
             Weighted Score from 8 Indicators
+          </div> */}
+        </div>
+
+        <div className="mt-6">
+          <div className="text-[11px] text-gray-500 leading-relaxed text-justify space-y-3">
+            <p>
+              <strong className="text-gray-700 font-semibold">
+                Category Breakdown:
+              </strong>{" "}
+              Shows the individual signal strength of Trend, Momentum, and
+              Volatility indicators. Provided to help you understand the
+              reasoning behind the cryptocurrency analysis.
+            </p>
+            <p>
+              <strong className="text-gray-700 font-semibold">
+                Final Score:
+              </strong>{" "}
+              The main decision-maker based on weighted indicators. A score of{" "}
+              <span className="font-semibold text-green-500">
+                &gt; 0 is a BUY signal
+              </span>{" "}
+              (Strong BUY if &gt; 0.6), while a score of{" "}
+              <span className="font-semibold text-red-500">
+                &lt; 0 is a SELL signal
+              </span>{" "}
+              (Strong SELL if &lt; -0.6). A score of exactly 0 is Neutral.
+            </p>
+            <p className="bg-blue-50/50 p-2 rounded border border-blue-100">
+              <strong className="text-blue-700 font-semibold">
+                Telegram Alerts:
+              </strong>{" "}
+              Signals are evaluated at every candle close. If a valid signal is
+              generated, a notification will be sent automatically. Please
+              ensure the Telegram connection is enabled in your Settings.
+            </p>
           </div>
         </div>
       </div>
